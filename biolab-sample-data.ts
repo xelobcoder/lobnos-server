@@ -1,0 +1,222 @@
+const data ={
+    MessageType: 'ORU^R01',
+    MessageID: '7',
+    Version: '2.3.1',
+    PatientID: '""',
+    PatientName: '""',
+    SampleID: '202607110001',
+    Specimen: 'Serum',
+    CollectedAt: '20260711171320',
+    ReportedAt: '20260711171320',
+    Results: [
+        {
+            Code: 'TP',
+            Name: 'TP',
+            Value: '80.04',
+            Unit: 'g/l',
+            Reference: '63.00-83.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '80.04',
+            Operator: ''
+        },
+        {
+            Code: 'ALB',
+            Name: 'ALB',
+            Value: '52.23',
+            Unit: 'g/l',
+            Reference: '35.00-49.50',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '52.23',
+            Operator: ''
+        },
+        {
+            Code: 'GLOB',
+            Name: 'GLOB',
+            Value: '27.81',
+            Unit: 'g/l',
+            Reference: '20.00-40.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '27.81',
+            Operator: ''
+        },
+        {
+            Code: 'TBIL',
+            Name: 'TBIL',
+            Value: '42.40',
+            Unit: 'umol/l',
+            Reference: '1.70-21.00',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '42.40',
+            Operator: ''
+        },
+        {
+            Code: 'DBIL',
+            Name: 'DBIL',
+            Value: '27.93',
+            Unit: 'umol/l',
+            Reference: '0.00-5.00',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '27.93',
+            Operator: ''
+        },
+        {
+            Code: 'IDBIL',
+            Name: 'IDBIL',
+            Value: '14.5',
+            Unit: 'umol/l',
+            Reference: '1.7-17.0',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '14.5',
+            Operator: ''
+        },
+        {
+            Code: 'ALT',
+            Name: 'ALT',
+            Value: '43.90',
+            Unit: 'U/L',
+            Reference: '0.00-35.00',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '43.90',
+            Operator: ''
+        },
+        {
+            Code: 'AST',
+            Name: 'AST',
+            Value: '34.74',
+            Unit: 'U/L',
+            Reference: '0.00-35.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '34.74',
+            Operator: ''
+        },
+        {
+            Code: 'ALP',
+            Name: 'ALP',
+            Value: '59.04',
+            Unit: 'U/L',
+            Reference: '35.00-130.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '59.04',
+            Operator: ''
+        },
+        {
+            Code: 'GGT',
+            Name: 'GGT',
+            Value: '29.84',
+            Unit: 'U/L',
+            Reference: '5.00-51.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '29.84',
+            Operator: ''
+        },
+        {
+            Code: 'TC',
+            Name: 'TC',
+            Value: '9.21',
+            Unit: 'mmol/L',
+            Reference: '0.00-5.50',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '9.21',
+            Operator: ''
+        },
+        {
+            Code: 'HDL-C',
+            Name: 'HDL-C',
+            Value: '2.44',
+            Unit: 'mmol/L',
+            Reference: '1.45-2.50',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '2.44',
+            Operator: ''
+        },
+        {
+            Code: 'TG',
+            Name: 'TG',
+            Value: '1.00',
+            Unit: 'mmol/L',
+            Reference: '0.00-1.70',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '1.00',
+            Operator: ''
+        },
+        {
+            Code: 'VLDL',
+            Name: 'VLDL',
+            Value: '0.45',
+            Unit: 'mmol/L',
+            Reference: '0.05-0.75',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '0.45',
+            Operator: ''
+        },
+        {
+            Code: 'LDL',
+            Name: 'LDL',
+            Value: '8.10',
+            Unit: 'mmol/L',
+            Reference: '0.05-2.50',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '8.10',
+            Operator: ''
+        },
+        {
+            Code: 'CORONA',
+            Name: 'CORONA',
+            Value: '3.8',
+            Unit: 'mmol/L',
+            Reference: '1.0-3.5',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '3.8',
+            Operator: ''
+        },
+        {
+            Code: 'UREA',
+            Name: 'UREA',
+            Value: '8.68',
+            Unit: 'mmol/L',
+            Reference: '1.67-8.35',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '8.68',
+            Operator: ''
+        },
+        {
+            Code: 'CREAT-S',
+            Name: 'CREAT-S',
+            Value: '110.67',
+            Unit: 'umol/l',
+            Reference: '44.00-115.00',
+            Flag: 'N',
+            Status: 'F',
+            TestedAt: '110.67',
+            Operator: ''
+        },
+        {
+            Code: 'UA',
+            Name: 'UA',
+            Value: '407.20',
+            Unit: 'umol/l',
+            Reference: '0.00-1.00',
+            Flag: 'H',
+            Status: 'F',
+            TestedAt: '407.20',
+            Operator: ''
+        }
+    ]
+}

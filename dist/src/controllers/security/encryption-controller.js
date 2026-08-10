@@ -138,7 +138,7 @@ class EncryptionController {
             const tenantId = parseInt(req.query.tenantId);
             const { id } = req.params;
             const { outputPath } = req.body;
-            const backup = await backup_1.default.findById(tenantId, parseInt(id));
+            const backup = await backup_1.default.findById(tenantId, parseInt(id.toString()));
             if (!backup) {
                 return res.status(404).json({
                     status: false,

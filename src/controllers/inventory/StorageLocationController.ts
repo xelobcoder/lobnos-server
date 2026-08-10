@@ -180,7 +180,7 @@ export class StorageLocationController {
                const { id } = req.params;
 
                const storageLocationModel = new StorageLocationModel(tenantId);
-               const storageLocation = await storageLocationModel.findById(id);
+               const storageLocation = await storageLocationModel.findById(id as any);
 
                if (!storageLocation) {
                     const response: ApiResponse = {
@@ -281,7 +281,7 @@ export class StorageLocationController {
                }
 
                const storageLocationModel = new StorageLocationModel(tenantId);
-               const storageLocation = await storageLocationModel.update(id, requestData);
+               const storageLocation = await storageLocationModel.update(id as any, requestData);
 
                if (!storageLocation) {
                     const response: ApiResponse = {
@@ -322,7 +322,7 @@ export class StorageLocationController {
                const { id } = req.params;
 
                const storageLocationModel = new StorageLocationModel(tenantId);
-               const deleted = await storageLocationModel.delete(id);
+               const deleted = await storageLocationModel.delete(id as any);
 
                if (!deleted) {
                     const response: ApiResponse = {

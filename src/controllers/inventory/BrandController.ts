@@ -136,7 +136,7 @@ export class BrandController {
                const { id } = req.params;
 
                const brandModel = new BrandModel(tenantId);
-               const brand = await brandModel.findById(id);
+               const brand = await brandModel.findById(id as any);
 
                if (!brand) {
                     const response: ApiResponse = {
@@ -239,7 +239,7 @@ export class BrandController {
                }
 
                const brandModel = new BrandModel(tenantId);
-               const brand = await brandModel.update(id, requestData);
+               const brand = await brandModel.update(id as any, requestData);
 
                if (!brand) {
                     const response: ApiResponse = {
@@ -280,7 +280,7 @@ export class BrandController {
                const { id } = req.params;
 
                const brandModel = new BrandModel(tenantId);
-               const deleted = await brandModel.delete(id);
+               const deleted = await brandModel.delete(id as any);
 
                if (!deleted) {
                     const response: ApiResponse = {

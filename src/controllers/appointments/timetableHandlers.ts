@@ -17,7 +17,7 @@ export const getStaffAttendanceById = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const attendanceRecord = await staffAttendance.getById(tenantId, id);
           if (attendanceRecord) {
                res.status(200).json(attendanceRecord);
@@ -45,7 +45,7 @@ export const updateStaffAttendance = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const attendanceData = req.body;
           await staffAttendance.update(tenantId, id, attendanceData);
           res.status(200).json({ message: "Attendance record updated successfully" });
@@ -58,7 +58,7 @@ export const deleteStaffAttendance = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           await staffAttendance.delete(tenantId, id);
           res.status(200).json({ message: "Attendance record deleted successfully" });
      } catch (error: any) {
@@ -70,7 +70,7 @@ export const updateAttendanceStatus = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const { status } = req.body;
           await staffAttendance.updateStatus(tenantId, id, status);
           res.status(200).json({ message: "Attendance status updated successfully" });
@@ -95,7 +95,7 @@ export const getAttendanceByCycle = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const cycleid = parseInt(req.params.cycleid);
+          const cycleid = parseInt(req.params.cycleid.toString());
           const attendanceRecords = await staffAttendance.getAttendanceByCycle(tenantId, cycleid);
           res.status(200).json(attendanceRecords);
      } catch (error: any) {
@@ -107,7 +107,7 @@ export const getAttendanceByEmployee = async (req: Request, res: Response) => {
      try {
           const tenantId: number = parseInt(req.query.tenant as string, 10);
           const staffAttendance = new StaffAttendance();
-          const employeeId = parseInt(req.params.employeeId);
+          const employeeId = parseInt(req.params.employeeId.toString());
           const { startDate, endDate } = req.query;
           const attendanceRecords = await staffAttendance.getAttendanceByEmployee(tenantId, employeeId, startDate as string, endDate as string);
           res.status(200).json(attendanceRecords);

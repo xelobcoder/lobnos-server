@@ -253,7 +253,7 @@ export class SupplierController {
      async updateSupplier(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { id } = req.params;
+               const id = String(req.params.id);
                const requestData: UpdateSupplierRequest = req.body;
 
                const validation = this.validateUpdateSupplierRequest(requestData);
@@ -318,7 +318,7 @@ export class SupplierController {
      async deleteSupplier(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
-               const { id } = req.params;
+               const id = String(req.params.id);
 
                const supplierModel = new SupplierModel(tenantId);
                const deleted = await supplierModel.delete(id);

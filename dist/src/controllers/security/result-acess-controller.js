@@ -17,7 +17,7 @@ class ResultAccessController {
                     error: 'Missing required fields in the request body'
                 });
             }
-            const id = await requestAcess_1.default.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency, employeeid: null });
+            const id = await requestAcess_1.default.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency });
             res.status(201).json({
                 status: true,
                 message: 'Access requested',
@@ -34,7 +34,7 @@ class ResultAccessController {
     static async grantAccess(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { requestId } = req.params;
+            const requestId = req.params.requestId;
             const success = await resultAcessTableRepo_1.default.grantAccess(tenantId, parseInt(requestId));
             if (success) {
                 res.json({
@@ -59,7 +59,7 @@ class ResultAccessController {
     static async revokeAccess(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { requestId } = req.params;
+            const requestId = req.params.requestId;
             const success = await resultAcessTableRepo_1.default.revokeAccess(tenantId, parseInt(requestId));
             if (success) {
                 res.json({
@@ -136,9 +136,7 @@ class ResultAccessController {
             const tenantId = parseInt(req.query.tenantId);
             const { ascensionid, employeeid } = req.params;
             const { urgency, page, count, sortby } = req.query;
-            const history = await requestAcess_1.default.getAccessHistory(tenantId, undefined, // patientid not filtered
-            parseInt(employeeid), // staffid
-            urgency, count ? parseInt(count) : undefined, page ? parseInt(page) : undefined, sortby ? sortby.toLowerCase() : undefined, parseInt(ascensionid));
+            const history = await requestAcess_1.default.getAccessHistory(tenantId, undefined, parseInt(employeeid), urgency, count ? parseInt(count) : undefined, page ? parseInt(page) : undefined, sortby ? sortby.toLowerCase() : undefined, parseInt(ascensionid));
             res.json({
                 status: true,
                 data: history

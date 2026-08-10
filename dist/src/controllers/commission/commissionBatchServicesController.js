@@ -70,7 +70,7 @@ class CommissionBatchServicesController {
             try {
                 const { batchid } = request.params;
                 const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
-                const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid));
+                const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid.toString()));
                 return response.send({
                     status: true,
                     message: "Batch breakdown retrieved successfully",
@@ -113,7 +113,7 @@ class CommissionBatchServicesController {
         try {
             const { serviceid } = request.params;
             const commissionTrackingRepo = new CommissionBatchPaymentServicesRepo_1.CommissionBatchPaymentServicesRepo(this.tenantId);
-            const paymentHistory = await commissionTrackingRepo.getsServicePaymentHistory(parseInt(serviceid));
+            const paymentHistory = await commissionTrackingRepo.getsServicePaymentHistory(parseInt(serviceid.toString()));
             return response.send({
                 status: true,
                 message: "Service commission payment history retrieved successfully",

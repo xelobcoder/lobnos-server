@@ -46,13 +46,13 @@ export default class RequestAccess {
           if (existingRequests && existingRequests.status === 'granted') {
                const window = await AccessWindowsRepo.getEffectiveSettings(staffid) || await AccessWindowsRepo.findGlobalSettings();
                const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
-               if (!existingRequests.grantedAt) {
+               if (!existingRequests.grantedAt && existingRequests.id) {
                     await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
                     return false;
                }
 
                const refinedPeriod = RequestAccess.convertWindowToDate(windowPeriod);
-               const grantedTime = new Date(existingRequests.grantedAt).getTime();
+               const grantedTime = new Date(existingRequests.grantedAt as Date).getTime();
                const currentTime = new Date().getTime();
                const expirationTime = grantedTime + refinedPeriod;
 
@@ -61,7 +61,7 @@ export default class RequestAccess {
                          const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
                          if (extraction && typeof extraction !== "boolean") {
                               const { record } = extraction;
-                              if (record && record.employeeid && record.employeeid !== existingRequests.staffid) {
+                              if (record && record.employeeid && record.employeeid !== existingRequests.staffid && existingRequests.id) {
                                    await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
                                    return false;
                               }
@@ -69,7 +69,7 @@ export default class RequestAccess {
                     }
                     return true;
                } else {
-                    await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);
+                    await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id as number);
                     return false;
                }
           }
@@ -162,14 +162,14 @@ export default class RequestAccess {
           const pendingRequests = await ResultAccessTableRepo.findAll(tenantId, { status: 'pending' });
           for (const request of pendingRequests) {
                const isValid = await RequestAccess.verifyWindowPeriod(tenantId, request.ascensionid, request.staffid, request.requestType);
-               if (!isValid) {
+               if (!isValid && request.id) {
                     await ResultAccessTableRepo.expireAccess(tenantId, request.id);
                }
           }
           const grantedRequests = await ResultAccessTableRepo.findAll(tenantId, { status: 'granted' });
           for (const request of grantedRequests) {
                const isValid = await RequestAccess.verifyWindowPeriod(tenantId, request.ascensionid, request.staffid, request.requestType);
-               if (!isValid) {
+               if (!isValid && request.id) {
                     await ResultAccessTableRepo.expireAccess(tenantId, request.id);
                }
           }

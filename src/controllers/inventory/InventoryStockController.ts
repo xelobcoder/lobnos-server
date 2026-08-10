@@ -37,7 +37,7 @@ export class InventoryStockController {
                     return;
                }
 
-               const stockDetails = await model.getAvailableStockDetails(item_id);
+               const stockDetails = await model.getAvailableStockDetails(item_id as string);
 
                const response: ApiResponse<AvailableStockDetails> = {
                     success: true,
@@ -135,9 +135,9 @@ export class InventoryStockController {
                }));
 
                // Calculate summary
-               const totalExpiredQuantity = expiredBatches.reduce((sum, batch) => sum + batch.available_quantity, 0);
-               const totalExpiredValue = expiredBatches.reduce((sum, batch) => sum + batch.total_value, 0);
-               const uniqueItems = new Set(expiredBatches.map(batch => batch.item_id)).size;
+               const totalExpiredQuantity = expiredBatches.reduce((sum: number, batch: any) => sum + batch.available_quantity, 0);
+               const totalExpiredValue = expiredBatches.reduce((sum: number, batch: any) => sum + batch.total_value, 0);
+               const uniqueItems = new Set(expiredBatches.map((batch: any) => batch.item_id)).size;
                const uniqueBatches = expiredBatches.length;
 
                const expiredBatchesResponse: ExpiredBatchesResponse = {
@@ -211,7 +211,7 @@ export class InventoryStockController {
                let query = connection('inv_purchase_order_receipts')
                     .join('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
                     .join('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                    .leftJoin('inv_inventory_transactions', function () {
+                    .leftJoin('inv_inventory_transactions', function (this: any) {
                          this.on('inv_inventory_transactions.batch_number', '=', 'inv_purchase_order_receipts.batch_number')
                               .andOn('inv_inventory_transactions.item_id', '=', 'inv_inventory_items.id');
                     })
@@ -269,8 +269,8 @@ export class InventoryStockController {
                }));
 
                // Calculate summary for this specific item
-               const totalExpiredQuantity = expiredBatches.reduce((sum, batch) => sum + batch.available_quantity, 0);
-               const totalExpiredValue = expiredBatches.reduce((sum, batch) => sum + batch.total_value, 0);
+               const totalExpiredQuantity = expiredBatches.reduce((sum: number, batch: any) => sum + batch.available_quantity, 0);
+               const totalExpiredValue = expiredBatches.reduce((sum: number, batch: any) => sum + batch.total_value, 0);
                const uniqueBatches = expiredBatches.length;
 
                const expiredBatchesResponse: ExpiredBatchesResponse = {
@@ -361,7 +361,7 @@ export class InventoryStockController {
                     return;
                }
 
-               const result = await model.getItemStockHistory(item_id, {
+               const result = await model.getItemStockHistory(item_id as string, {
                     days: parseInt(days as string) || 30,
                     startDate: startDate as string,
                     endDate: endDate as string,

@@ -35,7 +35,7 @@ exports.createCompensationHandler = createCompensationHandler;
 const getCompensationByEmployeeHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = parseInt(req.params.employeeid);
+        const employeeid = parseInt(req.params.employeeid.toString());
         if (!tenantId || !employeeid) {
             return (0, helper_1.customError)('Tenant ID and Employee ID are required', 400, res);
         }
@@ -58,7 +58,7 @@ exports.getCompensationByEmployeeHandler = getCompensationByEmployeeHandler;
 const getCompensationByIdHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Compensation ID are required', 400, res);
         }
@@ -108,7 +108,7 @@ exports.getActiveCompensationHandler = getActiveCompensationHandler;
 const updateCompensationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Compensation ID are required', 400, res);
         }
@@ -136,7 +136,7 @@ exports.updateCompensationHandler = updateCompensationHandler;
 const createCompensationWithHistoryHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const employeeid = parseInt(req.params.employeeid);
+        const employeeid = parseInt(req.params.employeeid.toString());
         if (!tenantId || !employeeid) {
             return (0, helper_1.customError)('Tenant ID and Employee ID are required', 400, res);
         }
@@ -164,7 +164,7 @@ exports.createCompensationWithHistoryHandler = createCompensationWithHistoryHand
 const deactivateCompensationHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         if (!tenantId || !id) {
             return (0, helper_1.customError)('Tenant ID and Compensation ID are required', 400, res);
         }

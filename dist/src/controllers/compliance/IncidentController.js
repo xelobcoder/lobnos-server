@@ -36,7 +36,7 @@ class IncidentController {
             if (requesterEmployeeId && requesterEmployeeId !== 0) {
                 const user = new user_1.default(null, null, null, null, null);
                 const role = await new RolesRepository_1.default(tenantId).getEmployeeRole(requesterEmployeeId);
-                if (['admin', 'super-admin'].includes(role) == false) {
+                if (['admin', 'super-admin'].includes(role ? role : "") == false) {
                     filters.reportedBy = requesterEmployeeId;
                 }
             }

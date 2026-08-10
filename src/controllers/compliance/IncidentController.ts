@@ -41,7 +41,7 @@ export class IncidentController {
                if (requesterEmployeeId && requesterEmployeeId !== 0) {
                     const user = new User(null, null, null, null, null);
                     const role = await new RolesRepository(tenantId).getEmployeeRole(requesterEmployeeId);
-                    if (['admin','super-admin'].includes(role) == false) {
+                    if (['admin','super-admin'].includes(role ? role : "") == false) {
                          filters.reportedBy = requesterEmployeeId;
                     }
                } 
@@ -127,7 +127,7 @@ export class IncidentController {
                }
 
                const incidentModel = new IncidentModel(tenantId);
-               const updatedIncident = await incidentModel.update(id, updateData, userContext);
+               const updatedIncident = await incidentModel.update(id as any, updateData, userContext);
 
                if (!updatedIncident) {
                     res.status(404).json({
@@ -181,7 +181,7 @@ export class IncidentController {
                }
 
                const incidentModel = new IncidentModel(tenantId);
-               const incident = await incidentModel.findById(id);
+               const incident = await incidentModel.findById(id as any);
 
                if (!incident) {
                     res.status(404).json({
@@ -219,7 +219,7 @@ export class IncidentController {
                }
 
                const incidentModel = new IncidentModel(tenantId);
-               const deleted = await incidentModel.delete(id, userContext);
+               const deleted = await incidentModel.delete(id as any, userContext);
 
                if (!deleted) {
                     res.status(404).json({
@@ -266,7 +266,7 @@ export class IncidentController {
                };
 
                const incidentModel = new IncidentModel(tenantId);
-               const result = await incidentModel.getAuditTrail(id, filters);
+               const result = await incidentModel.getAuditTrail(id as any, filters);
 
                res.json(result);
           } catch (error) {

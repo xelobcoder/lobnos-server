@@ -48,7 +48,7 @@ class CommissionTrackingController {
             if (isNaN(commissionRate) || commissionRate < 0 || commissionRate > 100) {
                 return (0, helper_1.customError)("Commission rate must be a number between 0 and 100", 400, response);
             }
-            const commissionId = parseInt(id);
+            const commissionId = parseInt(id.toString());
             const commissionTrackingRepo = this.commissionTrackingRepo;
             const batchServicesRepo = this.batchServicesRepo;
             const conn = await this.connection;

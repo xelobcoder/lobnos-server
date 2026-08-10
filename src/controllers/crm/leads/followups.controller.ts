@@ -20,7 +20,7 @@ export const updateFollowUp = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new LeadFollowUpsRepo(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const updates = req.body;
           const updatedRows = await repo.update(id, updates);
           if (updatedRows > 0) {
@@ -54,7 +54,7 @@ export const getFollowUpById = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new LeadFollowUpsRepo(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const followUp = await repo.findById(id);
           if (followUp) {
                res.status(200).json({ success: true, data: followUp });
@@ -71,7 +71,7 @@ export const getFollowUpsByLeadId = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new LeadFollowUpsRepo(tenantId);
-          const leadId = parseInt(req.params.leadId);
+          const leadId = parseInt(req.params.leadId.toString());
           const followUps = await repo.findByLeadId(leadId);
           res.status(200).json({ success: true, data: followUps });
      } catch (error) {
@@ -109,7 +109,7 @@ export const deleteFollowUp = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new LeadFollowUpsRepo(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const deletedRows = await repo.delete(id);
           if (deletedRows > 0) {
                res.status(200).json({ success: true, message: 'Follow-up deleted successfully' });

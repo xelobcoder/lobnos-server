@@ -22,7 +22,7 @@ const getStaffAttendanceById = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         const attendanceRecord = await staffAttendance.getById(tenantId, id);
         if (attendanceRecord) {
             res.status(200).json(attendanceRecord);
@@ -53,7 +53,7 @@ const updateStaffAttendance = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         const attendanceData = req.body;
         await staffAttendance.update(tenantId, id, attendanceData);
         res.status(200).json({ message: "Attendance record updated successfully" });
@@ -67,7 +67,7 @@ const deleteStaffAttendance = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         await staffAttendance.delete(tenantId, id);
         res.status(200).json({ message: "Attendance record deleted successfully" });
     }
@@ -80,7 +80,7 @@ const updateAttendanceStatus = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const id = parseInt(req.params.id);
+        const id = parseInt(req.params.id.toString());
         const { status } = req.body;
         await staffAttendance.updateStatus(tenantId, id, status);
         res.status(200).json({ message: "Attendance status updated successfully" });
@@ -107,7 +107,7 @@ const getAttendanceByCycle = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const cycleid = parseInt(req.params.cycleid);
+        const cycleid = parseInt(req.params.cycleid.toString());
         const attendanceRecords = await staffAttendance.getAttendanceByCycle(tenantId, cycleid);
         res.status(200).json(attendanceRecords);
     }
@@ -120,7 +120,7 @@ const getAttendanceByEmployee = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenant, 10);
         const staffAttendance = new StaffAttendance_1.default();
-        const employeeId = parseInt(req.params.employeeId);
+        const employeeId = parseInt(req.params.employeeId.toString());
         const { startDate, endDate } = req.query;
         const attendanceRecords = await staffAttendance.getAttendanceByEmployee(tenantId, employeeId, startDate, endDate);
         res.status(200).json(attendanceRecords);

@@ -7,12 +7,12 @@ export class PrimesmsEventsController {
                const tenantId = Number(req.query.tenantId) || 1;
                const id = req.params.id;
                const repo = new PrimesmsEventsRepository(tenantId);
-               const event = await repo.findById(id);
+               const event = await repo.findById(id.toString());
                const toggle = req.query.toggle === 'true' || req.query.toggle === '1' ? true : false;
                if (!event) {
                     return res.status(404).json({ success: false, error: 'Event not found' });
                }
-               const updated = await repo.updateActiveStatus(event.eventid, toggle);
+               const updated = await repo.updateActiveStatus(event.eventid as any, toggle);
                if (!updated) {
                     return res.status(404).json({ success: false, error: 'Event not found' });
                }
@@ -41,7 +41,7 @@ export class PrimesmsEventsController {
                     return res.status(400).json({ success: false, error: 'Content is required' });
                }
                const repo = new PrimesmsEventsRepository(tenantId);
-               const updated = await repo.updateTemplate(code, content);
+               const updated = await repo.updateTemplate(code as string, content);
                if (!updated) {
                     return res.status(404).json({ success: false, error: 'Event not found' });
                }

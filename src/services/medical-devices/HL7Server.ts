@@ -104,7 +104,7 @@ export class HL7Server {
 
         socket.on('data', (data) => {
             try {
-                device.saveData(data);
+                device.saveData(data as Buffer);
                 const messageString = data.toString('utf8');
                 const message = device.parser.parse(messageString);
                 this.processMessage(message, device);
@@ -201,14 +201,14 @@ export class HL7Server {
                         const testName = (obx[3] || '').split('^')[1];
                         
                         if (testName) {
-                            result.results[testName] = {
+                            result.results[testName]  = {
                                 code: testCode,
                                 value: parseFloat(obx[5] || '0'),
                                 unit: obx[6] || '',
                                 referenceRange: obx[7] || '',
                                 flag: obx[8] || '',
                                 observationDateTime: obx[14] || ''
-                            };
+                            } as any; 
                         }
                     }
                 });

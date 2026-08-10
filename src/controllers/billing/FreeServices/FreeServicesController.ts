@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
-import { FreeServicesService, FreeServiceRequestStatus } from "../../../models/billing/FreeServices";
+import { FreeServicesService } from '../../../models/billing/FreeServices';
+import { FreeServiceRequestStatus } from '../../../models/billing/Interfaces/freeservices.interface';
+
 
 interface FreeServiceQueryParams {
      tenantId: string;

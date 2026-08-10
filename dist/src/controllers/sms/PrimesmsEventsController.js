@@ -8,7 +8,7 @@ class PrimesmsEventsController {
             const tenantId = Number(req.query.tenantId) || 1;
             const id = req.params.id;
             const repo = new PrimesmsEventsRepository_1.PrimesmsEventsRepository(tenantId);
-            const event = await repo.findById(id);
+            const event = await repo.findById(id.toString());
             const toggle = req.query.toggle === 'true' || req.query.toggle === '1' ? true : false;
             if (!event) {
                 return res.status(404).json({ success: false, error: 'Event not found' });

@@ -587,7 +587,7 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const validation = this.validateAllocationRequest(req.body);
             if (!validation.isValid) {
                 const response = {
@@ -625,7 +625,7 @@ class SupplierPaymentController {
         try {
             const tenantId = this.getTenantId(req);
             const model = new inventory_1.SupplierPaymentModel(tenantId);
-            const { allocationId } = req.params;
+            const allocationId = req.params.allocationId;
             await model.removeAllocation(allocationId);
             const response = {
                 success: true,

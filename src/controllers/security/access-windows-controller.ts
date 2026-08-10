@@ -50,7 +50,7 @@ export class AccessWindowsController {
                     accessWindowId: id,
                     category
                });
-          } catch (error) {
+          } catch (error: any) {
                // Handle unique constraint violation
                if (error.code === 'ER_DUP_ENTRY') {
                     res.status(409).json({
@@ -66,8 +66,8 @@ export class AccessWindowsController {
           }
      } static async getAccessWindow(req: Request, res: Response) {
           try {
-               const { id } = req.params;
-               const window = await AccessWindowsRepo.findById(parseInt(id));
+               const id  = req.params.id;
+               const window = await AccessWindowsRepo.findById(parseInt(id.toString()));
 
                if (!window) {
                     return res.status(404).json({
@@ -80,7 +80,7 @@ export class AccessWindowsController {
                     status: true,
                     data: window
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -90,8 +90,8 @@ export class AccessWindowsController {
 
      static async getAccessWindowByEmployee(req: Request, res: Response) {
           try {
-               const { employeeid } = req.params;
-               const window = await AccessWindowsRepo.findByEmployeeId(parseInt(employeeid));
+               const employeeid = req.params.employeeid;
+               const window = await AccessWindowsRepo.findByEmployeeId(parseInt(employeeid.toString()));
 
                if (!window) {
                     return res.status(404).json({
@@ -104,7 +104,7 @@ export class AccessWindowsController {
                     status: true,
                     data: window
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -125,7 +125,7 @@ export class AccessWindowsController {
                     status: true,
                     data: windows
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -135,10 +135,10 @@ export class AccessWindowsController {
 
      static async updateAccessWindow(req: Request, res: Response) {
           try {
-               const { id } = req.params;
+               const  id  = req.params.id;
                const updates = req.body;
 
-               const success = await AccessWindowsRepo.update(parseInt(id), updates);
+               const success = await AccessWindowsRepo.update(parseInt(id.toString()), updates);
 
                if (success) {
                     res.json({
@@ -151,7 +151,7 @@ export class AccessWindowsController {
                          error: 'Access window not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -161,8 +161,8 @@ export class AccessWindowsController {
 
      static async deleteAccessWindow(req: Request, res: Response) {
           try {
-               const { id } = req.params;
-               const success = await AccessWindowsRepo.delete(parseInt(id));
+               const id = req.params.id;
+               const success = await AccessWindowsRepo.delete(parseInt(id.toString()));
 
                if (success) {
                     res.json({
@@ -175,7 +175,7 @@ export class AccessWindowsController {
                          error: 'Access window not found'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -185,8 +185,8 @@ export class AccessWindowsController {
 
      static async deleteAccessWindowByEmployee(req: Request, res: Response) {
           try {
-               const { employeeid } = req.params;
-               const success = await AccessWindowsRepo.deleteByEmployeeId(parseInt(employeeid));
+               const employeeid = req.params.employeeid;
+               const success = await AccessWindowsRepo.deleteByEmployeeId(parseInt(employeeid.toString()));
 
                if (success) {
                     res.json({
@@ -199,7 +199,7 @@ export class AccessWindowsController {
                          error: 'Individual access window not found for this employee'
                     });
                }
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -209,8 +209,8 @@ export class AccessWindowsController {
 
      static async getEffectiveSettings(req: Request, res: Response) {
           try {
-               const { employeeid } = req.params;
-               const settings = await AccessWindowsRepo.getEffectiveSettings(parseInt(employeeid));
+               const employeeid = req.params.employeeid
+               const settings = await AccessWindowsRepo.getEffectiveSettings(parseInt(employeeid.toString()));
 
                if (!settings) {
                     return res.status(404).json({
@@ -223,7 +223,7 @@ export class AccessWindowsController {
                     status: true,
                     data: settings
                });
-          } catch (error) {
+          } catch (error: any) {
                res.status(500).json({
                     status: false,
                     error: error.message

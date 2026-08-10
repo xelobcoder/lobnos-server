@@ -35,7 +35,7 @@ export const createCompensationHandler = async (req: Request, res: Response) => 
 export const getCompensationByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and Employee ID are required', 400, res);
@@ -60,7 +60,7 @@ export const getCompensationByEmployeeHandler = async (req: Request, res: Respon
 export const getCompensationByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and Compensation ID are required', 400, res);
@@ -118,7 +118,7 @@ export const getActiveCompensationHandler = async (req: Request, res: Response) 
 export const updateCompensationHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and Compensation ID are required', 400, res);
@@ -150,7 +150,7 @@ export const updateCompensationHandler = async (req: Request, res: Response) => 
 export const createCompensationWithHistoryHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and Employee ID are required', 400, res);
@@ -182,7 +182,7 @@ export const createCompensationWithHistoryHandler = async (req: Request, res: Re
 export const deactivateCompensationHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and Compensation ID are required', 400, res);

@@ -13,13 +13,13 @@ export class ResultAccessController {
                          error: 'Missing required fields in the request body'
                     });
                }
-               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency ,employeeid:null});
+               const id = await RequestAccess.requestPermission(tenantId, { patientid, staffid, requestType, ascensionid, reason, urgency} as any);
                res.status(201).json({
                     status: true,
                     message: 'Access requested',
                     requestId: id
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -30,7 +30,7 @@ export class ResultAccessController {
      static async grantAccess(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { requestId } = req.params;
+               const requestId = req.params.requestId as string;
                const success = await ResultAccessTableRepo.grantAccess(tenantId, parseInt(requestId));
                if (success) {
                     res.json({
@@ -43,7 +43,7 @@ export class ResultAccessController {
                          error: 'Request not found'
                     });
                }
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -54,7 +54,7 @@ export class ResultAccessController {
      static async revokeAccess(req: Request, res: Response) {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
-               const { requestId } = req.params;
+               const requestId = req.params.requestId as string;
                const success = await ResultAccessTableRepo.revokeAccess(tenantId, parseInt(requestId));
                if (success) {
                     res.json({
@@ -67,7 +67,7 @@ export class ResultAccessController {
                          error: 'Request not found'
                     });
                }
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -92,7 +92,7 @@ export class ResultAccessController {
                     status: true,
                     data: history
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -109,7 +109,7 @@ export class ResultAccessController {
                     status: true,
                     allowed
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -125,7 +125,7 @@ export class ResultAccessController {
                     status: true,
                     message: 'Expired requests processed'
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message
@@ -141,20 +141,20 @@ export class ResultAccessController {
                const { urgency, page, count, sortby } = req.query;
                const history = await RequestAccess.getAccessHistory(
                     tenantId,
-                    undefined, // patientid not filtered
-                    parseInt(employeeid), // staffid
+                    undefined, 
+                    parseInt(employeeid as string),
                     urgency as 'low' | 'medium' | 'high' | 'critical' | undefined,
                     count ? parseInt(count as string) : undefined,
                     page ? parseInt(page as string) : undefined,
                     sortby ? (sortby as string).toLowerCase() as 'asc' | 'desc' : undefined,
-                    parseInt(ascensionid)
+                    parseInt(ascensionid as string)
                );
 
                res.json({
                     status: true,
                     data: history
                });
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({
                     status: false,
                     error: error.message

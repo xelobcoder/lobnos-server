@@ -98,7 +98,7 @@ export const getExpensesByGroup = async (req: Request, res: Response) => {
 			tenantId: parseInt(tenantId.toString()),
 			expenseId: null
 		});
-		const result = await expensesInstance.getExpensesByGroup(Number(tenantId), groupId);
+		const result = await expensesInstance.getExpensesByGroup(Number(tenantId), groupId as any);
 		res.send({ expenses: result });
 	} catch (err) {
 		console.log(err);

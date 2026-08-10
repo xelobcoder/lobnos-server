@@ -122,8 +122,8 @@ async function updateDrugCategory(req, res) {
 }
 async function deleteDrugCategory(req, res) {
     try {
-        const { id } = req.params;
-        const parsedID = parseInt(id.slice(1));
+        const id = req.params.id;
+        const parsedID = parseInt(id.toString().slice(1));
         if (!parsedID) {
             return res.status(400).json({ error: 'Category ID is required' });
         }
@@ -138,7 +138,7 @@ async function deleteDrugCategory(req, res) {
 }
 async function getDrugsCategory(req, res) {
     try {
-        const tenantId = parseInt(req.query.tenantId.toString(), 10);
+        const tenantId = req.query.tenantId;
         const drugCategoryService = new drugsUpload_1.DrugManagementService();
         const categories = await drugCategoryService.getDrugsCategory(tenantId);
         res.send(categories);

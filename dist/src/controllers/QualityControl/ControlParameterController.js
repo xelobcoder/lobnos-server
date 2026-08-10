@@ -67,7 +67,7 @@ class ControlParameterController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new ControlParameterRepository_1.default(tenantId);
-            const { controlId } = req.params;
+            const controlId = req.params.controlId;
             const parameters = await repository.findByControlId(controlId);
             res.json(parameters);
         }
@@ -92,7 +92,7 @@ class ControlParameterController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new ControlParameterRepository_1.default(tenantId);
-            const { id } = req.params;
+            const id = req.params.id;
             const result = await repository.delete(id);
             res.json({ status: result > 0 });
         }

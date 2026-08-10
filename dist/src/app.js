@@ -47,18 +47,19 @@ const validateTenancy_1 = require("./middleware/validateTenancy");
 const requestLogger_1 = __importDefault(require("./middleware/requestLogger"));
 const routes_6 = __importDefault(require("./controllers/sms/primesms/routes"));
 const route_18 = __importDefault(require("./controllers/analytics/sms-analytics/route"));
-const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
+const route_19 = __importDefault(require("./controllers/settings/devices/route"));
 const routes_7 = __importDefault(require("./controllers/compliance/routes"));
 const logger_1 = __importDefault(require("./hooks/logger"));
 const index_3 = __importDefault(require("./controllers/commission/index"));
-const route_19 = __importDefault(require("./controllers/crm/leads/route"));
+const route_20 = __importDefault(require("./controllers/crm/leads/route"));
 const followups_route_1 = __importDefault(require("./controllers/crm/leads/followups.route"));
 const routes_8 = __importDefault(require("./controllers/payroll/routes"));
 const routes_9 = __importDefault(require("./controllers/billing/FreeServices/routes"));
 const routes_10 = __importDefault(require("./models/commissions/commission-configurations/controllers/routes"));
-const route_20 = __importDefault(require("./controllers/email/route"));
-const route_21 = __importDefault(require("./controllers/notifications/route"));
+const route_21 = __importDefault(require("./controllers/email/route"));
+const route_22 = __importDefault(require("./controllers/notifications/route"));
 const NotificationBootstrapService_1 = require("./models/application/notifications/services/NotificationBootstrapService");
+const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 app.use((0, cors_1.default)({
@@ -113,17 +114,18 @@ app.use(patient_analytics_route_1.default);
 app.use(qualityControlRoutes_1.default);
 app.use(routes_6.default);
 app.use(excelparserHandler_1.default);
-app.use(medicalInterfacingDevicesRoute_1.default);
+app.use(route_19.default);
 app.use(routes_7.default);
 app.use('/api/v1/inventory', index_2.default);
 app.use(index_3.default);
-app.use('/api/v1/leads', route_19.default);
+app.use('/api/v1/leads', route_20.default);
 app.use('/api/v1/followups', followups_route_1.default);
 app.use('/api/v1/payroll', routes_8.default);
 app.use('/api/v1/billing/free-services', routes_9.default);
 app.use('/api/v1/commission', routes_10.default);
-app.use(route_20.default);
 app.use(route_21.default);
+app.use(route_22.default);
+app.use(medicalInterfacingDevicesRoute_1.default);
 app.get("/", (req, res) => {
     res.status(200)
         .json({

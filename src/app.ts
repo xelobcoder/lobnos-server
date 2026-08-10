@@ -42,7 +42,7 @@ import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validat
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
-import InterfacingDevicesRouter from "./routes/settings/devices/medicalInterfacingDevicesRoute";
+import InterfacingDevicesRouter from "./controllers/settings/devices/route";
 import complianceRouter from './controllers/compliance/routes';
 import { killProcessOnPort } from "./models/security/killport";
 import logger from './hooks/logger';
@@ -55,7 +55,8 @@ import commissionConfigRouter from './models/commissions/commission-configuratio
 import emailRouter from './controllers/email/route';
 import notificationsRouter from './controllers/notifications/route';
 import { bootstrapNotificationDefinitions } from './models/application/notifications/services/NotificationBootstrapService';
-
+import DeviceModelsVersionProcessing from "./controllers/settings/devices/DeviceDataProcessing";
+import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 
 
 
@@ -127,10 +128,7 @@ app.use('/api/v1/billing/free-services', freeServicesRouter);
 app.use('/api/v1/commission', commissionConfigRouter);
 app.use(emailRouter);
 app.use(notificationsRouter);
-
-
-
-
+app.use(InterfacingDevicesRouterT);
 
 
 app.get("/", (req: Request, res: Response) => {

@@ -67,8 +67,8 @@ class AccessWindowsController {
     }
     static async getAccessWindow(req, res) {
         try {
-            const { id } = req.params;
-            const window = await accessWindowsRepo_1.default.findById(parseInt(id));
+            const id = req.params.id;
+            const window = await accessWindowsRepo_1.default.findById(parseInt(id.toString()));
             if (!window) {
                 return res.status(404).json({
                     status: false,
@@ -89,8 +89,8 @@ class AccessWindowsController {
     }
     static async getAccessWindowByEmployee(req, res) {
         try {
-            const { employeeid } = req.params;
-            const window = await accessWindowsRepo_1.default.findByEmployeeId(parseInt(employeeid));
+            const employeeid = req.params.employeeid;
+            const window = await accessWindowsRepo_1.default.findByEmployeeId(parseInt(employeeid.toString()));
             if (!window) {
                 return res.status(404).json({
                     status: false,
@@ -132,9 +132,9 @@ class AccessWindowsController {
     }
     static async updateAccessWindow(req, res) {
         try {
-            const { id } = req.params;
+            const id = req.params.id;
             const updates = req.body;
-            const success = await accessWindowsRepo_1.default.update(parseInt(id), updates);
+            const success = await accessWindowsRepo_1.default.update(parseInt(id.toString()), updates);
             if (success) {
                 res.json({
                     status: true,
@@ -157,8 +157,8 @@ class AccessWindowsController {
     }
     static async deleteAccessWindow(req, res) {
         try {
-            const { id } = req.params;
-            const success = await accessWindowsRepo_1.default.delete(parseInt(id));
+            const id = req.params.id;
+            const success = await accessWindowsRepo_1.default.delete(parseInt(id.toString()));
             if (success) {
                 res.json({
                     status: true,
@@ -181,8 +181,8 @@ class AccessWindowsController {
     }
     static async deleteAccessWindowByEmployee(req, res) {
         try {
-            const { employeeid } = req.params;
-            const success = await accessWindowsRepo_1.default.deleteByEmployeeId(parseInt(employeeid));
+            const employeeid = req.params.employeeid;
+            const success = await accessWindowsRepo_1.default.deleteByEmployeeId(parseInt(employeeid.toString()));
             if (success) {
                 res.json({
                     status: true,
@@ -205,8 +205,8 @@ class AccessWindowsController {
     }
     static async getEffectiveSettings(req, res) {
         try {
-            const { employeeid } = req.params;
-            const settings = await accessWindowsRepo_1.default.getEffectiveSettings(parseInt(employeeid));
+            const employeeid = req.params.employeeid;
+            const settings = await accessWindowsRepo_1.default.getEffectiveSettings(parseInt(employeeid.toString()));
             if (!settings) {
                 return res.status(404).json({
                     status: false,

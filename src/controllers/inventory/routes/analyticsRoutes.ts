@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { InventoryAnalyticsController } from '../InventoryAnalyticsController';
 import { InventoryPaymentAnalyticsController } from '../InventoryPaymentAnalyticsController';
 import { InventoryItemAnalyticsController } from '../InventoryItemAnalyticsController';
+import { handleOverLoad } from '../../../hooks/helper';
 
 
 const router = Router();
@@ -13,7 +14,7 @@ router.get('/analytics/dashboard', (req, res) => analyticsController.getDashboar
 
 router.get('/analytics/purchase-orders', (req, res) => analyticsController.getPurchaseOrderAnalytics(req, res));
 
-router.get('/analytics/transactions', (req, res) => analyticsController.getTransactionAnalytics(req, res));
+router.get('/analytics/transactions', handleOverLoad((req:Request, res:Response) => analyticsController.getTransactionAnalytics(req as any, res as any)));
 
 router.get('/analytics/payments', (req, res) => analyticsController.getPaymentAnalytics(req, res));
 

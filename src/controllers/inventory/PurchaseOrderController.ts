@@ -233,7 +233,7 @@ export class PurchaseOrderController {
                const { id } = req.params;
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
-               const purchaseOrder = await purchaseOrderModel.findById(id);
+               const purchaseOrder = await purchaseOrderModel.findById(id as any);
 
                if (!purchaseOrder) {
                     const response: ApiResponse = {
@@ -436,7 +436,7 @@ export class PurchaseOrderController {
                }
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
-               const purchaseOrder = await purchaseOrderModel.update(id, requestData);
+               const purchaseOrder = await purchaseOrderModel.update(id as any, requestData);
 
                if (!purchaseOrder) {
                     const response: ApiResponse = {
@@ -536,7 +536,7 @@ export class PurchaseOrderController {
                const { id } = req.params;
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
-               const purchaseOrder = await purchaseOrderModel.cancel(id);
+               const purchaseOrder = await purchaseOrderModel.cancel(id as any);
 
                if (!purchaseOrder) {
                     const response: ApiResponse = {
@@ -638,7 +638,7 @@ export class PurchaseOrderController {
                }
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
-               const purchaseOrder = await purchaseOrderModel.receiveOrder(id, requestData);
+               const purchaseOrder = await purchaseOrderModel.receiveOrder(id as any, requestData);
 
                const receivedBy = Number((req.query.employeeid as string) || (req.body as any)?.received_by || 0) || undefined;
                const receiveStatus = String((purchaseOrder as any)?.status || '').toLowerCase();
@@ -723,7 +723,7 @@ export class PurchaseOrderController {
                const { id } = req.params;
 
                const purchaseOrderModel = new PurchaseOrderModel(tenantId);
-               const orderExists = await purchaseOrderModel.findById(id);
+               const orderExists = await purchaseOrderModel.findById(id as any);
 
                if (!orderExists) {
                     const response: ApiResponse = {
@@ -737,7 +737,7 @@ export class PurchaseOrderController {
                     return;
                }
 
-               const items = await purchaseOrderModel.getOrderItems(id);
+               const items = await purchaseOrderModel.getOrderItems(id as any);
 
                const response: ApiResponse = {
                     success: true,

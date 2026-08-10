@@ -30,7 +30,7 @@ export default class MedicalInterfacingDevicesRepository {
                const connection = await this.connection;
                const result = await connection(this.tablename).insert(device).returning('id');
                return result[0];
-          } catch (error:any) {
+          } catch (error: any) {
                throw new Error('Failed to create device: ' + error.message);
           }
      }
@@ -56,8 +56,16 @@ export default class MedicalInterfacingDevicesRepository {
      }
 
      async updateDevice(id: number, device: Partial<IMedicalInterfacingDevice>): Promise<number> {
-          const connection = await this.connection;
-          return connection(this.tablename).where({ id }).update(device);
+          try {
+               const connection = await this.connection;
+                if (device.testid && Array.isArray(device.testid)) {
+                    device.testid = device.testid.join(',') as unknown as any;
+                }
+               return connection(this.tablename).where({ id }).update(device);
+          } catch (error: any) {
+               console.log('Error updating device:', error);
+               throw new Error('Failed to update device: ' + error.message);
+          }
      }
 
      async deleteDevice(id: number): Promise<number> {
@@ -68,7 +76,7 @@ export default class MedicalInterfacingDevicesRepository {
      async getAllDevices(): Promise<IMedicalInterfacingDevice[]> {
           const connection = await this.connection;
           const records = await connection(this.tablename).select('*');
-          return records.map((rec: any) => {
+          const recreatedRecords = records.map((rec: any) => {
                if (rec) {
                     if (typeof rec.testid === 'string') {
                          if (rec.testid.trim() === '') {
@@ -85,6 +93,15 @@ export default class MedicalInterfacingDevicesRepository {
                }
                return rec;
           });
+
+          for (const rec of recreatedRecords) { 
+               if (rec && rec.testid && Array.isArray(rec.testid)) { 
+                      const Connetion = await this.connection;
+                      const testNames = await Connetion('test_panels').whereIn('id', rec.testid).select('name');
+                      rec['test_names'] = testNames.map(t => t.name).join(', ');
+               }
+          }
+          return recreatedRecords;
      }
 
      async getActiveDevices(): Promise<IMedicalInterfacingDevice[]> {

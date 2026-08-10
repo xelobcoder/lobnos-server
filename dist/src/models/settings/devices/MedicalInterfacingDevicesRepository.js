@@ -42,8 +42,17 @@ class MedicalInterfacingDevicesRepository {
         return record;
     }
     async updateDevice(id, device) {
-        const connection = await this.connection;
-        return connection(this.tablename).where({ id }).update(device);
+        try {
+            const connection = await this.connection;
+            if (device.testid && Array.isArray(device.testid)) {
+                device.testid = device.testid.join(',');
+            }
+            return connection(this.tablename).where({ id }).update(device);
+        }
+        catch (error) {
+            console.log('Error updating device:', error);
+            throw new Error('Failed to update device: ' + error.message);
+        }
     }
     async deleteDevice(id) {
         const connection = await this.connection;
@@ -52,7 +61,7 @@ class MedicalInterfacingDevicesRepository {
     async getAllDevices() {
         const connection = await this.connection;
         const records = await connection(this.tablename).select('*');
-        return records.map((rec) => {
+        const recreatedRecords = records.map((rec) => {
             if (rec) {
                 if (typeof rec.testid === 'string') {
                     if (rec.testid.trim() === '') {
@@ -72,6 +81,14 @@ class MedicalInterfacingDevicesRepository {
             }
             return rec;
         });
+        for (const rec of recreatedRecords) {
+            if (rec && rec.testid && Array.isArray(rec.testid)) {
+                const Connetion = await this.connection;
+                const testNames = await Connetion('test_panels').whereIn('id', rec.testid).select('name');
+                rec['test_names'] = testNames.map(t => t.name).join(', ');
+            }
+        }
+        return recreatedRecords;
     }
     async getActiveDevices() {
         const connection = await this.connection;

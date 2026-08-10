@@ -19,7 +19,7 @@ class PhoneCallsTrackersController {
     static async getPhoneCallLogsByAppointmentRef(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
-            const appointment_refid = parseInt(req.params.appointment_refid, 10);
+            const appointment_refid = parseInt(req.params.appointment_refid.toString(), 10);
             if (isNaN(appointment_refid)) {
                 return res.status(400).json({ error: "Missing or invalid appointment_refid in params" });
             }
@@ -70,7 +70,7 @@ class PhoneCallsTrackersController {
                 return res.status(400).json({ error: "Missing tenantId in query" });
             }
             const tenantId = parseInt(req.query.tenantId, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PhoneCallsTrackers_1.PhoneCallsTrackersRepo(tenantId);
             const log = await repo.getById(id);
             if (!log)
@@ -87,7 +87,7 @@ class PhoneCallsTrackersController {
                 return res.status(400).json({ error: "Missing tenantId in query" });
             }
             const tenantId = parseInt(req.query.tenantId, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PhoneCallsTrackers_1.PhoneCallsTrackersRepo(tenantId);
             const updated = await repo.update(id, req.body);
             res.json(updated);

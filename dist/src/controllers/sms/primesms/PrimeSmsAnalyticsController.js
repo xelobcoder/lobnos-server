@@ -73,7 +73,7 @@ class PrimeSmsAnalyticsController {
             if (!billingid)
                 return res.status(400).json({ success: false, error: 'Missing billingid' });
             const tenantId = Number(req.query.tenantId);
-            const parsedBillingId = parseInt(billingid, 10);
+            const parsedBillingId = parseInt(billingid.toString(), 10);
             const getTransactionStatus = await testApprovalClass_1.TestApprovalClass.getTransactionAscensionsApprovalStatus(tenantId, parsedBillingId);
             res.send({
                 success: true,

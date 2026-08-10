@@ -54,7 +54,7 @@ const updateContainer = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId || '0', 10);
         const repository = new SampleContainerRepository_1.default(tenantId);
-        const updated = await repository.update(parseInt(req.params.id, 10), req.body);
+        const updated = await repository.update(parseInt(req.params.id.toString(), 10), req.body);
         if (!updated) {
             return res.status(404).json({ status: false });
         }
@@ -69,7 +69,7 @@ const deleteContainer = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId || '0', 10);
         const repository = new SampleContainerRepository_1.default(tenantId);
-        const deleted = await repository.delete(parseInt(req.params.id, 10));
+        const deleted = await repository.delete(parseInt(req.params.id.toString(), 10));
         if (!deleted) {
             return res.status(404).json({ status: false });
         }

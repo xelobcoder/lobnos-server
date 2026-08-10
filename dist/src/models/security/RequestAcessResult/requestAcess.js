@@ -30,7 +30,7 @@ class RequestAccess {
         if (existingRequests && existingRequests.status === 'granted') {
             const window = await accessWindowsRepo_1.default.getEffectiveSettings(staffid) || await accessWindowsRepo_1.default.findGlobalSettings();
             const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
-            if (!existingRequests.grantedAt) {
+            if (!existingRequests.grantedAt && existingRequests.id) {
                 await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
                 return false;
             }
@@ -43,7 +43,7 @@ class RequestAccess {
                     const extraction = await RequestAccess.extractWindowPeriod(tenantId, ascensionid, requestType, staffid);
                     if (extraction && typeof extraction !== "boolean") {
                         const { record } = extraction;
-                        if (record && record.employeeid && record.employeeid !== existingRequests.staffid) {
+                        if (record && record.employeeid && record.employeeid !== existingRequests.staffid && existingRequests.id) {
                             await resultAcessTableRepo_1.default.expireAccess(tenantId, existingRequests.id);
                             return false;
                         }
@@ -129,14 +129,14 @@ class RequestAccess {
         const pendingRequests = await resultAcessTableRepo_1.default.findAll(tenantId, { status: 'pending' });
         for (const request of pendingRequests) {
             const isValid = await RequestAccess.verifyWindowPeriod(tenantId, request.ascensionid, request.staffid, request.requestType);
-            if (!isValid) {
+            if (!isValid && request.id) {
                 await resultAcessTableRepo_1.default.expireAccess(tenantId, request.id);
             }
         }
         const grantedRequests = await resultAcessTableRepo_1.default.findAll(tenantId, { status: 'granted' });
         for (const request of grantedRequests) {
             const isValid = await RequestAccess.verifyWindowPeriod(tenantId, request.ascensionid, request.staffid, request.requestType);
-            if (!isValid) {
+            if (!isValid && request.id) {
                 await resultAcessTableRepo_1.default.expireAccess(tenantId, request.id);
             }
         }

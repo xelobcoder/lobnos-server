@@ -380,7 +380,7 @@ export class BackupController {
                     });
                }
 
-               const success = await BackupManager.updateBackupSchedule(tenantId, parseInt(id), validation.data! as UpdateBackupScheduleData);
+               const success = await BackupManager.updateBackupSchedule(tenantId, parseInt(id.toString()), validation.data! as UpdateBackupScheduleData);
 
                if (success) {
                     res.json({
@@ -406,7 +406,7 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
 
-               const success = await BackupManager.deleteBackupSchedule(tenantId, parseInt(id));
+               const success = await BackupManager.deleteBackupSchedule(tenantId, parseInt(id.toString()));
 
                if (success) {
                     res.json({
@@ -432,7 +432,7 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
 
-               const result = await BackupManager.executeScheduledBackup(tenantId, "manual", parseInt(id));
+               const result = await BackupManager.executeScheduledBackup(tenantId, "manual", parseInt(id.toString()));
 
                if (result.success) {
                     res.json({
@@ -486,7 +486,7 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
 
-               const result = await BackupManager.deleteBackupWithFile(tenantId, parseInt(id));
+               const result = await BackupManager.deleteBackupWithFile(tenantId, parseInt(id.toString()));
 
                if (result.success) {
                     res.json({

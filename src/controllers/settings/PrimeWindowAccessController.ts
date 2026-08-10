@@ -26,7 +26,7 @@ export class PrimeWindowAccessController {
                const tenantId = parseInt(req.query.tenantId as string);
                const repo = new PrimeWindowAccessRepository(tenantId);
                const { id } = req.params;
-               await repo.updateWindow(parseInt(id), { islicensedRenewed: false });
+               await repo.updateWindow(parseInt(id.toString()), { islicensedRenewed: false });
                res.json({ status: 'success', message: 'License revoked successfully' });
           } catch (error) {
                PrimeSqlErrorHandler.handleError(error, res);

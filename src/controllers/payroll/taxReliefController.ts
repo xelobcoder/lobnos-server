@@ -45,7 +45,7 @@ export const getAllTaxReliefsHandler = async (req: Request, res: Response) => {
 export const getTaxReliefByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and tax relief ID are required', 400, res);
@@ -71,7 +71,7 @@ export const getTaxReliefByIdHandler = async (req: Request, res: Response) => {
 export const updateTaxReliefHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and tax relief ID are required', 400, res);
@@ -97,7 +97,7 @@ export const updateTaxReliefHandler = async (req: Request, res: Response) => {
 export const deactivateTaxReliefHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and tax relief ID are required', 400, res);

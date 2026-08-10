@@ -62,7 +62,7 @@ export class CommissionTrackingController {
                     return customError("Commission rate must be a number between 0 and 100", 400, response);
                }
 
-               const commissionId = parseInt(id);
+               const commissionId = parseInt(id.toString());
                const commissionTrackingRepo = this.commissionTrackingRepo;
                const batchServicesRepo = this.batchServicesRepo;
                const conn = await this.connection;

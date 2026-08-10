@@ -40,7 +40,7 @@ export class PrimeBillingPromoCodeController {
     static async findById(req: Request, res: Response) {
         try {
             const tenantId = parseInt(req.query.tenantId as string, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingPromoCodeRepo(tenantId);
             const promo = await repo.findById(id);
             if (!promo) return res.status(404).json({ success: false, error: "Not found" });
@@ -66,7 +66,7 @@ export class PrimeBillingPromoCodeController {
     static async update(req: Request, res: Response) {
         try {
             const tenantId = parseInt(req.query.tenantId as string, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingPromoCodeRepo(tenantId);
             await repo.update(id, req.body);
             return res.json({ success: true });
@@ -78,7 +78,7 @@ export class PrimeBillingPromoCodeController {
     static async delete(req: Request, res: Response) {
         try {
             const tenantId = parseInt(req.query.tenantId as string, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingPromoCodeRepo(tenantId);
             await repo.delete(id);
             return res.json({ success: true });

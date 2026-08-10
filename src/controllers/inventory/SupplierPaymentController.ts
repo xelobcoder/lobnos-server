@@ -638,7 +638,7 @@ export class SupplierPaymentController {
                     return;
                }
 
-               const payment = await model.reject(id, rejected_by, rejection_reason);
+               const payment = await model.reject(id as any, rejected_by, rejection_reason);
 
                if (!payment) {
                     const response: ApiResponse<null> = {
@@ -685,7 +685,7 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { id } = req.params;
+               const id = req.params.id as string
 
                const validation = this.validateAllocationRequest(req.body);
                if (!validation.isValid) {
@@ -727,7 +727,7 @@ export class SupplierPaymentController {
           try {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
-               const { allocationId } = req.params;
+               const allocationId = req.params.allocationId as string;
 
                await model.removeAllocation(allocationId);
 

@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.FreeServicesController = void 0;
 const FreeServices_1 = require("../../../models/billing/FreeServices");
+const freeservices_interface_1 = require("../../../models/billing/Interfaces/freeservices.interface");
 class FreeServicesController {
     static async requestFreeService(req, res) {
         try {
@@ -285,11 +286,11 @@ class FreeServicesController {
             const limitNum = Math.min(100, Math.max(1, parseInt(limit)));
             let statusFilter;
             if (status) {
-                if (!Object.values(FreeServices_1.FreeServiceRequestStatus).includes(status)) {
+                if (!Object.values(freeservices_interface_1.FreeServiceRequestStatus).includes(status)) {
                     res.status(400).json({
                         status: 'error',
                         statusCode: 400,
-                        message: `Invalid status. Allowed values: ${Object.values(FreeServices_1.FreeServiceRequestStatus).join(', ')}`
+                        message: `Invalid status. Allowed values: ${Object.values(freeservices_interface_1.FreeServiceRequestStatus).join(', ')}`
                     });
                     return;
                 }

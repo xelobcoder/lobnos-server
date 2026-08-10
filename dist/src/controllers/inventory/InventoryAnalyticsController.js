@@ -1015,7 +1015,7 @@ class InventoryAnalyticsController {
                             consumption_quantity: parseInt(row.consumption_quantity) || 0,
                             addition_quantity: parseInt(row.addition_quantity) || 0
                         },
-                        notable_wastage: row.wastage_transactions ? row.wastage_transactions.split('; ').filter(t => t) : []
+                        notable_wastage: row.wastage_transactions ? row.wastage_transactions.split('; ').filter((t) => t) : []
                     }))
                 }
             };
@@ -1706,6 +1706,12 @@ class InventoryAnalyticsController {
             const tenantId = this.getTenantId(req);
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const { start_date, end_date } = req.query;
+            // Normalize query bindings to string[] to satisfy Knex RawBinding typing
+            const dateBindings = [];
+            if (start_date)
+                dateBindings.push(String(start_date));
+            if (end_date)
+                dateBindings.push(String(end_date));
             // Current stock on hand
             const [currentStockResult] = await connection('inv_inventory_items')
                 .select(connection.raw('SUM(current_stock) as total_stock'))
@@ -2125,7 +2131,7 @@ class InventoryAnalyticsController {
                          AND i.current_stock IS NOT NULL
                     ORDER BY i.id
                     LIMIT 100
-               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+               `, dateBindings);
             // Data Validation Framework - Anomaly Detection
             const dataValidationAlerts = await connection.raw(`
                     WITH daily_consumption AS (
@@ -2224,7 +2230,7 @@ class InventoryAnalyticsController {
                               ELSE 5
                          END ASC
                     LIMIT 50
-               `, [...(start_date ? [start_date] : []), ...(end_date ? [end_date] : [])]);
+               `, dateBindings);
             const analytics = {
                 current_stock_on_hand: parseInt(currentStockResult === null || currentStockResult === void 0 ? void 0 : currentStockResult.total_stock) || 0,
                 stock_available_for_use: stockAvailableForUse,
@@ -2278,7 +2284,7 @@ class InventoryAnalyticsController {
                         excess_quantity: parseFloat(row.excess_quantity || 0),
                         carrying_cost_impact: parseFloat(row.excess_quantity || 0) * 0.2 // Estimated carrying cost at 20%
                     })),
-                    safety_stock_recommendations: safetyStockRecommendations[0].map(row => ({
+                    safety_stock_recommendations: safetyStockRecommendations[0].map((row) => ({
                         item_id: row.item_id,
                         item_name: row.item_name,
                         current_safety_stock: parseInt(row.current_min_stock || 0),
@@ -2300,7 +2306,7 @@ class InventoryAnalyticsController {
                         })()
                     })),
                     // Advanced Forecasting Features
-                    demand_forecasting: demandForecasting[0].map(row => ({
+                    demand_forecasting: demandForecasting[0].map((row) => ({
                         item_id: row.item_id,
                         item_name: row.item_name,
                         avg_monthly_demand: parseFloat(row.avg_monthly_demand) || 0,
@@ -2338,7 +2344,7 @@ class InventoryAnalyticsController {
                             return `Average monthly consumption is ${avgDemand} units with ${trendText}. Next month forecast: ${nextMonth} units (${confidenceText}). Plan inventory accordingly.`;
                         })()
                     })),
-                    reorder_point_optimization: reorderPointOptimization[0].map(row => ({
+                    reorder_point_optimization: reorderPointOptimization[0].map((row) => ({
                         item_id: row.item_id,
                         item_name: row.item_name,
                         optimized_reorder_point: parseFloat(row.optimized_reorder_point) || 0,
@@ -2369,7 +2375,7 @@ class InventoryAnalyticsController {
                         })()
                     })),
                     // Data Validation Alerts
-                    data_quality_alerts: dataValidationAlerts[0].map(row => ({
+                    data_quality_alerts: dataValidationAlerts[0].map((row) => ({
                         item_id: row.item_id,
                         item_name: row.item_name,
                         anomaly_type: row.anomaly_type,
@@ -2423,6 +2429,9 @@ class InventoryAnalyticsController {
             const tenantId = this.getTenantId(req);
             const connection = await (0, KnexConnections_1.default)(tenantId);
             const { page = 1, count = 10, start_date, end_date } = req.query;
+            // Coerce date query params to strings to avoid union typing with Raw
+            const sDate = start_date ? String(start_date) : undefined;
+            const eDate = end_date ? String(end_date) : undefined;
             // Validate and sanitize pagination parameters
             const parsedCount = parseInt(count);
             const limit = isNaN(parsedCount) ? 10 : Math.max(1, parsedCount); // Min 1 record, no maximum limit
@@ -2444,15 +2453,39 @@ class InventoryAnalyticsController {
             // Movement by type - Use date filters or default to last 12 months
             const movementByType = await connection('inv_inventory_transactions')
                 .select(connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'), connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_issued'), connection.raw('SUM(CASE WHEN transaction_type = "adjustment" AND quantity < 0 THEN ABS(quantity) ELSE 0 END) as total_adjustments_negative'), connection.raw('SUM(CASE WHEN transaction_type = "transfer" THEN quantity ELSE 0 END) as net_transfers'), connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN quantity ELSE 0 END) as net_adjustments'), connection.raw('SUM(CASE WHEN transaction_type = "wastage" AND wastage_type = "expired" THEN quantity ELSE 0 END) as expired_quantity'), connection.raw('SUM(CASE WHEN transaction_type = "wastage" THEN quantity ELSE 0 END) as total_wastage'))
-                .where('transaction_date', '>=', start_date || connection.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'))
-                .andWhere('transaction_date', '<=', end_date || connection.raw('CURDATE()'))
+                .modify(function (qb) {
+                if (sDate) {
+                    qb.where('transaction_date', '>=', sDate);
+                }
+                else {
+                    qb.where('transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'));
+                }
+                if (eDate) {
+                    qb.andWhere('transaction_date', '<=', eDate);
+                }
+                else {
+                    qb.andWhere('transaction_date', '<=', connection.raw('CURDATE()'));
+                }
+            })
                 .first();
             // Item turnover rate - Fixed calculation with pagination and date filters
             const itemTurnoverRate = await connection('inv_inventory_items')
                 .leftJoin('inv_inventory_transactions', 'inv_inventory_items.id', 'inv_inventory_transactions.item_id')
                 .select('inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', 'inv_inventory_items.current_stock', connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as consumed_quantity'), connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN COALESCE(total_cost, 0) ELSE 0 END) as cogs_value'), connection.raw('CASE WHEN inv_inventory_items.current_stock > 0 THEN (SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) / NULLIF(inv_inventory_items.current_stock, 0)) ELSE 0 END as turnover_ratio'))
-                .where('inv_inventory_transactions.transaction_date', '>=', start_date || connection.raw('DATE_SUB(CURDATE(), INTERVAL 365 DAY)'))
-                .andWhere('inv_inventory_transactions.transaction_date', '<=', end_date || connection.raw('CURDATE()'))
+                .modify(function (qb) {
+                if (sDate) {
+                    qb.where('inv_inventory_transactions.transaction_date', '>=', sDate);
+                }
+                else {
+                    qb.where('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 365 DAY)'));
+                }
+                if (eDate) {
+                    qb.andWhere('inv_inventory_transactions.transaction_date', '<=', eDate);
+                }
+                else {
+                    qb.andWhere('inv_inventory_transactions.transaction_date', '<=', connection.raw('CURDATE()'));
+                }
+            })
                 .groupBy('inv_inventory_items.id', 'inv_inventory_items.name', 'inv_inventory_items.current_stock')
                 .orderBy('turnover_ratio', 'desc')
                 .limit(limit)
@@ -2474,8 +2507,20 @@ class InventoryAnalyticsController {
             // Movement trends by month - Use date filters
             const movementTrends = await connection('inv_inventory_transactions')
                 .select(connection.raw('DATE_FORMAT(transaction_date, "%Y-%m") as month'), connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as received'), connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as issued'), connection.raw('SUM(CASE WHEN transaction_type = "transfer" THEN quantity ELSE 0 END) as transfers'), connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN quantity ELSE 0 END) as adjustments'), connection.raw('SUM(quantity) as net_movement'))
-                .where('transaction_date', '>=', start_date || connection.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'))
-                .andWhere('transaction_date', '<=', end_date || connection.raw('CURDATE()'))
+                .modify(function (qb) {
+                if (sDate) {
+                    qb.where('transaction_date', '>=', sDate);
+                }
+                else {
+                    qb.where('transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 12 MONTH)'));
+                }
+                if (eDate) {
+                    qb.andWhere('transaction_date', '<=', eDate);
+                }
+                else {
+                    qb.andWhere('transaction_date', '<=', connection.raw('CURDATE()'));
+                }
+            })
                 .groupBy('month')
                 .orderBy('month', 'desc');
             const analytics = {
@@ -2554,13 +2599,13 @@ class InventoryAnalyticsController {
                 .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(inv_purchase_order_receipts.expiry_date, CURDATE()) as days_until_expiry'), connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as consumed_quantity'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', String(end_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 90 DAY)'));
@@ -2577,7 +2622,7 @@ class InventoryAnalyticsController {
                 .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as batch_quantity', 'inv_purchase_order_receipts.unit_price', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('DATEDIFF(CURDATE(), inv_purchase_order_receipts.expiry_date) as days_expired'), connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as consumed_quantity'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', start_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<', connection.raw('CURDATE()'));
@@ -2592,13 +2637,13 @@ class InventoryAnalyticsController {
                 .select(connection.raw('CASE WHEN DATEDIFF(expiry_date, CURDATE()) <= 30 THEN "0-30_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 60 THEN "31-60_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 90 THEN "61-90_days" WHEN DATEDIFF(expiry_date, CURDATE()) <= 180 THEN "91-180_days" ELSE "181+_days" END as expiry_range'), connection.raw('COUNT(*) as batch_count'), connection.raw('SUM(quantity_received) as total_quantity'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('expiry_date', '>=', start_date);
+                    queryBuilder.andWhere('expiry_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('expiry_date', '>=', connection.raw('CURDATE()'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('expiry_date', '<=', end_date);
+                    queryBuilder.andWhere('expiry_date', '<=', String(end_date));
                 }
                 else {
                     queryBuilder.andWhere('expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
@@ -2615,13 +2660,13 @@ class InventoryAnalyticsController {
                 .select('inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('COUNT(DISTINCT inv_purchase_order_receipts.batch_number) as batch_count'), connection.raw('SUM(inv_purchase_order_receipts.quantity_received) as total_quantity'), connection.raw('MIN(inv_purchase_order_receipts.expiry_date) as earliest_expiry'), connection.raw('MAX(inv_purchase_order_receipts.expiry_date) as latest_expiry'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', String(end_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
@@ -2645,13 +2690,13 @@ class InventoryAnalyticsController {
                 .select('inv_purchase_order_receipts.batch_number', 'inv_purchase_order_receipts.expiry_date', 'inv_purchase_order_receipts.quantity_received as original_quantity', 'inv_inventory_items.id as item_id', 'inv_inventory_items.name as item_name', connection.raw('COALESCE(SUM(inv_inventory_transactions.quantity), 0) as consumed_quantity'), connection.raw('inv_purchase_order_receipts.quantity_received - COALESCE(SUM(inv_inventory_transactions.quantity), 0) as remaining_quantity'), connection.raw('CASE WHEN inv_purchase_order_receipts.quantity_received > 0 THEN (COALESCE(SUM(inv_inventory_transactions.quantity), 0) / inv_purchase_order_receipts.quantity_received) * 100 ELSE 0 END as utilization_percentage'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '>=', connection.raw('CURDATE()'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', String(end_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_purchase_order_receipts.expiry_date', '<=', connection.raw('DATE_ADD(CURDATE(), INTERVAL 365 DAY)'));
@@ -2664,7 +2709,7 @@ class InventoryAnalyticsController {
                 .orderBy('utilization_percentage', 'asc')
                 .limit(50);
             const analytics = {
-                items_by_batch: expiringBatches.map(row => ({
+                items_by_batch: expiringBatches.map((row) => ({
                     batch_number: row.batch_number,
                     item_id: row.item_id,
                     item_name: row.item_name,
@@ -2677,9 +2722,9 @@ class InventoryAnalyticsController {
                 })),
                 expiry_summary: {
                     expired_stock_value: expiredBatches.reduce((sum, row) => sum + (Math.max(0, parseInt(row.batch_quantity) - (parseInt(row.consumed_quantity) || 0)) * parseFloat(row.unit_price || 0)), 0),
-                    near_expiry_7_days: expiringBatches.filter(row => row.days_until_expiry <= 7).length,
-                    near_expiry_30_days: expiringBatches.filter(row => row.days_until_expiry <= 30).length,
-                    near_expiry_60_days: expiringBatches.filter(row => row.days_until_expiry <= 60).length,
+                    near_expiry_7_days: expiringBatches.filter((row) => row.days_until_expiry <= 7).length,
+                    near_expiry_30_days: expiringBatches.filter((row) => row.days_until_expiry <= 30).length,
+                    near_expiry_60_days: expiringBatches.filter((row) => row.days_until_expiry <= 60).length,
                     expired_items_count: expiredBatches.length
                 },
                 batch_expiry_distribution: batchExpiryDistribution.map(row => ({
@@ -3105,7 +3150,7 @@ class InventoryAnalyticsController {
                     ${end_date ? `AND t.transaction_date <= '${end_date}'` : 'AND t.transaction_date <= CURDATE()'}
                `);
             const analytics = {
-                cost_trends: ((_a = costTrends[0]) === null || _a === void 0 ? void 0 : _a.map(row => ({
+                cost_trends: ((_a = costTrends[0]) === null || _a === void 0 ? void 0 : _a.map((row) => ({
                     month: row.month,
                     additions_cost: parseFloat(row.additions_cost) || 0,
                     consumption_cost: parseFloat(row.consumption_cost) || 0,
@@ -3148,13 +3193,13 @@ class InventoryAnalyticsController {
                 .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 90 DAY)'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', String(end_date));
                 }
             })
                 .groupBy('date')
@@ -3167,13 +3212,13 @@ class InventoryAnalyticsController {
                 .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 90 DAY)'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', String(end_date));
                 }
             })
                 .groupBy('inv_inventory_transactions.performed_by')
@@ -3187,13 +3232,13 @@ class InventoryAnalyticsController {
                 .whereNotNull('inv_categories.name')
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 90 DAY)'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', String(end_date));
                 }
             })
                 .groupBy('inv_categories.name')
@@ -3205,13 +3250,13 @@ class InventoryAnalyticsController {
                 .whereIn('inv_inventory_transactions.transaction_type', ['consumption', 'wastage'])
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', start_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 365 DAY)'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', end_date);
+                    queryBuilder.andWhere('inv_inventory_transactions.transaction_date', '<=', String(end_date));
                 }
             })
                 .groupBy('inv_inventory_transactions.item_id', 'inv_inventory_items.name')
@@ -3281,13 +3326,13 @@ class InventoryAnalyticsController {
                 .select(connection.raw('CASE WHEN SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) > 0 THEN SUM(CASE WHEN transaction_type = "wastage" THEN quantity ELSE 0 END) / SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) * 100 ELSE 0 END as wastage_rate'))
                 .modify(function (queryBuilder) {
                 if (start_date) {
-                    queryBuilder.andWhere('transaction_date', '>=', start_date);
+                    queryBuilder.andWhere('transaction_date', '>=', String(start_date));
                 }
                 else {
                     queryBuilder.andWhere('transaction_date', '>=', connection.raw('DATE_SUB(CURDATE(), INTERVAL 365 DAY)'));
                 }
                 if (end_date) {
-                    queryBuilder.andWhere('transaction_date', '<=', end_date);
+                    queryBuilder.andWhere('transaction_date', '<=', String(end_date));
                 }
             });
             // Misallocation trends - comparing expected vs actual usage (MySQL compatible)

@@ -35,14 +35,12 @@ export const createAttendanceHandler = async (req: Request, res: Response) => {
 export const getAttendanceByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
-
-          if (!id) {
-               return customError(' Attendance ID are required', 400, res);
-          }
+          const id = req.params.id;
+          if (!id) return customError(' Attendance ID are required', 400, res);
+          const Id = parseInt(req.params.id as string);
 
           const repo = new AttendanceRepository(tenantId);
-          const attendance = await repo.getById(id);
+          const attendance = await repo.getById(Id);
 
           if (!attendance) {
                return customError('Attendance record not found', 404, res);
@@ -64,15 +62,15 @@ export const getAttendanceByIdHandler = async (req: Request, res: Response) => {
 export const getAttendanceByEmployeeAndDateHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
-          const attendance_date = req.params.date;
-
+          const attendance_date = req.params.date as string;
+          const employeeid = req.params.employeeid;
           if (!tenantId || !employeeid || !attendance_date) {
                return customError('Tenant ID, Employee ID, and Date are required', 400, res);
           }
+          const employeeId = parseInt(req.params.employeeid.toString());
 
           const repo = new AttendanceRepository(tenantId);
-          const attendance = await repo.getByEmployeeAndDate(employeeid, attendance_date);
+          const attendance = await repo.getByEmployeeAndDate(employeeId, attendance_date);
 
           if (!attendance) {
                return customError('Attendance record not found', 404, res);
@@ -94,7 +92,7 @@ export const getAttendanceByEmployeeAndDateHandler = async (req: Request, res: R
 export const getEmployeeAttendanceByDateRangeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
           const startDate = req.query.startDate as string;
           const endDate = req.query.endDate as string;
 
@@ -119,7 +117,7 @@ export const getEmployeeAttendanceByDateRangeHandler = async (req: Request, res:
 export const updateAttendanceHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const updateData = req.body;
 
           if (!tenantId || !id) {
@@ -196,7 +194,7 @@ export const getAttendanceByDateRangeHandler = async (req: Request, res: Respons
 export const getAttendanceSummaryHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
           const startDate = req.query.startDate as string;
           const endDate = req.query.endDate as string;
 
@@ -302,7 +300,7 @@ export const getPendingOvertimeApprovalsHandler = async (req: Request, res: Resp
 export const approveOvertimeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const { approved_by } = req.body;
 
           if (!tenantId || !id || !approved_by) {

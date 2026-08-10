@@ -96,7 +96,7 @@ class InventoryStockController {
             // Calculate summary
             const totalExpiredQuantity = expiredBatches.reduce((sum, batch) => sum + batch.available_quantity, 0);
             const totalExpiredValue = expiredBatches.reduce((sum, batch) => sum + batch.total_value, 0);
-            const uniqueItems = new Set(expiredBatches.map(batch => batch.item_id)).size;
+            const uniqueItems = new Set(expiredBatches.map((batch) => batch.item_id)).size;
             const uniqueBatches = expiredBatches.length;
             const expiredBatchesResponse = {
                 expired_batches: expiredBatches,

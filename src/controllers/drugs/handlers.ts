@@ -4,7 +4,7 @@ import { drugCategoryInformation, DrugInfo } from "../../models/drugs/types";
 import { Request, Response } from "express";
 
 
-export async function insertNewDrug(req: Request, res: Response) {
+export async function insertNewDrug(req: Request<{}, {}, { drug: string; addedOn: string | Date; category: string; createdBy: string }, { tenantId: number }>, res: Response) {
     try {
         const { drug, addedOn, category, createdBy }: { drug: string; addedOn: string | Date; category: string; createdBy: string } = req.body;
 
@@ -27,7 +27,7 @@ export async function insertNewDrug(req: Request, res: Response) {
     }
 }
 
-export async function updateDrug(req: Request, res: Response) {
+export async function updateDrug(req: Request<{}, {}, { id: number; drug: string; addedOn: string; category: string; createdBy: string }, { tenantId: number }>, res: Response) {
     try {
         const { id, drug, addedOn, category, createdBy }: { id: number; drug: string; addedOn: string; category: string; createdBy: string } = req.body;
 
@@ -50,7 +50,7 @@ export async function updateDrug(req: Request, res: Response) {
     }
 }
 
-export async function deleteDrug(req: Request, res: Response) {
+export async function deleteDrug(req: Request<{}, {}, {}, { tenantId: number, id: number, employeeid: number }>, res: Response) {
     try {
         const { id, employeeid } = req.query;
         const parsedID = parseInt(id.toString());
@@ -74,7 +74,7 @@ export async function deleteDrug(req: Request, res: Response) {
     }
 }
 
-export async function getDrugs(req: Request, res: Response) {
+export async function getDrugs(req: Request<{}, {}, {}, { tenantId: number }>, res: Response) {
     try {
         const drugService = new DrugManagementService();
         const tenantId: number = parseInt(req.query.tenantId.toString(), 10);
@@ -86,7 +86,7 @@ export async function getDrugs(req: Request, res: Response) {
 }
 
 // Drug Category Controllers
-export async function insertNewDrugCategory(req: Request, res: Response) {
+export async function insertNewDrugCategory(req: Request<{}, {}, drugCategoryInformation, { tenantId: number }>, res: Response) {
     try {
         const { categoryName, description, createdBy }: drugCategoryInformation = req.body;
         if (!categoryName || !createdBy) {
@@ -105,7 +105,7 @@ export async function insertNewDrugCategory(req: Request, res: Response) {
     }
 }
 
-export async function updateDrugCategory(req: Request, res: Response) {
+export async function updateDrugCategory(req: Request<{}, {}, drugCategoryInformation & { id: number }, { tenantId: number }>, res: Response) {
     try {
         const { id, categoryName, description, createdBy }: drugCategoryInformation & { id: number } = req.body;
         if (!id || !categoryName || !description || !createdBy) {
@@ -124,10 +124,10 @@ export async function updateDrugCategory(req: Request, res: Response) {
     }
 }
 
-export async function deleteDrugCategory(req: Request, res: Response) {
+export async function deleteDrugCategory(req: Request<{ id: string }, {}, {}, { tenantId: number }>, res: Response) {
     try {
-        const { id } = req.params;
-        const parsedID = parseInt(id.slice(1));
+        const id = req.params.id;
+        const parsedID = parseInt(id.toString().slice(1));
 
         if (!parsedID) {
             return res.status(400).json({ error: 'Category ID is required' });
@@ -142,9 +142,9 @@ export async function deleteDrugCategory(req: Request, res: Response) {
     }
 }
 
-export async function getDrugsCategory(req: Request, res: Response) {
+export async function getDrugsCategory(req: Request<{}, {}, {}, { tenantId: number }>, res: Response) {
     try {
-        const tenantId: number = parseInt(req.query.tenantId.toString(), 10);
+        const tenantId = req.query.tenantId as number;
         const drugCategoryService = new DrugManagementService();
         const categories = await drugCategoryService.getDrugsCategory(tenantId);
         res.send(categories);

@@ -212,7 +212,7 @@ class SupplierController {
         var _a;
         try {
             const tenantId = this.getTenantId(req);
-            const { id } = req.params;
+            const id = String(req.params.id);
             const requestData = req.body;
             const validation = this.validateUpdateSupplierRequest(requestData);
             if (!validation.isValid) {
@@ -270,7 +270,7 @@ class SupplierController {
     async deleteSupplier(req, res) {
         try {
             const tenantId = this.getTenantId(req);
-            const { id } = req.params;
+            const id = String(req.params.id);
             const supplierModel = new inventory_1.SupplierModel(tenantId);
             const deleted = await supplierModel.delete(id);
             if (!deleted) {

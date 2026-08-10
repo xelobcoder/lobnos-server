@@ -180,7 +180,7 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
-            const templateId = parseInt(id);
+            const templateId = parseInt(id.toString());
             if (isNaN(templateId)) {
                 const response = {
                     success: false,
@@ -313,7 +313,7 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
-            const templateId = parseInt(id);
+            const templateId = parseInt(id.toString());
             const requestData = req.body;
             if (isNaN(templateId)) {
                 const response = {
@@ -374,7 +374,7 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
-            const templateId = parseInt(id);
+            const templateId = parseInt(id.toString());
             if (isNaN(templateId)) {
                 const response = {
                     success: false,
@@ -421,7 +421,7 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
-            const templateId = parseInt(id);
+            const templateId = parseInt(id.toString());
             if (isNaN(templateId)) {
                 const response = {
                     success: false,
@@ -457,7 +457,7 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id } = req.params;
-            const templateId = parseInt(id);
+            const templateId = parseInt(id.toString());
             const itemData = req.body;
             if (isNaN(templateId)) {
                 const response = {
@@ -516,8 +516,8 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id, itemId } = req.params;
-            const templateId = parseInt(id);
-            const itemIdNum = parseInt(itemId);
+            const templateId = parseInt(id.toString());
+            const itemIdNum = parseInt(itemId.toString());
             const updateData = req.body;
             if (isNaN(templateId) || isNaN(itemIdNum)) {
                 const response = {
@@ -565,8 +565,8 @@ class InventoryTemplateController {
         try {
             const tenantId = this.getTenantId(req);
             const { id, itemId } = req.params;
-            const templateId = parseInt(id);
-            const itemIdNum = parseInt(itemId);
+            const templateId = parseInt(id.toString());
+            const itemIdNum = parseInt(itemId.toString());
             if (isNaN(templateId) || isNaN(itemIdNum)) {
                 const response = {
                     success: false,

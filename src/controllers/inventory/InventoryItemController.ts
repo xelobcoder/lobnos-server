@@ -213,7 +213,7 @@ export class InventoryItemController {
                const { id } = req.params;
 
                const inventoryItemModel = new InventoryItemModel(tenantId);
-               const inventoryItem = await inventoryItemModel.findById(id);
+               const inventoryItem = await inventoryItemModel.findById(id as any);
 
                if (!inventoryItem) {
                     const response: ApiResponse = {
@@ -323,7 +323,7 @@ export class InventoryItemController {
                }
 
                const inventoryItemModel = new InventoryItemModel(tenantId);
-               const inventoryItem = await inventoryItemModel.update(id, requestData);
+               const inventoryItem = await inventoryItemModel.update(id as any, requestData);
 
                if (!inventoryItem) {
                     const response: ApiResponse = {
@@ -364,7 +364,7 @@ export class InventoryItemController {
                const { id } = req.params;
 
                const inventoryItemModel = new InventoryItemModel(tenantId);
-               const deleted = await inventoryItemModel.delete(id);
+               const deleted = await inventoryItemModel.delete(id as any);
 
                if (!deleted) {
                     const response: ApiResponse = {

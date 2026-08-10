@@ -39,7 +39,7 @@ export const getContainerById = async (req: CustomRequest, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId || '0', 10);
 		const repository = new SampleContainerRepository(tenantId);
-		const container = await repository.findById(parseInt(req.params.id, 10));
+		const container = await repository.findById(parseInt(req.params.id as any, 10));
 		if (!container) {
 			return res.status(404).json({ error: 'Container not found' });
 		}
@@ -55,7 +55,7 @@ export const updateContainer = async (req: CustomRequest, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId || '0', 10);
 		const repository = new SampleContainerRepository(tenantId);
-		const updated = await repository.update(parseInt(req.params.id, 10), req.body);
+		const updated = await repository.update(parseInt(req.params.id.toString(), 10), req.body);
 		if (!updated) {
 			return res.status(404).json({ status: false });
 		}
@@ -69,7 +69,7 @@ export const deleteContainer = async (req: CustomRequest, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId || '0', 10);
 		const repository = new SampleContainerRepository(tenantId);
-		const deleted = await repository.delete(parseInt(req.params.id, 10));
+		const deleted = await repository.delete(parseInt(req.params.id.toString(), 10));
 		if (!deleted) {
 			return res.status(404).json({ status: false });
 		}
@@ -94,7 +94,7 @@ export const getContainersByMaterial = async (req: CustomRequest, res: Response)
 	try {
 		const tenantId = parseInt(req.query.tenantId || '0', 10);
 		const repository = new SampleContainerRepository(tenantId);
-		const containers = await repository.findByMaterial(req.params.material);
+		const containers = await repository.findByMaterial(req.params.material as any);
 		return res.status(200).json(containers);
 	} catch (error:any) {
 		return res.status(500).json({ error: error.message });

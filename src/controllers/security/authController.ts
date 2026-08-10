@@ -8,7 +8,7 @@ import AuthenticationRepository from "../../models/settings/users/Authentication
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import TokenValidator from "../../models/settings/users/TokenValidator";
-
+import { Request,Response } from "express";
 export class AuthController {
 	private authRepo: AuthenticationRepository | null = null;
 	private tokenValidator: TokenValidator;

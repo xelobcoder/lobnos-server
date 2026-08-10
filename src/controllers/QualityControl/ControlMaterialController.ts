@@ -15,11 +15,11 @@ export class ControlMaterialController {
             const tenantId = this.getTenantId(req);
             const repository = new ControlMaterialRepository(tenantId);
             const { deviceId, ...materialData } = req.body;
-            
+
             if (!deviceId) {
                 return res.status(400).json({ error: 'Device ID is required' });
             }
-            
+
             const result = await repository.create({ ...materialData, deviceId });
             const status = typeof result === 'number' && result >= -1;
             res.status(201).json({ status });
@@ -33,7 +33,7 @@ export class ControlMaterialController {
             const tenantId = this.getTenantId(req);
             const repository = new ControlMaterialRepository(tenantId);
             const { deviceId } = req.params;
-            const materials = await repository.findByDeviceId(deviceId);
+            const materials = await repository.findByDeviceId(deviceId as any);
             res.json(materials);
         } catch (error) {
             res.status(500).json({ error: 'Failed to fetch control materials for device' });
@@ -46,8 +46,8 @@ export class ControlMaterialController {
             const repository = new ControlMaterialRepository(tenantId);
             const { id } = req.params;
             const updates = req.body;
-            const result = await repository.update(id, updates);
-            res.json({status:result});
+            const result = await repository.update(id as any, updates);
+            res.json({ status: result });
         } catch (error) {
             res.status(500).json({ error: 'Failed to update control material' });
         }
@@ -58,7 +58,7 @@ export class ControlMaterialController {
             const tenantId = this.getTenantId(req);
             const repository = new ControlMaterialRepository(tenantId);
             const { id } = req.params;
-            const material = await repository.findById(id);
+            const material = await repository.findById(id as any);
             if (!material) {
                 return res.status(404).json({ error: 'Control material not found' });
             }
@@ -128,7 +128,7 @@ export class ControlMaterialController {
             const tenantId = this.getTenantId(req);
             const repository = new ControlMaterialRepository(tenantId);
             const { id } = req.params;
-            await repository.delete(id);
+            await repository.delete(id as any);
             res.status(204).send();
         } catch (error) {
             res.status(500).json({ error: 'Failed to delete control material' });

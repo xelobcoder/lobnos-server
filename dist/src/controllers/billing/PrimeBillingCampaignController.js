@@ -17,7 +17,7 @@ class PrimeBillingCampaignController {
     static async findById(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingCampaignRepo_1.PrimeBillingCampaignRepo(tenantId);
             const campaign = await repo.findById(id);
             if (!campaign)
@@ -31,7 +31,7 @@ class PrimeBillingCampaignController {
     static async update(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingCampaignRepo_1.PrimeBillingCampaignRepo(tenantId);
             await repo.update(id, req.body);
             return res.json({ success: true });
@@ -43,7 +43,7 @@ class PrimeBillingCampaignController {
     static async delete(req, res) {
         try {
             const tenantId = parseInt(req.query.tenantId, 10);
-            const id = parseInt(req.params.id, 10);
+            const id = parseInt(req.params.id.toString(), 10);
             const repo = new PrimeBillingCampaignRepo_1.PrimeBillingCampaignRepo(tenantId);
             await repo.delete(id);
             return res.json({ success: true });

@@ -132,7 +132,7 @@ export class CategoryController {
                const { id } = req.params;
 
                const categoryModel = new CategoryModel(tenantId);
-               const category = await categoryModel.findById(id);
+               const category = await categoryModel.findById(id as any);
 
                if (!category) {
                     const response: ApiResponse = {
@@ -233,7 +233,7 @@ export class CategoryController {
                }
 
                const categoryModel = new CategoryModel(tenantId);
-               const category = await categoryModel.update(id, requestData);
+               const category = await categoryModel.update(id as any, requestData);
 
                if (!category) {
                     const response: ApiResponse = {
@@ -274,7 +274,7 @@ export class CategoryController {
                const { id } = req.params;
 
                const categoryModel = new CategoryModel(tenantId);
-               const deleted = await categoryModel.delete(id);
+               const deleted = await categoryModel.delete(id as any);
 
                if (!deleted) {
                     const response: ApiResponse = {

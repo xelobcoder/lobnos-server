@@ -33,7 +33,7 @@ export const createBonusHandler = async (req: Request, res: Response) => {
 export const getBonusByIdHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and bonus ID are required', 400, res);
@@ -63,7 +63,7 @@ export const getBonusByIdHandler = async (req: Request, res: Response) => {
 export const getBonusesByEmployeeHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const employeeid = parseInt(req.params.employeeid);
+          const employeeid = parseInt(req.params.employeeid.toString());
 
           if (!tenantId || !employeeid) {
                return customError('Tenant ID and employee ID are required', 400, res);
@@ -85,7 +85,7 @@ export const getBonusesByEmployeeHandler = async (req: Request, res: Response) =
 export const updateBonusHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and bonus ID are required', 400, res);
@@ -115,7 +115,7 @@ export const updateBonusHandler = async (req: Request, res: Response) => {
 export const deleteBonusHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
 
           if (!tenantId || !id) {
                return customError('Tenant ID and bonus ID are required', 400, res);

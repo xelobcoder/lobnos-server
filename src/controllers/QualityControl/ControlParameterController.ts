@@ -37,7 +37,7 @@ export class ControlParameterController {
                if (!Array.isArray(updates)) {
                     return res.status(400).json({ error: 'Parameters must be an array' });
                }
-               const result = await repository.update(controlId, updates);
+               const result = await repository.update(controlId as string, updates);
                res.json({ status: result });
           } catch (error) {
                res.status(500).json({ error: 'Failed to update control parameters' });
@@ -49,7 +49,7 @@ export class ControlParameterController {
                const tenantId = this.getTenantId(req);
                const repository = new ControlParameterRepository(tenantId);
                const { id } = req.params;
-               const parameter = await repository.findById(id);
+               const parameter = await repository.findById(id as string);
                if (parameter) {
                     res.json(parameter);
                } else {
@@ -64,7 +64,7 @@ export class ControlParameterController {
           try {
                const tenantId = this.getTenantId(req);
                const repository = new ControlParameterRepository(tenantId);
-               const { controlId } = req.params;
+               const controlId = req.params.controlId as string;
                const parameters = await repository.findByControlId(controlId);
                res.json(parameters);
           } catch (error) {
@@ -89,7 +89,7 @@ export class ControlParameterController {
           try {
                const tenantId = this.getTenantId(req);
                const repository = new ControlParameterRepository(tenantId);
-               const { id } = req.params;
+               const id = req.params.id as string;
                const result = await repository.delete(id);
                res.json({ status: result > 0 });
           } catch (error) {

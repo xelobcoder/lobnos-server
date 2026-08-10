@@ -360,7 +360,7 @@ class BackupController {
                     details: ((_a = validation.error) === null || _a === void 0 ? void 0 : _a.errors.map(e => e.message)) || ['Unknown validation error']
                 });
             }
-            const success = await backup_1.default.updateBackupSchedule(tenantId, parseInt(id), validation.data);
+            const success = await backup_1.default.updateBackupSchedule(tenantId, parseInt(id.toString()), validation.data);
             if (success) {
                 res.json({
                     status: true,
@@ -385,7 +385,7 @@ class BackupController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const { id } = req.params;
-            const success = await backup_1.default.deleteBackupSchedule(tenantId, parseInt(id));
+            const success = await backup_1.default.deleteBackupSchedule(tenantId, parseInt(id.toString()));
             if (success) {
                 res.json({
                     status: true,
@@ -410,7 +410,7 @@ class BackupController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const { id } = req.params;
-            const result = await backup_1.default.executeScheduledBackup(tenantId, "manual", parseInt(id));
+            const result = await backup_1.default.executeScheduledBackup(tenantId, "manual", parseInt(id.toString()));
             if (result.success) {
                 res.json({
                     status: true,
@@ -461,7 +461,7 @@ class BackupController {
         try {
             const tenantId = parseInt(req.query.tenantId);
             const { id } = req.params;
-            const result = await backup_1.default.deleteBackupWithFile(tenantId, parseInt(id));
+            const result = await backup_1.default.deleteBackupWithFile(tenantId, parseInt(id.toString()));
             if (result.success) {
                 res.json({
                     status: true,

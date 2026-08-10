@@ -29,7 +29,7 @@ export const updateLead = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new CustomersLeads(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const updates = req.body;
           const updatedRows = await repo.update(id, updates);
           if (updatedRows > 0) {
@@ -61,7 +61,7 @@ export const getLeadById = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new CustomersLeads(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const lead = await repo.findById(id);
           if (lead) {
                res.status(200).json({ success: true, data: lead });
@@ -78,7 +78,7 @@ export const deleteLead = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
           const repo = new CustomersLeads(tenantId);
-          const id = parseInt(req.params.id);
+          const id = parseInt(req.params.id.toString());
           const deletedRows = await repo.delete(id);
           if (deletedRows > 0) {
                res.status(200).json({ success: true, message: 'Lead deleted successfully' });
