@@ -211,6 +211,8 @@ export const deactivateCompensationHandler = async (req: Request, res: Response)
 export const getAllActiveCompensationsHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
+          const page = parseInt(req.query.page as string) || 1;
+          const count = parseInt(req.query.count as string) || 10;
           const status = req.query.status as string;
 
           if (!tenantId) {
@@ -218,7 +220,7 @@ export const getAllActiveCompensationsHandler = async (req: Request, res: Respon
           }
 
           const repo = new CompensationRepository(tenantId);
-          const compensations = await repo.getAll(status);
+          const compensations = await repo.getAll(status, page, count);
 
           res.json({
                status: 'success',

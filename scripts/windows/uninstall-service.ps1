@@ -4,6 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ServiceName = $ServiceName.Trim().Trim("'").Trim('"')
 
 function Test-IsAdministrator {
      $identity = [Security.Principal.WindowsIdentity]::GetCurrent()

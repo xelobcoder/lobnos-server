@@ -69,7 +69,6 @@ npm run create-distribution
 - [ ] Extract and follow [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)
 - [ ] Install as Windows service OR run as background process
 - [ ] Verify logs and functionality
-- [ ] Set up backup scheduler: `npm run backup-scheduler:start`
 
 ---
 
@@ -205,14 +204,6 @@ npm run service:start:win      # Start the service
 npm run service:stop:win       # Stop the service
 npm run service:restart:win    # Restart the service
 npm run service:status:win     # Check if running
-```
-
-### Backup Scheduler
-
-```bash
-npm run backup-scheduler:start   # Start automatic backups
-npm run backup-scheduler:stop    # Stop backups
-npm run backup-scheduler:status  # Check status
 ```
 
 ### Utilities

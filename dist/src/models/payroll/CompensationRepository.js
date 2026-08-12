@@ -209,11 +209,13 @@ class CompensationRepository {
         })
             .orderBy('employeeid');
     }
-    async getAll(status) {
+    async getAll(status, page = 1, count = 10) {
         const connection = await this.connection;
         let query = connection('payroll_employee_compensation')
             .orderBy('employeeid')
-            .orderBy('created_at', 'desc');
+            .orderBy('created_at', 'desc')
+            .limit(count)
+            .offset((page - 1) * count);
         if (status === 'active') {
             const today = new Date().toISOString().split('T')[0];
             query = query.where({ is_active: true })

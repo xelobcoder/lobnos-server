@@ -7,6 +7,7 @@ interface BackupSecuritySettings {
      id?: number;
      encryption_enabled: boolean;
      encryption_algorithm: string;
+     encryption_password?: string | null;
      key_rotation_days: number;
      secure_deletion_enabled: boolean;
      deletion_passes: number;
@@ -38,8 +39,9 @@ export default class EncryptionManager {
 
      static async getEffectiveStoragePath(tenantId: number): Promise<string> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
-          if (settings?.storage_path) {
-               return settings.storage_path;
+          const storagePath = settings?.storage_path?.toString().trim();
+          if (storagePath) {
+               return storagePath;
           }
           throw new Error('No storage path configured. Please set a storage path in security settings.');
      }
@@ -52,6 +54,11 @@ export default class EncryptionManager {
                .first();
 
           return settings || null;
+     }
+
+     static async shouldEncryptBackups(tenantId: number): Promise<boolean> {
+          const settings = await this.getSecuritySettings(tenantId);
+          return !!settings?.encryption_password && settings.encryption_password.trim().length > 0;
      }
 
      static async updateSecuritySettings(tenantId: number, updates: Partial<BackupSecuritySettings>): Promise<boolean> {
@@ -76,6 +83,9 @@ export default class EncryptionManager {
                     .where('is_active', true)
                     .update({
                          ...updates,
+                         encryption_password: updates.encryption_password === undefined
+                              ? existingSettings.encryption_password
+                              : (updates.encryption_password?.toString().trim() || null),
                          updated_at: new Date()
                     });
 
@@ -85,10 +95,11 @@ export default class EncryptionManager {
                const newSettings = {
                     encryption_enabled: updates.encryption_enabled ?? false,
                     encryption_algorithm: updates.encryption_algorithm ?? 'AES-256',
+                    encryption_password: updates.encryption_password?.toString().trim() || null,
                     key_rotation_days: updates.key_rotation_days ?? 90,
                     secure_deletion_enabled: updates.secure_deletion_enabled ?? false,
                     deletion_passes: updates.deletion_passes ?? 1,
-                    storage_path: updates.storage_path ?? null,
+                    storage_path: updates.storage_path?.toString().trim() || '',
                     current_key_id: updates.current_key_id ?? null,
                     key_last_rotated: updates.key_last_rotated ?? null,
                     is_active: true,
@@ -103,21 +114,26 @@ export default class EncryptionManager {
 
      static async generateEncryptionKey(tenantId: number, createdBy?: string, userKey?: string): Promise<string> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
-          if (!settings?.encryption_enabled) {
-               throw new Error('Encryption is not enabled');
+          if (!settings) {
+               throw new Error('Backup security settings not found. Configure security settings first');
+          }
+          const effectivePassword = userKey || settings?.encryption_password || '';
+
+          if (!effectivePassword.trim()) {
+               throw new Error('No encryption password configured in backup security settings');
           }
 
           let key: Buffer;
 
-          if (userKey) {
-               // Validate user-provided key
-               const keyValidation = this.validateUserKey(userKey);
+          if (effectivePassword) {
+               // Validate password used as key source
+               const keyValidation = this.validateUserKey(effectivePassword);
                if (!keyValidation.valid) {
-                    throw new Error(`Invalid user key: ${keyValidation.error}`);
+                    throw new Error(`Invalid encryption password: ${keyValidation.error}`);
                }
 
-               // Derive a proper encryption key from user input using scrypt
-               key = crypto.scryptSync(userKey, 'encryption-salt', 32);
+               // Derive a proper encryption key from password using scrypt.
+               key = crypto.scryptSync(effectivePassword, 'encryption-salt', 32);
           } else {
                // Generate random key as before
                key = crypto.randomBytes(32);
@@ -150,7 +166,7 @@ export default class EncryptionManager {
 
      static async getActiveEncryptionKey(tenantId: number): Promise<{ keyId: string; key: Buffer } | null> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
-          if (!settings?.encryption_enabled || !settings.current_key_id) {
+          if (!settings?.current_key_id) {
                return null;
           }
 
@@ -173,9 +189,15 @@ export default class EncryptionManager {
 
      static async encryptFile(tenantId: number, inputPath: string, outputPath: string): Promise<{ success: boolean; keyId?: string; error?: string }> {
           try {
+               const settings = await this.getSecuritySettings(tenantId);
+               const configuredPassword = settings?.encryption_password?.trim();
+               if (!configuredPassword) {
+                    return { success: false, error: 'No encryption password configured' };
+               }
+
                let keyInfo = await this.getActiveEncryptionKey(tenantId);
                if (!keyInfo) {
-                    const newKeyId = await this.generateEncryptionKey(tenantId);
+                    const newKeyId = await this.generateEncryptionKey(tenantId, undefined, configuredPassword);
                     keyInfo = await this.getActiveEncryptionKey(tenantId);
                     if (!keyInfo) {
                          return { success: false, error: 'Failed to generate or retrieve encryption key' };
@@ -210,7 +232,7 @@ export default class EncryptionManager {
      static async decryptFile(tenantId: number, inputPath: string, outputPath: string, keyId: string): Promise<{ success: boolean; error?: string }> {
           try {
                console.log('Starting decryption for keyId:', keyId);
-               console.log("MASTER_KEY is set:", !!this.MASTER_KEY,process.env.BACKUP_MASTER_KEY);
+               console.log("MASTER_KEY is set:", !!this.MASTER_KEY, process.env.BACKUP_MASTER_KEY);
 
                const connection = await KnexConnection(tenantId);
                const keyRecord = await connection(this.KEYS_TABLE)
@@ -331,6 +353,14 @@ export default class EncryptionManager {
                });
 
           return updated > 0;
+     }
+
+     static encryptSecret(plaintext: string): string {
+          return this.encryptWithMasterKey(Buffer.from(plaintext, 'utf8'));
+     }
+
+     static decryptSecret(encryptedHex: string): string {
+          return this.decryptWithMasterKey(encryptedHex).toString('utf8');
      }
 
      private static encryptWithMasterKey(data: Buffer): string {

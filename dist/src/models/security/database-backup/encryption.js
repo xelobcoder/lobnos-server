@@ -42,9 +42,11 @@ const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 class EncryptionManager {
     static async getEffectiveStoragePath(tenantId) {
+        var _a;
         const settings = await EncryptionManager.getSecuritySettings(tenantId);
-        if (settings === null || settings === void 0 ? void 0 : settings.storage_path) {
-            return settings.storage_path;
+        const storagePath = (_a = settings === null || settings === void 0 ? void 0 : settings.storage_path) === null || _a === void 0 ? void 0 : _a.toString().trim();
+        if (storagePath) {
+            return storagePath;
         }
         throw new Error('No storage path configured. Please set a storage path in security settings.');
     }
@@ -56,8 +58,12 @@ class EncryptionManager {
             .first();
         return settings || null;
     }
+    static async shouldEncryptBackups(tenantId) {
+        const settings = await this.getSecuritySettings(tenantId);
+        return !!(settings === null || settings === void 0 ? void 0 : settings.encryption_password) && settings.encryption_password.trim().length > 0;
+    }
     static async updateSecuritySettings(tenantId, updates) {
-        var _a, _b, _c, _d, _e, _f, _g, _h;
+        var _a, _b, _c, _d, _e, _f, _g, _h, _j, _k;
         const connection = await (0, KnexConnections_1.default)(tenantId);
         // Validate storage path if provided
         if (updates.storage_path) {
@@ -74,20 +80,23 @@ class EncryptionManager {
             // Update existing settings
             const updated = await connection(this.SETTINGS_TABLE)
                 .where('is_active', true)
-                .update(Object.assign(Object.assign({}, updates), { updated_at: new Date() }));
+                .update(Object.assign(Object.assign({}, updates), { encryption_password: updates.encryption_password === undefined
+                    ? existingSettings.encryption_password
+                    : (((_a = updates.encryption_password) === null || _a === void 0 ? void 0 : _a.toString().trim()) || null), updated_at: new Date() }));
             return updated > 0;
         }
         else {
             // Create new settings
             const newSettings = {
-                encryption_enabled: (_a = updates.encryption_enabled) !== null && _a !== void 0 ? _a : false,
-                encryption_algorithm: (_b = updates.encryption_algorithm) !== null && _b !== void 0 ? _b : 'AES-256',
-                key_rotation_days: (_c = updates.key_rotation_days) !== null && _c !== void 0 ? _c : 90,
-                secure_deletion_enabled: (_d = updates.secure_deletion_enabled) !== null && _d !== void 0 ? _d : false,
-                deletion_passes: (_e = updates.deletion_passes) !== null && _e !== void 0 ? _e : 1,
-                storage_path: (_f = updates.storage_path) !== null && _f !== void 0 ? _f : null,
-                current_key_id: (_g = updates.current_key_id) !== null && _g !== void 0 ? _g : null,
-                key_last_rotated: (_h = updates.key_last_rotated) !== null && _h !== void 0 ? _h : null,
+                encryption_enabled: (_b = updates.encryption_enabled) !== null && _b !== void 0 ? _b : false,
+                encryption_algorithm: (_c = updates.encryption_algorithm) !== null && _c !== void 0 ? _c : 'AES-256',
+                encryption_password: ((_d = updates.encryption_password) === null || _d === void 0 ? void 0 : _d.toString().trim()) || null,
+                key_rotation_days: (_e = updates.key_rotation_days) !== null && _e !== void 0 ? _e : 90,
+                secure_deletion_enabled: (_f = updates.secure_deletion_enabled) !== null && _f !== void 0 ? _f : false,
+                deletion_passes: (_g = updates.deletion_passes) !== null && _g !== void 0 ? _g : 1,
+                storage_path: ((_h = updates.storage_path) === null || _h === void 0 ? void 0 : _h.toString().trim()) || '',
+                current_key_id: (_j = updates.current_key_id) !== null && _j !== void 0 ? _j : null,
+                key_last_rotated: (_k = updates.key_last_rotated) !== null && _k !== void 0 ? _k : null,
                 is_active: true,
                 created_at: new Date(),
                 updated_at: new Date()
@@ -98,18 +107,22 @@ class EncryptionManager {
     }
     static async generateEncryptionKey(tenantId, createdBy, userKey) {
         const settings = await EncryptionManager.getSecuritySettings(tenantId);
-        if (!(settings === null || settings === void 0 ? void 0 : settings.encryption_enabled)) {
-            throw new Error('Encryption is not enabled');
+        if (!settings) {
+            throw new Error('Backup security settings not found. Configure security settings first');
+        }
+        const effectivePassword = userKey || (settings === null || settings === void 0 ? void 0 : settings.encryption_password) || '';
+        if (!effectivePassword.trim()) {
+            throw new Error('No encryption password configured in backup security settings');
         }
         let key;
-        if (userKey) {
-            // Validate user-provided key
-            const keyValidation = this.validateUserKey(userKey);
+        if (effectivePassword) {
+            // Validate password used as key source
+            const keyValidation = this.validateUserKey(effectivePassword);
             if (!keyValidation.valid) {
-                throw new Error(`Invalid user key: ${keyValidation.error}`);
+                throw new Error(`Invalid encryption password: ${keyValidation.error}`);
             }
-            // Derive a proper encryption key from user input using scrypt
-            key = crypto.scryptSync(userKey, 'encryption-salt', 32);
+            // Derive a proper encryption key from password using scrypt.
+            key = crypto.scryptSync(effectivePassword, 'encryption-salt', 32);
         }
         else {
             // Generate random key as before
@@ -136,7 +149,7 @@ class EncryptionManager {
     }
     static async getActiveEncryptionKey(tenantId) {
         const settings = await EncryptionManager.getSecuritySettings(tenantId);
-        if (!(settings === null || settings === void 0 ? void 0 : settings.encryption_enabled) || !settings.current_key_id) {
+        if (!(settings === null || settings === void 0 ? void 0 : settings.current_key_id)) {
             return null;
         }
         const connection = await (0, KnexConnections_1.default)(tenantId);
@@ -154,10 +167,16 @@ class EncryptionManager {
         };
     }
     static async encryptFile(tenantId, inputPath, outputPath) {
+        var _a;
         try {
+            const settings = await this.getSecuritySettings(tenantId);
+            const configuredPassword = (_a = settings === null || settings === void 0 ? void 0 : settings.encryption_password) === null || _a === void 0 ? void 0 : _a.trim();
+            if (!configuredPassword) {
+                return { success: false, error: 'No encryption password configured' };
+            }
             let keyInfo = await this.getActiveEncryptionKey(tenantId);
             if (!keyInfo) {
-                const newKeyId = await this.generateEncryptionKey(tenantId);
+                const newKeyId = await this.generateEncryptionKey(tenantId, undefined, configuredPassword);
                 keyInfo = await this.getActiveEncryptionKey(tenantId);
                 if (!keyInfo) {
                     return { success: false, error: 'Failed to generate or retrieve encryption key' };
@@ -286,6 +305,12 @@ class EncryptionManager {
             deactivated_at: new Date()
         });
         return updated > 0;
+    }
+    static encryptSecret(plaintext) {
+        return this.encryptWithMasterKey(Buffer.from(plaintext, 'utf8'));
+    }
+    static decryptSecret(encryptedHex) {
+        return this.decryptWithMasterKey(encryptedHex).toString('utf8');
     }
     static encryptWithMasterKey(data) {
         if (!this.MASTER_KEY) {

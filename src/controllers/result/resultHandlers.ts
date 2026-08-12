@@ -763,7 +763,7 @@ export const getResultRecordUndelivered = async (req: Request<{}, {}, {}, { tena
 export const recordResultDelivery = async (req: Request, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
-		const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
+		const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes, failurenotes } = req.body || {};
 		const pBillingId = parseInt(String(billingid), 10);
 		const pAscensionId = ascensionid !== undefined && ascensionid !== null ? parseInt(String(ascensionid), 10) : null;
 		const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
@@ -773,21 +773,27 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 		if (!pEmployeeId || isNaN(pEmployeeId)) {
 			return customError("delivered_by_employeeid must be a number", 400, res);
 		}
-		if (!delivered_mode || typeof delivered_mode !== 'string') {
-			return customError("delivered_mode is required", 400, res);
+		if ((!delivered_mode || typeof delivered_mode !== 'string') && (!failurenotes || typeof failurenotes !== 'string')) {
+			return customError("either delivered_mode or failurenotes is required", 400, res);
 		}
 
-		const conn = await KnexConnection(tenantId);
+		const normalizedDeliveredMode = delivered_mode && typeof delivered_mode === 'string'
+			? delivered_mode.trim().toLowerCase()
+			: null;
 
-		const result = await conn('result_delivery_log').update({
+
+		const result = await new ResultDeliveryClass(pBillingId, tenantId).updateResultDeliveryLog({
 			ascensionid: pAscensionId,
-			delivered_mode: delivered_mode.trim().toLowerCase(),
+			billingid: pBillingId,
+			delivered_mode: failurenotes ? null : normalizedDeliveredMode,
 			delivered_by_employeeid: pEmployeeId,
-			delivered_at: conn.fn.now(),
-			notes: notes ?? null
-		}).where({ ascensionid: pAscensionId })
+			notes: notes ?? null,
+			failurenotes: failurenotes ?? null
+		});
 
-		if (result) {
+
+
+		if (result && normalizedDeliveredMode) {
 			const refs = {
 				billingId: pBillingId,
 				ascensionId: pAscensionId ?? undefined,

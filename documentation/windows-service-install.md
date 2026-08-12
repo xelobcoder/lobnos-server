@@ -15,6 +15,10 @@ This guide explains how to run the Lobnos backend as a Windows Service so it:
 - ServiceName (internal): `PrimeLabSystemRuntime`
 - DisplayName: `Prime Lab System Runtime`
 
+## Backup Scheduler Service Name
+- ServiceName (internal): `bkspls`
+- DisplayName: `Prime Lab Backup Scheduler`
+
 ## 1) Install NSSM (one-time)
 Run in PowerShell:
 
@@ -28,10 +32,6 @@ Run:
 ```powershell
 npm run start
 ```
-
-Notes:
-- You may see a UAC prompt the first time (administrator permission is required to create a Windows Service).
-- This does not build TypeScript on the client PC; it runs the already-built `dist` output.
 
 ## 3) Check service status
 

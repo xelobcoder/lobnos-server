@@ -24,6 +24,7 @@ interface BackupSecuritySettings {
     id?: number;
     encryption_enabled: boolean;           // Whether encryption is enabled
     encryption_algorithm: string;          // Encryption algorithm (e.g., 'aes-256-cbc')
+    encryption_password?: string | null;   // Password used to derive backup encryption key
     key_rotation_days: number;             // Days between key rotations
     secure_deletion_enabled: boolean;      // Whether secure deletion is enabled
     deletion_passes: number;               // Number of overwrite passes for secure deletion
@@ -76,6 +77,14 @@ Updates security settings for a tenant.
 
 **Returns:** True if update was successful
 
+#### `shouldEncryptBackups(tenantId: number): Promise<boolean>`
+
+Checks whether backups should be encrypted for a tenant.
+
+Behavior:
+- Returns `true` only when `backup_security_settings.encryption_password` is present and non-empty.
+- Returns `false` when password is not provided; backups are stored unencrypted.
+
 ### Key Management
 
 #### `generateEncryptionKey(tenantId: number, createdBy?: string): Promise<string>`
@@ -88,7 +97,7 @@ Generates a new encryption key for a tenant.
 
 **Returns:** The generated key ID
 
-**Throws:** Error if encryption is not enabled
+**Throws:** Error if no encryption password is configured
 
 #### `getActiveEncryptionKey(tenantId: number): Promise<{ keyId: string; key: Buffer } | null>`
 
@@ -211,13 +220,15 @@ Gets the overwrite pattern for secure deletion passes.
 CREATE TABLE backup_security_settings (
     id INT PRIMARY KEY AUTO_INCREMENT,
     encryption_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    encryption_algorithm VARCHAR(50) NOT NULL DEFAULT 'aes-256-cbc',
+    encryption_algorithm VARCHAR(255) NOT NULL DEFAULT 'AES-256',
+    encryption_password TEXT NULL,
     key_rotation_days INT NOT NULL DEFAULT 90,
     secure_deletion_enabled BOOLEAN NOT NULL DEFAULT FALSE,
-    deletion_passes INT NOT NULL DEFAULT 3,
-    current_key_id VARCHAR(100),
-    key_last_rotated DATETIME,
+    deletion_passes INT NOT NULL DEFAULT 1,
+    current_key_id VARCHAR(255),
+    key_last_rotated DATE,
     is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    storage_path TEXT NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
@@ -300,7 +311,7 @@ const decryptResult = await EncryptionManager.decryptFile(
     tenantId,
     '/path/to/backup.sql.encrypted',
     '/path/to/backup.sql',
-    'KEY-2025-001' // Key ID used for encryption
+    'KEY-2025-001' 
 );
 
 if (decryptResult.success) {

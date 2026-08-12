@@ -38,11 +38,16 @@ export default class ResultDeliveryClass {
           const query = connection('patient_result_delivery_preference')
                .innerJoin('result_delivery_log', 'patient_result_delivery_preference.ascension', 'result_delivery_log.ascensionid')
                .innerJoin('new_patients', 'patient_result_delivery_preference.patientid', 'new_patients.patientid')
-               .where('delivered_at', null)
-               .orWhere('delivered_mode', null)
+               .where(function (this: any) {
+                    this.whereNull('result_delivery_log.delivered_mode')
+                         .orWhere('result_delivery_log.delivered_mode', 'not_delivered');
+               });
 
           if (startDate && endDate) {
-               query.andWhereBetween('created_at', [startDate, endDate])
+               query.andWhereRaw(
+                    'DATE(patient_result_delivery_preference.created_at) BETWEEN ? AND ?',
+                    [startDate, endDate]
+               );
           }
 
           const totalcountofUndeliveredResults = await query.clone().count('* as total').first();
@@ -95,6 +100,27 @@ export default class ResultDeliveryClass {
                }
                throw new Error("Error loading preferences")
           }
+     }
+
+     async updateResultDeliveryLog(entry: {
+          ascensionid: number | null;
+          billingid: number;
+          delivered_mode: string | null;
+          delivered_by_employeeid: number;
+          notes?: string | null;
+          failurenotes?: string | null;
+     }) {
+          const connection = await this.connection;
+          return await connection('result_delivery_log')
+               .update({
+                    ascensionid: entry.ascensionid,
+                    delivered_mode: entry.delivered_mode ? entry.delivered_mode.trim().toLowerCase() : null,
+                    delivered_by_employeeid: entry.delivered_by_employeeid,
+                    delivered_at: connection.fn.now(),
+                    notes: entry.notes ?? null,
+                    failurenotes: entry.failurenotes ?? null
+               })
+               .where({ ascensionid: entry.ascensionid });
      }
 
      async getResultDeliveryChain(): Promise<{ status: boolean, billingid: number, handovers: any[], deliveries: any[] }> {

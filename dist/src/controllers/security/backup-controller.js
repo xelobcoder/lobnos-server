@@ -47,16 +47,17 @@ class BackupController {
         var _a, _b;
         try {
             const tenantId = parseInt(req.query.tenantId);
-            const { backupName, backupPath, isFullBackup = true, backupMode, createdBy } = req.body;
+            const { backupName, isFullBackup = true, backupMode, createdBy } = req.body;
             let finalBackupMode = backupMode;
             if (!backupMode) {
                 finalBackupMode = 'manual';
             }
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
             const uniqueBackupName = `${backupName}_${timestamp}`;
+            const configuredBackupPath = await encryption_1.default.getEffectiveStoragePath(tenantId);
             const validation = backup_validators_1.BackupValidators.validateCreateDatabaseBackup({
                 backupName: uniqueBackupName,
-                backupPath,
+                backupPath: configuredBackupPath,
                 isFullBackup,
                 backupMode: finalBackupMode,
                 createdBy
@@ -68,17 +69,19 @@ class BackupController {
                     details: ((_a = validation.error) === null || _a === void 0 ? void 0 : _a.errors.map(e => e.message)) || ['Unknown validation error']
                 });
             }
-            const encryptBackup = true;
+            const encryptBackup = await encryption_1.default.shouldEncryptBackups(tenantId);
             const result = await backup_1.default.performDatabaseBackup(tenantId, validation.data.backupName, validation.data.backupPath, (_b = validation.data.isFullBackup) !== null && _b !== void 0 ? _b : true, finalBackupMode, validation.data.createdBy, undefined, encryptBackup);
             if (result.success) {
                 res.json({
                     status: true,
-                    message: 'Database backup completed successfully (encrypted - downloads as .encrypted file)',
+                    message: encryptBackup
+                        ? 'Database backup completed successfully (encrypted - downloads as .encrypted file)'
+                        : 'Database backup completed successfully',
                     data: {
                         backupPath: result.backupPath,
                         size: result.size,
                         duration: result.duration,
-                        encrypted: true,
+                        encrypted: encryptBackup,
                         keyId: result.encryptionKeyId
                     }
                 });

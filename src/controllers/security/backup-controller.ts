@@ -21,7 +21,6 @@ export class BackupController {
                const tenantId = parseInt(req.query.tenantId as string);
                const {
                     backupName,
-                    backupPath,
                     isFullBackup = true,
                     backupMode,
                     createdBy
@@ -34,9 +33,11 @@ export class BackupController {
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
                const uniqueBackupName = `${backupName}_${timestamp}`;
 
+               const configuredBackupPath = await EncryptionManager.getEffectiveStoragePath(tenantId);
+
                const validation = BackupValidators.validateCreateDatabaseBackup({
                     backupName: uniqueBackupName,
-                    backupPath,
+                    backupPath: configuredBackupPath,
                     isFullBackup,
                     backupMode: finalBackupMode,
                     createdBy
@@ -50,7 +51,7 @@ export class BackupController {
                     });
                }
 
-               const encryptBackup = true;
+               const encryptBackup = await EncryptionManager.shouldEncryptBackups(tenantId);
                const result = await BackupManager.performDatabaseBackup(
                     tenantId,
                     validation.data!.backupName,
@@ -65,12 +66,14 @@ export class BackupController {
                if (result.success) {
                     res.json({
                          status: true,
-                         message: 'Database backup completed successfully (encrypted - downloads as .encrypted file)',
+                         message: encryptBackup
+                              ? 'Database backup completed successfully (encrypted - downloads as .encrypted file)'
+                              : 'Database backup completed successfully',
                          data: {
                               backupPath: result.backupPath,
                               size: result.size,
                               duration: result.duration,
-                              encrypted: true,
+                              encrypted: encryptBackup,
                               keyId: result.encryptionKeyId
                          }
                     });

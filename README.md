@@ -194,14 +194,6 @@ npm run seed
 - `npm run service:restart:win` - Restart service
 - `npm run service:status:win` - Check status
 
-### Backup & Scheduler
-
-- `npm run backup-scheduler:start` - Start automatic backups
-- `npm run backup-scheduler:stop` - Stop backups
-- `npm run backup-scheduler:status` - Check backup status
-
----
-
 ## Deployment
 
 ### Option 1: Windows Service (Recommended for Windows)

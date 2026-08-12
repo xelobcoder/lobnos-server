@@ -629,7 +629,7 @@ exports.getResultRecordUndelivered = getResultRecordUndelivered;
 const recordResultDelivery = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId, 10);
-        const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes } = req.body || {};
+        const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes, failurenotes } = req.body || {};
         const pBillingId = parseInt(String(billingid), 10);
         const pAscensionId = ascensionid !== undefined && ascensionid !== null ? parseInt(String(ascensionid), 10) : null;
         const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
@@ -640,18 +640,21 @@ const recordResultDelivery = async (req, res) => {
         if (!pEmployeeId || isNaN(pEmployeeId)) {
             return (0, helper_1.customError)("delivered_by_employeeid must be a number", 400, res);
         }
-        if (!delivered_mode || typeof delivered_mode !== 'string') {
-            return (0, helper_1.customError)("delivered_mode is required", 400, res);
+        if ((!delivered_mode || typeof delivered_mode !== 'string') && (!failurenotes || typeof failurenotes !== 'string')) {
+            return (0, helper_1.customError)("either delivered_mode or failurenotes is required", 400, res);
         }
-        const conn = await (0, KnexConnections_1.default)(tenantId);
-        const result = await conn('result_delivery_log').update({
+        const normalizedDeliveredMode = delivered_mode && typeof delivered_mode === 'string'
+            ? delivered_mode.trim().toLowerCase()
+            : null;
+        const result = await new resultDelivery_1.default(pBillingId, tenantId).updateResultDeliveryLog({
             ascensionid: pAscensionId,
-            delivered_mode: delivered_mode.trim().toLowerCase(),
+            billingid: pBillingId,
+            delivered_mode: failurenotes ? null : normalizedDeliveredMode,
             delivered_by_employeeid: pEmployeeId,
-            delivered_at: conn.fn.now(),
-            notes: notes !== null && notes !== void 0 ? notes : null
-        }).where({ ascensionid: pAscensionId });
-        if (result) {
+            notes: notes !== null && notes !== void 0 ? notes : null,
+            failurenotes: failurenotes !== null && failurenotes !== void 0 ? failurenotes : null
+        });
+        if (result && normalizedDeliveredMode) {
             const refs = {
                 billingId: pBillingId,
                 ascensionId: pAscensionId !== null && pAscensionId !== void 0 ? pAscensionId : undefined,

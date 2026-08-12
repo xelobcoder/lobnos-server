@@ -19,7 +19,7 @@ const INCLUDE_DIRS = [
   "scripts", // Setup and utility scripts
   "cert", // SSL certificates
   "public", // Static assets
-//   "node_modules", // Dependencies
+  //   "node_modules", // Dependencies
 ];
 
 const INCLUDE_FILES = [
@@ -199,11 +199,6 @@ node --env-file=./.env ./dist/src/app.js
 - npm run service:start:win - Start the service
 - npm run service:stop:win - Stop the service
 - npm run service:restart:win - Restart the service
-
-### Backup Scheduler
-- npm run backup-scheduler:start - Start automatic backups
-- npm run backup-scheduler:stop - Stop backups
-- npm run backup-scheduler:status - Check scheduler status
 
 ## Troubleshooting
 

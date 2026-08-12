@@ -216,6 +216,7 @@ class Payment {
         COALESCE(SUM(discount), 0) AS discount, 
         COALESCE(SUM(outstanding), 0) AS outstanding,
         COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
+		COUNT(DISTINCT dboservices.billingid) AS total_billing,
         COUNT(*) AS transactioncount
         FROM dboservices
         LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
@@ -226,6 +227,12 @@ class Payment {
         COALESCE(SUM(amount), 0) AS expenses_paid
         FROM expense_payments
         WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
+	),
+	patients AS (
+		SELECT
+		COUNT(*) AS total_patients_registered
+		FROM new_patients
+		WHERE DATE(\`date\`) BETWEEN ? AND ?
     )
             SELECT 
             s.gross_revenue, 
@@ -233,12 +240,14 @@ class Payment {
             s.earned_revenue, 
             s.discount,
             s.total_refunded,
+			s.total_billing,
+			p.total_patients_registered,
             s.transactioncount,
             COALESCE(e.expenses_paid, 0) AS expenses_paid,
             (COALESCE(s.cash_collected, 0) - COALESCE(e.expenses_paid, 0)) AS net_operating_cash,
             s.outstanding
-            FROM sales s, expenses e;
-				 `, [from, to, from, to]);
+			FROM sales s, expenses e, patients p;
+				 `, [from, to, from, to, from, to]);
                 return summary;
             }
             catch (err) {

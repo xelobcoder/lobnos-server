@@ -190,12 +190,14 @@ exports.deactivateCompensationHandler = deactivateCompensationHandler;
 const getAllActiveCompensationsHandler = async (req, res) => {
     try {
         const tenantId = parseInt(req.query.tenantId);
+        const page = parseInt(req.query.page) || 1;
+        const count = parseInt(req.query.count) || 10;
         const status = req.query.status;
         if (!tenantId) {
             return (0, helper_1.customError)('Tenant ID is required', 400, res);
         }
         const repo = new CompensationRepository_1.CompensationRepository(tenantId);
-        const compensations = await repo.getAll(status);
+        const compensations = await repo.getAll(status, page, count);
         res.json({
             status: 'success',
             statusCode: 200,

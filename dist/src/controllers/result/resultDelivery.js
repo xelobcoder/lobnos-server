@@ -33,10 +33,12 @@ class ResultDeliveryClass {
         const query = connection('patient_result_delivery_preference')
             .innerJoin('result_delivery_log', 'patient_result_delivery_preference.ascension', 'result_delivery_log.ascensionid')
             .innerJoin('new_patients', 'patient_result_delivery_preference.patientid', 'new_patients.patientid')
-            .where('delivered_at', null)
-            .orWhere('delivered_mode', null);
+            .where(function () {
+            this.whereNull('result_delivery_log.delivered_mode')
+                .orWhere('result_delivery_log.delivered_mode', 'not_delivered');
+        });
         if (startDate && endDate) {
-            query.andWhereBetween('created_at', [startDate, endDate]);
+            query.andWhereRaw('DATE(patient_result_delivery_preference.created_at) BETWEEN ? AND ?', [startDate, endDate]);
         }
         const totalcountofUndeliveredResults = await query.clone().count('* as total').first();
         const totalcount = (totalcountofUndeliveredResults === null || totalcountofUndeliveredResults === void 0 ? void 0 : totalcountofUndeliveredResults.total) || 0;
@@ -66,6 +68,20 @@ class ResultDeliveryClass {
             }
             throw new Error("Error loading preferences");
         }
+    }
+    async updateResultDeliveryLog(entry) {
+        var _a, _b;
+        const connection = await this.connection;
+        return await connection('result_delivery_log')
+            .update({
+            ascensionid: entry.ascensionid,
+            delivered_mode: entry.delivered_mode ? entry.delivered_mode.trim().toLowerCase() : null,
+            delivered_by_employeeid: entry.delivered_by_employeeid,
+            delivered_at: connection.fn.now(),
+            notes: (_a = entry.notes) !== null && _a !== void 0 ? _a : null,
+            failurenotes: (_b = entry.failurenotes) !== null && _b !== void 0 ? _b : null
+        })
+            .where({ ascensionid: entry.ascensionid });
     }
     async getResultDeliveryChain() {
         try {

@@ -5,6 +5,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$ServiceName = $ServiceName.Trim().Trim("'").Trim('"')
 
 function Test-IsAdministrator {
      $identity = [Security.Principal.WindowsIdentity]::GetCurrent()
@@ -42,7 +43,8 @@ function Ensure-ElevationIfNeeded {
 
 $service = Get-Service -Name $ServiceName -ErrorAction SilentlyContinue
 if (-not $service) {
-     throw "Service '$ServiceName' does not exist. Install it first with npm run service:install:win"
+     $installCommand = if ($ServiceName -eq "bkspls") { "service:backup:install:win" } else { "service:install:win" }
+     throw "Service '$ServiceName' does not exist. Install it first with npm run $installCommand"
 }
 
 Ensure-ElevationIfNeeded -RequestedAction $Action -TargetService $ServiceName

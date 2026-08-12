@@ -265,12 +265,14 @@ export class CompensationRepository {
 
      }
 
-     async getAll(status?: string): Promise<ICompensation[]> {
+     async getAll(status?: string, page: number = 1, count: number = 10): Promise<ICompensation[]> {
           const connection = await this.connection;
 
           let query = connection('payroll_employee_compensation')
                .orderBy('employeeid')
-               .orderBy('created_at', 'desc');
+               .orderBy('created_at', 'desc')
+               .limit(count)
+               .offset((page - 1) * count);
 
           if (status === 'active') {
                const today = new Date().toISOString().split('T')[0];
@@ -282,7 +284,6 @@ export class CompensationRepository {
           } else if (status === 'inactive') {
                query = query.where({ is_active: false });
           }
-
           return query;
      }
 

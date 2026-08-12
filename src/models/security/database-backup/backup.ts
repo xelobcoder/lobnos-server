@@ -19,7 +19,7 @@ interface BackupLog {
      backup_path?: string;
      error_message?: string;
      duration_seconds?: number;
-     created_by: any;
+     created_by: number | null;
      schedule_id?: number;
      encryption_key_id?: string;
 }
@@ -150,7 +150,7 @@ export default class BackupManager {
           backupPath: string,
           isFullBackup: boolean = true,
           backupMode: 'automated' | 'manual' = 'manual',
-          createdBy: number| 'system' = 'system',
+          createdBy: number | null = null,
           scheduleId?: number,
           encryptBackup: boolean = false
      ): Promise<{ success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string }> {
@@ -239,7 +239,7 @@ export default class BackupManager {
                     backup_date: new Date(),
                     backup_path: finalBackupPath,
                     duration_seconds: duration,
-                    created_by: createdBy,
+                    created_by: createdBy ?? null,
                     schedule_id: scheduleId,
                     encryption_key_id: encryptionKeyId
                });
@@ -265,7 +265,7 @@ export default class BackupManager {
                     backup_date: new Date(),
                     error_message: errorMessage,
                     duration_seconds: duration,
-                    created_by: createdBy,
+                    created_by: createdBy ?? null,
                     schedule_id: scheduleId
                });
 
@@ -344,7 +344,7 @@ export default class BackupManager {
                     backup_date: new Date(),
                     backup_path: finalBackupPath,
                     duration_seconds: duration,
-                    created_by: createdBy,
+                    created_by: createdBy ?? null,
                     schedule_id: scheduleId,
                     encryption_key_id: encryptionKeyId
                });
@@ -370,7 +370,7 @@ export default class BackupManager {
                     backup_date: new Date(),
                     error_message: errorMessage,
                     duration_seconds: duration,
-                    created_by: createdBy,
+                    created_by: createdBy ?? null,
                     schedule_id: scheduleId
                });
 
@@ -490,43 +490,44 @@ export default class BackupManager {
 
           const dueSchedules = schedules.filter(schedule => {
                const lastRun = schedule.last_run ? new Date(schedule.last_run) : null;
-               const scheduleTime = schedule.backup_time;
+               const scheduleTime = String(schedule.backup_time || '').slice(0, 5);
+               const [scheduleHour, scheduleMinute] = scheduleTime.split(':').map((v) => parseInt(v, 10));
+
+               if (Number.isNaN(scheduleHour) || Number.isNaN(scheduleMinute)) {
+                    return false;
+               }
+
                let isDue = false;
 
                const timeMatches = scheduleTime === currentTime;
                const timeHasPassed = scheduleTime < currentTime;
 
+               const scheduledThisHour = new Date(now);
+               scheduledThisHour.setSeconds(0, 0);
+               scheduledThisHour.setMinutes(scheduleMinute, 0, 0);
+
+               const scheduledToday = new Date(now);
+               scheduledToday.setSeconds(0, 0);
+               scheduledToday.setHours(scheduleHour, scheduleMinute, 0, 0);
+
                switch (schedule.frequency) {
                     case 'hourly':
-                         if (!lastRun) {
-                              const currentMinute = now.getMinutes();
-                              const scheduleMinute = parseInt(scheduleTime.split(':')[1]);
-                              isDue = currentMinute >= scheduleMinute;
+                         if (now.getTime() < scheduledThisHour.getTime()) {
+                              isDue = false;
+                         } else if (!lastRun) {
+                              isDue = true;
                          } else {
-                              const lastRunHour = lastRun.getHours();
-                              const currentHour = now.getHours();
-                              const currentMinute = now.getMinutes();
-                              const scheduleMinute = parseInt(scheduleTime.split(':')[1]);
-
-                              const notRunThisHour = lastRunHour !== currentHour;
-                              const minuteReached = currentMinute >= scheduleMinute;
-
-                              isDue = notRunThisHour && minuteReached;
+                              isDue = lastRun.getTime() < scheduledThisHour.getTime();
                          }
                          break;
 
                     case 'daily':
-                         if (!lastRun) {
-                              isDue = timeMatches || timeHasPassed;
+                         if (now.getTime() < scheduledToday.getTime()) {
+                              isDue = false;
+                         } else if (!lastRun) {
+                              isDue = true;
                          } else {
-                              const lastRunDate = lastRun.toDateString();
-                              const todayDate = now.toDateString();
-
-                              if (lastRunDate === todayDate) {
-                                   isDue = false;
-                              } else {
-                                   isDue = timeMatches || timeHasPassed;
-                              }
+                              isDue = lastRun.getTime() < scheduledToday.getTime();
                          }
                          break;
 
@@ -582,17 +583,35 @@ export default class BackupManager {
 
                const backupName = `${schedule.schedule_name}_${new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)}`;
                const backupPath = await EncryptionManager.getEffectiveStoragePath(tenantId);
-               const encryptBackup = true; // Encryption enabled
-               result = await this.performDatabaseBackup(
-                    tenantId,
-                    backupName,
-                    backupPath,
-                    true,
-                    mode,
-                    scheduleId,
-                    scheduleId,
-                    encryptBackup
-               );
+               const encryptBackup = await EncryptionManager.shouldEncryptBackups(tenantId);
+
+               if (schedule.backup_type === 'files') {
+                    if (!schedule.source_path) {
+                         return { success: false, error: 'source_path is required for files backup schedule' };
+                    }
+
+                    result = await this.performFileBackup(
+                         tenantId,
+                         backupName,
+                         schedule.source_path,
+                         backupPath,
+                         mode,
+                         schedule.employeeid,
+                         scheduleId,
+                         encryptBackup
+                    );
+               } else {
+                    result = await this.performDatabaseBackup(
+                         tenantId,
+                         backupName,
+                         backupPath,
+                         true,
+                         mode,
+                         schedule.employeeid,
+                         scheduleId,
+                         encryptBackup
+                    );
+               }
 
                // Update last run time
                await this.updateBackupSchedule(tenantId, scheduleId, {
@@ -650,6 +669,44 @@ export default class BackupManager {
                }
           } catch (error: any) {
                console.error('Error during backup cleanup:', error);
+          }
+     }
+
+     static async cleanupExcessBackupsByCount(tenantId: number, backupPath: string, retainCount: number): Promise<void> {
+          try {
+               const connection = await KnexConnection(tenantId);
+
+               const backups = await connection(this.TABLE_NAME)
+                    .where('backup_path', 'like', `${backupPath}%`)
+                    .andWhere('is_successful', true)
+                    .orderBy('backup_date', 'desc');
+
+               if (!backups || backups.length <= retainCount) {
+                    return;
+               }
+
+               const toDelete = backups.slice(retainCount);
+
+               const securitySettings = await EncryptionManager.getSecuritySettings(tenantId);
+               const useSecureDeletion = securitySettings?.secure_deletion_enabled || false;
+               const deletionPasses = securitySettings?.deletion_passes || 3;
+
+               for (const backup of toDelete) {
+                    try {
+                         if (backup.backup_path && fs.existsSync(backup.backup_path)) {
+                              if (useSecureDeletion) {
+                                   await EncryptionManager.secureDeleteFile(backup.backup_path, deletionPasses);
+                              } else {
+                                   fs.unlinkSync(backup.backup_path);
+                              }
+                         }
+                         await this.delete(tenantId, backup.id);
+                    } catch (error: any) {
+                         console.error(`Failed to cleanup excess backup ${backup.id}:`, error);
+                    }
+               }
+          } catch (error: any) {
+               console.error('Error during count-based backup cleanup:', error);
           }
      }
 
