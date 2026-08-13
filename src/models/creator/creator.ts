@@ -36,18 +36,7 @@ import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
 import ApplicationSettings from "../application/appsettings/appset";
-
-type AgeCategory = {
-	maxAge: number;
-	minAge: number;
-	specifier: string;
-};
-
-type AgeVariationLimitsConfig = {
-	adults?: AgeCategory;
-	children?: AgeCategory;
-	neonates?: AgeCategory;
-};
+import { applyDemographicLimits, getAgeGroup } from "./demographic-limits";
 
 export default class Creator {
 	testid: number;
@@ -81,108 +70,6 @@ export default class Creator {
 		return records.length > 0 ? records : [];
 	}
 
-	private hasContent(value?: string | null): boolean {
-		return value !== undefined && value !== null && value.toString().trim() !== '';
-	}
-
-	private parseAgeVariationLimits(ageVariationLimits?: string | null): AgeVariationLimitsConfig | null {
-		if (!ageVariationLimits) return null;
-		try {
-			const parsed = typeof ageVariationLimits === 'string' ? JSON.parse(ageVariationLimits) : ageVariationLimits;
-			return parsed as AgeVariationLimitsConfig;
-		} catch {
-			return null;
-		}
-	}
-
-	private convertAgeToDays(age: number, specifier: string): number {
-		switch ((specifier || '').toLowerCase().trim()) {
-			case 'day':
-			case 'days':
-				return age;
-			case 'month':
-			case 'months':
-				return age * 30;
-			case 'year':
-			case 'years':
-				return age * 365;
-			default:
-				return NaN;
-		}
-	}
-
-	private ageFallsInCategory(ageDays: number, category: AgeCategory): boolean {
-		const minDays = this.convertAgeToDays(category.minAge, category.specifier);
-		const maxDays = this.convertAgeToDays(category.maxAge, category.specifier);
-		return Number.isFinite(minDays) && Number.isFinite(maxDays) && ageDays >= minDays && ageDays <= maxDays;
-	}
-
-	private getAgeGroup(age?: number | string, ageType?: string, ageVariationLimits?: string | null): 'neonate' | 'child' | 'adult' {
-		const parsedAge = Number(age);
-		const normalizedType = (ageType || '').toLowerCase().trim();
-		const config = this.parseAgeVariationLimits(ageVariationLimits);
-
-		if (config && Number.isFinite(parsedAge)) {
-			const ageDays = this.convertAgeToDays(parsedAge, normalizedType);
-			if (Number.isFinite(ageDays)) {
-				if (config.neonates && this.ageFallsInCategory(ageDays, config.neonates)) return 'neonate';
-				if (config.children && this.ageFallsInCategory(ageDays, config.children)) return 'child';
-				if (config.adults && this.ageFallsInCategory(ageDays, config.adults)) return 'adult';
-			}
-		}
-
-		if (!Number.isFinite(parsedAge)) return 'adult';
-
-		if ((normalizedType === 'day' || normalizedType === 'days') && parsedAge <= 28) {
-			return 'neonate';
-		}
-
-		if (
-			normalizedType === 'day' || normalizedType === 'days' ||
-			normalizedType === 'month' || normalizedType === 'months' ||
-			((normalizedType === 'year' || normalizedType === 'years') && parsedAge < 18)
-		) {
-			return 'child';
-		}
-
-		return 'adult';
-	}
-
-	private applyDemographicLimits(
-		rule: TestCreationRule,
-		gender: string,
-		ageGroup: 'neonate' | 'child' | 'adult'
-	): TestCreationRule {
-		if (rule.plan !== 'limits') return rule;
-		const normalizedGender = (gender || '').toLowerCase().trim();
-		const normalizedRule = { ...rule };
-
-		if (normalizedGender === 'female') {
-			if (this.hasContent(rule.upperLimitFemale)) normalizedRule.upperlimit = rule.upperLimitFemale;
-			if (this.hasContent(rule.lowerLimitFemale)) normalizedRule.lowerlimit = rule.lowerLimitFemale;
-			return normalizedRule;
-		}
-
-		if (normalizedGender === 'male') {
-			if (ageGroup === 'neonate') {
-				if (this.hasContent(rule.upperLimitNeonates)) normalizedRule.upperlimit = rule.upperLimitNeonates;
-				if (this.hasContent(rule.lowerLimitNeonates)) normalizedRule.lowerlimit = rule.lowerLimitNeonates;
-				return normalizedRule;
-			}
-
-			if (ageGroup === 'child') {
-				if (this.hasContent(rule.upperLimitChildren)) normalizedRule.upperlimit = rule.upperLimitChildren;
-				if (this.hasContent(rule.lowerLimitChildren)) normalizedRule.lowerlimit = rule.lowerLimitChildren;
-				return normalizedRule;
-			}
-
-			if (this.hasContent(rule.upperLimitMale)) normalizedRule.upperlimit = rule.upperLimitMale;
-			if (this.hasContent(rule.lowerLimitMale)) normalizedRule.lowerlimit = rule.lowerLimitMale;
-		}
-
-		return normalizedRule;
-	}
-
 	async getPreviousRecordsOrCreationRule(tenantId: number, testid: number, billingid: number, patientid: number): Promise<TestCreationRule[] | null | undefined> {
 		try {
 			const [previousRecords, creationRules, patientBasicData, settings] = await Promise.all([
@@ -193,8 +80,9 @@ export default class Creator {
 			]);
 
 			const patientGender = (patientBasicData?.gender || '').toString();
-			const ageGroup = this.getAgeGroup(patientBasicData?.age, patientBasicData?.ageType, settings?.ageVariationLimits);
-			const rulesWithLimits = creationRules.map(rule => this.applyDemographicLimits(rule, patientGender, ageGroup));
+			const patientAgeType = (patientBasicData as any)?.ageType || (patientBasicData as any)?.agetype;
+			const ageGroup = getAgeGroup(patientBasicData?.age, patientAgeType, settings?.ageVariationLimits);
+			const rulesWithLimits = creationRules.map(rule => applyDemographicLimits(rule, patientGender, ageGroup));
 
 			if (previousRecords.length === 0) {
 				return rulesWithLimits.map(item => {
@@ -302,9 +190,9 @@ export default class Creator {
 			const clientAgeType = packet.length > 0 ? packet[0]["agetype"] : undefined;
 			const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
 
-			const ageGroup = this.getAgeGroup(clientAge, clientAgeType, settings?.ageVariationLimits);
+			const ageGroup = getAgeGroup(clientAge, clientAgeType, settings?.ageVariationLimits);
 			console.log({ ageGroup, clientAge, clientAgeType })
-			previousRecords = previousRecords.map(item => this.applyDemographicLimits(item as TestCreationRule, clientGender, ageGroup));
+			previousRecords = previousRecords.map(item => applyDemographicLimits(item as TestCreationRule, clientGender, ageGroup));
 
 			if (hasGenderVariation && clientGender) {
 				previousRecords = previousRecords.map((item) => {
