@@ -89,7 +89,6 @@ export const getPreviousResultEntryRecordsIfAny = async function (request: Reque
 						result = result.map((item: any, index: number) => {
 							return { ...item, value: resources[index]['value'] }
 						})
-
 						return response.send({ ...records, result, resultDeliveryPreference });
 					}
 				}

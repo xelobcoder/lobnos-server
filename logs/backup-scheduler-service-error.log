@@ -7,3 +7,22 @@
   port: 2309,
   fatal: true
 }
+[2026-08-13T16:28:50.240Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:10:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.240Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:11:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.240Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:12:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.240Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:13:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:14:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:15:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:16:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:17:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:18:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:19:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:20:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:21:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:22:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:23:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:24:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:25:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.241Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:26:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.242Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:27:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.
+[2026-08-13T16:28:50.242Z] [PID: 6068] [32m[NODE-CRON][32m [33m[WARN][0m missed execution at Thu Aug 13 2026 16:28:00 GMT+0000 (Greenwich Mean Time)! Possible blocking IO or high CPU user at the same process used by node-cron.

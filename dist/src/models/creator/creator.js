@@ -474,14 +474,15 @@ class Creator {
         const connection = await (0, KnexConnections_1.default)(tenantId);
         try {
             const { drugid, sensitivity, ascensionid, testid } = drugRxn;
+            const reaction = sensitivity !== null && sensitivity !== void 0 ? sensitivity : '';
             const record = await connection.raw(`SELECT * FROM resultentrydrugsreaction WHERE ascensionid = ? AND testid = ? AND drugid = ? `, [ascensionid, testid, drugid]);
             const hasRecord = Array.isArray(record[0]) ? record[0].length > 0 : false;
             if (hasRecord) {
-                const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [sensitivity, ascensionid, testid, drugid]);
+                const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [reaction, ascensionid, testid, drugid]);
                 return (0, helper_1.rowAffected)(updateResult[0]);
             }
             else {
-                const insertResult = await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, sensitivity, ascensionid, testid]);
+                const insertResult = await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, reaction, ascensionid, testid]);
                 return (0, helper_1.rowAffected)(insertResult[0]);
             }
         }

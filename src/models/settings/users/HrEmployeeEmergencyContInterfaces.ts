@@ -30,6 +30,6 @@ export interface HrRolesPermissions {
   roleid: number;
   employeeid: number;
   rolename: string;
-  permissions: any; // Use a more specific type if you know the structure of the JSON
+  permissions: any;
   accessrights?: string;
 }

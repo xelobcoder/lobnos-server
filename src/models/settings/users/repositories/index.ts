@@ -1,0 +1,14 @@
+export { default as EmployeesDesignationsRepository } from './EmployeesDesignationsRepository';
+export { default as EmployeesCredentialsRepository } from './EmployeesCredentialsRepository';
+export { default as EmployeesContactsRepository } from './EmployeesContactsRepository';
+export { default as EmployeesRoleAssignmentsRepository } from './EmployeesRoleAssignmentsRepository';
+export { default as EmployeesRolePermissionsRepository } from './EmployeesRolePermissionsRepository';
+export { default as EmployeesEducationsRepository } from './EmployeesEducationsRepository';
+export { default as EmployeesLicensesRepository } from './EmployeesLicensesRepository';
+export { default as EmployeesCertificationsRepository } from './EmployeesCertificationsRepository';
+export { default as EmployeesEmploymentHistoryRepository } from './EmployeesEmploymentHistoryRepository';
+export { default as EmployeesEmergencyContactsRepository } from './EmployeesEmergencyContactsRepository';
+export { default as EmployeesDocumentsRepository } from './EmployeesDocumentsRepository';
+export { default as EmployeesBankAccountsRepository } from './EmployeesBankAccountsRepository';
+export { default as EmployeesAttendanceRepository } from './EmployeesAttendanceRepository';
+export { default as EmployeesPerformanceReviewsRepository } from './EmployeesPerformanceReviewsRepository';
