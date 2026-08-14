@@ -20,20 +20,16 @@ async function UtilityOutsourcing(tenantId, key, branchid, startdate, enddate, y
         const params = [yearValue, branchid, branchid, outsourceId, outsourceId];
         return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
     }
-    // For queries that support year parameter and year is provided, use date range for the specific year
     if (year && !startdate && !enddate) {
         if (['dailyOutsourcedAmountLast30Days', 'weeklyOutsourcedTrend', 'quarterlyOutsourcedTrend',
             'top20OutsourcedFacilities', 'topFacilityPerMonth', 'grandSummaryDashboard'].includes(key)) {
-            // Convert year to date range for the entire year
             const startOfYear = `${year}-01-01`;
             const endOfYear = `${year}-12-31`;
             const params = [startOfYear, endOfYear, branchid, branchid, outsourceId, outsourceId];
-            // Map keys to their date range equivalents
             const dateRangeKey = key === 'top20OutsourcedFacilities' ? 'topFacilitiesByAmount' :
                 key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
             return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalyticsWithDate[dateRangeKey], params);
         }
-        // For yearlySummaryByFacility, keep using current year logic since it's specifically yearly
         if (key === 'yearlySummaryByFacility') {
             const params = [branchid, branchid, outsourceId, outsourceId];
             return await (0, helper_1.promisifyQuery)(tenantId, outsourcingAnalqueries_1.OutsourcingAnalytics[key], params);
@@ -171,7 +167,6 @@ const handleSalesSummaryDailyBreakDown = async function (request, response) {
         response.send(responseData);
     }
     catch (error) {
-        console.log(error);
         response.status(500).json({
             error: "Failed to retrieve function keys",
             details: error.message

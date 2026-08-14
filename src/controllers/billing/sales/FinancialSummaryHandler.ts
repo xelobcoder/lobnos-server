@@ -20,21 +20,19 @@ export async function UtilityOutsourcing(tenantId: number, key: string, branchid
 		return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
 	}
 
-	// For queries that support year parameter and year is provided, use date range for the specific year
 	if (year && !startdate && !enddate) {
 		if (['dailyOutsourcedAmountLast30Days', 'weeklyOutsourcedTrend', 'quarterlyOutsourcedTrend',
 			'top20OutsourcedFacilities', 'topFacilityPerMonth', 'grandSummaryDashboard'].includes(key)) {
-			// Convert year to date range for the entire year
+	
 			const startOfYear = `${year}-01-01`;
 			const endOfYear = `${year}-12-31`;
 			const params = [startOfYear, endOfYear, branchid, branchid, outsourceId, outsourceId];
 
-			// Map keys to their date range equivalents
 			const dateRangeKey = key === 'top20OutsourcedFacilities' ? 'topFacilitiesByAmount' :
 				key === 'grandSummaryDashboard' ? 'summaryDashboard' : key;
 			return await promisifyQuery(tenantId, OutsourcingAnalyticsWithDate[dateRangeKey], params);
 		}
-		// For yearlySummaryByFacility, keep using current year logic since it's specifically yearly
+
 		if (key === 'yearlySummaryByFacility') {
 			const params = [branchid, branchid, outsourceId, outsourceId];
 			return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
@@ -54,8 +52,8 @@ const analyticsFunctions: { [key: string]: Function } = {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
 	},
 
-	totalSalesByClinician: async  (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-			return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
+	totalSalesByClinician: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
 	},
 
 	totalSalesByOrganization: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
@@ -65,8 +63,7 @@ const analyticsFunctions: { [key: string]: Function } = {
 	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
 
-	totalSalesByBranchAndCategory: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-	{
+	totalSalesByBranchAndCategory: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranchAndCategory'], [startdate, enddate]);
 	},
 
@@ -204,7 +201,7 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 			}
 			return response.json(allResults);
 
-		} catch (error) {
+		} catch (error: any) {
 			return response.status(500).json({
 				error: "Failed to fetch analytics data",
 				details: error.message
@@ -218,14 +215,13 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 			const dateParam = (analyticsKey.includes('hourlyOutsourcingPattern') && targetDate) ? targetDate : startDate;
 			const result = await analyticsFunctions[analyticsKey](tenantId, branchIdNum, dateParam, endDate, yearNum, outsourceIdNum);
 			return response.json(result);
-		} catch (error) {
+		} catch (error: any) {
 			return response.status(500).json({
 				error: "Failed to fetch analytics data",
 				details: error.message
 			});
 		}
 	}
-
 	return response.status(404).json({
 		error: "Analytics key not found"
 	});
@@ -238,7 +234,7 @@ export const handleFinancialAnalyticsGetKeys = async function (request: Request,
 			return { key: item, label: TiifuWorkingClass.splitByCapitalLetters(item).join(" ") }
 		});
 		return response.json(functionKeys);
-	} catch (error) {
+	} catch (error: any) {
 		return response.status(500).json({
 			error: "Failed to retrieve function keys",
 			details: error.message
@@ -248,7 +244,7 @@ export const handleFinancialAnalyticsGetKeys = async function (request: Request,
 
 
 
-export const handleSalesSummaryDailyBreakDown = async function (request: Request<{}, {},{}, {
+export const handleSalesSummaryDailyBreakDown = async function (request: Request<{}, {}, {}, {
 	tenantId: number,
 	targetDate: string,
 	fromDate: string,
@@ -259,9 +255,8 @@ export const handleSalesSummaryDailyBreakDown = async function (request: Request
 		const tennatId = parseInt(tenantId.toString());
 		const responseData = await getDailyAnalyticsDashboard(tennatId, targetDate as string, fromDate as string, toDate as string);
 		response.send(responseData);
-		
-	} catch (error:any) {
-		console.log(error)
+
+	} catch (error: any) {
 		response.status(500).json({
 			error: "Failed to retrieve function keys",
 			details: error.message

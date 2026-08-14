@@ -1,7 +1,7 @@
 import { Transform } from "class-transformer";
 import { IsInt, IsOptional, IsString } from "class-validator";
 
-export class EmployeesEmergencyContactDto {
+export class EmployeesEmergencyContactDtoPost {
      @IsOptional()
      @Transform(({ value }) => value === "" || value === undefined ? undefined : Number(value))
      @IsInt()
@@ -27,4 +27,12 @@ export class EmployeesEmergencyContactDto {
      @IsOptional()
      @IsString()
      address?: string | null;
+}
+
+
+
+
+export class EmployeesEmergencyContactDtoGet {
+     @IsInt()
+     emergencyContactId?: number;
 }

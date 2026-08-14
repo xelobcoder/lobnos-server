@@ -32,14 +32,14 @@ class AuthenticationRepository {
     }
     async generateAccessToken(email) {
         const secretKey = process.env.ACCESS_TOKEN_SECRET ? process.env.ACCESS_TOKEN_SECRET : null;
-        if (secretKey)
+        if (!secretKey)
             throw new Error("Environment Key Not Found");
         return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '3h' });
     }
     async generateRefreshToken(email) {
         const secretKey = process.env.REFRESH_TOKEN_SECRET ?
             process.env.REFRESH_TOKEN_SECRET : null;
-        if (secretKey)
+        if (!secretKey)
             throw new Error("Environment Key Not Found");
         return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '7d' });
     }

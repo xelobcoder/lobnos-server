@@ -16,10 +16,10 @@ There are two different layers in the current backend design:
      - `pin`
      - `email`
      - `mobile`
-     - `permissions`
      - `branch`
      - `firstname`, `lastname`, etc.
    - This is the table that identifies the employee as a user in the system.
+   - The `roles` table no longer includes a `permissions` column; permission data should be handled through the employee role-permission APIs instead.
 
 2. Employee detail layer
    - The employee settings tables are secondary records that add profile, employment, and operational metadata.
@@ -57,7 +57,6 @@ CREATE TABLE `roles` (
   `refresh_token` varchar(255) DEFAULT NULL,
   `activation` tinyint(1) NOT NULL DEFAULT '0',
   `email` varchar(200) NOT NULL,
-  `permissions` longtext DEFAULT NULL,
   `updated_on` datetime(6) DEFAULT NULL,
   `emailAuthenticated` varchar(6) NOT NULL DEFAULT 'false',
   `branch` int unsigned DEFAULT NULL,
@@ -118,15 +117,12 @@ When creating a user account, the frontend should submit a payload similar to:
   "lastname": "Doe",
   "branch": 1,
   "designation": 3,
-  "permissions": [
-    "read_patients",
-    "create_results",
-    "approve_tests"
-  ],
   "activation": 1,
   "emailAuthenticated": "true"
 }
 ```
+
+> `permissions` is not stored on the `roles` table anymore. If the UI needs fine-grained permission assignment, it should call the role-permission endpoints instead of sending a `permissions` field in the account payload.
 
 ### Important note
 
@@ -328,7 +324,6 @@ interface EmployeeAccount {
   lastname?: string;
   branch?: number;
   designation?: number;
-  permissions?: string[];
   activation?: number;
 }
 
@@ -365,7 +360,7 @@ This is intentional because the app is tenant-aware and resolves the appropriate
 1. Always create or fetch the employee account first from the `roles`/auth flow.
 2. After the employee exists, create detail records using the employee settings endpoints.
 3. Keep `employeeId` as the parent reference that ties all employee metadata together.
-4. Treat `permissions` as a JSON array or JSON string depending on backend contract, but keep the frontend model normalized and convert before submission.
+5. Do not include a `permissions` field on the `roles` account payload; use the separate role-permission endpoints for permission assignment.
 5. Validate `role` against the enum values listed above.
 6. Always send `tenantId` on tenant-aware requests.
 7. Use the standard success/error response envelope when showing UI feedback.

@@ -1,4 +1,7 @@
 import express from 'express';
+import { validateDtoMiddleware } from '../../../../middleware/validateDto.middleware';
+import { EmployeesDocumentDto, EmployeesEmergencyContactDtoPost } from '../dto';
+import { employeeDocumentUpload } from '../controllers/EmployeesDocumentsController';
 import EmployeesAttendanceController from '../controllers/EmployeesAttendanceController';
 import EmployeesBankAccountsController from '../controllers/EmployeesBankAccountsController';
 import EmployeesCertificationsController from '../controllers/EmployeesCertificationsController';
@@ -68,15 +71,16 @@ router.put('/api/v1/employees/employment-history/:id', EmployeesEmploymentHistor
 router.delete('/api/v1/employees/employment-history/:id', EmployeesEmploymentHistoryController.remove);
 
 router.get('/api/v1/employees/:employeeId/emergency-contacts', EmployeesEmergencyContactsController.listByEmployee);
-router.post('/api/v1/employees/emergency-contacts', EmployeesEmergencyContactsController.create);
+router.post('/api/v1/employees/emergency-contacts', validateDtoMiddleware(EmployeesEmergencyContactDtoPost, 'body'), EmployeesEmergencyContactsController.create);
 router.get('/api/v1/employees/emergency-contacts/:id', EmployeesEmergencyContactsController.getById);
-router.put('/api/v1/employees/emergency-contacts/:id', EmployeesEmergencyContactsController.update);
+router.put('/api/v1/employees/emergency-contacts/:id', validateDtoMiddleware(EmployeesEmergencyContactDtoPost, 'body'), EmployeesEmergencyContactsController.update);
 router.delete('/api/v1/employees/emergency-contacts/:id', EmployeesEmergencyContactsController.remove);
 
 router.get('/api/v1/employees/:employeeId/documents', EmployeesDocumentsController.listByEmployee);
-router.post('/api/v1/employees/documents', EmployeesDocumentsController.create);
+router.post('/api/v1/employees/documents', employeeDocumentUpload.single('file'), validateDtoMiddleware(EmployeesDocumentDto, 'body'), EmployeesDocumentsController.create);
 router.get('/api/v1/employees/documents/:id', EmployeesDocumentsController.getById);
-router.put('/api/v1/employees/documents/:id', EmployeesDocumentsController.update);
+router.get('/api/v1/employees/documents/:id/download', EmployeesDocumentsController.download);
+router.put('/api/v1/employees/documents/:id', employeeDocumentUpload.single('file'), validateDtoMiddleware(EmployeesDocumentDto, 'body'), EmployeesDocumentsController.update);
 router.delete('/api/v1/employees/documents/:id', EmployeesDocumentsController.remove);
 
 router.get('/api/v1/employees/:employeeId/bank-accounts', EmployeesBankAccountsController.listByEmployee);
