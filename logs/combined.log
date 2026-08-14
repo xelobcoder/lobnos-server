@@ -349,3 +349,7 @@
 {"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-14T17:57:28.446Z"}
 {"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":106,"service":"lobnos-server","tenantId":1,"timestamp":"2026-08-14T18:58:31.011Z"}
 {"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-14T18:58:31.014Z"}
+{"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":106,"service":"lobnos-server","tenantId":1,"timestamp":"2026-08-14T19:01:41.898Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-14T19:01:41.901Z"}
+{"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":106,"service":"lobnos-server","tenantId":1,"timestamp":"2026-08-14T19:02:49.478Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-14T19:02:49.481Z"}
