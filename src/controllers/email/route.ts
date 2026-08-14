@@ -61,7 +61,7 @@ router.use((req, _res, next) => {
      next();
 });
 
-router.use('/api/v1/email', emailModuleMiddleware);
+router.use('/api/v1/email', handleOverLoad(emailModuleMiddleware));
 
 router.post('/api/v1/email/templates', withEmailControllers((req, res) => req.emailControllers.templates.create(req, res)));
 router.get('/api/v1/email/templates', withEmailControllers((req, res) => req.emailControllers.templates.getAll(req, res)));

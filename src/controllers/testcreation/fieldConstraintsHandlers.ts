@@ -97,10 +97,7 @@ export const deleteFieldConstraintsByFieldIdHandler = async (req: IRequest, res:
 		const { fieldId } = req.params;
 		const tenantId = req.tenantId;
 
-		if (!tenantId || !fieldId) {
-			return customError('Missing required parameters', 400, res);
-		}
-
+		if (!tenantId || !fieldId) return customError('Missing required parameters', 400, res);
 		const repository = new FieldConstraintsRepository(tenantId);
 		const success = await repository.deleteByFieldId(Number(fieldId));
 

@@ -86,10 +86,10 @@ router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultD
 
 
 // criticalcallout 
-router.get("/api/v1/result/criticalvalues/logging/paginated", getPaginatedLoggingCriticalValueAlerts)
+router.get("/api/v1/result/criticalvalues/logging/paginated", handleOverLoad(getPaginatedLoggingCriticalValueAlerts))
 // mark critical value alert as seen
-router.put("/api/v1/result/criticalvalues/logging/:id/markasseen", markLoggingCriticalValueAlertAsSeen)
-router.get("/api/v1/result/criticalvalues/logging/:crKeyId", getCriticalDetails)
+router.put("/api/v1/result/criticalvalues/logging/:id/markasseen", handleOverLoad(markLoggingCriticalValueAlertAsSeen))
+router.get("/api/v1/result/criticalvalues/logging/:crKeyId", handleOverLoad(getCriticalDetails))
 
 export default router;
 
