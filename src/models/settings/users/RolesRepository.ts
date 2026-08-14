@@ -10,7 +10,6 @@ export interface IEmployee {
 	refresh_token?: string | null;
 	activation: number;
 	email: string;
-	permissions?: string,
 	updated_on?: string | Date,
 	emailAuthenticated: string;
 	branch?: number | null;
@@ -23,7 +22,6 @@ import logger from "../../../hooks/logger";
 
 
 export default class RolesRepository {
-
 	private connection;
 	private tablename: string = 'roles';
 

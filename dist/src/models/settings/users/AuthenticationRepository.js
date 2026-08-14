@@ -31,11 +31,16 @@ class AuthenticationRepository {
         return await bcrypt_1.default.compare(password, user.password);
     }
     async generateAccessToken(email) {
-        const secretKey = process.env.ACCESS_TOKEN_SECRET.toString();
+        const secretKey = process.env.ACCESS_TOKEN_SECRET ? process.env.ACCESS_TOKEN_SECRET : null;
+        if (secretKey)
+            throw new Error("Environment Key Not Found");
         return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '3h' });
     }
     async generateRefreshToken(email) {
-        const secretKey = process.env.REFRESH_TOKEN_SECRET;
+        const secretKey = process.env.REFRESH_TOKEN_SECRET ?
+            process.env.REFRESH_TOKEN_SECRET : null;
+        if (secretKey)
+            throw new Error("Environment Key Not Found");
         return jsonwebtoken_1.default.sign({ email }, secretKey, { expiresIn: '7d' });
     }
     async login(email, password) {

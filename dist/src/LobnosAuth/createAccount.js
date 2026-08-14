@@ -66,7 +66,6 @@ const createNewAccount = async (req) => {
             "time",
             "activation",
             "email",
-            "permissions",
             "updated_on",
             "emailAuthenticated",
             "branch",
@@ -102,7 +101,7 @@ const userLogin = async (req, res) => {
     try {
         const { name, password, email, browserInformation } = req.body;
         const user = new user_1.default(name, password, null, null, null);
-        const tenantId = parseInt(req.query.tenantId);
+        const tenantId = Number(req.query.tenantId);
         const userExist = await user.checkLogins(email, password, tenantId);
         if (!userExist)
             return (0, helper_1.customError)("Invalid Login credentials", 400, res);
@@ -206,7 +205,6 @@ const deleteAccount = async (req, res) => {
         "time",
         "activation",
         "email",
-        "permissions",
         "updated_on",
         "emailAuthenticated",
         "branch",
@@ -262,10 +260,11 @@ exports.getAUser = getAUser;
 const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
     const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile } = body;
     const roleRepo = new RolesRepository_1.default(tenantId);
+    const employeeId = Number(employeeid);
     if (isUser && !cpassword)
         throw new Error("current password is required");
     if (isUser && password) {
-        const currentEmployee = await roleRepo.getRoleById(parseInt(employeeid));
+        const currentEmployee = await roleRepo.getRoleById(employeeId);
         const currentPaswordHash = currentEmployee === null || currentEmployee === void 0 ? void 0 : currentEmployee.password;
         if (!currentPaswordHash)
             throw new Error("current password not found");
@@ -294,7 +293,6 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
             "time",
             "activation",
             "email",
-            "permissions",
             "updated_on",
             "emailAuthenticated",
             "branch",
@@ -328,7 +326,6 @@ const updateUserBasicInfo = async (body, tenantId, isUser = false) => {
                 "time",
                 "activation",
                 "email",
-                "permissions",
                 "updated_on",
                 "emailAuthenticated",
                 "branch",
@@ -376,7 +373,6 @@ const activateAUser = async (req, res) => {
             "time",
             "activation",
             "email",
-            "permissions",
             "updated_on",
             "emailAuthenticated",
             "branch",
@@ -400,7 +396,6 @@ const activateAUser = async (req, res) => {
                 "time",
                 "activation",
                 "email",
-                "permissions",
                 "updated_on",
                 "emailAuthenticated",
                 "branch",
@@ -470,7 +465,6 @@ const updateUserPermission = async (req, res) => {
             "time",
             "activation",
             "email",
-            "permissions",
             "updated_on",
             "emailAuthenticated",
             "branch",
@@ -494,7 +488,6 @@ const updateUserPermission = async (req, res) => {
                 "time",
                 "activation",
                 "email",
-                "permissions",
                 "updated_on",
                 "emailAuthenticated",
                 "branch",

@@ -57,6 +57,7 @@ import notificationsRouter from './controllers/notifications/route';
 import { bootstrapNotificationDefinitions } from './models/application/notifications/services/NotificationBootstrapService';
 import DeviceModelsVersionProcessing from "./controllers/settings/devices/DeviceDataProcessing";
 import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
+import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
 
 
 
@@ -128,6 +129,7 @@ app.use('/api/v1/billing/free-services', freeServicesRouter);
 app.use('/api/v1/commission', commissionConfigRouter);
 app.use(emailRouter);
 app.use(notificationsRouter);
+app.use(employeeSettingsRouter);
 app.use(InterfacingDevicesRouterT);
 
 

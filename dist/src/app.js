@@ -60,6 +60,7 @@ const route_21 = __importDefault(require("./controllers/email/route"));
 const route_22 = __importDefault(require("./controllers/notifications/route"));
 const NotificationBootstrapService_1 = require("./models/application/notifications/services/NotificationBootstrapService");
 const medicalInterfacingDevicesRoute_1 = __importDefault(require("./routes/settings/devices/medicalInterfacingDevicesRoute"));
+const employeeSettingsRoutes_1 = __importDefault(require("./models/settings/users/routes/employeeSettingsRoutes"));
 const app = (0, express_1.default)();
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 app.use((0, cors_1.default)({
@@ -125,6 +126,7 @@ app.use('/api/v1/billing/free-services', routes_9.default);
 app.use('/api/v1/commission', routes_10.default);
 app.use(route_21.default);
 app.use(route_22.default);
+app.use(employeeSettingsRoutes_1.default);
 app.use(medicalInterfacingDevicesRoute_1.default);
 app.get("/", (req, res) => {
     res.status(200)
