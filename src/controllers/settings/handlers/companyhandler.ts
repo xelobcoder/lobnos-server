@@ -21,7 +21,7 @@ export const AddCompanyInfoHandler = async (request: Request<{},{},{name:string,
 	}
 };
 
-export const getCompanyInfoHandler = async (request: Request, response: Response): Promise<void> => {
+export const getCompanyInfoHandler = async (request: Request<{}, {}, {}, {tenantId:string|number}>, response: Response): Promise<void> => {
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString());
 		let result = await getAllCompanyProfiles(tenantId);
@@ -64,7 +64,6 @@ export const handleUploadCompanyImage = async (request: Request, response: Respo
 	}
 	const field = "file";
 	try {
-		// Remove existing images before uploading new one
 		const files = fs.readdirSync(destinationDir);
 		files.forEach(file => {
 			if ([".jpg", ".jpeg", ".png", ".gif"].includes(path.extname(file).toLowerCase())) {
@@ -86,7 +85,6 @@ export const handleUploadCompanyImage = async (request: Request, response: Respo
 			});
 		}
 	} catch (error) {
-		console.log(error);
 		response.status(500).json({
 			status: "error",
 			message: "Failed to upload image",

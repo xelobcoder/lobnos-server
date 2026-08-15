@@ -85,9 +85,8 @@ router.get('/api/v1/result/delivery/record/result/undelivered', handleOverLoad(g
 router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultDeliveryChain));
 
 
-// criticalcallout 
+
 router.get("/api/v1/result/criticalvalues/logging/paginated", handleOverLoad(getPaginatedLoggingCriticalValueAlerts))
-// mark critical value alert as seen
 router.put("/api/v1/result/criticalvalues/logging/:id/markasseen", handleOverLoad(markLoggingCriticalValueAlertAsSeen))
 router.get("/api/v1/result/criticalvalues/logging/:crKeyId", handleOverLoad(getCriticalDetails))
 
@@ -105,13 +104,13 @@ router.get('/api/v1/result/auditlogs/:id', handleOverLoad(TestResultsAuditLogsCo
 router.get('/api/v1/result/auditlogs', TestResultsAuditLogsController.listAll);
 router.delete('/api/v1/result/auditlogs/:id', TestResultsAuditLogsController.delete);
 
-// result printing or viewing tracking
+
 router.post('/api/v1/result/printingtracking', ResultPrintingTrackingController.create);
 router.get('/api/v1/result/printingtracking/ascension/:ascensionid', ResultPrintingTrackingController.getByAscensionId);
 router.get('/api/v1/result/printingtracking', ResultPrintingTrackingController.listAll);
 router.delete('/api/v1/result/printingtracking/:id', ResultPrintingTrackingController.delete);
 
-// result trends
+
 router.get("/api/v1/result/trends", handleOverLoad(getTestTrendsHandler));
 
 

@@ -526,9 +526,12 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 				const hostname = process.env.NODE_ENV === 'development'
 					? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
-					: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+					: process.env.APPHOST_PRODUCTION
+				
+				
+				const httpProtocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
 
-				finalResult.logourl = `http://${hostname}/api/v1/settings/companyprofile/images` as any;
+				finalResult.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images` as any;
 
 				if (employeeid) {
 					const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);
