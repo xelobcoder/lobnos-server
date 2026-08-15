@@ -514,3 +514,5 @@
 {"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-15T06:51:48.071Z"}
 {"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":106,"service":"lobnos-server","tenantId":1,"timestamp":"2026-08-15T06:51:55.282Z"}
 {"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-15T06:51:55.285Z"}
+{"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":106,"service":"lobnos-server","tenantId":1,"timestamp":"2026-08-15T06:52:06.890Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Notification events/templates bootstrap finished","platform":"win32","service":"lobnos-server","timestamp":"2026-08-15T06:52:06.892Z"}

@@ -11,5 +11,5 @@ InterfacingDevicesRouterT.get("/api/v1/interfacing/devices/:id", handleOverLoad(
 InterfacingDevicesRouterT.post("/api/v1/interfacing/devices", createDeviceHandler);
 InterfacingDevicesRouterT.put("/api/v1/interfacing/devices/:id", updateDeviceHandler);
 InterfacingDevicesRouterT.delete("/api/v1/interfacing/devices/:id", deleteDeviceHandler);
-InterfacingDevicesRouterT.post('/api/v1/interfacing/devices/receiving/data', handleOverLoad(handleReceivedIntefacingData));
+InterfacingDevicesRouterT.post('/api/v1/interfacing/devices/receiving/data', handleOverLoad(handleReceivedIntefacingDataProcessor));
 export default InterfacingDevicesRouterT;
