@@ -180,6 +180,7 @@ export default class ApplicationSettings {
 			isCommissionEarnedOnNHISBilling,
 			isCommissionEarnedOnPHISBilling,
 			makepdfprintingcompulsory,
+			allowCrmToPrintResult,
 			ageVariationLimits
 		} = data;
 
@@ -195,6 +196,7 @@ export default class ApplicationSettings {
 					DeactivateBilling24hrs,
 					PaidBillsBeforeTransaction,
 					completeFlow,
+					allowCrmToPrintResult: allowCrmToPrintResult ?? existing?.allowCrmToPrintResult ?? 0,
 					approvalbeforeprinting,
 					emailNotification,
 					emailModuleActivated: emailModuleActivated ?? existing?.emailModuleActivated ?? 0,

@@ -38,6 +38,7 @@ export type ApplicationSettingsData = {
      DeactivateBilling24hrs: number;
      allowManagerToRefund: numberBoolean;
      makepdfprintingcompulsory: numberBoolean;
+     allowCrmToPrintResult: numberBoolean;
      PaidBillsBeforeTransaction: number;
      completeFlow: number;
      approvalbeforeprinting: number;

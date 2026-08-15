@@ -4,6 +4,7 @@ import Operations from "../../models/operations/operations";
 import { TestApprovalClass } from "../../models/operations/testApprovalClass";
 import User from "../../LobnosAuth/user";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
+import ApplicationSettings from "../../models/application/appsettings/appset";
 
 
 export async function ascensionStagingHandler(request: Request, response: Response) {
@@ -17,7 +18,8 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		const parsedEmployeeId = parseInt(employeeid.toString());
 		const tenantIdP = parseInt(tenantId ? tenantId.toString() : '0');
 
-		if (!(await isScientistOrAdminOrManager(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes(operationsStaging?.toString() || '')) {
+
+		if (!(await canViewResultData(parsedEmployeeId, tenantIdP)) && !['ULTRASOUND_COMPLETED', 'ULTRASOUND_UNCOMPLETED'].includes(operationsStaging?.toString() || '')) {
 			return response.send({ status: false, message: OperationsFailures.dontHaveAccessPermission });
 		}
 
@@ -41,7 +43,7 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 
 
 		if (operationsStaging === "VALIDATED" && Array.isArray(list)) {
-			list = await Promise.all(list.map(async (item, index) => {
+			list = await Promise.all(list.map(async (item) => {
 				return await validatedResultEmployeeGetter(item, tenantIdP);
 			}))
 		}
@@ -61,12 +63,20 @@ async function validatedResultEmployeeGetter(item: any, tenantId: number) {
 	};
 }
 
-async function isScientistOrAdmin(employeeId: number, tenantId: number): Promise<boolean | null> {
-	return await new User().getExpectedRole(employeeId, ['scientist', 'admin'], tenantId);
-}
 
-async function isScientistOrAdminOrManager(employeeId: number, tenantId: number): Promise<boolean | null> {
-	return await new User().getExpectedRole(employeeId, ['scientist', 'admin', 'manager'], tenantId);
+
+
+async function canViewResultData(employeeId: number, tenantId: number): Promise<boolean> {
+	const userRole = await new User().getUserRole(employeeId, tenantId);
+	const isAdminOrManager = ['admin', 'manager', 'scientist'].includes(userRole?.toLowerCase() || '');
+	if (isAdminOrManager) return true;
+	if (userRole == "customer service representative") {
+		const appsettings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (appsettings && Number(appsettings.allowCrmToPrintResult) === 1) {
+			return true;
+		}
+	}
+	return false;
 }
 
 async function canValidateResults(employeeId: number, tenantId: number): Promise<boolean> {

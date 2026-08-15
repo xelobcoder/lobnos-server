@@ -229,7 +229,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		const numAscensionId = parseInt(ascensionId.toString());
 		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
-		if (userRole && ['admin', 'manager', 'super-admin'].includes(userRole.role.toLowerCase()) == false) {
+		if (userRole && ['admin', 'manager', 'super-admin','crm'].includes(userRole.role.toLowerCase()) == false) {
 			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
 		} else {
 			isWithinWindow = true
@@ -361,6 +361,7 @@ export const getResultPrintoutHandler = async (request: Request<
 
 		response.send(dataset)
 	} catch (err) {
+		console.log(err)
 		responseError(response);
 	}
 }
