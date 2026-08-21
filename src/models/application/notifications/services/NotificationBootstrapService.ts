@@ -139,6 +139,7 @@ async function ensureCoreTables(tenantId: number) {
                table.foreign('template_id').references('id').inTable('notification_templates').onDelete('CASCADE');
           });
      }
+     
 }
 
 async function seedEvents(tenantId: number) {

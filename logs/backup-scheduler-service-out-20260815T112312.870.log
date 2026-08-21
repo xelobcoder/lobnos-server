@@ -1,0 +1,9 @@
+PrimeLab backup scheduler (schedule-only)
+[BackupScheduler] starting (tenantId=1, poll=every minute, schedule-driven)
+[33mAcquire connection error: Error: connect ECONNREFUSED 127.0.0.1:2309
+    at TCPConnectWrap.afterConnect [as oncomplete] (node:net:1706:16)[39m
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+
+SIGINT received, stopping...
+[BackupScheduler] stopped

@@ -1,7 +1,8 @@
 import { Knex } from 'knex';
 import KnexConnection from '../../../../database/KnexConnections';
 import { ICommissionConfig, CommissionConfig, DatabaseError, ConfigNotFoundError } from '../commissionConfigutationRepo';
-import { ICommissionConfigRepository } from './ICommissionConfigRepository';
+import { ICommissionConfigRepository } from '../interfaces/ICommissionConfigRepository';
+
 
 
 export class CommissionConfigRepository implements ICommissionConfigRepository {

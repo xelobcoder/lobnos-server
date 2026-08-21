@@ -54,8 +54,6 @@ export class TransactionManagementService {
                 employeeid: updates.employeeid
             }, trx);
 
-            // Log the change if needed (could add to a specific payment audit table if one exists)
-
             await trx.commit();
             return true;
         } catch (error) {

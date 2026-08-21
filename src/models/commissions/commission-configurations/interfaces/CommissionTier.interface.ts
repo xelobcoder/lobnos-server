@@ -4,7 +4,7 @@ export interface ICommissionTier {
      id: number;
      commission_config_id: number;
      min_amount_inclusive: number;
-     max_amount_exclusive?: number;
+     max_amount_exclusive?: number | null;
      tier_type: TierType;
      tier_value: number;
      sort_order: number;
@@ -12,14 +12,14 @@ export interface ICommissionTier {
 }
 
 export class CommissionTier implements ICommissionTier {
-     id: number;
-     commission_config_id: number;
-     min_amount_inclusive: number;
-     max_amount_exclusive?: number;
-     tier_type: TierType;
-     tier_value: number;
-     sort_order: number;
-     created_at: Date;
+     id!: number;
+     commission_config_id!: number;
+     min_amount_inclusive!: number;
+     max_amount_exclusive?: number | null;
+     tier_type!: TierType;
+     tier_value!: number;
+     sort_order!: number;
+     created_at!: Date;
 
      constructor(data: ICommissionTier) {
           Object.assign(this, data);

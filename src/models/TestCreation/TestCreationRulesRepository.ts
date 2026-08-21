@@ -86,7 +86,6 @@ class TestCreationRulesRepository {
                          .delete();
                }
 
-
                const insertedIds: number[] = [];
 
                for (const ruleData of rulesData) {
@@ -141,7 +140,6 @@ class TestCreationRulesRepository {
 
                return insertedIds;
           } catch (error) {
-               console.error('Test creation rules bulk creation error:', error);
                throw error;
           }
      }
@@ -154,7 +152,6 @@ class TestCreationRulesRepository {
                     .orderBy('ordering', 'asc');
                return result;
           } catch (error) {
-               console.error('Test creation rule find by test error:', error);
                throw error;
           }
      }
@@ -167,7 +164,6 @@ class TestCreationRulesRepository {
                     .first();
                return result;
           } catch (error) {
-               console.error('Test creation rule find by test and id error:', error);
                throw error;
           }
      }
@@ -180,7 +176,6 @@ class TestCreationRulesRepository {
                     .update(updates);
                return result > 0;
           } catch (error) {
-               console.error('Test creation rule update error:', error);
                throw error;
           }
      }
@@ -193,7 +188,6 @@ class TestCreationRulesRepository {
                     .delete();
                return result > 0;
           } catch (error) {
-               console.error('Test creation rule delete error:', error);
                throw error;
           }
      }
@@ -206,7 +200,6 @@ class TestCreationRulesRepository {
                     .delete();
                return result > 0;
           } catch (error) {
-               console.error('Test creation rule delete by test error:', error);
                throw error;
           }
      }

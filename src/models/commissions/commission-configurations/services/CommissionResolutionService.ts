@@ -1,8 +1,8 @@
-import { ICommissionAssignment } from '../interfaces/CommissionAssignment.interface';
-import { CommissionInput } from '../interfaces/index';
-import { ICommissionConfigRepository } from '../repositories/ICommissionConfigRepository';
-import { ICommissionAssignmentRepository } from '../repositories/ICommissionAssignmentRepository';
 
+import { ICommissionAssignment } from '../interfaces/CommissionAssignment.interface';
+import { ICommissionAssignmentRepository } from '../interfaces/ICommissionAssignmentRepository';
+import { ICommissionConfigRepository } from '../interfaces/ICommissionConfigRepository';
+import { CommissionInput } from '../interfaces/index';
 export class CommissionResolutionService {
      constructor(
           private configRepo: ICommissionConfigRepository,

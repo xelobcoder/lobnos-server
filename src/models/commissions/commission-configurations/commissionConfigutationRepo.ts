@@ -6,7 +6,5 @@
 export {
      CommissionConfigRepository,
 } from './repositories/CommissionConfigRepository';
-export {
-     ICommissionConfigRepository,
-} from './repositories/ICommissionConfigRepository';
+
 export * from './index';

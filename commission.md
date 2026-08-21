@@ -19,6 +19,7 @@ The Commission Payments API provides comprehensive management for commission tra
 
 ## Base URL
 ```
+
 /api/v1/commission-payments
 ```
 
@@ -613,3 +614,197 @@ interface CommissionPaymentSummary {
 4. **Automatic Status Updates**: Status is automatically updated to `"paid"` when `amount_paid >= commission_due`, otherwise remains `"pending"`
 5. **Immutable Fields**: `id`, `serviceid`, `type`, and `created_at` cannot be modified
 6. **Cascade Delete**: Deleting a service from `dboservices` will cascade delete related commission payments
+
+---
+
+# Configurable Commission Engine
+
+The legacy installment API documented above uses `/api/v1/commission-payments`. The configurable commission engine uses `/api/v1/commission` and is the API to use for commission rules, assignments, tracking, analytics, refunds, and clawbacks.
+
+All configurable-engine requests require `tenantId` as a query parameter:
+
+```text
+/api/v1/commission/{resource}?tenantId=1
+```
+
+## Commission Rule Types
+
+The frontend may create these `commission_type` values:
+
+| Type | Purpose | Required configuration |
+| --- | --- | --- |
+| `percentage` | Percentage of the commissionable service amount | `percentage_rate` |
+| `fixed` | Fixed amount per service | `fixed_component` |
+| `hybrid` | Percentage plus fixed amount | `percentage_rate`, `fixed_component` |
+| `tiered` | Select one tier based on service amount | `tiers` |
+| `sliding_scale` | Select a rate based on current versus previous period performance | `percentage_rate`, `sliding_max_percentage`, `period_cap_reset` |
+| `volume` | Select a rate based on eligible service count in a period | `tiers`, `volume_period` |
+| `quota` | Select a rate based on target achievement | `quota_target`, `tiers` |
+| `accelerating` | Apply progressive percentage rates to performance bands | percentage `tiers` |
+
+## Create Commission Configuration
+
+**POST** `/api/v1/commission/configs?tenantId=1`
+
+### Common request fields
+
+```json
+{
+  "name": "Laboratory Staff Monthly Commission",
+  "description": "Commission for eligible laboratory services",
+  "commission_type": "percentage",
+  "percentage_rate": 8,
+  "fixed_component": null,
+  "min_commission": 0,
+  "max_commission": 500,
+  "period_cap": 5000,
+  "period_cap_reset": "monthly",
+  "effective_from": "2026-08-20",
+  "effective_to": null,
+  "is_active": true
+}
+```
+
+The commission engine no longer relies on a `commission_base` switch. The rule is: use the paid amount for normal services; only when a valid outsourced case has a real outsource amount available do we reduce the base by the outsourced lab cost. Supported `period_cap_reset` and `volume_period` values are `daily`, `weekly`, `monthly`, `quarterly`, and `yearly`.
+
+## Volume Commission
+
+Volume tiers use the tier boundaries as service counts, not currency amounts.
+
+```json
+{
+  "name": "Monthly Service Volume Commission",
+  "commission_type": "volume",
+  "volume_period": "monthly",
+  "effective_from": "2026-08-20",
+  "tiers": [
+    { "min_amount_inclusive": 0, "max_amount_exclusive": 51, "tier_type": "percentage", "tier_value": 3, "sort_order": 1 },
+    { "min_amount_inclusive": 51, "max_amount_exclusive": 101, "tier_type": "percentage", "tier_value": 5, "sort_order": 2 },
+    { "min_amount_inclusive": 101, "max_amount_exclusive": null, "tier_type": "percentage", "tier_value": 8, "sort_order": 3 }
+  ]
+}
+```
+
+The engine counts distinct tracked services for the recipient and volume period, then includes the current service. A service should not be submitted repeatedly to create additional volume.
+
+## Quota or Target Commission
+
+Quota tiers use achievement percentage as their tier boundary. The quota metric is supplied by the caller that executes the calculation, such as paid revenue, service count, profit, or completed tests.
+
+```json
+{
+  "name": "Monthly Revenue Target Commission",
+  "commission_type": "quota",
+  "quota_target": 100000,
+  "effective_from": "2026-08-20",
+  "tiers": [
+    { "min_amount_inclusive": 0, "max_amount_exclusive": 80, "tier_type": "percentage", "tier_value": 0, "sort_order": 1 },
+    { "min_amount_inclusive": 80, "max_amount_exclusive": 100, "tier_type": "percentage", "tier_value": 3, "sort_order": 2 },
+    { "min_amount_inclusive": 100, "max_amount_exclusive": 120, "tier_type": "percentage", "tier_value": 5, "sort_order": 3 },
+    { "min_amount_inclusive": 120, "max_amount_exclusive": null, "tier_type": "percentage", "tier_value": 8, "sort_order": 4 }
+  ]
+}
+```
+
+Achievement is calculated as `quota_value / quota_target * 100`.
+
+## Accelerating Commission
+
+Accelerating tiers must use percentage values. Unlike ordinary tiered commission, every matching performance segment is calculated.
+
+```json
+{
+  "name": "Progressive Monthly Commission",
+  "commission_type": "accelerating",
+  "effective_from": "2026-08-20",
+  "tiers": [
+    { "min_amount_inclusive": 0, "max_amount_exclusive": 10000, "tier_type": "percentage", "tier_value": 3, "sort_order": 1 },
+    { "min_amount_inclusive": 10000, "max_amount_exclusive": 20000, "tier_type": "percentage", "tier_value": 5, "sort_order": 2 },
+    { "min_amount_inclusive": 20000, "max_amount_exclusive": null, "tier_type": "percentage", "tier_value": 8, "sort_order": 3 }
+  ]
+}
+```
+
+For a 25,000 performance amount: `10,000 * 3% + 10,000 * 5% + 5,000 * 8% = 1,200`.
+
+## Outsourced-Test Commission
+
+For an outsourced service, billing already stores `outsourceprice`. The backend passes that value into the commission engine when the service has `isoutsourced = 1`.
+
+```json
+{
+  "name": "Outsourced Test Commission",
+  "commission_type": "percentage",
+  "percentage_rate": 10,
+  "effective_from": "2026-08-20"
+}
+```
+
+The calculation is `commissionable_amount = max(0, paid_amount - outsourced_lab_cost)` for a valid outsourced case; otherwise the system keeps using the paid amount. The commissionable amount cannot be negative. Tracking notes include the outsourced cost and calculated base when an outsource amount exists.
+
+## Assign a Rule
+
+**POST** `/api/v1/commission/assignments?tenantId=1`
+
+```json
+{
+  "commission_config_id": 12,
+  "scope_type": "clinician",
+  "scope_id": 42,
+  "service_id": null,
+  "service_category": "Hematology",
+  "priority": 100,
+  "assigned_from": "2026-08-20",
+  "assigned_to": null,
+  "is_active": true
+}
+```
+
+Use `scope_type` values `system`, `organization`, or `clinician`. A service-specific assignment can provide `service_id`; a category assignment can provide `service_category`.
+
+## Read Tracking and Analytics
+
+```text
+GET /api/v1/commission/tracking/:id?tenantId=1
+GET /api/v1/commission/tracking/service/:serviceId?tenantId=1
+GET /api/v1/commission/tracking/summary?tenantId=1&recipientType=clinician&recipientId=42
+GET /api/v1/commission/tracking/recipient?tenantId=1&recipientType=clinician&recipientId=42
+GET /api/v1/commission/tracking/status/pending?tenantId=1
+GET /api/v1/commission/tracking/period-total?tenantId=1&recipientType=clinician&recipientId=42&periodRef=2026-08-01
+```
+
+Analytics endpoints are available under `/api/v1/commission/analytics`: `/dashboard`, `/by-period`, `/by-recipient`, `/by-status`, `/efficiency`, `/summary`, and `/recipient/:recipientId`. Analytics requests require `tenantId`, `startDate`, and `endDate`; recipient-specific reports also require `recipientType`.
+
+## Refunds, Cancellations, Reversals, and Clawbacks
+
+**POST** `/api/v1/commission/tracking/:trackingId/adjustments?tenantId=1`
+
+```json
+{
+  "kind": "refund",
+  "amount": 75,
+  "reason": "Patient refund completed"
+}
+```
+
+Supported `kind` values are `refund`, `cancellation`, `rejection`, `credit`, `reversal`, and `clawback`.
+
+`amount` is optional. When omitted, the full remaining commission is adjusted. The backend creates an immutable negative tracking entry and leaves the original record unchanged. Repeating the same adjustment for the same tracking record and kind returns the existing adjustment instead of creating a duplicate.
+
+The completed service-refund workflow automatically creates a `refund` adjustment. Frontend workflows for cancellations, rejected results, patient credits, chargebacks, and clawbacks should call this endpoint after the source event is confirmed.
+
+## Tracking Statuses
+
+The configurable engine uses `pending`, `approved`, `paid`, `voided`, and `adjusted`. Do not treat an `adjusted` record as payable; display it together with the original record in commission history.
+
+## Frontend Implementation Notes
+
+1. Use `/api/v1/commission` for new rule configuration and tracking features. Use `/api/v1/commission-payments` only for the legacy installment API.
+2. Send `tenantId` on every request.
+3. Store monetary values as decimal numbers and display the configured currency, currently `GHS` by default.
+4. Do not edit historical tracking records to correct a commission. Create an adjustment or clawback.
+5. Keep tier ranges half-open: `[min_amount_inclusive, max_amount_exclusive)`; use `null` for the final unbounded tier.
+6. For quota rules, show the metric, target, actual value, achievement percentage, and selected tier in the UI.
+7. For accelerating rules, show the calculation breakdown by segment rather than only one selected rate.
+8. For outsourced tests, display patient charge, outsourced laboratory cost, commissionable amount, and final commission separately.
+9. Refresh tracking and summary data after creating a payment, adjustment, refund, or clawback.

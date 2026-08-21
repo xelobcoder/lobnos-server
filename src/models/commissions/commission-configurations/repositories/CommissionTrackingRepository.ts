@@ -10,7 +10,7 @@ import KnexConnection from '../../../../database/KnexConnections';
 
 export class CommissionTrackingRepository implements ICommissionTrackingRepository {
      connection: Promise<Knex>;
-     constructor(private tenantId: number, trx?: any) { 
+     constructor(private tenantId: number, trx?: any) {
           this.connection = trx ? trx : KnexConnection(this.tenantId);
      }
 
@@ -87,6 +87,7 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                let query = connection('commission_tracking')
                     .where('status', '!=', 'paid')
                     .where('status', '!=', 'voided')
+                    .where('status', '!=', 'adjusted')
                     .orderBy('calculated_at', 'desc');
 
                if (recipientType) {
@@ -153,6 +154,31 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
           }
      }
 
+     async countPeriod(
+          recipientType: string,
+          recipientId: number,
+          periodRef: Date,
+          statuses: string[]
+     ): Promise<number> {
+          try {
+               const connection = await this.connection;
+               const result = await connection('commission_tracking')
+                    .where('recipient_type', recipientType)
+                    .where('recipient_id', recipientId)
+                    .where('cap_period_reference', periodRef)
+                    .whereIn('status', statuses)
+                    .countDistinct({ total: 'service_id' })
+                    .first();
+
+               return Number(result?.total || 0);
+          } catch (error) {
+               throw new DatabaseError(
+                    `Failed to count period commissions for ${recipientType} ${recipientId}`,
+                    error
+               );
+          }
+     }
+
      async create(
           tracking: Omit<ICommissionTracking, 'id' | 'created_at' | 'updated_at'>
      ): Promise<ICommissionTracking> {
@@ -185,6 +211,54 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                });
           } catch (error) {
                throw new DatabaseError(`Failed to update commission tracking status ${id}`, error);
+          }
+     }
+
+     async createAdjustment(
+          originalId: number,
+          amount: number,
+          reason: string,
+          kind: 'refund' | 'cancellation' | 'rejection' | 'credit' | 'reversal' | 'clawback'
+     ): Promise<ICommissionTracking> {
+          try {
+               const connection = await this.connection;
+               const original = await connection('commission_tracking').where('id', originalId).first();
+               if (!original) {
+                    throw new DatabaseError(`Original commission tracking record ${originalId} was not found`);
+               }
+
+               const adjustmentKey = `COMMISSION_ADJUSTMENT:${kind}:${originalId}`;
+               const existing = await connection('commission_tracking')
+                    .where('notes', 'like', `${adjustmentKey}%`)
+                    .first();
+               if (existing) return new CommissionTracking(existing);
+
+               const adjustmentAmount = Math.min(Math.abs(amount), Math.abs(Number(original.final_commission || 0)));
+               return await this.create({
+                    service_id: original.service_id,
+                    service_amount: original.service_amount,
+                    commission_type: original.commission_type,
+                    percentage_rate_applied: original.percentage_rate_applied,
+                    fixed_amount_applied: original.fixed_amount_applied,
+                    tier_id: original.tier_id,
+                    commission_due: -adjustmentAmount,
+                    min_cap_adjustment: 0,
+                    max_cap_adjustment: 0,
+                    period_cap_adjustment: 0,
+                    final_commission: -adjustmentAmount,
+                    config_id: original.config_id,
+                    assignment_id: original.assignment_id,
+                    recipient_type: original.recipient_type,
+                    recipient_id: original.recipient_id,
+                    cap_period_reference: original.cap_period_reference,
+                    calculated_at: new Date(),
+                    currency: original.currency,
+                    status: 'adjusted',
+                    notes: `${adjustmentKey}; amount=${adjustmentAmount}; reason=${reason}`,
+               });
+          } catch (error) {
+               if (error instanceof DatabaseError) throw error;
+               throw new DatabaseError(`Failed to create commission ${kind} adjustment`, error);
           }
      }
 

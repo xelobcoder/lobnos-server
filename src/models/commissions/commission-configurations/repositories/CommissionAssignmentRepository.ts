@@ -5,7 +5,7 @@ import {
 } from '../interfaces/CommissionAssignment.interface';
 import KnexConnection from '../../../../database/KnexConnections';
 import { DatabaseError, AssignmentNotFoundError } from '../commissionConfigutationRepo';
-import { ICommissionAssignmentRepository } from './ICommissionAssignmentRepository';
+import { ICommissionAssignmentRepository } from '../interfaces/ICommissionAssignmentRepository';
 
 export class CommissionAssignmentRepository implements ICommissionAssignmentRepository {
      private connection: Promise<Knex> | Knex;

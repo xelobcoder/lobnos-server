@@ -112,11 +112,41 @@ export class CommissionValidator {
                               code: 'REQUIRED',
                          });
                     }
-                    if (!config.period_cap_reset) {
+                    if (!config.volume_period && !config.period_cap_reset) {
                          errors.push({
                               field: 'period_cap_reset',
                               message: 'Comparison period (period_cap_reset) is required for sliding scale',
                               code: 'REQUIRED',
+                         });
+                    }
+                    break;
+
+               case 'volume':
+                    if (!config.period_cap_reset) {
+                         errors.push({
+                              field: 'period_cap_reset',
+                              message: 'Volume commission requires a volume period',
+                              code: 'REQUIRED',
+                         });
+                    }
+                    break;
+
+               case 'quota':
+                    if (!config.quota_target || config.quota_target <= 0) {
+                         errors.push({
+                              field: 'quota_target',
+                              message: 'Quota target must be greater than zero',
+                              code: 'INVALID_VALUE',
+                         });
+                    }
+                    break;
+
+               case 'accelerating':
+                    if (config.percentage_rate || config.fixed_component) {
+                         errors.push({
+                              field: 'commission_type',
+                              message: 'Accelerating commission uses percentage tiers only',
+                              code: 'TYPE_MISMATCH',
                          });
                     }
                     break;
@@ -168,11 +198,15 @@ export class CommissionValidator {
       * Validate commission tiers for a tiered config
       */
      static validateTiers(configType: CommissionType, tiers: Omit<ICommissionTier, 'id' | 'created_at'>[]): void {
-          if (configType !== 'tiered') {
+          if (!['tiered', 'volume', 'quota', 'accelerating'].includes(configType)) {
                if (tiers && tiers.length > 0) {
                     throw new InvalidTierConfigError('Tiers can only be defined for tiered commission type');
                }
                return;
+          }
+
+          if (configType === 'accelerating' && tiers.some((tier) => tier.tier_type !== 'percentage')) {
+               throw new InvalidTierConfigError('Accelerating commission tiers must use percentage values');
           }
 
           if (!tiers || tiers.length === 0) {
@@ -180,16 +214,19 @@ export class CommissionValidator {
           }
 
           const errors: CommissionValidationError[] = [];
-
-          // Sort tiers by min_amount for validation
           const sortedTiers = [...tiers].sort((a, b) => a.min_amount_inclusive - b.min_amount_inclusive);
 
-          // Check for overlaps
+          // Tiers use half-open intervals: [min_amount_inclusive, max_amount_exclusive).
+          // Adjacent tiers must share a boundary, and an unbounded tier must be last.
           for (let i = 0; i < sortedTiers.length - 1; i++) {
                const current = sortedTiers[i];
                const next = sortedTiers[i + 1];
 
-               if (current.max_amount_exclusive && current.max_amount_exclusive > next.min_amount_inclusive) {
+               if (
+                    current.max_amount_exclusive === undefined ||
+                    current.max_amount_exclusive === null ||
+                    current.max_amount_exclusive > next.min_amount_inclusive
+               ) {
                     errors.push({
                          field: `tiers[${i}]`,
                          message: `Tier ${i} overlaps with tier ${i + 1}`,
@@ -197,8 +234,11 @@ export class CommissionValidator {
                     });
                }
 
-               // Check for gaps (optional warning, but we'll keep tiers contiguous)
-               if (current.max_amount_exclusive && current.max_amount_exclusive < next.min_amount_inclusive) {
+               if (
+                    current.max_amount_exclusive !== undefined &&
+                    current.max_amount_exclusive !== null &&
+                    current.max_amount_exclusive < next.min_amount_inclusive
+               ) {
                     errors.push({
                          field: `tiers[${i}]`,
                          message: `Gap between tier ${i} and tier ${i + 1}`,

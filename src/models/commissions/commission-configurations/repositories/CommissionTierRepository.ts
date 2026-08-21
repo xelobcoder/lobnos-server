@@ -1,8 +1,9 @@
 import { Knex } from 'knex';
 import { ICommissionTier, CommissionTier } from '../interfaces/CommissionTier.interface';
-import { ICommissionTierRepository } from './ICommissionTierRepository';
+
 import { DatabaseError, TierNotFoundError } from '../errors/CommissionErrors';
 import KnexConnection from '../../../../database/KnexConnections';
+import { ICommissionTierRepository } from '../interfaces/ICommissionTierRepository';
 
 export class CommissionTierRepository implements ICommissionTierRepository {
      constructor(private tenantId: number) { }

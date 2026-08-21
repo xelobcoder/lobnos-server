@@ -541,7 +541,7 @@ export class SubmitCustomerBilling {
             // Get all services for this billing
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
-                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory');
+                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'created_at');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -560,6 +560,7 @@ export class SubmitCustomerBilling {
                         organization_id: service.organizationId || null,
                         service_category: service.serviceCategory || '',
                         completion_date: service.created_at || new Date(),
+                        outsourced_lab_cost: service.isoutsourced ? Number(service.outsourceprice || 0) : 0,
                     });
 
                     if (result.reason === 'SUCCESS') {

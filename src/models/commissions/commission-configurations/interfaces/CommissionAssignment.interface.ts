@@ -16,17 +16,17 @@ export interface ICommissionAssignment {
 }
 
 export class CommissionAssignment implements ICommissionAssignment {
-     id: number;
-     commission_config_id: number;
-     scope_type: ScopeType;
+     id!: number;
+     commission_config_id!: number;
+     scope_type!: ScopeType;
      scope_id?: number;
      service_id?: number;
      service_category?: string;
-     priority: number;
-     assigned_from: Date;
+     priority!: number;
+     assigned_from!: Date;
      assigned_to?: Date;
-     is_active: boolean;
-     created_at: Date;
+     is_active!: boolean;
+     created_at!: Date;
      recipient_name?: string;
 
      constructor(data: ICommissionAssignment) {
@@ -42,15 +42,10 @@ export class CommissionAssignment implements ICommissionAssignment {
      }
 
      getSpecificityScore(): number {
-          // Used for ordering: higher = more specific
-          // system: 0, organization: 1, clinician: 2
           const scopeScore = this.scope_type === 'clinician' ? 2 : this.scope_type === 'organization' ? 1 : 0;
-
-          // service_id: 3, service_category: 2, global: 1
           let contextScore = 1;
           if (this.service_id) contextScore = 3;
           else if (this.service_category) contextScore = 2;
-
           return scopeScore * 10 + contextScore;
      }
 }

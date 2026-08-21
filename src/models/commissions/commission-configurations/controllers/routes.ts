@@ -31,6 +31,7 @@ router.get('/tracking/status/:status', CommissionTrackingController.getByStatus)
 router.get('/tracking/recipient', CommissionTrackingController.getByRecipient);
 router.get('/tracking/period-total', CommissionTrackingController.getPeriodTotal);
 router.put('/tracking/:id/status', CommissionTrackingController.updateStatus);
+router.post('/tracking/:id/adjustments', CommissionTrackingController.createAdjustment);
 
 // COMMISSION ANALYTICS
 router.get('/analytics/dashboard', CommissionAnalyticsController.getComprehensiveDashboard);

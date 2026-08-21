@@ -65,9 +65,11 @@ export const getSentResultReadyMessage = async (req: Request, res: Response) => 
                error: 'Invalid billingid'
           });
           const message = await PrimeEventsSMSDataSource.getSentSMSEventMessage(tenantId, 'PATIENT_RESULT_READY', parsedBillingId);
+     
           if (!message) return res.status(404).json({ success: false, error: 'No message found' });
           res.json({ success: true, message });
      } catch (err: any) {
+          console.error('Error getting sent result ready message:', err);
           res.status(500).json({ success: false, error: err.message || 'Failed to get sent message' });
      }
 };

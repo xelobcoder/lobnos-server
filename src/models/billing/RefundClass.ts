@@ -27,6 +27,7 @@ import {
 import { PrimeLimsTablebilling, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices } from '../../database/DatabaseTableSchema';
 import { Billing } from '../../../obso/billing';
 import { UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType, Witness } from '../../controllers/billing/sales/type';
+import { CommissionTrackingRepository } from '../commissions/commission-configurations/repositories/CommissionTrackingRepository';
 import { promisifyQuery, rowAffected, paginationQuery } from '../../hooks/helper';
 import { Services } from '../services/services';
 import { PrimeBillingEnterprise } from './multi/PrimeBillingEnterprise';
@@ -415,7 +416,25 @@ export class Refund {
 			if (isRefundAmmountExceeded === true) return OperationsFailures.refundAmmountExceeded;
 
 			if (isRefundAmmountExceeded === false) {
-				return await Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
+				const refundResult = await Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
+				if (refundResult) {
+					const trackingRepository = new CommissionTrackingRepository(tenantId);
+					const trackingRecords = await trackingRepository.findByServiceId(serviceid);
+					const originalTracking = trackingRecords.find((tracking) =>
+						tracking.status !== 'adjusted' && tracking.final_commission > 0
+					);
+
+					if (originalTracking) {
+						await trackingRepository.createAdjustment(
+							originalTracking.id,
+							Number(refundAmount),
+							`Service refund completed for service ${serviceid}`,
+							'refund'
+						);
+					}
+				}
+
+				return refundResult;
 			}
 
 			return OperationsFailures.unauthorized;

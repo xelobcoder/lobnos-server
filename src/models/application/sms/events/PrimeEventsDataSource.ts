@@ -313,10 +313,14 @@ export class PrimeEventsSMSDataSource {
      }
 
      static async getSentSMSEventMessage(tenantId: number, eventCode: string, refid: number) {
-          const connection = await KnexConnection(tenantId);
-          return connection('primesmsjobrecipients')
-               .where({ eventcode: eventCode, refid })
-               .andWhere('deliverystatus', 'sent')
-               .select('personalizedbody')
+          try {
+               const connection = await KnexConnection(tenantId);
+               return connection('primesmsjobrecipients')
+                    .where({ eventcode: eventCode, refid })
+                    .andWhere('deliverystatus', 'sent')
+                    .select('personalizedbody')
+          } catch (error) {
+               throw error;
+          }
      }
 }

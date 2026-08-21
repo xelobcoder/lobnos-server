@@ -17,6 +17,8 @@ export class CommissionConfigController {
                const {
                     name,
                     commission_type,
+                    quota_target,
+                    volume_period,
                     percentage_rate,
                     sliding_max_percentage,
                     fixed_component,
@@ -42,6 +44,8 @@ export class CommissionConfigController {
                const config = {
                     name,
                     commission_type,
+                    quota_target: quota_target || null,
+                    volume_period: volume_period || null,
                     percentage_rate: percentage_rate || null,
                     sliding_max_percentage: sliding_max_percentage || null,
                     fixed_component: fixed_component || null,
@@ -71,8 +75,8 @@ export class CommissionConfigController {
                const repository = CommissionServiceFactory.createConfigRepository(tenantId);
                const createdConfig = await repository.create(config as any);
 
-               // Create tiers if provided for tiered commission
-               if (commission_type === 'tiered' && Array.isArray(tiers) && tiers.length > 0) {
+               // Create tiers for tiered, volume, quota, or accelerating commission
+               if (['tiered', 'volume', 'quota', 'accelerating'].includes(commission_type) && Array.isArray(tiers) && tiers.length > 0) {
                     try {
                          CommissionValidator.validateTiers(commission_type, tiers);
                     } catch (validationError: any) {
@@ -107,7 +111,7 @@ export class CommissionConfigController {
       * Get commission configuration by ID
       * GET /api/v1/commission/configs/:id
       */
-     static async getConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
+     static async getConfig(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const configId = parseInt(req.params.id.toString());
@@ -122,7 +126,7 @@ export class CommissionConfigController {
 
                // Get tiers if tiered type
                let tiers = [] as any[];
-               if (config.commission_type === 'tiered') {
+               if (['tiered', 'volume', 'quota', 'accelerating'].includes(config.commission_type)) {
                     const tierRepository = CommissionServiceFactory.createTierRepository(tenantId);
                     tiers = await tierRepository.findByConfigId(configId);
                }
@@ -177,7 +181,7 @@ export class CommissionConfigController {
       * Update commission configuration (soft delete old, create new version)
       * PUT /api/v1/commission/configs/:id
       */
-     static async updateConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
+     static async updateConfig(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const configId = parseInt(req.params.id.toString());
@@ -197,6 +201,8 @@ export class CommissionConfigController {
                     commission_type,
                     percentage_rate,
                     sliding_max_percentage,
+                    quota_target,
+                    volume_period,
                     fixed_component,
                     min_commission,
                     max_commission,
@@ -210,6 +216,8 @@ export class CommissionConfigController {
                const newConfig = {
                     name,
                     commission_type,
+                    quota_target: quota_target || null,
+                    volume_period: volume_period || null,
                     percentage_rate: percentage_rate || null,
                     sliding_max_percentage: sliding_max_percentage || null,
                     fixed_component: fixed_component || null,
@@ -255,7 +263,7 @@ export class CommissionConfigController {
       * Deactivate commission configuration
       * DELETE /api/v1/commission/configs/:id
       */
-     static async deleteConfig(req: Request<{id:number | string}>, res: Response): Promise<void> {
+     static async deleteConfig(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const configId = parseInt(req.params.id.toString());

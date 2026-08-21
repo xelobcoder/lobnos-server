@@ -5,7 +5,7 @@ export class CommissionTrackingController {
       * Get tracking record by ID
       * GET /api/v1/commission/tracking/:id
       */
-     static async getTracking(req: Request<{id:number | string}>, res: Response): Promise<void> {
+     static async getTracking(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const trackingId = parseInt(req.params.id.toString());
@@ -177,7 +177,7 @@ export class CommissionTrackingController {
       * Get tracking records by status
       * GET /api/v1/commission/tracking/status/:status
       */
-     static async getByStatus(req: Request< { status: string } >, res: Response): Promise<void> {
+     static async getByStatus(req: Request<{ status: string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const status = req.params.status;
@@ -298,7 +298,7 @@ export class CommissionTrackingController {
       * Update tracking status (mark as paid, approved, voided, etc.)
       * PUT /api/v1/commission/tracking/:id/status
       */
-     static async updateStatus(req: Request<{id:number | string}>, res: Response): Promise<void> {
+     static async updateStatus(req: Request<{ id: number | string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const trackingId = parseInt(req.params.id.toString());
@@ -332,6 +332,53 @@ export class CommissionTrackingController {
                     status: 'error',
                     statusCode: 500,
                     message: error.message || 'Failed to update status',
+               });
+          }
+     }
+
+     static async createAdjustment(req: Request<{ id: number | string }>, res: Response): Promise<void> {
+          try {
+               const tenantId = parseInt(req.query.tenantId as string);
+               const trackingId = parseInt(req.params.id.toString());
+               const { amount, reason, kind } = req.body;
+               const validKinds = ['refund', 'cancellation', 'rejection', 'credit', 'reversal', 'clawback'];
+
+               if (!tenantId || !trackingId || isNaN(tenantId) || isNaN(trackingId) || !reason || !validKinds.includes(kind)) {
+                    res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid adjustment request' });
+                    return;
+               }
+
+               const adjustmentAmount = amount === undefined ? undefined : Number(amount);
+               if (adjustmentAmount !== undefined && (!Number.isFinite(adjustmentAmount) || adjustmentAmount <= 0)) {
+                    res.status(400).json({ status: 'error', statusCode: 400, message: 'Adjustment amount must be greater than zero' });
+                    return;
+               }
+
+               const repository = CommissionServiceFactory.createTrackingRepository(tenantId);
+               const original = await repository.findById(trackingId);
+               if (!original) {
+                    res.status(404).json({ status: 'error', statusCode: 404, message: 'Tracking record not found' });
+                    return;
+               }
+
+               const adjustment = await repository.createAdjustment(
+                    trackingId,
+                    adjustmentAmount ?? Math.abs(original.final_commission),
+                    reason,
+                    kind
+               );
+
+               res.status(201).json({
+                    status: 'success',
+                    statusCode: 201,
+                    message: `Commission ${kind} adjustment created successfully`,
+                    result: adjustment,
+               });
+          } catch (error: any) {
+               res.status(500).json({
+                    status: 'error',
+                    statusCode: 500,
+                    message: error.message || 'Failed to create commission adjustment',
                });
           }
      }

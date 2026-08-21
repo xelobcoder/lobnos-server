@@ -34,22 +34,7 @@ export {
      CommissionValidationError,
 } from './interfaces/index';
 
-// Repositories
-export {
-     ICommissionConfigRepository,
-} from './repositories/ICommissionConfigRepository';
-export {
-     CommissionConfigRepository,
-} from './repositories/CommissionConfigRepository';
-export {
-     ICommissionTierRepository,
-} from './repositories/ICommissionTierRepository';
-export {
-     CommissionTierRepository,
-} from './repositories/CommissionTierRepository';
-export {
-     ICommissionAssignmentRepository,
-} from './repositories/ICommissionAssignmentRepository';
+
 export {
      CommissionAssignmentRepository,
 } from './repositories/CommissionAssignmentRepository';

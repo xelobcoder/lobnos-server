@@ -22,7 +22,14 @@ export interface ICommissionTrackingRepository {
           periodRef: Date,
           statuses: string[]
      ): Promise<number>;
+     countPeriod(
+          recipientType: string,
+          recipientId: number,
+          periodRef: Date,
+          statuses: string[]
+     ): Promise<number>;
      create(tracking: Omit<ICommissionTracking, 'id' | 'created_at' | 'updated_at'>): Promise<ICommissionTracking>;
+     createAdjustment(originalId: number, amount: number, reason: string, kind: 'refund' | 'cancellation' | 'rejection' | 'credit' | 'reversal' | 'clawback'): Promise<ICommissionTracking>;
      updateStatus(id: number, status: string): Promise<void>;
      getSummary(recipientType?: string): Promise<Record<string, any>>;
 }

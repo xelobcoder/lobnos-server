@@ -58,6 +58,8 @@ import { bootstrapNotificationDefinitions } from './models/application/notificat
 import DeviceModelsVersionProcessing from "./controllers/settings/devices/DeviceDataProcessing";
 import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
+import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from "./models/operations/sample/HomeCollection/BootstrapHomeCollection";
+import { bootstrapCommissionTables } from './models/commissions/commission-configurations/services/CommissionBootstrapService';
 
 
 
@@ -78,7 +80,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
-// app.use(checkTokenExists)
+app.use(checkTokenExists)
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);
@@ -142,7 +144,7 @@ app.get("/", (req: Request, res: Response) => {
 });
 
 
-app.listen(Number(port), "0.0.0.0", () => {
+app.listen(Number(port), "0.0.0.0", async () => {
     const pid = process.pid;
 
     const timestamp = new Date().toLocaleString("en-US", {
@@ -178,15 +180,10 @@ app.listen(Number(port), "0.0.0.0", () => {
         `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
     );
 
-    bootstrapNotificationDefinitions(1)
-        .then(() => {
-            logger.info('Notification events/templates bootstrap finished');
-        })
-        .catch((error) => {
-            logger.error('Notification bootstrap failed', {
-                error: error instanceof Error ? error.message : String(error),
-            });
-        });
+    await bootstrapCommissionTables(1)
+    await bootstrapNotificationDefinitions(1)
+    await bootstrapHomeCollectionTables(1)
+    await bootstrapHomeCollectionSeeds(1)
 
     //     logger.info("Server startup successful", {
     //         port: Number(port),

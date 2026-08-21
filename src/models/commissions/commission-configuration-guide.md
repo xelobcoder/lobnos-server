@@ -516,6 +516,7 @@ Commissions can have multiple cap layers applied in order:
 | -------------------- | ------------------------------ | ------------------------------------ |
 | `CONFIG_NOT_FOUND`   | Invalid configId               | Verify config exists                 |
 | `TIER_OVERLAP`       | Tier ranges overlap            | Adjust min/max values                |
+| `TIER_GAP`            | Tier ranges are not contiguous  | Set each next min to the previous max |
 | `NO_ASSIGNMENT`      | No matching assignment         | Create assignment for scope          |
 | `INVALID_SCOPE_TYPE` | Scope type not recognized      | Use: system, organization, clinician |
 | `MISSING_SCOPE_ID`   | Org/clinician scope without ID | Provide scope_id                     |
@@ -532,6 +533,11 @@ Commissions can have multiple cap layers applied in order:
   "code": "TIER_OVERLAP"
 }
 ```
+
+Tier ranges are half-open intervals: `[min_amount_inclusive, max_amount_exclusive)`.
+Each tier's minimum must equal the previous tier's maximum, so `[0, 50)`,
+`[50, 200)`, and `[200, 500)` are contiguous and unambiguous. Use an omitted
+or `null` maximum only for the final unbounded tier.
 
 ---
 

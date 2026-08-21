@@ -17,6 +17,7 @@ export class PrimeWindowAccessController {
                const id = await repo.createWindow(start, end, window_days, true, loginDurationPerUser);
                res.status(201).json({ status: 'success', message: 'License added successfully', id });
           } catch (error) {
+               console.log('Error in addLicense:', error);
                PrimeSqlErrorHandler.handleError(error, res);
           }
      }

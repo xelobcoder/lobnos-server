@@ -1,15 +1,16 @@
 import { CommissionInput, CommissionCalculationResult } from '../interfaces/index';
-import { ICommissionConfigRepository } from '../repositories/ICommissionConfigRepository';
-import { ICommissionTierRepository } from '../repositories/ICommissionTierRepository';
-import { ICommissionAssignmentRepository } from '../repositories/ICommissionAssignmentRepository';
 import { ICommissionTrackingRepository } from '../repositories/ICommissionTrackingRepository';
 import { CommissionResolutionService } from './CommissionResolutionService';
 import { CommissionCapService } from './CommissionCapService';
 import { CommissionCalculator } from '../utils/CommissionCalculator';
 import { PeriodHelper } from '../utils/PeriodHelper';
 import { ConfigNotFoundError, TierNotFoundError, NoCommissionConfigFoundError } from '../errors/CommissionErrors';
-import { logger } from '../commissionConfigutationRepo';
+
 import { CommissionDefaultsRepository } from '../../CommissionDefaultsRepository';
+import { ICommissionAssignmentRepository } from '../interfaces/ICommissionAssignmentRepository';
+import { ICommissionTierRepository } from '../interfaces/ICommissionTierRepository';
+import { logger } from '../commissionConfigutationRepo';
+import { ICommissionConfigRepository } from '../interfaces/ICommissionConfigRepository';
 
 
 export class CommissionEngineService {
@@ -55,9 +56,8 @@ export class CommissionEngineService {
                     const defaultConfig = await defaultsRepo.getByTargetType(recipientType.toUpperCase() as 'CLINICIAN' | 'ORGANIZATION');
 
                     if (defaultConfig) {
-                         // Create synthetic config from defaults
                          config = {
-                              id: null, // No real config ID
+                              id: null,
                               commission_type: defaultConfig.commission_type.toLowerCase(),
                               percentage_rate: defaultConfig.commission_type === 'PERCENTAGE' ? defaultConfig.commission_value : null,
                               fixed_component: defaultConfig.commission_type === 'FIXED' ? defaultConfig.commission_value : null,
@@ -67,7 +67,7 @@ export class CommissionEngineService {
                               period_cap_reset: null,
                               is_active: true,
                          };
-                         assignmentId = undefined; // No assignment
+                         assignmentId = undefined;
                     } else {
                          const tracking = await this.trackingRepo.create({
                               service_id: input.service_id,
@@ -102,15 +102,60 @@ export class CommissionEngineService {
                     assignmentId = assignment.id;
                }
 
+               const commissionableAmount = CommissionCalculator.getCommissionableAmount(
+                    config,
+                    input.service_amount,
+                    input.outsourced_lab_cost || 0
+               );
+               let calculationAmount = commissionableAmount;
                let matchedTier = undefined;
+               let progressiveTiers = undefined;
+
                if (config.commission_type === 'tiered') {
-                    matchedTier = await this.tierRepo.findMatchingTier(config.id, input.service_amount);
+                    matchedTier = await this.tierRepo.findMatchingTier(config.id, calculationAmount);
                     if (!matchedTier) {
-                         throw new TierNotFoundError(config.id, input.service_amount);
+                         throw new TierNotFoundError(config.id, calculationAmount);
                     }
                }
 
-               // Sliding Scale Logic
+               if (config.commission_type === 'volume') {
+                    const volumePeriod = config.volume_period || config.period_cap_reset || 'monthly';
+                    const volumePeriodReference = PeriodHelper.getPeriodReferenceDate(input.completion_date, volumePeriod);
+                    const volumeCount = input.volume_count ?? (
+                         await this.trackingRepo.countPeriod(
+                              recipientType,
+                              recipientId!,
+                              volumePeriodReference,
+                              ['pending', 'approved', 'paid']
+                         ) + 1
+                    );
+                    matchedTier = await this.tierRepo.findMatchingTier(config.id, volumeCount);
+                    if (!matchedTier) {
+                         throw new TierNotFoundError(config.id, volumeCount);
+                    }
+               }
+
+               if (config.commission_type === 'quota') {
+                    if (!config.quota_target || config.quota_target <= 0) {
+                         throw new Error('Quota commission requires a positive quota_target');
+                    }
+
+                    const quotaValue = input.quota_value ?? 0;
+                    const achievementPercentage = (quotaValue / config.quota_target) * 100;
+                    matchedTier = await this.tierRepo.findMatchingTier(config.id, achievementPercentage);
+                    if (!matchedTier) {
+                         throw new TierNotFoundError(config.id, achievementPercentage);
+                    }
+               }
+
+               if (config.commission_type === 'accelerating') {
+                    progressiveTiers = await this.tierRepo.findByConfigId(config.id);
+                    if (progressiveTiers.length === 0) {
+                         throw new TierNotFoundError(config.id, calculationAmount);
+                    }
+                    calculationAmount = input.performance_amount ?? commissionableAmount;
+               }
+
                if (config.commission_type === 'sliding_scale') {
                     const resetType = config.period_cap_reset || 'weekly';
                     const currentPeriodRef = PeriodHelper.getPeriodReferenceDate(input.completion_date, resetType);
@@ -145,11 +190,9 @@ export class CommissionEngineService {
                     });
                }
 
-               const rawCommission = CommissionCalculator.calculateRawCommission(
-                    config,
-                    input.service_amount,
-                    matchedTier
-               );
+               const rawCommission = config.commission_type === 'accelerating'
+                    ? CommissionCalculator.calculateProgressive(calculationAmount, progressiveTiers!)
+                    : CommissionCalculator.calculateRawCommission(config, calculationAmount, matchedTier);
 
                // Step 4: Apply all caps
                const adjustments = await this.capService.applyCaps(
@@ -163,6 +206,11 @@ export class CommissionEngineService {
                let periodRefDate: Date | undefined;
                if (config.period_cap && config.period_cap_reset) {
                     periodRefDate = PeriodHelper.getPeriodReferenceDate(input.completion_date, config.period_cap_reset);
+               } else if (config.commission_type === 'volume') {
+                    periodRefDate = PeriodHelper.getPeriodReferenceDate(
+                         input.completion_date,
+                         config.volume_period || 'monthly'
+                    );
                }
 
                const tracking = await this.trackingRepo.create({
@@ -185,6 +233,9 @@ export class CommissionEngineService {
                     calculated_at: new Date(),
                     currency: 'GHS',
                     status: 'pending',
+                    notes: input.outsourced_lab_cost && input.outsourced_lab_cost > 0
+                         ? `commissionable_amount=${commissionableAmount}; outsourced_lab_cost=${input.outsourced_lab_cost}`
+                         : undefined,
                });
 
                console.log(tracking)

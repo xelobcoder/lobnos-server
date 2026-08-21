@@ -212,6 +212,13 @@ catch (error) {
 **Error**: `{ status: "error", statusCode: number, message: string }`
 **Validation Error**: `{ success: false, error: { code: string, message: string } }`
 
+## Commission Business Rule
+- Never branch commission logic on a legacy `commission_base` switch.
+- Default commission base is the paid amount for all normal services.
+- For outsourced services, use the outsourced-net base only when all conditions are true: the service is outsourced, an outsourced organization was selected, that organization actually rendered the service, and an actual outsource amount is available.
+- When the outsourced conditions are not all satisfied, keep using the paid amount.
+- The outsourced-net calculation is `max(0, paid_amount - outsourced_lab_cost)`.
+
 ## Database & Queries
 
 ### Knex Query Patterns

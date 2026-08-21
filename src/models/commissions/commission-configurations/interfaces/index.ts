@@ -5,6 +5,10 @@ import { ICommissionTier } from './CommissionTier.interface';
 export interface CommissionInput {
      service_id: number;
      service_amount: number;
+     outsourced_lab_cost?: number;
+     volume_count?: number;
+     quota_value?: number;
+     performance_amount?: number;
      service_category: string;
      organization_id: number;
      clinician_id?: number | null;

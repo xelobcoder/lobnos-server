@@ -229,7 +229,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		const numAscensionId = parseInt(ascensionId.toString());
 		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
-		if (userRole && ['admin', 'manager', 'super-admin','crm'].includes(userRole.role.toLowerCase()) == false) {
+		if (userRole && ['admin', 'manager', 'super-admin', 'crm'].includes(userRole.role.toLowerCase()) == false) {
 			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
 		} else {
 			isWithinWindow = true
@@ -327,7 +327,6 @@ export const getResultPrintoutHandler = async (request: Request<
 			dataset.samplingInformation = samplingInformation;
 		}
 
-		// Get referrer facility information from services table
 		const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
 		if (referrerFacility) {
 			dataset.referrerFacility = referrerFacility;
@@ -342,9 +341,11 @@ export const getResultPrintoutHandler = async (request: Request<
 		dataset.resultentry = resultentry
 		const hostname = process.env.NODE_ENV === 'development'
 			? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
-			: process.env.APPHOST_PRODUCTION + ':' + process.env.PRODUCTION_PORT;
+			: process.env.APPHOST_PRODUCTION;
 
-		dataset.logourl = `http://${hostname}/api/v1/settings/companyprofile/images`
+		const httpProtocol = process.env.NODE_ENV === 'development' ? "http" : "https";
+
+		dataset.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images`
 		dataset.enteredOn = enteredOn as Date || null;
 
 		if (employeeid) {
@@ -528,8 +529,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 				const hostname = process.env.NODE_ENV === 'development'
 					? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
 					: process.env.APPHOST_PRODUCTION
-				
-				
+
+
 				const httpProtocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
 
 				finalResult.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images` as any;
@@ -677,7 +678,6 @@ export const setResultDeliveryPreference = async (req: Request, res: Response) =
 			return customError("billing record not found", 404, res);
 		}
 
-		// Handle new format with preferences array (test-specific)
 		if (preferences && Array.isArray(preferences) && preferences.length > 0) {
 			const testPreferences = preferences.map((pref: any) => ({
 				billingid: pBillingId,

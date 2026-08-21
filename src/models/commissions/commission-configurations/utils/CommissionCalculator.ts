@@ -49,6 +49,19 @@ export class CommissionCalculator {
                     case 'sliding_scale':
                          return this.calculatePercentage(amount, config.percentage_rate!);
 
+                    case 'volume':
+                    case 'quota':
+                         if (!matchedTier) {
+                              throw new TierNotFoundError(config.id, serviceAmount);
+                         }
+                         return this.calculateTiered(amount, matchedTier);
+
+                    case 'accelerating':
+                         if (!matchedTier) {
+                              throw new TierNotFoundError(config.id, serviceAmount);
+                         }
+                         return this.calculateProgressive(amount, [matchedTier]);
+
                     default:
                          throw new CalculationError(`Unknown commission type: ${config.commission_type}`);
                }
@@ -61,6 +74,40 @@ export class CommissionCalculator {
                     'calculateRawCommission'
                );
           }
+     }
+
+     static getCommissionableAmount(config: ICommissionConfig, serviceAmount: number, outsourcedLabCost = 0): number {
+          const amount = new Decimal(serviceAmount);
+          const effectiveOutsourceCost = Number.isFinite(outsourcedLabCost) ? Math.max(0, Number(outsourcedLabCost)) : 0;
+
+          if (effectiveOutsourceCost > 0) {
+               return parseFloat(Decimal.max(0, amount.minus(effectiveOutsourceCost)).toFixed(2));
+          }
+
+          return parseFloat(amount.toFixed(2));
+     }
+
+     static calculateProgressive(amount: Decimal | number, tiers: ICommissionTier[]): number {
+          const base = amount instanceof Decimal ? amount : new Decimal(amount);
+          const orderedTiers = [...tiers].sort((a, b) => a.min_amount_inclusive - b.min_amount_inclusive);
+          let total = new Decimal(0);
+
+          for (const tier of orderedTiers) {
+               const tierStart = new Decimal(tier.min_amount_inclusive);
+               const tierEnd = tier.max_amount_exclusive === undefined || tier.max_amount_exclusive === null
+                    ? base
+                    : Decimal.min(base, tier.max_amount_exclusive);
+               const segment = Decimal.max(0, tierEnd.minus(tierStart));
+
+               if (segment.isZero()) continue;
+               if (tier.tier_type !== 'percentage') {
+                    throw new CalculationError('Accelerating commission tiers must use percentage values');
+               }
+
+               total = total.add(segment.mul(tier.tier_value).div(100));
+          }
+
+          return parseFloat(total.toFixed(2));
      }
 
      /**
