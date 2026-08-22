@@ -1,9 +1,9 @@
 import KnexConnection from "../../../database/KnexConnections";
-import { PrimeLimsTablepackage_tests } from "../../../database/DatabaseTableSchema";
-import { IPackageTestRepository } from "./IPackageRepository";
+import { PackageTest } from "../entities/Package.entities";
+import { IPackageTestRepository } from "../Interfaces/IPackageRepository";
 
 export class PackageTestRepository implements IPackageTestRepository {
-    async createPackageTest(tenantId: number, data: PrimeLimsTablepackage_tests[]): Promise<number> {
+    async createPackageTest(tenantId: number, data: PackageTest[]): Promise<number> {
         const connection = await KnexConnection(tenantId);
         const result: number[] = [];
 
@@ -21,7 +21,7 @@ export class PackageTestRepository implements IPackageTestRepository {
         return result.length;
     }
 
-    async getPackageTests(tenantId: number, id?: number): Promise<PrimeLimsTablepackage_tests[]> {
+    async getPackageTests(tenantId: number, id?: number): Promise<PackageTest[]> {
         const connection = await KnexConnection(tenantId);
         try {
             if (id) {
@@ -41,7 +41,7 @@ export class PackageTestRepository implements IPackageTestRepository {
         }
     }
 
-    async updatePackageTest(tenantId: number, id: number, updates: Partial<PrimeLimsTablepackage_tests>): Promise<number> {
+    async updatePackageTest(tenantId: number, id: number, updates: Partial<PackageTest>): Promise<number> {
         const connection = await KnexConnection(tenantId);
         return await connection('package_tests').where({ id }).update(updates);
     }

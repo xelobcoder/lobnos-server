@@ -538,10 +538,9 @@ export class SubmitCustomerBilling {
         try {
             const connection = await trx ? trx : KnexConnection(tenantId);
 
-            // Get all services for this billing
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
-                .select('serviceid', 'paidamount', 'clinicianId', 'organizationId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'created_at');
+                .select('serviceid', 'paidamount', 'totalpayable', 'clinicianId', 'organizationId', 'categoryTrackId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'serviceAddedOn');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -553,13 +552,55 @@ export class SubmitCustomerBilling {
             // Calculate commission for each service
             for (const service of services) {
                 try {
+                    const existingTracking = await connection('commission_tracking')
+                        .where('service_id', service.serviceid)
+                        .first();
+                    if (existingTracking) {
+                        CommissionLogger.info('Commission already tracked for service, skipping', {
+                            service_id: service.serviceid,
+                            tracking_id: existingTracking.id,
+                        });
+                        continue;
+                    }
+
+                    const source = Number(service.categoryTrackId);
+                    const clinicianId = service.clinicianId ? Number(service.clinicianId) : null;
+                    const organizationId = service.organizationId ? Number(service.organizationId) : null;
+
+                    // Only these sources are commission-eligible in automatic billing flow.
+                    if (![2, 4, 6].includes(source)) {
+                        continue;
+                    }
+
+                    let selectedClinicianId: number | null = null;
+                    let selectedOrganizationId: number | null = null;
+
+                    // Source 2 (organization): use organization.
+                    if (source === 2) {
+                        selectedOrganizationId = organizationId;
+                    }
+
+                    // Source 6 (clinician special): use clinician.
+                    if (source === 6) {
+                        selectedClinicianId = clinicianId;
+                    }
+
+                    // Source 4 (NHIS): clinician takes precedence when both exist; otherwise fallback to organization.
+                    if (source === 4) {
+                        if (clinicianId) {
+                            selectedClinicianId = clinicianId;
+                        } else if (organizationId) {
+                            selectedOrganizationId = organizationId;
+                        }
+                    }
+
                     const result = await engine.executeCommissionCalculation({
                         service_id: service.serviceid,
-                        service_amount: service.paidamount || 0,
-                        clinician_id: service.clinicianId || null,
-                        organization_id: service.organizationId || null,
+                        service_amount: Number(service.paidamount ?? service.totalpayable ?? 0),
+                        clinician_id: selectedClinicianId,
+                        organization_id: selectedOrganizationId ?? 0,
                         service_category: service.serviceCategory || '',
-                        completion_date: service.created_at || new Date(),
+                        completion_date: service.serviceAddedOn || new Date(),
                         outsourced_lab_cost: service.isoutsourced ? Number(service.outsourceprice || 0) : 0,
                     });
 
@@ -725,6 +766,7 @@ export class SubmitCustomerBilling {
                     branchid: billingData.branchid,
                     isoutsourced: item.isoutsourced === 1 ? 1 : 0,
                     outsourceid: item.outsourceid || null,
+                    outsourceprice: 0,
                     serviceAddedOn: new Date(),
                     taxList: typeof taxList === "string" ? taxList : null,
                     taxValue,

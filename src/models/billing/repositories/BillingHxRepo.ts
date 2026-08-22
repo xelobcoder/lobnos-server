@@ -55,10 +55,10 @@ export class BillingHxRepo {
         try {
             const [billingId] = await trx('billing')
                 .insert(billingData);
-            
+
             const historyWithBillingId = { ...historyData, Billingid: billingId };
             await trx('billinghx').insert(historyWithBillingId);
-            
+
             await trx.commit();
             return billingId;
         } catch (error) {

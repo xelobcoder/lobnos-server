@@ -127,11 +127,11 @@ export class TiifuWorkingClass {
           );
 
           const columns = await promisifyQuery(tenantId, `SHOW COLUMNS FROM ${tablename}`);
-          let columnNames = columns.map(col => col.Field);
+          let columnNames = columns.map((col:any) => col.Field);
 
           if (tableSensitiveConfig) {
                columnNames = columnNames.filter(
-                    column => !tableSensitiveConfig.sensitiveColumns.includes(column)
+                    (column:any) => !tableSensitiveConfig.sensitiveColumns.includes(column)
                );
           }
 

@@ -129,7 +129,7 @@ export class BillingSharedRepo {
                }
           }
 
-          if (isPromo && promo.code && isPromoValid) {
+          if (isPromo && promo?.code && isPromoValid) {
                const promoRepo = new PrimeBillingPromoCodeRepo(tenantId);
                const promoResult = await promoRepo.validatePromoCode(promo.code);
                if (!promoResult.valid) {
@@ -137,7 +137,7 @@ export class BillingSharedRepo {
                }
           }
 
-          if (isPromo && !promo.code) {
+          if (isPromo && !promo?.code) {
                return BillingValidationResult.INVALID_PROMO_CODE;
           }
           return true

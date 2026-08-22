@@ -81,13 +81,20 @@ export class CommissionBatchPaymentServicesRepo {
                const conn = await this.connection;
                const paymentHistory = await conn('commission_batch_payment_services as cbps')
                     .leftJoin("commission_tracking as ct", "ct.service_id", "cbps.serviceid")
+                    .leftJoin("clinicianbasicinfo as cbi", "ct.recipient_id", "cbi.id")
+                    .leftJoin("organization as org", "ct.recipient_id", "org.id")
                     .select(
                          "cbps.*",
                          "ct.percentage_rate_applied as percentage_rate_applied",
                          "ct.commission_type as commission_type",
                          "ct.recipient_type as recipient_type",
                          "ct.recipient_id as recipient_id",
-                         "ct.final_commission as final_commission"
+                         "ct.final_commission as final_commission",
+                         conn.raw(`CASE
+                              WHEN ct.recipient_type = 'organization' THEN org.name
+                              WHEN ct.recipient_type = 'clinician' THEN cbi.name
+                              ELSE 'Unknown'
+                         END as recipient_name`)
                     )
                     .where('cbps.serviceid', serviceid);
                return paymentHistory;
@@ -102,13 +109,20 @@ export class CommissionBatchPaymentServicesRepo {
                const conn = await this.connection;
                const services = await conn('commission_batch_payment_services as cbps')
                     .leftJoin("commission_tracking as ct", "ct.service_id", "cbps.serviceid")
+                    .leftJoin("clinicianbasicinfo as cbi", "ct.recipient_id", "cbi.id")
+                    .leftJoin("organization as org", "ct.recipient_id", "org.id")
                     .select(
                          "cbps.*",
                          "ct.percentage_rate_applied as percentage_rate_applied",
                          "ct.commission_type as commission_type",
                          "ct.recipient_type as recipient_type",
                          "ct.recipient_id as recipient_id",
-                         "ct.final_commission as final_commission"
+                         "ct.final_commission as final_commission",
+                         conn.raw(`CASE
+                              WHEN ct.recipient_type = 'organization' THEN org.name
+                              WHEN ct.recipient_type = 'clinician' THEN cbi.name
+                              ELSE 'Unknown'
+                         END as recipient_name`)
                     )
                     .where('cbps.batch_payment_id', batchid);
                return services;

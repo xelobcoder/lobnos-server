@@ -98,12 +98,15 @@ export class CommissionTrackingController {
 
      async getUntrackedServices(request: Request, response: Response) {
           try {
-               const { recipient_type, recipient_id, page, count } = request.query;
+               const { recipient_type, recipient_id, page, count,startDate,endDate,sortby } = request.query;
 
                let recipientType: 'clinician' | 'organization' | undefined;
                let recipientId: number | undefined;
                let pageNum: number | undefined;
                let countNum: number | undefined;
+               const startDateObj = startDate ? new Date(startDate as string) : undefined;
+               const endDateObj = endDate ? new Date(endDate as string) : undefined;
+               const sortBy: 'ASC' | 'DESC' = sortby === 'DESC' ? 'DESC' : 'ASC';
 
                if (recipient_type) {
                     if (!['clinician', 'organization'].includes(recipient_type as string)) {
@@ -140,7 +143,10 @@ export class CommissionTrackingController {
                     recipientType,
                     recipientId,
                     pageNum,
-                    countNum
+                    countNum,
+                    startDateObj,
+                    endDateObj,
+                    sortBy
                );
 
                return response.send({

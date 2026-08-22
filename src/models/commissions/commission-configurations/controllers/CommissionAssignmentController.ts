@@ -314,7 +314,6 @@ export class CommissionAssignmentController {
                     res.status(400).json({ status: 'error', statusCode: 400, message: 'Invalid tenantId or serviceId' });
                     return;
                }
-
                const clinicianId = req.query.clinicianId ? parseInt(req.query.clinicianId as string) : null;
                const organizationId = req.query.organizationId ? parseInt(req.query.organizationId as string) : null;
                const onDate = req.query.onDate ? new Date(req.query.onDate as string) : new Date();

@@ -1,4 +1,3 @@
-import { PrimeLimsTableclinician_packages, PrimeLimsTablepackages } from "../../../database/DatabaseTableSchema";
 import KnexConnection from "../../../database/KnexConnections";
 
 interface ClinicianPackage {
@@ -70,7 +69,8 @@ export class Packages {
                          assigned_at: item.assigned_at ? new Date(item.assigned_at).toISOString() : connection.fn.now(),
                     }));
 
-               const existingRecords = await connection('clinician_packages')
+               const existingRecords = await connection('package_assignments')
+                    .where({ assignment_type: 'clinician' })
                     .select('id', 'clinician_id', 'package_id')
                     .where('package_id', packageId);
 
@@ -81,13 +81,14 @@ export class Packages {
                const recordsToInsert = formattedData.filter(item => !existingClinicianIds.has(item.clinician_id));
 
                if (recordsToDelete.length > 0) {
-                    await connection('clinician_packages')
+                    await connection('package_assignments')
+                         .where({ assignment_type: 'clinician' })
                          .whereIn('id', recordsToDelete.map(record => record.id))
                          .del();
                }
 
                if (recordsToInsert.length > 0) {
-                    const result = await connection('clinician_packages')
+                    const result = await connection('package_assignments')
                          .insert(recordsToInsert)
                          .returning('id');
 
@@ -104,7 +105,7 @@ export class Packages {
                }
 
                return [];
-          } catch (error) {
+          } catch (error:any) {
                throw new Error(`Error creating clinician packages: ${error.message}`);
           }
      }
@@ -112,15 +113,15 @@ export class Packages {
      static async getPackagesApplicableClinicians(tenantId: number, id: number | null = null): Promise<any> {
           const connection = await KnexConnection(tenantId);
           if (id) {
-               return await connection('clinician_packages')
-                    .join('clinicianbasicinfo', 'clinicianbasicinfo.id', '=', 'clinician_packages.clinician_id')
-                    .where({ 'clinician_packages.package_id': id })
-                    .select('clinician_packages.*', 'clinicianbasicinfo.name', 'clinicianbasicinfo.location', 'clinicianbasicinfo.phone');
+               return await connection('package_assignments')
+                    .join('clinicianbasicinfo', 'clinicianbasicinfo.id', '=', 'package_assignments.clinician_id')
+                    .where({ 'package_assignments.assignment_type': 'clinician', 'package_assignments.package_id': id })
+                    .select('package_assignments.*', 'clinicianbasicinfo.name', 'clinicianbasicinfo.location', 'clinicianbasicinfo.phone');
           }
-          return await connection('clinician_packages').select('*');
+          return await connection('package_assignments').where({ assignment_type: 'clinician' }).select('*');
      }
 
-     static async getPackagesByIds(tenantId: number, packageIds: number[]): Promise<PrimeLimsTablepackages[]> {
+     static async getPackagesByIds(tenantId: number, packageIds: number[]): Promise<Package[]> {
           const connection = await KnexConnection(tenantId);
           try {
                const packages = await connection('packages')
@@ -133,10 +134,10 @@ export class Packages {
           }
      }
 
-     static async getClinicianPackages(tenantId: number, clinician_id: number): Promise<PrimeLimsTablepackages[]> {
+     static async getClinicianPackages(tenantId: number, clinician_id: number): Promise<Package[]> {
           const connection = await KnexConnection(tenantId);
           if (clinician_id) {
-               const result: PrimeLimsTableclinician_packages[] = await connection('clinician_packages').where({ clinician_id });
+               const result: ClinicianPackage[] = await connection('package_assignments').where({ assignment_type: 'clinician', clinician_id });
                if (result && result.length > 0) {
                     const pkgIds: number[] = result.map(item => item.package_id);
                     return await this.getPackagesByIds(tenantId, pkgIds);
@@ -147,9 +148,9 @@ export class Packages {
           return [];
      }
 
-     static async getOrganizationPackagesByOrganizationId(tenantId: number, organization_id: number): Promise<PrimeLimsTablepackages[]> {
+     static async getOrganizationPackagesByOrganizationId(tenantId: number, organization_id: number): Promise<Package[]> {
           const connection = await KnexConnection(tenantId);
-          const result: OrganizationPackage[] = await connection('organization_packages').where({ organization_id });
+          const result: OrganizationPackage[] = await connection('package_assignments').where({ assignment_type: 'organization', organization_id });
           if (result && result.length > 0) {
                const pkgIds: number[] = result.map(item => item.package_id);
                return await this.getPackagesByIds(tenantId, pkgIds);
@@ -177,12 +178,12 @@ export class Packages {
 
      static async updateClinicianPackage(tenantId: number, id: number, updates: UpdatePayload): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection('clinician_packages').where({ id }).update(updates);
+          return await connection('package_assignments').where({ id, assignment_type: 'clinician' }).update(updates);
      }
 
      static async deleteClinicianPackage(tenantId: number, id: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection('clinician_packages').where({ id }).del();
+          return await connection('package_assignments').where({ id, assignment_type: 'clinician' }).del();
      }
 
      static async createOrganizationPackage(tenantId: number, data: OrganizationPackage[]): Promise<number[]> {
@@ -193,12 +194,13 @@ export class Packages {
                assigned_at: item.assigned_at || connection.fn.now(),
           }));
           for (const item of formattedData) {
-               const existingPackage = await connection('organization_packages')
+               const existingPackage = await connection('package_assignments')
+                    .where({ assignment_type: 'organization' })
                     .where('organization_id', item.organization_id)
                     .where('package_id', item.package_id)
                     .first();
                if (!existingPackage) {
-                    await connection('organization_packages').insert(item);
+                    await connection('package_assignments').insert({ ...item, assignment_type: 'organization' });
                }
           }
           return [];
@@ -207,22 +209,23 @@ export class Packages {
      static async getOrganizationPackages(tenantId: number, id: number | null = null): Promise<any> {
           const connection = await KnexConnection(tenantId);
           if (id) {
-               return await connection('organization_packages')
-                    .join('packages', 'packages.id', '=', 'organization_packages.package_id')
-                    .join('organization', 'organization.id', '=', 'organization_packages.organization_id')
-                    .where('organization_packages.package_id', id)
-                    .select('organization_packages.*', 'packages.*', 'organization.*');
+               return await connection('package_assignments')
+                    .join('packages', 'packages.id', '=', 'package_assignments.package_id')
+                    .join('organization', 'organization.id', '=', 'package_assignments.organization_id')
+                    .where({ 'package_assignments.assignment_type': 'organization', 'package_assignments.package_id': id })
+                    .select('package_assignments.*', 'packages.*', 'organization.*');
           }
-          return await connection('organization_packages')
-               .join('packages', 'packages.id', '=', 'organization_packages.package_id')
-               .join('organization', 'organization.id', '=', 'organization_packages.organization_id')
-               .select('organization_packages.*', 'packages.*', 'organization.*');
+          return await connection('package_assignments')
+               .join('packages', 'packages.id', '=', 'package_assignments.package_id')
+               .join('organization', 'organization.id', '=', 'package_assignments.organization_id')
+               .where('package_assignments.assignment_type', 'organization')
+               .select('package_assignments.*', 'packages.*', 'organization.*');
      }
 
      static async updateOrganizationPackage(tenantId: number, id: number, data: OrganizationPackage[]): Promise<any[] | number> {
           const connection = await KnexConnection(tenantId);
-          const deletedCount = await connection('organization_packages')
-               .where({ package_id: id })
+          const deletedCount = await connection('package_assignments')
+               .where({ assignment_type: 'organization', package_id: id })
                .del();
           if (deletedCount > 0) {
                const formattedData = data.map(item => ({
@@ -230,7 +233,7 @@ export class Packages {
                     package_id: item.package_id,
                     assigned_at: item.assigned_at || connection.fn.now(),
                }));
-               const outcome = await connection('organization_packages').insert(formattedData);
+               const outcome = await connection('package_assignments').insert(formattedData.map(item => ({ ...item, assignment_type: 'organization' })));
                return outcome;
           }
           return 0;
@@ -238,7 +241,7 @@ export class Packages {
 
      static async deleteOrganizationPackage(tenantId: number, id: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection('organization_packages').where({ package_id: id }).del();
+          return await connection('package_assignments').where({ assignment_type: 'organization', package_id: id }).del();
      }
 
      static async createPackage(tenantId: number, data: Package): Promise<number[]> {
@@ -333,8 +336,12 @@ export class Packages {
                          connection.raw('COUNT(DISTINCT op.organization_id) as organization_count')
                     )
                     .leftJoin('package_tests as pt', 'packages.id', 'pt.package_id')
-                    .leftJoin('clinician_packages as cp', 'packages.id', 'cp.package_id')
-                    .leftJoin('organization_packages as op', 'packages.id', 'op.package_id')
+                    .leftJoin('package_assignments as cp', function () {
+                         this.on('packages.id', '=', 'cp.package_id').andOn('cp.assignment_type', '=', connection.raw('?', ['clinician']));
+                    })
+                    .leftJoin('package_assignments as op', function () {
+                         this.on('packages.id', '=', 'op.package_id').andOn('op.assignment_type', '=', connection.raw('?', ['organization']));
+                    })
                     .leftJoin('roles', 'roles.employeeid', 'packages.created_by')
                     .groupBy('packages.id');
 
@@ -365,15 +372,16 @@ export class Packages {
           try {
                const connection = await KnexConnection(tenantId);
 
-               const result = await connection('clinician_packages')
+               const result = await connection('package_assignments')
                     .where({
+                         assignment_type: 'clinician',
                          clinician_id: clinicianId,
                          package_id: packageId
                     })
                     .del();
 
                return result;
-          } catch (error) {
+          } catch (error:any) {
                throw new Error(`Error removing clinician package: ${error.message}`);
           }
      }

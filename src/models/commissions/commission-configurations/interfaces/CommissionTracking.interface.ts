@@ -23,7 +23,6 @@ export interface ICommissionTracking {
      calculated_at: Date;
      currency: string;
      status: CommissionStatus;
-     notes?: string;
      created_at: Date;
      updated_at: Date;
 }
@@ -49,7 +48,6 @@ export class CommissionTracking implements ICommissionTracking {
      calculated_at!: Date;
      currency!: string;
      status!: CommissionStatus;
-     notes?: string;
      created_at!: Date;
      updated_at!: Date;
 

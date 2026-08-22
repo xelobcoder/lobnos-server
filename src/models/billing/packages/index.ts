@@ -1,19 +1,16 @@
-import { PackageRepository } from './PackageRepository';
-import { ClinicianPackageRepository } from './ClinicianPackageRepository';
-import { OrganizationPackageRepository } from './OrganizationPackageRepository';
-import { PackageTestRepository } from './PackageTestRepository';
+import { PackageRepository } from '../repositories/PackageRepository';
+import { PackageAssignmentRepository } from '../repositories/PackageAssignmentRepository';
+import { PackageTestRepository } from '../repositories/PackageTestRepository';
 import { PackageService } from './PackageService';
 
 export const createPackageService = () => {
     const packageRepo = new PackageRepository();
-    const clinicianPackageRepo = new ClinicianPackageRepository();
-    const organizationPackageRepo = new OrganizationPackageRepository();
+    const packageAssignmentRepo = new PackageAssignmentRepository();
     const packageTestRepo = new PackageTestRepository();
 
     return new PackageService(
         packageRepo,
-        clinicianPackageRepo,
-        organizationPackageRepo,
+        packageAssignmentRepo,
         packageTestRepo
     );
 };

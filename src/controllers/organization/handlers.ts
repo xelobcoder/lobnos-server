@@ -177,9 +177,7 @@ export const getOrganizationsCommissionByDate = async (
 		const { startDate, endDate, page = '1', count = '10', sortby = 'DESC' } = request.query;
 		const tenantIdP = parseInt(request.query.tenantId.toString());
 
-		if (!startDate || !endDate) {
-			return customError('startDate and endDate query params are required', 400, response);
-		}
+		if (!startDate || !endDate) return customError('startDate and endDate query params are required', 400, response);
 
 		const result = await OrganizationAnalyticsRepository.getOrganizationsCommissionByDate(tenantIdP, {
 			startDate: startDate.toString(),

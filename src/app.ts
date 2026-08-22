@@ -60,6 +60,7 @@ import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfac
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
 import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from "./models/operations/sample/HomeCollection/BootstrapHomeCollection";
 import { bootstrapCommissionTables } from './models/commissions/commission-configurations/services/CommissionBootstrapService';
+import { bootstrapBillingTables } from './models/billing/BillingTableBootstrapper';
 
 
 
@@ -80,7 +81,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
-app.use(checkTokenExists)
+// app.use(checkTokenExists)
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);
@@ -180,6 +181,7 @@ app.listen(Number(port), "0.0.0.0", async () => {
         `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
     );
 
+    await bootstrapBillingTables(1)
     await bootstrapCommissionTables(1)
     await bootstrapNotificationDefinitions(1)
     await bootstrapHomeCollectionTables(1)

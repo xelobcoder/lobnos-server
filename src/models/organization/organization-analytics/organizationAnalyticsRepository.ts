@@ -66,9 +66,9 @@ export class OrganizationAnalyticsRepository {
         AND s.serviceCategory = 'ORGANIZATION'
         AND s.status = 'active'
         AND DATE(s.serviceAddedOn) >= ?
+        AND DATE(s.serviceAddedOn) <= ?
         AND s.isRefunded = 0
         AND s.paymentstatus != 'pending'
-        AND DATE(s.serviceAddedOn) <= ?
         AND cbps.serviceid IS NULL
     GROUP BY 
        s.serviceid

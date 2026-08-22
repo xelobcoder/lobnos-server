@@ -6,6 +6,7 @@ export interface ICommissionConfigRepository {
      findActive(onDate: Date): Promise<ICommissionConfig[]>;
      findAll(): Promise<ICommissionConfig[]>;
      create(config: Omit<ICommissionConfig, 'id' | 'created_at' | 'updated_at'>): Promise<ICommissionConfig>;
+     update(id: number, config: Partial<Omit<ICommissionConfig, 'id' | 'created_at' | 'updated_at'>>): Promise<ICommissionConfig>;
      softDelete(id: number): Promise<void>;
      getByIdOrThrow(id: number): Promise<ICommissionConfig>;
 }

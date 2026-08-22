@@ -95,7 +95,6 @@ export async function bootstrapCommissionTables(tenantId = 1): Promise<void> {
                table.dateTime('calculated_at').notNullable();
                table.string('currency', 3).notNullable().defaultTo('GHS');
                table.enu('status', ['pending', 'approved', 'paid', 'voided', 'adjusted']).notNullable().defaultTo('pending');
-               table.text('notes').nullable();
                table.timestamp('created_at').defaultTo(connection.fn.now());
                table.timestamp('updated_at').defaultTo(connection.fn.now());
                table.index(['service_id'], 'idx_commission_tracking_service');

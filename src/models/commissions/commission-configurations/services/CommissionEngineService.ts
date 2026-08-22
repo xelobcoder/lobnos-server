@@ -233,9 +233,6 @@ export class CommissionEngineService {
                     calculated_at: new Date(),
                     currency: 'GHS',
                     status: 'pending',
-                    notes: input.outsourced_lab_cost && input.outsourced_lab_cost > 0
-                         ? `commissionable_amount=${commissionableAmount}; outsourced_lab_cost=${input.outsourced_lab_cost}`
-                         : undefined,
                });
 
                console.log(tracking)
@@ -254,13 +251,35 @@ export class CommissionEngineService {
                     reason: 'SUCCESS',
                };
           } catch (error: any) {
-               console.log(error)
+               const errorMessage = error instanceof Error ? error.message : String(error);
+
+               if (
+                    error instanceof TierNotFoundError ||
+                    error instanceof ConfigNotFoundError ||
+                    error instanceof NoCommissionConfigFoundError
+               ) {
+                    logger.warn('Commission configuration missing or not applicable for service', {
+                         service_id: input.service_id,
+                         error: errorMessage,
+                    });
+
+                    return {
+                         final_commission: 0,
+                         reason: 'NO_CONFIG',
+                         error: errorMessage,
+                    };
+               }
+
                logger.error('Commission calculation failed', {
-                    error: error instanceof Error ? error.message : String(error),
+                    error: errorMessage,
                     service_id: input.service_id,
                });
 
-               throw new Error(error)
+               return {
+                    final_commission: 0,
+                    reason: 'ERROR',
+                    error: errorMessage,
+               };
           }
      }
 

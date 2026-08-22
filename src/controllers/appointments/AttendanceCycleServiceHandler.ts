@@ -7,7 +7,7 @@ import EmployeeShiftService from "../../models/appointments/ShiftsPreferenceAndA
 import ShiftService from "../../models/appointments/shfitsServices";
 
 
-export const createAttendanceCycleHandler = async (req: Request, res: Response) => {
+export const createAttendanceCycleHandler = async (req: Request<{}, {}, any, { tenantId: string }>, res: Response) => {
      try {
           const { tenantId } = req.query;
           const tenantIdP = parseInt(tenantId.toString());
@@ -20,7 +20,7 @@ export const createAttendanceCycleHandler = async (req: Request, res: Response) 
 };
 
 
-export const getAllAttendanceCyclesHandler = async (_req: Request, res: Response) => {
+export const getAllAttendanceCyclesHandler = async (_req: Request<{}, {}, {}, { tenantId: string }>, res: Response) => {
      try {
           const { tenantId } = _req.query;
           const tenantIdP = parseInt(tenantId.toString());
@@ -33,7 +33,7 @@ export const getAllAttendanceCyclesHandler = async (_req: Request, res: Response
 };
 
 
-export const getAttendanceCycleHandler = async (req: Request, res: Response) => {
+export const getAttendanceCycleHandler = async (req: Request<{id:number}, {}, {}, { tenantId: string }>, res: Response) => {
      try {
           const { tenantId } = req.query;
           const { id } = req.params;
@@ -52,7 +52,7 @@ export const getAttendanceCycleHandler = async (req: Request, res: Response) => 
 };
 
 
-export const updateAttendanceCycleHandler = async (req: Request, res: Response) => {
+export const updateAttendanceCycleHandler = async (req: Request<{id:number}, {}, any, { tenantId: string }>, res: Response) => {
      try {
           const { tenantId } = req.query;
           const { id } = req.params;
@@ -72,7 +72,7 @@ export const updateAttendanceCycleHandler = async (req: Request, res: Response) 
 };
 
 
-export const deleteAttendanceCycleHandler = async (req: Request, res: Response) => {
+export const deleteAttendanceCycleHandler = async (req: Request<{id:number}, {}, {}, { tenantId: string }>, res: Response) => {
      try {
           const { tenantId } = req.query;
           const tenantIdP = parseInt(tenantId.toString());
@@ -94,7 +94,7 @@ export const deleteAttendanceCycleHandler = async (req: Request, res: Response) 
 
 
 
-export const getEmployeeAttendanceSummaryHandler = async (request: Request<{ cycleid: number }>, response: Response) => {
+export const getEmployeeAttendanceSummaryHandler = async (request: Request<{ cycleid: number }, {}, {}, { tenantId: string }>, response: Response) => {
      try {
           const { tenantId } = request.query;
           const cycleid = request.params.cycleid

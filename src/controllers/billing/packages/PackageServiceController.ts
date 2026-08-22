@@ -1,17 +1,12 @@
 import { Request, Response } from 'express';
 import { createPackageService } from '../../../models/billing/packages';
 import { responseError } from '../../../hooks/helper';
-import { 
-    PrimeLimsTableclinician_packages, 
-    PrimeLimsTableorganization_packages, 
-    PrimeLimsTablepackage_tests,
-    PrimeLimsTablepackages 
-} from '../../../database/DatabaseTableSchema';
+import { ClinicianPackage, OrganizationPackage, Package, PackageTest } from '../../../models/billing/entities/Package.entities';
 
 const packageService = createPackageService();
 
 // Clinician Package Handlers
-export const createClinicianPackageHandler = async (req: Request<{}, {}, PrimeLimsTableclinician_packages[]>, res: Response) => {
+export const createClinicianPackageHandler = async (req: Request<{}, {}, ClinicianPackage[]>, res: Response) => {
     try {
         const tenantId: number = parseInt(req.query.tenantId as string, 10);
         const result = await packageService.assignPackagesToClinician(tenantId, req.body);
@@ -36,7 +31,7 @@ export const getClinicianPackagesHandler = async (req: Request<{ id?: string }>,
 };
 
 // Organization Package Handlers
-export const createOrganizationPackageHandler = async (req: Request<{}, {}, PrimeLimsTableorganization_packages[]>, res: Response) => {
+export const createOrganizationPackageHandler = async (req: Request<{}, {}, OrganizationPackage[]>, res: Response) => {
     try {
         const tenantId: number = parseInt(req.query.tenantId as string, 10);
         const result = await packageService.assignPackagesToOrganization(tenantId, req.body);
@@ -57,7 +52,7 @@ export const getOrganizationPackagesHandler = async (req: Request<{ id?: string 
 };
 
 // Package Handlers
-export const createPackageHandler = async (req: Request<{}, {}, PrimeLimsTablepackages>, res: Response) => {
+export const createPackageHandler = async (req: Request<{}, {}, Package>, res: Response) => {
     try {
         const tenantId: number = parseInt(req.query.tenantId as string, 10);
         const result = await packageService.createPackage(tenantId, req.body);
@@ -83,15 +78,15 @@ export const getPackagesHandler = async (req: Request<{ id?: string, page?: stri
 };
 
 // Package Test Handlers
-export const createPackageTestHandler = async (req: Request<{}, {}, PrimeLimsTablepackage_tests[]>, res: Response) => {
+export const createPackageTestHandler = async (req: Request<{}, {}, PackageTest[]>, res: Response) => {
     try {
         const tenantId: number = parseInt(req.query.tenantId as string, 10);
         const result = await packageService.assignTestsToPackage(tenantId, req.body);
         if (result) {
-            return res.status(201).json({ 
-                status: "success", 
-                message: "Package test created successfully", 
-                data: result 
+            return res.status(201).json({
+                status: "success",
+                message: "Package test created successfully",
+                data: result
             });
         }
         return res.status(400).json({ status: "error", message: "Failed to create package test" });
@@ -111,9 +106,9 @@ export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, Pack
     try {
         const tenantId: number = parseInt(request.query.tenantId as string, 10);
         const { clinicianId, organizationId, billingSource } = request.body;
-        
-        let packages = [];
-        
+
+        let packages: Array<ClinicianPackage | OrganizationPackage | Package> = [];
+
         if (billingSource === 6 && clinicianId) {
             packages = await packageService.getClinicianPackages(tenantId, clinicianId);
         } else if (billingSource === 2 && organizationId) {
@@ -121,7 +116,7 @@ export const verifyAndLoadPackagesHandler = async (request: Request<{}, {}, Pack
         } else if (billingSource === 1) {
             packages = await packageService.getAllPackages(tenantId);
         }
-        
+
         response.send(packages);
     } catch (err: any) {
         responseError(response, err);

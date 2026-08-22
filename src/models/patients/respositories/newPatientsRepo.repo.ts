@@ -1,5 +1,6 @@
 import KnexConnection from "../../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../../database/TiifuWorkingClass";
+import { logger } from "../../commissions/commission-configurations";
 import { ICreateNewPatient } from "../interfaces";
 
 export default class NewPatientsRepo {
@@ -7,20 +8,19 @@ export default class NewPatientsRepo {
      private tableName: string;
      private tenantId: number;
 
-     constructor(tenantId: number) {
-          this.connection = KnexConnection(tenantId);
+     constructor(tenantId: number,trx?:any) {
+          this.connection = KnexConnection(tenantId) || trx;
           this.tableName = "new_patients";
           this.tenantId = tenantId;
      }
-
 
 
      create = async (newPatient: ICreateNewPatient): Promise<void> => {
           try {
                const connection = await this.connection;
                await connection(this.tableName).insert(newPatient);
-          } catch (error) {
-               console.error("Error creating new patient:", error);
+          } catch (error:any) {
+               logger.error(error)
                throw new Error("Error creating new patient");
           }
      }
@@ -76,8 +76,8 @@ export default class NewPatientsRepo {
                     .update({ is_deleted: true });
                return result > 0;
           }
-          catch (error) {
-               console.error("Error soft deleting new patient:", error);
+          catch (error:any) {
+               logger.error(error);
                throw new Error("Error soft deleting new patient");
           }
      }
@@ -89,8 +89,8 @@ export default class NewPatientsRepo {
                const result = await connection(this.tableName)
                     .where(filter);
                return result;
-          } catch (error) {
-               console.error("Error fetching patients by filter:", error);
+          } catch (error:any) {
+               logger.error(error);
                throw new Error("Error fetching patients by filter");
           }
      }

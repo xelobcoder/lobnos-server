@@ -79,6 +79,28 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
           }
      }
 
+     async update(
+          id: number,
+          config: Partial<Omit<ICommissionConfig, 'id' | 'created_at' | 'updated_at'>>
+     ): Promise<ICommissionConfig> {
+          try {
+               const connection = await KnexConnection(this.tenantId);
+               await connection('commission_configs').where('id', id).update({
+                    ...config,
+                    updated_at: new Date(),
+               });
+
+               const updated = await this.findById(id);
+               if (!updated) {
+                    throw new DatabaseError(`Failed to retrieve updated commission config with id ${id}`);
+               }
+               return updated;
+          } catch (error) {
+               if (error instanceof DatabaseError) throw error;
+               throw new DatabaseError(`Failed to update commission config ${id}`, error);
+          }
+     }
+
      async softDelete(id: number): Promise<void> {
           try {
                const connection = await KnexConnection(this.tenantId);

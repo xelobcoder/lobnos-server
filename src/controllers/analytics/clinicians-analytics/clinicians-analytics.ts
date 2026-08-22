@@ -367,14 +367,14 @@ export default class ClinicianAnalyticsHandlers {
      }
 
      public async getCliniciansCommissionbyDate(request: Request<{}, {}, {}, { tenantId: string, startDate: string, endDate: string, sortby: 'ASC' | 'DESC', page: number, count: number }>, response: Response) {
-          const { tenantId, startDate, endDate, sortby='DESC', page=1, count=10 } = request.query;
+          const { tenantId, startDate, endDate, sortby = 'DESC', page = 1, count = 10 } = request.query;
           if (!startDate || !endDate) {
                return response.status(400).json({
                     success: false,
                     error: "Start date and end date are required"
                });
           }
-      
+
           const result = await ClinicianAnalytics.getClinicianCommissionByDate(parseInt(tenantId.toString()), { startDate: startDate as string, endDate: endDate as string, sortby, page, count });
           response.status(200).json({
                success: true,
@@ -383,20 +383,28 @@ export default class ClinicianAnalyticsHandlers {
      }
 
      public async getClinicianCommissionHandler(request: Request<{}, {}, {}, { tenantId: string, clinicianId: string, startDate: string, endDate: string }>, response: Response) {
-          const { tenantId, clinicianId, startDate, endDate } = request.query;
-          if (!startDate || !endDate || !clinicianId) {
-               return response.status(400).json({
+          try {
+               const { tenantId, clinicianId, startDate, endDate } = request.query;
+               if (!startDate || !endDate || !clinicianId) {
+                    return response.status(400).json({
+                         success: false,
+                         error: "Start date, end date, and clinician ID are required"
+                    });
+               }
+
+
+               const result = await ClinicianAnalytics.getClinicianCommission(parseInt(tenantId.toString()), parseInt(clinicianId.toString()), startDate as string, endDate as string);
+               response.status(200).json({
+                    success: true,
+                    data: result
+               });
+          } catch (error: any) {
+               console.log(error)
+               response.status(400).json({
                     success: false,
-                    error: "Start date, end date, and clinician ID are required"
+                    error: "something went wrong"
                });
           }
-
-
-          const result = await ClinicianAnalytics.getClinicianCommission(parseInt(tenantId.toString()), parseInt(clinicianId.toString()), startDate as string, endDate as string);
-          response.status(200).json({
-               success: true,
-               data: result
-          });
      }
 
      public async getTopOutsourcedTests(req: BaseAnalyticsRequest, res: Response) {

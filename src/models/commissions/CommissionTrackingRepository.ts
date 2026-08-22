@@ -26,7 +26,6 @@ interface CommissionTracking {
      calculated_at?: Date;
      currency?: string;
      status?: string;
-     notes?: string;
      created_at?: Date;
      updated_at?: Date;
 }
@@ -146,9 +145,10 @@ export class CommissionTrackingRepo {
      async updateCommissionTracking(id: number, updates: Partial<CommissionTracking>): Promise<number> {
           try {
                const conn = await this.connection;
+               const { notes: _notes, ...safeUpdates } = updates as any;
                return await conn('commission_tracking')
                     .where({ id })
-                    .update(updates);
+                    .update(safeUpdates);
           } catch (error) {
                logger.error('Error updating commission tracking:', error);
                throw error;
@@ -225,7 +225,7 @@ export class CommissionTrackingRepo {
           }
      }
 
-     async getUntrackedServices(recipientType?: 'clinician' | 'organization', recipientId?: number, page?: number, count?: number): Promise<any[]> {
+     async getUntrackedServices(recipientType?: 'clinician' | 'organization', recipientId?: number, page?: number, count?: number, startDate?: Date, endDate?: Date, sortBy: 'ASC' | 'DESC' = 'ASC'): Promise<any[]> {
           try {
                const conn = await this.connection;
                let trackedServiceIds: any[] = [];
@@ -236,7 +236,6 @@ export class CommissionTrackingRepo {
                          .andWhere('recipient_id', recipientId)
                          .select('service_id');
                } else {
-                    // If no recipient specified, get all tracked service IDs
                     trackedServiceIds = await conn('commission_tracking')
                          .select('service_id');
                }
@@ -269,6 +268,10 @@ export class CommissionTrackingRepo {
                     query = query.andWhere('clinicianId', recipientId);
                } else if (recipientType === 'organization' && recipientId !== undefined) {
                     query = query.andWhere('organizationId', recipientId);
+               }
+
+               if (startDate && endDate) {
+                    query = query.andWhereBetween(conn.raw('DATE(serviceAddedOn)'), [startDate, endDate]);
                }
 
                if (page !== undefined && count !== undefined) {
@@ -327,8 +330,3 @@ export class CommissionTrackingRepo {
           }
      }
 }
-
-
-/*
-So, the approach is that we are going to have the commission deal and we are going to have the amount paid. There are going to be instances where the commission deal will be greater than the amount paid. That is always at the discretion of the company to decide how much to pay to the clinician for the commission end. Now, instances they'll pay the full commission, instances they'll pay the right amount or less. Let's establish that first.
-*/

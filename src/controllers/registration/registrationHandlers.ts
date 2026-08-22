@@ -19,7 +19,7 @@ export const addNewPatient = async (request: Request, res: Response) => {
 		const tenantId: number = parseInt(request.query.tenantId as string);
 		await Registration.addNewPatient(tenantId, request, res);
 	} catch (error) {
-		console.log(error);
+		logger.error(error);
 		customError("Error registering patient", 500, res);
 	}
 };

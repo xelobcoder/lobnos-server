@@ -59,7 +59,7 @@ class Patient extends Registration implements IPatient {
 		}
 	}
 
-	async updateNotificationSettings(tenantId: number, data): Promise<boolean> {
+	async updateNotificationSettings(tenantId: number, data:any): Promise<boolean> {
 		const { mode, method, notify, patientid } = data
 		const updateQuery = PatientQuery.updateNotificationSettings;
 		const updated = await this.runqueryPromise(tenantId, updateQuery, [mode, method, notify, parseInt(patientid)]);

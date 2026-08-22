@@ -6,6 +6,10 @@ import {
 import { ICommissionTrackingRepository } from './ICommissionTrackingRepository';
 import { DatabaseError } from '../errors/CommissionErrors';
 import KnexConnection from '../../../../database/KnexConnections';
+import {
+     commissionTrackingCreateSchema,
+     commissionTrackingUpdateSchema,
+} from '../utils/CommissionTrackingSchema';
 
 
 export class CommissionTrackingRepository implements ICommissionTrackingRepository {
@@ -184,9 +188,10 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
      ): Promise<ICommissionTracking> {
           try {
                const connection = await this.connection;
-               console.log(tracking)
+               const safeTracking = commissionTrackingCreateSchema.parse(tracking);
+               const { created_at: _createdAt, updated_at: _updatedAt, ...trackingPayload } = safeTracking as any;
                const [id] = await connection('commission_tracking').insert({
-                    ...tracking,
+                    ...trackingPayload,
                     created_at: new Date(),
                     updated_at: new Date(),
                });
@@ -205,9 +210,10 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
      async updateStatus(id: number, status: string): Promise<void> {
           try {
                const connection = await this.connection;
+               const payload = commissionTrackingUpdateSchema.parse({ status, updated_at: new Date() });
                await connection('commission_tracking').where('id', id).update({
-                    status,
-                    updated_at: new Date(),
+                    status: payload.status,
+                    updated_at: payload.updated_at,
                });
           } catch (error) {
                throw new DatabaseError(`Failed to update commission tracking status ${id}`, error);
@@ -229,7 +235,11 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
 
                const adjustmentKey = `COMMISSION_ADJUSTMENT:${kind}:${originalId}`;
                const existing = await connection('commission_tracking')
-                    .where('notes', 'like', `${adjustmentKey}%`)
+                    .where('status', 'adjusted')
+                    .where('service_id', original.service_id)
+                    .where('recipient_id', original.recipient_id)
+                    .where('config_id', original.config_id)
+                    .orderBy('calculated_at', 'desc')
                     .first();
                if (existing) return new CommissionTracking(existing);
 
@@ -254,7 +264,6 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                     calculated_at: new Date(),
                     currency: original.currency,
                     status: 'adjusted',
-                    notes: `${adjustmentKey}; amount=${adjustmentAmount}; reason=${reason}`,
                });
           } catch (error) {
                if (error instanceof DatabaseError) throw error;

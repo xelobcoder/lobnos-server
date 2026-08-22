@@ -1,5 +1,5 @@
 // Generated types for database tables
-
+// obsolete do not use again
 export type PrimeLimsTableaccounts = {
   id: number;
   accountId: string;
@@ -110,7 +110,7 @@ export type PrimeLimsTablebilling = {
   totalcost: number;
   paid: number;
   payable: number;
-  voidedby:number;
+  voidedby: number;
   voidedat: string | Date,
   totalrefunded: number;
   discount: number;
@@ -301,13 +301,6 @@ export type PrimeLimsTableclinician_daily_sales_summary = {
   test_panels_count?: number;
 };
 
-export type PrimeLimsTableclinician_packages = {
-  id: number;
-  clinician_id: number;
-  package_id: number;
-  assigned_at: Date | string;
-};
-
 export type PrimeLimsTablecommodity = {
   comid: number;
   commodity: string;
@@ -491,7 +484,7 @@ export type PrimeLimsTabledboservices = {
   organizationId?: number;
   voidedat: string | Date,
   registrationType?: string;
-  voidedby:number;
+  voidedby: number;
   branchid: number;
   isoutsourced: number;
   paidstatus: string;
@@ -1195,13 +1188,6 @@ export type PrimeLimsTableorganizationcontactperson = {
   name?: string;
   email?: string;
   mobile?: number;
-};
-
-export type PrimeLimsTableorganization_packages = {
-  id: number;
-  organization_id: number;
-  package_id: number;
-  assigned_at: Date | string;
 };
 
 export type PrimeLimsTableoutsourcedtesttracking = {

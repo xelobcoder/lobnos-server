@@ -1,5 +1,4 @@
 import KnexConnection from "../../../database/KnexConnections";
-import ApplicationSettings from "../../application/appsettings/appset";
 import { ApplicationSettingsData, AppSetting } from "../../application/appsettings/Type";
 import { Billing } from "../../../../obso/billing";
 import { serviceCategory } from "../billingclientTypes";

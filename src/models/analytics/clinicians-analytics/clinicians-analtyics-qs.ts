@@ -465,7 +465,7 @@ FROM previous, current;
 export const q_get_clinician_commission = `
     SELECT
         DATE(dboservices.serviceAddedOn) AS service_date,
-        dboservices.id AS clinician_id,
+        dboservices.clinicianId AS clinician_id,
         c.name AS clinician_name,
         dboservices.serviceid,
         c.phone AS clinician_phone,
@@ -477,13 +477,13 @@ export const q_get_clinician_commission = `
         COALESCE(ct.commission_due, 0) AS commission_earned
     FROM dboservices 
     INNER JOIN clinicianbasicinfo c
-        ON s.clinicianId = c.id
+        ON dboservices.clinicianId = c.id
     LEFT JOIN commission_tracking ct
         ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = dboservices.serviceid
     WHERE
-        s.clinicianId = ?
+        dboservices.clinicianId = ?
         AND dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
         AND dboservices.status = 'active'
         AND dboservices.isAdjustment = 0
@@ -502,6 +502,7 @@ export const q_get_clinician_commission = `
 export const q_get_clinicians_commission_by_date = `
     SELECT
         c.id AS clinician_id,
+        dboservices.serviceid,
         c.name AS clinician_name,
         c.phone AS clinician_phone,
         DATE(dboservices.serviceAddedOn) AS service_date,

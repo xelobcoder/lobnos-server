@@ -178,7 +178,7 @@ export class CommissionConfigController {
      }
 
      /**
-      * Update commission configuration (soft delete old, create new version)
+          * Update commission configuration in place and replace tiers on same config id
       * PUT /api/v1/commission/configs/:id
       */
      static async updateConfig(req: Request<{ id: number | string }>, res: Response): Promise<void> {
@@ -191,9 +191,8 @@ export class CommissionConfigController {
                     return;
                }
 
-               // Soft delete the old config
                const repository = CommissionServiceFactory.createConfigRepository(tenantId);
-               await repository.softDelete(configId);
+               const existingConfig = await repository.getByIdOrThrow(configId);
 
                // Create new version with updated fields
                const {
@@ -211,27 +210,31 @@ export class CommissionConfigController {
                     effective_from,
                     effective_to,
                     is_active = true,
+                    tiers,
                } = req.body;
 
-               const newConfig = {
-                    name,
-                    commission_type,
-                    quota_target: quota_target || null,
-                    volume_period: volume_period || null,
-                    percentage_rate: percentage_rate || null,
-                    sliding_max_percentage: sliding_max_percentage || null,
-                    fixed_component: fixed_component || null,
-                    min_commission: min_commission || 0,
-                    max_commission: max_commission || 999999,
-                    period_cap: period_cap || null,
-                    period_cap_reset: period_cap_reset || null,
-                    effective_from: effective_from ? new Date(effective_from) : new Date(),
-                    effective_to: effective_to ? new Date(effective_to) : null,
-                    is_active,
+               const tierRepository = CommissionServiceFactory.createTierRepository(tenantId);
+               await tierRepository.deleteByConfigId(configId);
+
+               const mergedConfig = {
+                    name: name ?? existingConfig.name,
+                    commission_type: commission_type ?? existingConfig.commission_type,
+                    quota_target: quota_target ?? existingConfig.quota_target ?? null,
+                    volume_period: volume_period ?? existingConfig.volume_period ?? null,
+                    percentage_rate: percentage_rate ?? existingConfig.percentage_rate ?? null,
+                    sliding_max_percentage: sliding_max_percentage ?? existingConfig.sliding_max_percentage ?? null,
+                    fixed_component: fixed_component ?? existingConfig.fixed_component ?? null,
+                    min_commission: min_commission ?? existingConfig.min_commission ?? 0,
+                    max_commission: max_commission ?? existingConfig.max_commission ?? 999999,
+                    period_cap: period_cap ?? existingConfig.period_cap ?? null,
+                    period_cap_reset: period_cap_reset ?? existingConfig.period_cap_reset ?? null,
+                    effective_from: effective_from ? new Date(effective_from) : existingConfig.effective_from,
+                    effective_to: effective_to ? new Date(effective_to) : existingConfig.effective_to ?? null,
+                    is_active: typeof is_active === 'boolean' ? is_active : existingConfig.is_active,
                };
 
                try {
-                    CommissionValidator.validateConfig(newConfig as any);
+                    CommissionValidator.validateConfig(mergedConfig as any);
                } catch (validationError: any) {
                     res.status(400).json({
                          status: 'error',
@@ -242,13 +245,39 @@ export class CommissionConfigController {
                     return;
                }
 
-               const createdConfig = await repository.create(newConfig as any);
+               const updatedConfig = await repository.update(configId, mergedConfig as any);
+
+               const configType = mergedConfig.commission_type;
+               const isTierBased = ['tiered', 'volume', 'quota', 'accelerating'].includes(configType);
+
+               if (!isTierBased) {
+                    await tierRepository.deleteByConfigId(configId);
+               }
+
+               if (isTierBased && Array.isArray(tiers)) {
+                    try {
+                         CommissionValidator.validateTiers(configType, tiers);
+                    } catch (validationError: any) {
+                         res.status(400).json({
+                              status: 'error',
+                              statusCode: 400,
+                              message: 'Invalid tier configuration',
+                              errors: validationError.errors || [validationError.message],
+                         });
+                         return;
+                    }
+
+                    await tierRepository.deleteByConfigId(configId);
+                    if (tiers.length > 0) {
+                         await tierRepository.createMultiple(tiers, configId);
+                    }
+               }
 
                res.json({
                     status: 'success',
                     statusCode: 200,
                     message: 'Commission configuration updated successfully',
-                    result: createdConfig,
+                    result: updatedConfig,
                });
           } catch (error: any) {
                res.status(500).json({
