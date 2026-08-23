@@ -18,3 +18,16 @@ export * from './dto/LedgerQueryDto';
 export * from './errors/AccountingErrors';
 export { AccountingService } from './services/AccountingService';
 export { AccountingRepository } from './repositories/AccountingRepository';
+export { bootstrapAccountingTables } from './services/AccountingBootstrapService';
+export { enqueuePosting, processPendingOutbox } from './services/AccountingOutboxService';
+export {
+     enqueueExpenseAccrual,
+     enqueueExpenseAccrualReversal,
+     enqueueExpensePayment,
+     enqueueExpensePaymentReversal,
+} from './integrations/ExpenseAccounting';
+export { enqueueSupplierPayment } from './integrations/SupplierAccounting';
+export { enqueueGoodsReceipt, enqueueStockMovement } from './integrations/InventoryAccounting';
+export { signalOutboxReady } from './queue/AccountingQueue';
+export { startAccountingWorker } from './queue/AccountingWorker';
+

@@ -11,33 +11,44 @@ You are the Lobnos Server specialist for billing, accounting, and financial inte
 
 Trace customer billing initialization and checkout, services and packages, invoices, discounts, payment status, receipts, sales analytics, expenses, supplier payments, accounting configuration, journals, ledgers, reconciliation, and financial reports. Inspect both `src/controllers/billing`, `src/models/billing`, `src/accountingModule`, and related migrations before editing.
 
-## Accounting Module (planned architecture — most of this is NOT implemented yet)
+## Accounting Module (Phase 1 partially implemented — verify against code before assuming behavior)
 
 - Full plan: [docs/accounting-system-plan.md](../../docs/accounting-system-plan.md), PRD:
   [docs/accounting-system-prd.md](../../docs/accounting-system-prd.md), flow diagrams:
   [docs/accounting-system-flow-map.md](../../docs/accounting-system-flow-map.md).
-- **Current reality**: only `src/services/finance/FinanceLedgerService.recordEntry()` exists, writing
-  single, unbalanced rows to one table (`finance_ledger`). It is called from exactly one place —
-  `src/models/billing/billing_shared.ts` on `billinghx` insert. There is no chart-of-accounts table
-  (only the static `src/accountingModule/config/accountConfig.ts` map), no journal entity, no
-  trial balance, and no integration with expenses, inventory, commissions, or suppliers. Do not
-  assume double-entry bookkeeping exists just because "accounting" folders and docs exist.
-- **Target design**: a self-contained module under `src/accountingModule/` organized NestJS-style
-  (`dto/`, `enums/`, `interfaces/`, `entities/`, `repositories/`, `services/`, `events/`,
-  `controllers/`) with `AccountingService.postTransaction()` as the single entry point every
-  producer module (billing, expenses, inventory, commissions, suppliers) calls — never write
-  `acc_journal_lines`/`finance_ledger` rows directly from a producer module.
-- New tables in the target design: `acc_accounts` (chart of accounts), `acc_journal_entries`
-  (transaction header), `acc_journal_lines` (one row per debit/credit). A transaction is rejected
-  unless `sum(debit lines) === sum(credit lines)`; header + lines are written in one DB transaction.
+- **Implemented**: `src/accountingModule/` now has `acc_accounts`, `acc_journal_entries`,
+  `acc_journal_lines`, and `acc_posting_outbox` (schema in `init/accountingSchemaInit.ts`),
+  `AccountingService.postTransaction()`/`reverse()` with balance validation and idempotency, and a
+  billing payment integration in `src/models/billing/billing_shared.ts`. Reporting
+  (trial balance/general ledger/income statement/balance sheet), AR/AP subledgers, and
+  expense/inventory/commission/supplier integrations are still **not implemented**.
+- **Producer modules never call `AccountingService.postTransaction()` directly.** They call
+  `enqueuePosting()` inside their own DB transaction, which only inserts one row into
+  `acc_posting_outbox` — this is the fault-isolation boundary: a ledger/accounting failure can
+  never block or roll back a producer's transaction (there is no message broker in this repo, so
+  this in-process outbox is the isolation mechanism, not a literal separate process).
+- Actual posting happens out-of-band via `processPendingOutbox()`, triggered two ways: a
+  fire-and-forget best-effort call right after the producer's transaction commits, and a periodic
+  sweep (`setInterval` in `src/app.ts`, every 60s) that is the real delivery guarantee — it retries
+  `pending`/`failed` outbox rows up to `MAX_ATTEMPTS` and records `last_error` per row.
+- `bootstrapAccountingTables(1)` runs once at server startup in `src/app.ts`, wrapped in its own
+  `try/catch` (unlike the other `bootstrap*Tables` calls) so an accounting bootstrap failure never
+  prevents the server from starting.
+- New tables: `acc_accounts` (chart of accounts), `acc_journal_entries` (transaction header),
+  `acc_journal_lines` (one row per debit/credit), `acc_posting_outbox` (producer-facing queue). A
+  transaction is rejected unless `sum(debit lines) === sum(credit lines)`; header + lines are
+  written in one DB transaction. **None of these tables carry a `tenant_id` column** — tenancy is
+  per-database (`KnexConnection(tenantId)`), so `tenantId` is only ever used to pick the connection,
+  never stored or filtered as a column.
 - Idempotency key for postings: `(source_module, source_table, source_pk, transaction_type)` —
-  mirrors the existing unique index on `finance_ledger`.
+  mirrors the existing unique index on `finance_ledger`, and is also the unique key on
+  `acc_posting_outbox` so retried enqueue calls don't create duplicate queue rows.
 - Refunds, adjustments, and reversals are always **new** linked entries
   (`reversal_of_entry_id` on the header) — never edit or delete a posted entry. This mirrors the
   commission-tracking invariant of immutable historical rows.
-- Phase 1 dual-writes to both `finance_ledger` (legacy) and the new `acc_journal_*` tables so
-  existing billing ledger consumers keep working during the migration; do not remove
-  `FinanceLedgerService` until `LedgerReportService` fully replaces its consumers.
+- `AccountingService.postTransaction()` dual-writes to both `finance_ledger` (legacy) and the new
+  `acc_journal_*` tables so existing billing ledger consumers keep working during the migration; do
+  not remove `FinanceLedgerService` until `LedgerReportService` fully replaces its consumers.
 
 ## Invariants
 

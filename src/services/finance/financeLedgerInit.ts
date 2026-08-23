@@ -33,6 +33,7 @@ export async function ensureFinanceLedgerTables(tenantId: number): Promise<void>
           { name: 'source_module', add: (table) => table.string('source_module', 30).notNullable().defaultTo('unknown') },
           { name: 'source_table', add: (table) => table.string('source_table', 60).notNullable().defaultTo('unknown') },
           { name: 'source_pk', add: (table) => table.integer('source_pk').unsigned().notNullable().defaultTo(0) },
+          { name: 'source_ref', add: (table) => table.string('source_ref', 80).notNullable().defaultTo('') },
           { name: 'billingid', add: (table) => table.integer('billingid').unsigned().nullable() },
           { name: 'expense_id', add: (table) => table.integer('expense_id').unsigned().nullable() },
           { name: 'invoice_id', add: (table) => table.integer('invoice_id').unsigned().nullable() },
@@ -59,7 +60,8 @@ export async function ensureFinanceLedgerTables(tenantId: number): Promise<void>
           'CREATE INDEX idx_fin_ledger_expense_id ON finance_ledger (expense_id)',
           'CREATE INDEX idx_fin_ledger_invoice_id ON finance_ledger (invoice_id)',
           'CREATE INDEX idx_fin_ledger_branchid ON finance_ledger (branchid)',
-          'CREATE UNIQUE INDEX uq_fin_ledger_source_direction ON finance_ledger (source_module, source_table, source_pk, direction)',
+          'ALTER TABLE finance_ledger DROP INDEX uq_fin_ledger_source_direction',
+          'CREATE UNIQUE INDEX uq_fin_ledger_source_dir_ref ON finance_ledger (source_module, source_table, source_pk, direction, source_ref)',
      ];
 
      for (const statement of indexStatements) {

@@ -48,6 +48,7 @@ export class AccountingRepository implements IAccountingRepository {
           sourceTable: string,
           sourcePk: number,
           transactionType: TransactionType,
+          sourceRef = '',
           trx?: any
      ): Promise<IJournalEntry | null> {
           const db = await this.connection(trx);
@@ -57,6 +58,7 @@ export class AccountingRepository implements IAccountingRepository {
                     source_table: sourceTable,
                     source_pk: sourcePk,
                     transaction_type: transactionType,
+                    source_ref: sourceRef,
                })
                .first();
           return row || null;
@@ -85,6 +87,7 @@ export class AccountingRepository implements IAccountingRepository {
                source_module: entry.source_module,
                source_table: entry.source_table,
                source_pk: entry.source_pk,
+               source_ref: entry.source_ref || '',
                description: entry.description || null,
                occurred_at: entry.occurred_at,
                status: entry.status,

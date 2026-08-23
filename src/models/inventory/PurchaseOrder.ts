@@ -14,14 +14,17 @@ import {
      ConditionStatus
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
+import { enqueueGoodsReceipt } from '../../accountingModule/integrations/InventoryAccounting';
 
 export class PurchaseOrderModel {
      private connection: Promise<Knex<any, any[]>>;
+     private tenantId: number;
      private orderItemCounter: number = 0;
      private receiptCounter: number = 0;
      private transactionCounter: number = 0;
 
      constructor(tenantId: number) {
+          this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
      }
 
@@ -527,6 +530,8 @@ export class PurchaseOrderModel {
 
                     await trx('inv_purchase_order_receipts').insert(receipt);
                     receipts.push(receipt as unknown as PurchaseOrderReceipt);
+
+                    await enqueueGoodsReceipt(this.tenantId, receipt as any, trx);
 
                     if (receipt.condition_status === 'good' || receipt.condition_status === 'acceptable') {
                          if (orderItem.inventory_item_id) {

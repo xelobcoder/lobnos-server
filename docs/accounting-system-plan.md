@@ -267,13 +267,38 @@ inventing a new authorization mechanism:
 - `manager` — reports read-only, no posting rights.
 - `admin` — chart-of-accounts management, all accountant rights.
 
+## Fault isolation (implemented, Phase 1)
+
+The accounting module must never block, slow down, or roll back a producer transaction (billing,
+expenses, commissions, ...). There is no message broker in this repo, so isolation is achieved
+in-process via a **transactional outbox**, not a literal separate service/process:
+
+- Producers call `enqueuePosting()` inside their own DB transaction. It only writes one row to
+  `acc_posting_outbox` (source module/table/pk, transaction type, JSON payload, status `pending`)
+  — cheap enough that it practically cannot fail, and failure is caught the same way any other
+  insert in that transaction would be.
+- Actual ledger posting (`AccountingService.postTransaction()`, including the chart-of-accounts
+  lookup, balance validation, and `finance_ledger` dual-write) happens **out of band**, never
+  inside the producer's transaction and never awaited by the producer's request/response path.
+- Two triggers process the outbox: a fire-and-forget `processPendingOutbox()` call right after the
+  producer's transaction commits (best effort, may run before the commit is visible and find
+  nothing — harmless), and a periodic sweep (`setInterval` in `src/app.ts`, every 60s) that is the
+  actual delivery guarantee, retrying `pending`/`failed` rows up to `MAX_ATTEMPTS` and recording
+  `last_error` per row.
+- `bootstrapAccountingTables(1)` runs once at server startup in `src/app.ts` (alongside
+  `bootstrapBillingTables`, `bootstrapCommissionTables`, etc.) wrapped in its own `try/catch` so an
+  accounting bootstrap failure never prevents the server from starting.
+- Known gap: if the process crashes between a producer's commit and the outbox row being posted,
+  that one posting is delayed until the next sweep, not lost (the row is already committed with the
+  producer's transaction) — so recovery is automatic, just not instantaneous.
+
 ## Phased roadmap
 
-1. **Phase 1 — Foundation**: `acc_accounts`, `acc_journal_entries`, `acc_journal_lines` migrations;
-   `AccountingService.postTransaction()` with balance validation and dual-write to
-   `finance_ledger`; wire billing payment/refund through the new service (replacing the direct
-   `FinanceLedgerService.recordEntry()` call in `billing_shared.ts`).
-2. **Phase 2 — Automation**: add `AccountingEventBus` listeners for expenses, supplier payments,
+1. **Phase 1 — Foundation**: `acc_accounts`, `acc_journal_entries`, `acc_journal_lines`,
+   `acc_posting_outbox` migrations; `AccountingService.postTransaction()` with balance validation
+   and dual-write to `finance_ledger`; billing payments enqueue through the outbox instead of
+   calling `FinanceLedgerService.recordEntry()` directly from `billing_shared.ts`.
+2. **Phase 2 — Automation**: add outbox-enqueuing call sites for expenses, supplier payments,
    and commission batch payments so those modules stop needing direct knowledge of account codes.
 3. **Phase 3 — Reporting**: `LedgerReportService` — trial balance, general ledger, income
    statement, balance sheet; retire `FinanceLedgerService.getSummary()` once parity is confirmed.

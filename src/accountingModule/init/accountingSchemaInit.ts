@@ -53,28 +53,77 @@ export async function ensureAccountingSchema(tenantId: number): Promise<void> {
           });
      }
 
+     // outbox: producer modules enqueue here inside their own DB transaction; posting to the
+     // ledger itself happens out-of-band so a ledger failure never blocks/rolls back the producer
+     if (!(await knex.schema.hasTable('acc_posting_outbox'))) {
+          await knex.schema.createTable('acc_posting_outbox', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('source_module', 30).notNullable();
+               table.string('source_table', 60).notNullable();
+               table.integer('source_pk').unsigned().notNullable();
+               table.string('transaction_type', 20).notNullable();
+               table.text('payload').notNullable();
+               table.enum('status', ['pending', 'posted', 'failed']).notNullable().defaultTo('pending');
+               table.integer('attempts').unsigned().notNullable().defaultTo(0);
+               table.text('last_error').nullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+               table.datetime('processed_at').nullable();
+               table.unique(['source_module', 'source_table', 'source_pk', 'transaction_type'], 'uq_acc_outbox_source');
+               table.index('status', 'idx_acc_outbox_status');
+          });
+     }
+
+     await ensureStringSourceRefSupport(tenantId);
      await seedAccountsFromConfig(tenantId);
 }
 
-// ACCOUNT_CONFIG is the pre-database seed source; acc_accounts is authoritative once seeded
-async function seedAccountsFromConfig(tenantId: number): Promise<void> {
+/**
+ * Modules keyed by varchar ids (supplier payments, stock movements) cannot fit source_pk,
+ * so the idempotency key is widened with a string discriminator that defaults to ''.
+ */
+async function ensureStringSourceRefSupport(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
-     const existingCount = await knex('acc_accounts').count<{ count: number }>('* as count').first();
 
-     if (existingCount && Number(existingCount.count) > 0) {
-          return;
+     for (const tableName of ['acc_posting_outbox', 'acc_journal_entries']) {
+          if (!(await knex.schema.hasColumn(tableName, 'source_ref'))) {
+               await knex.schema.alterTable(tableName, (table) => {
+                    table.string('source_ref', 80).notNullable().defaultTo('');
+               });
+          }
      }
 
-     const rows = Object.entries(ACCOUNT_CONFIG).map(([accountCode, config]) => ({
-          account_code: accountCode,
-          name: config.name,
-          type: config.type,
-          normal_balance: config.normalBalance,
-          parent_account_id: null,
-          is_active: true,
-          created_at: new Date(),
-          updated_at: new Date(),
-     }));
+     const statements = [
+          'ALTER TABLE acc_posting_outbox DROP INDEX uq_acc_outbox_source',
+          'CREATE UNIQUE INDEX uq_acc_outbox_source_ref ON acc_posting_outbox (source_module, source_table, source_pk, transaction_type, source_ref)',
+          'ALTER TABLE acc_journal_entries DROP INDEX uq_acc_journal_source',
+          'CREATE UNIQUE INDEX uq_acc_journal_source_ref ON acc_journal_entries (source_module, source_table, source_pk, transaction_type, source_ref)',
+     ];
+
+     for (const statement of statements) {
+          try {
+               await knex.raw(statement);
+          } catch {
+          }
+     }
+}
+
+async function seedAccountsFromConfig(tenantId: number): Promise<void> {
+     const knex = await KnexConnection(tenantId);
+     const existing = await knex('acc_accounts').select('account_code');
+     const existingCodes = new Set(existing.map((row: any) => row.account_code));
+
+     const rows = Object.entries(ACCOUNT_CONFIG)
+          .filter(([accountCode]) => !existingCodes.has(accountCode))
+          .map(([accountCode, config]) => ({
+               account_code: accountCode,
+               name: config.name,
+               type: config.type,
+               normal_balance: config.normalBalance,
+               parent_account_id: null,
+               is_active: true,
+               created_at: new Date(),
+               updated_at: new Date(),
+          }));
 
      if (rows.length > 0) {
           await knex('acc_accounts').insert(rows);

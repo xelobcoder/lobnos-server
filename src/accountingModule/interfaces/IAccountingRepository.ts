@@ -9,12 +9,13 @@ export interface IAccountingRepository {
      findAccountByCode(accountCode: string, trx?: any): Promise<IAccount | null>;
      listAccounts(trx?: any): Promise<IAccount[]>;
      createAccount(input: CreateAccountDto, trx?: any): Promise<IAccount>;
-     /** used for the idempotency key (source_module, source_table, source_pk, transaction_type) so retried requests never double-post */
+     /** used for the idempotency key (source_module, source_table, source_pk, transaction_type, source_ref) so retried requests never double-post */
      findJournalEntryBySource(
           sourceModule: SourceModule,
           sourceTable: string,
           sourcePk: number,
           transactionType: TransactionType,
+          sourceRef?: string,
           trx?: any
      ): Promise<IJournalEntry | null>;
      findJournalEntryById(journalEntryId: number, trx?: any): Promise<IJournalEntry | null>;

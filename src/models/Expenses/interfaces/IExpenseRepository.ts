@@ -22,6 +22,10 @@ export interface IExpenseRepository {
     calCurrentMonthExpense(tenantId: number, month?: number): Promise<number | null>;
     calculateYearlyExpense(tenantId: number, year?: number): Promise<number | null>;
     getMonthlySummary(tenantId: number): Promise<{ [key: number]: number | null }>;
+    /**
+     * Approving or un-approving an expense also enqueues the matching accounting accrual on the
+     * caller's transaction; the enqueue never throws, so a ledger failure cannot roll back the decision.
+     */
     updateExpenseDecision(tenantId: number, status: string, decisions: Array<{ expenseid: number, information: string, employeeid: number }>): Promise<boolean>;
     getAllExpenseCategory(tenantId: number): Promise<any[]>;
     isExpenseExist(tenantId: number, category: string): Promise<boolean>;

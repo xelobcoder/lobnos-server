@@ -35,6 +35,7 @@ export class AccountingService implements IAccountingService {
                input.sourceTable,
                input.sourcePk,
                input.transactionType,
+               input.sourceRef || '',
                input.trx
           );
 
@@ -67,6 +68,7 @@ export class AccountingService implements IAccountingService {
                          source_module: input.sourceModule,
                          source_table: input.sourceTable,
                          source_pk: input.sourcePk,
+                         source_ref: input.sourceRef || '',
                          description: input.description || null,
                          occurred_at: input.occurredAt ? new Date(input.occurredAt) : new Date(),
                          status: JournalStatus.POSTED,
@@ -98,6 +100,7 @@ export class AccountingService implements IAccountingService {
                          sourceModule: input.sourceModule,
                          sourceTable: input.sourceTable,
                          sourcePk: input.sourcePk,
+                         sourceRef: input.sourceRef || '',
                          billingid: line.billingid ?? null,
                          expenseId: line.expenseId ?? null,
                          invoiceId: line.invoiceId ?? null,
@@ -147,6 +150,7 @@ export class AccountingService implements IAccountingService {
                sourceModule: original.source_module,
                sourceTable: original.source_table,
                sourcePk: original.source_pk,
+               sourceRef: original.source_ref || '',
                description: input.description || `Reversal of journal entry ${original.id}`,
                createdBy: input.createdBy,
                reversalOfEntryId: original.id,

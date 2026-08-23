@@ -56,6 +56,7 @@
   "license": "ISC",
   "dependencies": {
     "bcrypt": "^5.1.0",
+    "bullmq": "^6.2.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "cors": "^2.8.5",
@@ -64,6 +65,7 @@
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "install": "^0.13.0",
+    "ioredis": "^6.0.0",
     "jsonwebtoken": "^9.0.2",
     "knex": "^3.1.0",
     "kysely": "^0.27.4",

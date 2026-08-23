@@ -10,13 +10,16 @@ import {
      SupplierPaymentSummary
 } from './supplierPaymentTypes';
 import KnexConnection from '../../database/KnexConnections';
+import { enqueueSupplierPayment } from '../../accountingModule/integrations/SupplierAccounting';
 
 export class SupplierPaymentModel {
      private connection: Promise<Knex<any, any[]>>;
+     private tenantId: number;
      private paymentCounter: number = 0;
      private allocationCounter: number = 0;
 
      constructor(tenantId: number) {
+          this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
      }
 
@@ -387,9 +390,8 @@ export class SupplierPaymentModel {
           // Get the updated payment
           const updatedPayment = await this.findById(id);
 
-          // Create journal entries for the approved payment
           if (updatedPayment) {
-               await this.createJournalEntries(updatedPayment);
+               await enqueueSupplierPayment(this.tenantId, id);
           }
 
           return updatedPayment;
@@ -675,57 +677,4 @@ export class SupplierPaymentModel {
                .update({ total_allocated: totalAllocated });
      }
 
-     private async createJournalEntries(payment: any): Promise<void> {
-          const connection = await this.connection;
-
-          // Generate journal entry ID
-          const entryId = `JE-${Date.now()}`;
-          const entryDate = payment.payment_date;
-
-          // Start transaction for journal entries
-          const trx = await connection.transaction();
-
-          try {
-               // Create journal entry header
-               await trx('acc_journal_entry_lines').insert({
-                    id: `${entryId}-1`,
-                    account_id: 'acc-2000', // Accounts Payable
-                    debit_amount: payment.payment_amount,
-                    credit_amount: 0,
-                    line_description: `Supplier payment: ${payment.payment_id} - ${payment.supplier?.name || 'Unknown Supplier'}`,
-                    reference_id: payment.id,
-                    reference_type: 'supplier_payment',
-                    entry_date: entryDate,
-                    source_module: 'inventory',
-                    entry_status: 'posted',
-                    posted_by: payment.approved_by,
-                    posted_at: new Date(),
-                    created_at: new Date(),
-                    updated_at: new Date()
-               });
-
-               // Create journal entry line for cash/bank reduction
-               await trx('acc_journal_entry_lines').insert({
-                    id: `${entryId}-2`,
-                    account_id: 'acc-1000', // Cash
-                    debit_amount: 0,
-                    credit_amount: payment.payment_amount,
-                    line_description: `Cash payment: ${payment.payment_id} - ${payment.payment_method}`,
-                    reference_id: payment.id,
-                    reference_type: 'supplier_payment',
-                    entry_date: entryDate,
-                    source_module: 'inventory',
-                    entry_status: 'posted',
-                    posted_by: payment.approved_by,
-                    posted_at: new Date(),
-                    created_at: new Date(),
-                    updated_at: new Date()
-               });
-
-               await trx.commit();
-          } catch (error) {
-               await trx.rollback();
-               throw error;
-          }
-     }
 }

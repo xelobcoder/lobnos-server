@@ -61,6 +61,8 @@ import employeeSettingsRouter from './models/settings/users/routes/employeeSetti
 import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from "./models/operations/sample/HomeCollection/BootstrapHomeCollection";
 import { bootstrapCommissionTables } from './models/commissions/commission-configurations/services/CommissionBootstrapService';
 import { bootstrapBillingTables } from './models/billing/BillingTableBootstrapper';
+import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from './accountingModule';
+import { redisConnection } from './accountingModule/queue/redisConnection';
 
 
 
@@ -144,6 +146,39 @@ app.get("/", (req: Request, res: Response) => {
         });
 });
 
+app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
+    try {
+        if (redisConnection.status === 'wait') {
+            await redisConnection.connect();
+        }
+
+        const pingResponse = await redisConnection.ping();
+        return res.status(200).json({
+            status: 'success',
+            statusCode: 200,
+            message: 'Redis reachable',
+            result: {
+                host: process.env.REDIS_HOST || '127.0.0.1',
+                port: Number(process.env.REDIS_PORT) || 6379,
+                ping: pingResponse,
+                connectionStatus: redisConnection.status,
+            },
+        });
+    } catch (error: any) {
+        return res.status(503).json({
+            status: 'error',
+            statusCode: 503,
+            message: 'Redis unreachable',
+            error: error?.message || String(error),
+            result: {
+                host: process.env.REDIS_HOST || '127.0.0.1',
+                port: Number(process.env.REDIS_PORT) || 6379,
+                connectionStatus: redisConnection.status,
+            },
+        });
+    }
+});
+
 
 app.listen(Number(port), "0.0.0.0", async () => {
     const pid = process.pid;
@@ -186,6 +221,26 @@ app.listen(Number(port), "0.0.0.0", async () => {
     await bootstrapNotificationDefinitions(1)
     await bootstrapHomeCollectionTables(1)
     await bootstrapHomeCollectionSeeds(1)
+
+    // isolated on purpose: an accounting bootstrap/posting failure must never affect billing or server startup
+    try {
+        await bootstrapAccountingTables(1);
+    } catch (error) {
+        console.error("[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):", error);
+    }
+
+    // fast path when Redis is reachable; logs and no-ops otherwise, relying on the sweep below
+    try {
+        startAccountingWorker();
+    } catch (error) {
+        console.error("[Bootstrap] Accounting worker failed to start (isolated, non-fatal):", error);
+    }
+
+    setInterval(() => {
+        processPendingOutbox(1).catch((error) => {
+            console.error("[Accounting] Periodic outbox sweep failed:", error);
+        });
+    }, 60_000);
 
     //     logger.info("Server startup successful", {
     //         port: Number(port),

@@ -53,10 +53,7 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                     .where('recipient_id', recipientId)
                     .orderBy('calculated_at', 'desc');
 
-               if (limit) {
-                    query = query.limit(limit);
-               }
-
+               if (limit) query = query.limit(limit);
                const records = await query;
                return records.map((record) => new CommissionTracking(record));
           } catch (error) {

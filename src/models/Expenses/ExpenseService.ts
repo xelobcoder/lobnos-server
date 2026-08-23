@@ -28,6 +28,7 @@ import { primeTenancyConnector } from '../../models/Tenancy/tenantConnections';
 import { databaseConnectionPool } from '../../database/connection';
 import { configuration } from '../../hooks/configuration';
 import KnexConnection from "../../database/KnexConnections";
+import { enqueueExpenseAccrual, enqueueExpenseAccrualReversal } from "../../accountingModule/integrations/ExpenseAccounting";
 
 export default class Expenses implements IExpenseRepository {
      private employeeid: number;
@@ -45,8 +46,11 @@ export default class Expenses implements IExpenseRepository {
      }
 
 
-     isExpenseApproved(): Promise<boolean> {
-          return
+     async isExpenseApproved(tenantId: number, expenseid: number): Promise<boolean> {
+          if (!expenseid) throw new Error('expenseid not provided');
+          const connection = await KnexConnection(tenantId);
+          const record = await connection('expensesrecord').select('approved').where({ id: expenseid }).first();
+          return Number(record?.approved) === 1;
      }
 
      getAdminRequest(): void { }
@@ -179,10 +183,7 @@ export default class Expenses implements IExpenseRepository {
      ): Promise<any> {
           const record = await new User(null, null, null, null, null).userExistWithId(employeeid, tenantId);
 
-          if (!record || record.length === 0) {
-               throw new Error('User not found');
-          }
-
+          if (!record || record.length === 0) throw new Error('User not found');
 
           let query = getExpensesRecordQuery;
           let values: (number | string)[] = [];
@@ -337,10 +338,18 @@ export default class Expenses implements IExpenseRepository {
           return !status.includes(false);
      }
 
-     async calculateDailyExpense(tenantId: number, branchid: number | undefined, requireddate: string | null): Promise<number | null> {
-          let query = calculateDailyExpenseQuery;
-          query += branchid && typeof branchid === "number" ? ` AND branchid = ${branchid}` : query
-          const result = await promisifyQuery(tenantId, query, [requireddate ? requireddate : 'CURRENT_DATE']);
+     async calculateDailyExpense(tenantId: number, branchid?: number, requireddate?: string | null): Promise<number | null> {
+          let query = requireddate
+               ? calculateDailyExpenseQuery
+               : calculateDailyExpenseQuery.replace('DATE(date) = ?', 'DATE(date) = CURRENT_DATE');
+          const values: Array<number | string> = requireddate ? [requireddate] : [];
+
+          if (typeof branchid === 'number' && !isNaN(branchid)) {
+               query += ` AND branchid = ?`;
+               values.push(branchid);
+          }
+
+          const result = await promisifyQuery(tenantId, query, values);
           if (result.length > 0) {
                return result[0]['expense'];
           }
@@ -434,9 +443,18 @@ export default class Expenses implements IExpenseRepository {
                     query += ` WHERE id = ?`;
                     values.push(expenseid);
 
+                    const previous = await conn('expensesrecord').select('approved').where({ id: expenseid }).first();
+                    const previousStatus = previous ? Number(previous.approved) : null;
+
                     const [result] = await conn.raw(query, values);
                     if ((result as any).affectedRows === 0) {
                          throw new Error(`Failed to update expense ${expenseid}`);
+                    }
+
+                    if (statusNumber === 1 && previousStatus !== 1) {
+                         await enqueueExpenseAccrual(tenantId, expenseid, conn);
+                    } else if (statusNumber !== 1 && previousStatus === 1) {
+                         await enqueueExpenseAccrualReversal(tenantId, expenseid, conn);
                     }
                }
 

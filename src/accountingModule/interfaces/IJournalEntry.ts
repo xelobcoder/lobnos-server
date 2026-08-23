@@ -8,6 +8,7 @@ export interface IJournalEntry {
      source_module: SourceModule;
      source_table: string;
      source_pk: number;
+     source_ref?: string;
      description?: string | null;
      occurred_at: Date;
      status: JournalStatus;

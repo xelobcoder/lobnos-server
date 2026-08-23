@@ -8,7 +8,7 @@ import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { TestAscension } from "../operations/ascension";
 import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerInit";
-import { createAccountingService } from "../../accountingModule";
+import { enqueuePosting, signalOutboxReady } from "../../accountingModule";
 import { TransactionType } from "../../accountingModule/enums/transaction-type.enum";
 import { SourceModule } from "../../accountingModule/enums/source-module.enum";
 import { NormalBalance } from "../../accountingModule/enums/normal-balance.enum";
@@ -225,44 +225,51 @@ export class BillingSharedRepo {
                     "INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)",
                     [billingID, paymentMode, paid, employeeID, billingType]
                );
-               const inserted = rowAffected(insertion);
+               // trx.raw() on mysql2 returns [ResultSetHeader, FieldPacket[]] for an INSERT, not a bare object
+               const insertResult = Array.isArray(insertion) ? insertion[0] : insertion;
+               const inserted = rowAffected(insertResult);
 
                if (inserted) {
-                    const historyId = insertion?.[0]?.insertId || insertion?.insertId;
+                    const historyId = insertResult?.insertId;
                     const billingRow = await trx('billing')
                          .select('branchid', 'billedon')
                          .where({ billingid: billingID })
                          .first();
 
                     if (historyId && Number(paid) > 0) {
-                         const accountingService = createAccountingService(tenantId);
-                         await accountingService.postTransaction({
+                         // enqueue only: a lightweight same-trx insert so a ledger/accounting failure can never block or roll back billing
+                         await enqueuePosting(
                               tenantId,
-                              trx,
-                              transactionType: TransactionType.PAYMENT,
-                              sourceModule: SourceModule.BILLING,
-                              sourceTable: 'billinghx',
-                              sourcePk: Number(historyId),
-                              occurredAt: billingRow?.billedon || new Date(),
-                              lines: [
-                                   {
-                                        accountCode: 'acc-1000',
-                                        direction: NormalBalance.DEBIT,
-                                        amount: Number(paid),
-                                        billingid: billingID,
-                                        employeeid: employeeID ? Number(employeeID) : null,
-                                        branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
-                                   },
-                                   {
-                                        accountCode: 'acc-4000',
-                                        direction: NormalBalance.CREDIT,
-                                        amount: Number(paid),
-                                        billingid: billingID,
-                                        employeeid: employeeID ? Number(employeeID) : null,
-                                        branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
-                                   },
-                              ],
-                         });
+                              {
+                                   tenantId,
+                                   transactionType: TransactionType.PAYMENT,
+                                   sourceModule: SourceModule.BILLING,
+                                   sourceTable: 'billinghx',
+                                   sourcePk: Number(historyId),
+                                   occurredAt: billingRow?.billedon || new Date(),
+                                   lines: [
+                                        {
+                                             accountCode: 'acc-1000',
+                                             direction: NormalBalance.DEBIT,
+                                             amount: Number(paid),
+                                             billingid: billingID,
+                                             employeeid: employeeID ? Number(employeeID) : null,
+                                             branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                                        },
+                                        {
+                                             accountCode: 'acc-4000',
+                                             direction: NormalBalance.CREDIT,
+                                             amount: Number(paid),
+                                             billingid: billingID,
+                                             employeeid: employeeID ? Number(employeeID) : null,
+                                             branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                                        },
+                                   ],
+                              },
+                              trx
+                         );
+                         // best-effort "process now" signal via Redis/BullMQ; the periodic DB sweep in app.ts is the durable fallback if Redis is unavailable
+                         signalOutboxReady(tenantId).catch(() => { });
                     }
                }
 

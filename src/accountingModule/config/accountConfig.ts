@@ -81,6 +81,16 @@ export const ACCOUNT_CONFIG: AccountConfig = {
           name: 'Utilities Expense',
           type: 'expense',
           normalBalance: 'debit'
+     },
+     'acc-5005': {
+          name: 'Commission Expense',
+          type: 'expense',
+          normalBalance: 'debit'
+     },
+     'acc-5006': {
+          name: 'Inventory Wastage Expense',
+          type: 'expense',
+          normalBalance: 'debit'
      }
 };
 

@@ -11,6 +11,7 @@ type RecordLedgerEntryInput = {
      sourceModule: string;
      sourceTable: string;
      sourcePk: number;
+     sourceRef?: string;
      billingid?: number | null;
      expenseId?: number | null;
      invoiceId?: number | null;
@@ -52,6 +53,7 @@ export class FinanceLedgerService {
                source_module: input.sourceModule,
                source_table: input.sourceTable,
                source_pk: input.sourcePk,
+               source_ref: input.sourceRef || '',
                billingid: input.billingid || null,
                expense_id: input.expenseId || null,
                invoice_id: input.invoiceId || null,
@@ -65,7 +67,7 @@ export class FinanceLedgerService {
 
           await db('finance_ledger')
                .insert(payload)
-               .onConflict(['source_module', 'source_table', 'source_pk', 'direction'])
+               .onConflict(['source_module', 'source_table', 'source_pk', 'direction', 'source_ref'])
                .ignore();
 
           const row = await db('finance_ledger')
@@ -74,6 +76,7 @@ export class FinanceLedgerService {
                     source_module: input.sourceModule,
                     source_table: input.sourceTable,
                     source_pk: input.sourcePk,
+                    source_ref: input.sourceRef || '',
                     direction: input.direction
                })
                .first();

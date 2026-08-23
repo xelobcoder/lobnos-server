@@ -8,6 +8,7 @@ import {
 import KnexConnection from '../../database/KnexConnections';
 import { UnitValidationService } from '../../services/UnitValidationService';
 import { NotificationDispatcher } from '../application/notifications/services/NotificationDispatcher';
+import { enqueueStockMovement } from '../../accountingModule/integrations/InventoryAccounting';
 
 export class InventoryTransactionModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -162,6 +163,8 @@ export class InventoryTransactionModel {
                          last_updated: new Date() as any,
                          updated_at: new Date() as any
                     });
+
+               await enqueueStockMovement(this.tenantId, transactionData as any, trx);
 
                await trx.commit();
 

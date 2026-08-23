@@ -4,6 +4,7 @@ import User from "../../LobnosAuth/user";
 import ExpenseService from "./ExpenseService";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
+import { enqueueExpensePayment, enqueueExpensePaymentReversal } from "../../accountingModule/integrations/ExpenseAccounting";
 
 export default class ExpenseInvoiceRepo {
      private employeeid: number;
@@ -461,6 +462,7 @@ export default class ExpenseInvoiceRepo {
                     await this.updateInvoiceStatusIfFullyPaid(paymentData.invoice_id, trx);
                }
 
+               await enqueueExpensePayment(this.tenantId, Number(paymentId), trx);
 
                return { paymentId };
           } catch (error) {
@@ -745,6 +747,8 @@ export default class ExpenseInvoiceRepo {
                     WHERE id = ?
                `;
                await promisifyQuery(this.tenantId, updatePaymentQuery, [reversalId, paymentId]);
+
+               await enqueueExpensePaymentReversal(this.tenantId, paymentId);
 
                if (invoice_id) {
                     await this.updateInvoiceStatusIfFullyPaid(invoice_id);
