@@ -4,6 +4,7 @@ import { ISupplierAccounting } from '../interfaces/IAccountingIntegrations';
 import { NormalBalance } from '../enums/normal-balance.enum';
 import { SourceModule } from '../enums/source-module.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
+import { recordSubledgerEntry } from '../services/SubledgerService';
 import logger from '../../hooks/logger';
 
 const ACCOUNTS_PAYABLE = 'acc-2000';
@@ -20,7 +21,7 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
      try {
           const db = trx || (await KnexConnection(tenantId));
           const payment = await db('inv_supplier_payments')
-               .select('id', 'payment_amount', 'payment_method', 'payment_date', 'approved_by', 'payment_id')
+               .select('id', 'payment_amount', 'payment_method', 'payment_date', 'approved_by', 'payment_id', 'supplier_id')
                .where({ id: paymentId })
                .first();
 
@@ -47,6 +48,19 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
                },
                db
           );
+
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP',
+               partyType: 'supplier',
+               partyId: payment.supplier_id ? Number(payment.supplier_id) : null,
+               documentType: 'supplier_payment',
+               documentRef: String(payment.payment_id || payment.id),
+               documentDate: payment.payment_date || new Date(),
+               amount: -Number(payment.payment_amount),
+               sourceModule: SourceModule.SUPPLIER,
+               sourceTable: 'inv_supplier_payments',
+               sourceRef: String(payment.id),
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue supplier payment posting', {
                tenantId,

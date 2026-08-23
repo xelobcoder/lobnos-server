@@ -27,6 +27,26 @@ export const ACCOUNT_CONFIG: AccountConfig = {
           type: 'asset',
           normalBalance: 'debit'
      },
+     'acc-1004': {
+          name: 'Input VAT Receivable',
+          type: 'asset',
+          normalBalance: 'debit'
+     },
+     'acc-1005': {
+          name: 'Prepaid Expenses',
+          type: 'asset',
+          normalBalance: 'debit'
+     },
+     'acc-1006': {
+          name: 'Fixed Assets',
+          type: 'asset',
+          normalBalance: 'debit'
+     },
+     'acc-1007': {
+          name: 'Accumulated Depreciation',
+          type: 'asset',
+          normalBalance: 'credit'
+     },
      'acc-2000': {
           name: 'Accounts Payable',
           type: 'liability',
@@ -34,6 +54,41 @@ export const ACCOUNT_CONFIG: AccountConfig = {
      },
      'acc-2001': {
           name: 'Loans Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2002': {
+          name: 'Output VAT Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2003': {
+          name: 'Withholding Tax Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2004': {
+          name: 'PAYE Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2005': {
+          name: 'SSNIT Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2006': {
+          name: 'Salaries Payable',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2007': {
+          name: 'Accrued Expenses',
+          type: 'liability',
+          normalBalance: 'credit'
+     },
+     'acc-2008': {
+          name: 'Other Payroll Deductions Payable',
           type: 'liability',
           normalBalance: 'credit'
      },
@@ -54,6 +109,11 @@ export const ACCOUNT_CONFIG: AccountConfig = {
      },
      'acc-4001': {
           name: 'Product Sales',
+          type: 'revenue',
+          normalBalance: 'credit'
+     },
+     'acc-4002': {
+          name: 'Other Operating Income',
           type: 'revenue',
           normalBalance: 'credit'
      },
@@ -89,6 +149,21 @@ export const ACCOUNT_CONFIG: AccountConfig = {
      },
      'acc-5006': {
           name: 'Inventory Wastage Expense',
+          type: 'expense',
+          normalBalance: 'debit'
+     },
+     'acc-5007': {
+          name: 'Bad Debt Expense',
+          type: 'expense',
+          normalBalance: 'debit'
+     },
+     'acc-5008': {
+          name: 'Depreciation Expense',
+          type: 'expense',
+          normalBalance: 'debit'
+     },
+     'acc-5009': {
+          name: 'Interest Expense',
           type: 'expense',
           normalBalance: 'debit'
      }

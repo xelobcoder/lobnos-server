@@ -19,7 +19,7 @@ const CATEGORY_ACCOUNT_RULES: Array<{ match: RegExp; accountCode: string }> = [
      { match: /reagent|consumable|stock|inventory|supply|supplies|purchase/i, accountCode: 'acc-5000' },
 ];
 
-const MODULE_OWNED_CATEGORIES = /supplier[_\s-]?payments?/i;
+const MODULE_OWNED_CATEGORIES = /supplier[_\s-]?payments?|bad[_\s-]?debt|^salary$|payroll/i;
 
 const BANK_METHOD_PATTERN = /bank|transfer|cheque|check|card|momo|mobile|online|eft/i;
 

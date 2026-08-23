@@ -14,7 +14,7 @@ import {
      ConditionStatus
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
-import { enqueueGoodsReceipt } from '../../accountingModule/integrations/InventoryAccounting';
+import { enqueueGoodsReceipt, enqueueGoodsReceiptReversal } from '../../accountingModule/integrations/InventoryAccounting';
 
 export class PurchaseOrderModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -363,6 +363,8 @@ export class PurchaseOrderModel {
           const trx = await connection.transaction();
 
           try {
+               await this.reverseReceiptsForCancellation(id, trx);
+
                await trx('inv_purchase_orders')
                     .where({ id })
                     .update({
@@ -383,6 +385,64 @@ export class PurchaseOrderModel {
           } catch (error) {
                await trx.rollback();
                throw error;
+          }
+     }
+
+     private async reverseReceiptsForCancellation(orderId: string, trx: any): Promise<void> {
+          const receipts = await trx('inv_purchase_order_receipts as r')
+               .leftJoin('inv_purchase_order_items as i', 'r.order_item_id', 'i.id')
+               .where('r.order_id', orderId)
+               .select('r.*', 'i.inventory_item_id');
+
+          for (const receipt of receipts) {
+               if (receipt.inventory_item_id) {
+                    const item = await trx('inv_inventory_items')
+                         .where('id', receipt.inventory_item_id)
+                         .first();
+
+                    if (item) {
+                         const consumptionQuantity = receipt.units_per_purchase_unit
+                              ? Number(receipt.quantity_received) * Number(receipt.units_per_purchase_unit)
+                              : Number(receipt.quantity_received);
+                         const previousStock = Number(item.current_stock);
+                         const newStock = previousStock - consumptionQuantity;
+
+                         if (newStock < 0) {
+                              throw new Error(
+                                   `Cannot cancel order ${orderId}: receipt ${receipt.receipt_number} has already been consumed. Record a stock adjustment or supplier return instead.`
+                              );
+                         }
+
+                         await trx('inv_inventory_items')
+                              .where('id', receipt.inventory_item_id)
+                              .update({
+                                   current_stock: newStock,
+                                   status: this.calculateStockStatus(newStock, item.min_stock, item.max_stock),
+                                   last_updated: new Date(),
+                                   updated_at: new Date()
+                              });
+
+                         await trx('inv_inventory_transactions').insert({
+                              id: this.generateTransactionId(),
+                              item_id: receipt.inventory_item_id,
+                              transaction_type: 'adjustment',
+                              unit_type: 'consumption',
+                              quantity: consumptionQuantity,
+                              previous_stock: previousStock,
+                              new_stock: newStock,
+                              batch_number: receipt.batch_number || null,
+                              unit_cost: receipt.unit_price,
+                              total_cost: Number(receipt.unit_price) * Number(receipt.quantity_received),
+                              reason: 'Purchase order cancelled after receipt',
+                              reference_id: receipt.id,
+                              performed_by: receipt.received_by || null,
+                              transaction_date: new Date(),
+                              created_at: new Date()
+                         });
+                    }
+               }
+
+               await enqueueGoodsReceiptReversal(this.tenantId, receipt as any, trx);
           }
      }
 
@@ -431,9 +491,9 @@ export class PurchaseOrderModel {
 
           if (items.length === 0) return;
 
-          const allReceived = items.every(item => item.status === 'received');
-          const hasPartial = items.some(item => item.status === 'partially_received');
-          const hasPending = items.some(item => item.status === 'pending');
+          const allReceived = items.every((item: any) => item.status === 'received');
+          const hasPartial = items.some((item: any) => item.status === 'partially_received');
+          const hasPending = items.some((item: any) => item.status === 'pending');
 
           let newStatus: PurchaseOrderStatus;
           if (allReceived) {

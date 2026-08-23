@@ -5,4 +5,5 @@ export enum SourceModule {
      COMMISSION = 'commission',
      SUPPLIER = 'supplier',
      PAYROLL = 'payroll',
+     MANUAL = 'manual',
 }

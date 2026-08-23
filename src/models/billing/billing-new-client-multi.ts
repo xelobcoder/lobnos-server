@@ -1,4 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
+import { enqueueBillingReceivable } from "../../accountingModule/integrations/BillingAccounting";
 import { BillingSharedRepo } from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
 import { billErrors, serviceCategory, ServiceEntry, ValidationError } from "./billingclientTypes";
@@ -464,11 +465,24 @@ export class SubmitCustomerBilling {
                 const finalBillingId = hasRelatedBilling && adjustmentType == "addition" ? parseInt(this.payload.billingid) : billingID;
                 finalBillingIdForEvent = finalBillingId;
 
+                const payableBeforeUpdate = await trx('billing')
+                    .select('payable', 'amountIncurredDueTax')
+                    .where({ billingid: finalBillingId })
+                    .first();
+
                 const result = await trx("billing")
                     .update({ ...finalUpdateData, billedon: billeddate ? billeddate : new Date() })
                     .where({ billingid: finalBillingId });
 
                 if (!result) throw new Error("unable to update billing record");
+
+                await enqueueBillingReceivable(
+                    this.tenantId,
+                    finalBillingId,
+                    Number(payableBeforeUpdate?.payable || 0),
+                    Number(payableBeforeUpdate?.amountIncurredDueTax || 0),
+                    trx
+                );
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
                     const promoRepo = new PrimeBillingPromoCodeRepo(this.tenantId);
                     await promoRepo.incrementUsage(data.promoDetails.id, trx);
@@ -1164,6 +1178,14 @@ export class SubmitCustomerBilling {
                         status: newStatus,
                         lastupdatedby: employeeid,
                     });
+
+                await enqueueBillingReceivable(
+                    tenantId,
+                    workingBillinId,
+                    Number(overalBillRecord.payable || 0),
+                    Number(overalBillRecord.amountIncurredDueTax || 0),
+                    transaction
+                );
 
                 if (isRelatedUsed && relatedbillingid && !isNaN(relatedbillingid)) {
                     await transaction('dboservices')

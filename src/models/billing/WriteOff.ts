@@ -4,6 +4,7 @@ import { applyDboservicesAfterUpdate } from '../../database/appLevelTriggers';
 import { promisifyQuery, rowAffected } from '../../hooks/helper';
 import { OperationsFailures } from '../operations/types';
 import AutomatedExpenseLifecycle from '../Expenses/AutomatedExpenseLifecycle';
+import { enqueueBillingWriteOff, enqueueBillingRefund } from '../../accountingModule/integrations/BillingAccounting';
 
 export class WriteOff {
      static async writeOffTransaction(
@@ -80,6 +81,8 @@ export class WriteOff {
                               paymentMethod: 'SYSTEM_AUTO',
                               invoicePrefix: 'BAD-DEBT'
                          }, conn);
+
+                         await enqueueBillingWriteOff(tenantId, billingid, writeOffAmount, employeeid, conn);
 
                          await conn.commit();
                          return true;
@@ -165,6 +168,8 @@ export class WriteOff {
 
                const totalRefunded = await trx('billing').where({ billingid }).select('paid').first();
 
+               const billBeforeVoid = await trx('billing').where({ billingid }).select('payable').first();
+
                await trx('billing')
                     .where({ billingid })
                     .update({
@@ -187,6 +192,15 @@ export class WriteOff {
                await trx.raw(
                     'INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)',
                     [billingid, paymentmode, totalRefunded.paid, employeeid, 'debit']
+               );
+
+               await enqueueBillingRefund(
+                    tenantId,
+                    billingid,
+                    Number(billBeforeVoid?.payable || 0),
+                    Number(totalRefunded?.paid || 0),
+                    employeeid,
+                    trx
                );
 
                await trx.commit();

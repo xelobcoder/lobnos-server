@@ -1,6 +1,7 @@
 import KnexConnection from '../../database/KnexConnections';
 import { FinanceLedgerService } from '../../services/finance/FinanceLedgerService';
 import { ensureAccountingSchema } from '../init/accountingSchemaInit';
+import { AccountingPeriodService } from './AccountingPeriodService';
 import { IAccountingService } from '../interfaces/IAccountingService';
 import { IAccountingRepository } from '../interfaces/IAccountingRepository';
 import { IJournalEntry } from '../interfaces/IJournalEntry';
@@ -43,6 +44,11 @@ export class AccountingService implements IAccountingService {
                const lines = await this.repository.findLinesByJournalEntryId(existing.id, input.trx);
                return { entry: existing, lines };
           }
+
+          await new AccountingPeriodService(input.tenantId).assertPostingAllowed(
+               input.occurredAt || new Date(),
+               input.trx
+          );
 
           const resolvedLines = await Promise.all(
                input.lines.map(async (line) => {

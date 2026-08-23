@@ -84,18 +84,52 @@ the string id goes in `source_ref`. Rows from billing and expenses keep `source_
 
 ---
 
-## 2. Billing — a patient payment
+## 2. Billing — accrual basis
+
+Revenue is recognised when the bill is issued, not when cash arrives, so the ledger is accrual
+basis on both the revenue and the cost side.
 
 ```mermaid
-flowchart LR
-    A[POST bill payment] --> B[insertBillHistory<br/>billing_shared.ts]
-    B --> C[(billinghx row)]
-    C --> D[enqueuePosting<br/>PAYMENT / billing]
-    D --> E[DR acc-1000 Cash<br/>CR acc-4000 Service Revenue]
-    E --> F[(outbox)]
-    F --> G[sweep]
-    G --> H[(acc_journal_entries + acc_journal_lines<br/>billingid + employeeid + branchid set)]
+flowchart TD
+    A[SubmitCustomerBilling.submit] --> B[services inserted into dboservices]
+    B --> C[UPDATE billing<br/>payable = sum of totalpayable]
+    C --> D[enqueueBillingReceivable<br/>delta vs previous payable]
+    D --> E{first posting<br/>for this bill?}
+    E -- yes --> F[ACCRUAL<br/>DR acc-1002 AR / CR acc-4000 Revenue]
+    E -- no --> G[ADJUSTMENT for the delta<br/>sourceRef = new payable]
+    C --> H[insertBillHistory per payment]
+    H --> I[(billinghx row)]
+    I --> J[enqueueBillingPayment<br/>PAYMENT]
+    J --> K{bill has a receivable?}
+    K -- yes --> L[DR acc-1000 Cash<br/>CR acc-1002 AR]
+    K -- no, legacy bill --> M[DR acc-1000 Cash<br/>CR acc-4000 Revenue]
+    N[Service removed] --> D
+    O[WriteOff.writeOffTransaction] --> P[enqueueBillingWriteOff<br/>ADJUSTMENT]
+    P --> Q[DR acc-5007 Bad Debt<br/>CR acc-1002 AR]
 ```
+
+### Cutover for existing bills
+
+Bills issued before receivables existed have no accrual, so crediting AR on their payment would
+credit a receivable that was never debited. `hasBillingReceivable` checks the outbox and the
+journal for an accrual or adjustment on that bill and falls back to crediting revenue directly.
+No date cutoff or config flag is needed — the data decides, and the fallback retires itself as old
+bills get settled.
+
+### Adjustments
+
+`enqueueBillingReceivable` posts the **delta** between the previous and current `billing.payable`,
+so an addition adjustment or a removed service books only the change. The first posting is an
+`ACCRUAL` with an empty `source_ref`; later ones are `ADJUSTMENT`s keyed by the resulting total, so
+replaying a given total is a no-op while a further genuine change still posts. Negative deltas flip
+both line directions.
+
+### Write-off
+
+A write-off clears the receivable against bad debt expense — no cash moves. The write-off also
+creates a mirror expense record through `AutomatedExpenseLifecycle`; that mirror is excluded from
+expense postings (category `Bad Debt` is module-owned), because posting it would otherwise
+fabricate a cash payment that never happened.
 
 ---
 
@@ -136,7 +170,7 @@ flowchart LR
     B -- rent/lease --> E[acc-5003 Rent]
     B -- utility/electric/water/fuel --> F[acc-5004 Utilities]
     B -- reagent/stock/supplies/purchase --> G[acc-5000 COGS]
-    B -- supplier_payments --> H[SKIP - owned by supplier module]
+    B -- supplier_payments or Bad Debt --> H[SKIP - owned by another module]
     B -- anything else --> I[acc-5001 Operating Expenses]
 ```
 
@@ -280,6 +314,7 @@ flowchart TB
 | acc-5004 | Utilities Expense | expense | debit |
 | acc-5005 | Commission Expense | expense | debit |
 | acc-5006 | Inventory Wastage Expense | expense | debit |
+| acc-5007 | Bad Debt Expense | expense | debit |
 
 Accounts are seeded from `src/accountingModule/config/accountConfig.ts` on bootstrap. Seeding
 inserts only codes that are missing, so adding a new account to the config picks it up on the next

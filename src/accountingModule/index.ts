@@ -26,7 +26,13 @@ export {
      enqueueExpensePayment,
      enqueueExpensePaymentReversal,
 } from './integrations/ExpenseAccounting';
+export {
+     hasBillingReceivable,
+     enqueueBillingReceivable,
+     enqueueBillingPayment,
+} from './integrations/BillingAccounting';
 export { enqueueSupplierPayment } from './integrations/SupplierAccounting';
+export { enqueuePayrollAccrual, enqueuePayrollPayment } from './integrations/PayrollAccounting';
 export { enqueueGoodsReceipt, enqueueStockMovement } from './integrations/InventoryAccounting';
 export { signalOutboxReady } from './queue/AccountingQueue';
 export { startAccountingWorker } from './queue/AccountingWorker';

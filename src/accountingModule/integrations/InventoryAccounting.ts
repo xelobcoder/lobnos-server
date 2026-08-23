@@ -4,24 +4,28 @@ import { IInventoryAccounting } from '../interfaces/IAccountingIntegrations';
 import { NormalBalance } from '../enums/normal-balance.enum';
 import { SourceModule } from '../enums/source-module.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
+import { recordSubledgerEntry } from '../services/SubledgerService';
 import logger from '../../hooks/logger';
 
 const INVENTORY = 'acc-1003';
+const INPUT_VAT = 'acc-1004';
 const ACCOUNTS_PAYABLE = 'acc-2000';
 const COST_OF_GOODS_SOLD = 'acc-5000';
 const WASTAGE_EXPENSE = 'acc-5006';
 
 export async function enqueueGoodsReceipt(
      tenantId: number,
-     receipt: { id: string; unit_price: number; quantity_received: number; received_date?: Date | string; received_by?: number | null },
+     receipt: { id: string; unit_price: number; quantity_received: number; received_date?: Date | string; received_by?: number | null; tax_rate?: number | null; order_id?: string | null },
      trx?: any
 ): Promise<void> {
      try {
-          const amount = Number(receipt.unit_price) * Number(receipt.quantity_received);
-          if (!isFinite(amount) || amount <= 0) return;
+          const net = round2(Number(receipt.unit_price) * Number(receipt.quantity_received));
+          if (!isFinite(net) || net <= 0) return;
+
+          const tax = round2(net * (Number(receipt.tax_rate || 0) / 100));
+          const gross = round2(net + tax);
 
           const db = trx || (await KnexConnection(tenantId));
-          const shared = { amount: round2(amount) };
 
           await enqueuePosting(
                tenantId,
@@ -36,12 +40,37 @@ export async function enqueueGoodsReceipt(
                     occurredAt: receipt.received_date || new Date(),
                     createdBy: receipt.received_by ? Number(receipt.received_by) : null,
                     lines: [
-                         { accountCode: INVENTORY, direction: NormalBalance.DEBIT, ...shared },
-                         { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.CREDIT, ...shared },
+                         { accountCode: INVENTORY, direction: NormalBalance.DEBIT, amount: net },
+                         ...(tax > 0 ? [{ accountCode: INPUT_VAT, direction: NormalBalance.DEBIT, amount: tax }] : []),
+                         { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.CREDIT, amount: gross },
                     ],
                },
                db
           );
+
+          const supplier = receipt.order_id
+               ? await db('inv_purchase_orders as o')
+                    .leftJoin('inv_suppliers as s', 'o.supplier_id', 's.id')
+                    .where('o.id', receipt.order_id)
+                    .select('o.supplier_id', 's.name as supplier_name')
+                    .first()
+               : null;
+
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP',
+               partyType: 'supplier',
+               partyId: supplier?.supplier_id ? Number(supplier.supplier_id) : null,
+               partyName: supplier?.supplier_name || null,
+               documentType: 'bill',
+               documentRef: String(receipt.id),
+               documentDate: receipt.received_date || new Date(),
+               amount: gross,
+               grossAmount: gross,
+               taxAmount: tax,
+               sourceModule: SourceModule.INVENTORY,
+               sourceTable: 'inv_purchase_order_receipts',
+               sourceRef: String(receipt.id),
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue goods receipt posting', {
                tenantId,
@@ -100,10 +129,65 @@ export async function enqueueStockMovement(
      }
 }
 
+export async function enqueueGoodsReceiptReversal(
+     tenantId: number,
+     receipt: { id: string; unit_price: number; quantity_received: number; received_by?: number | null; tax_rate?: number | null },
+     trx?: any
+): Promise<void> {
+     try {
+          const net = round2(Number(receipt.unit_price) * Number(receipt.quantity_received));
+          if (!isFinite(net) || net <= 0) return;
+
+          const tax = round2(net * (Number(receipt.tax_rate || 0) / 100));
+          const gross = round2(net + tax);
+
+          const db = trx || (await KnexConnection(tenantId));
+
+          await enqueuePosting(
+               tenantId,
+               {
+                    tenantId,
+                    transactionType: TransactionType.REVERSAL,
+                    sourceModule: SourceModule.INVENTORY,
+                    sourceTable: 'inv_purchase_order_receipts',
+                    sourcePk: 0,
+                    sourceRef: String(receipt.id),
+                    description: 'Goods receipt reversed',
+                    occurredAt: new Date(),
+                    createdBy: receipt.received_by ? Number(receipt.received_by) : null,
+                    lines: [
+                         { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.DEBIT, amount: gross },
+                         { accountCode: INVENTORY, direction: NormalBalance.CREDIT, amount: net },
+                         ...(tax > 0 ? [{ accountCode: INPUT_VAT, direction: NormalBalance.CREDIT, amount: tax }] : []),
+                    ],
+               },
+               db
+          );
+
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP',
+               partyType: 'supplier',
+               partyId: null,
+               documentType: 'credit_note',
+               documentRef: `RET-${receipt.id}`,
+               documentDate: new Date(),
+               amount: -gross,
+               sourceModule: SourceModule.INVENTORY,
+               sourceTable: 'inv_purchase_order_receipt_reversals',
+               sourceRef: String(receipt.id),
+          });
+     } catch (error: any) {
+          logger.warn('Failed to enqueue goods receipt reversal posting', {
+               tenantId,
+               receiptId: receipt?.id,
+               error: error?.message || String(error),
+          });
+     }
+}
+
 function resolveOutflowAccount(transactionType: string): string | null {
      switch (transactionType) {
           case 'consumption':
-          case 'transfer':
                return COST_OF_GOODS_SOLD;
           case 'wastage':
           case 'adjustment':
@@ -119,5 +203,6 @@ function round2(value: number): number {
 
 export const inventoryAccounting: IInventoryAccounting = {
      enqueueGoodsReceipt,
+     enqueueGoodsReceiptReversal,
      enqueueStockMovement,
 };

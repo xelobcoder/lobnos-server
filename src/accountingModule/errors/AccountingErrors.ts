@@ -53,3 +53,25 @@ export class EmptyTransactionError extends AccountingError {
           Object.setPrototypeOf(this, EmptyTransactionError.prototype);
      }
 }
+
+export class PeriodClosedError extends AccountingError {
+     constructor(periodCode: string, status: string) {
+          super(
+               `Accounting period ${periodCode} is ${status} and will not accept new postings`,
+               'PERIOD_CLOSED',
+               409
+          );
+          Object.setPrototypeOf(this, PeriodClosedError.prototype);
+     }
+}
+
+export class PeriodNotFoundError extends AccountingError {
+     constructor(periodCode: string) {
+          super(
+               `Accounting period ${periodCode} not found`,
+               'PERIOD_NOT_FOUND',
+               404
+          );
+          Object.setPrototypeOf(this, PeriodNotFoundError.prototype);
+     }
+}

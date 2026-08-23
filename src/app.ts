@@ -62,6 +62,7 @@ import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from "./m
 import { bootstrapCommissionTables } from './models/commissions/commission-configurations/services/CommissionBootstrapService';
 import { bootstrapBillingTables } from './models/billing/BillingTableBootstrapper';
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from './accountingModule';
+import accountingRouter from './controllers/accounting/route';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 
 
@@ -135,6 +136,7 @@ app.use('/api/v1/commission', commissionConfigRouter);
 app.use(emailRouter);
 app.use(notificationsRouter);
 app.use(employeeSettingsRouter);
+app.use(accountingRouter);
 app.use(InterfacingDevicesRouterT);
 
 

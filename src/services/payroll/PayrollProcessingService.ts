@@ -4,6 +4,7 @@ import { OtherDeductionRepository } from '../../models/payroll/DeductionReposito
 import { PayrollCalculationService, IPayrollCalculationInput } from './PayrollCalculationService';
 import KnexConnection from '../../database/KnexConnections';
 import AutomatedExpenseLifecycle from '../../models/Expenses/AutomatedExpenseLifecycle';
+import { enqueuePayrollAccrual, enqueuePayrollPayment } from '../../accountingModule/integrations/PayrollAccounting';
 
 export interface IPayrollProcessingResult {
      payroll_period_id: number;
@@ -170,6 +171,8 @@ export class PayrollProcessingService {
                     }
                }
 
+               await enqueuePayrollAccrual(this.tenantId, payroll_period_id, approved_by, trx);
+
                return true;
           });
      }
@@ -307,6 +310,15 @@ export class PayrollProcessingService {
                          expense_payment_id: lifecycleResult.paymentId || null,
                          updated_at: trx.fn.now()
                     });
+
+               await enqueuePayrollPayment(
+                    this.tenantId,
+                    payroll_period_id,
+                    payment_method,
+                    payment_date,
+                    employeeid,
+                    trx
+               );
 
                return true;
           });

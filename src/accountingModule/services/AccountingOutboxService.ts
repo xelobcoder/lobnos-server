@@ -66,11 +66,74 @@ export async function processPendingOutbox(tenantId: number, limit = 25): Promis
                     sourcePk: row.source_pk,
                     error: error?.message || String(error),
                });
+               const attempts = row.attempts + 1;
                await db('acc_posting_outbox').where({ id: row.id }).update({
-                    status: 'failed',
-                    attempts: row.attempts + 1,
+                    status: attempts >= MAX_ATTEMPTS ? 'dead_letter' : 'failed',
+                    attempts,
                     last_error: error?.message || String(error),
                });
           }
      }
+}
+
+export async function getOutboxHealth(tenantId: number): Promise<{
+     pending: number;
+     failed: number;
+     deadLetter: number;
+     oldestPendingMinutes: number | null;
+}> {
+     await ensureAccountingSchema(tenantId);
+     const db = await KnexConnection(tenantId);
+
+     const counts = await db('acc_posting_outbox')
+          .select('status')
+          .count('* as total')
+          .groupBy('status');
+
+     const oldest = await db('acc_posting_outbox')
+          .whereIn('status', ['pending', 'failed'])
+          .min('created_at as oldest')
+          .first();
+
+     const byStatus = new Map(counts.map((row: any) => [row.status, Number(row.total)]));
+     const oldestMs = oldest?.oldest ? new Date(oldest.oldest).getTime() : null;
+
+     return {
+          pending: byStatus.get('pending') || 0,
+          failed: byStatus.get('failed') || 0,
+          deadLetter: byStatus.get('dead_letter') || 0,
+          oldestPendingMinutes: oldestMs ? Math.floor((Date.now() - oldestMs) / 60_000) : null,
+     };
+}
+
+export async function listOutbox(
+     tenantId: number,
+     filters: { status?: string; sourceModule?: string; page?: number; count?: number } = {}
+): Promise<{ data: any[]; total: number; page: number; count: number }> {
+     await ensureAccountingSchema(tenantId);
+     const db = await KnexConnection(tenantId);
+
+     const page = Math.max(1, Number(filters.page) || 1);
+     const count = Math.min(200, Math.max(1, Number(filters.count) || 25));
+
+     const base = db('acc_posting_outbox');
+     if (filters.status) base.where('status', filters.status);
+     if (filters.sourceModule) base.where('source_module', filters.sourceModule);
+
+     const totalRow = await base.clone().clearSelect().clearOrder().count('* as total').first();
+     const data = await base.clone().orderBy('id', 'desc').limit(count).offset((page - 1) * count);
+
+     return { data, total: Number(totalRow?.total || 0), page, count };
+}
+
+export async function replayOutboxRow(tenantId: number, outboxId: number): Promise<void> {
+     await ensureAccountingSchema(tenantId);
+     const db = await KnexConnection(tenantId);
+
+     await db('acc_posting_outbox')
+          .where({ id: outboxId })
+          .whereIn('status', ['failed', 'dead_letter'])
+          .update({ status: 'pending', attempts: 0, last_error: null });
+
+     await processPendingOutbox(tenantId);
 }

@@ -8,10 +8,8 @@ import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { TestAscension } from "../operations/ascension";
 import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerInit";
-import { enqueuePosting, signalOutboxReady } from "../../accountingModule";
-import { TransactionType } from "../../accountingModule/enums/transaction-type.enum";
-import { SourceModule } from "../../accountingModule/enums/source-module.enum";
-import { NormalBalance } from "../../accountingModule/enums/normal-balance.enum";
+import { signalOutboxReady } from "../../accountingModule";
+import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
 import { OperationsFailures } from "../operations/types";
 import ResultDeliveryClass from "../../controllers/result/resultDelivery";
@@ -231,44 +229,9 @@ export class BillingSharedRepo {
 
                if (inserted) {
                     const historyId = insertResult?.insertId;
-                    const billingRow = await trx('billing')
-                         .select('branchid', 'billedon')
-                         .where({ billingid: billingID })
-                         .first();
 
                     if (historyId && Number(paid) > 0) {
-                         // enqueue only: a lightweight same-trx insert so a ledger/accounting failure can never block or roll back billing
-                         await enqueuePosting(
-                              tenantId,
-                              {
-                                   tenantId,
-                                   transactionType: TransactionType.PAYMENT,
-                                   sourceModule: SourceModule.BILLING,
-                                   sourceTable: 'billinghx',
-                                   sourcePk: Number(historyId),
-                                   occurredAt: billingRow?.billedon || new Date(),
-                                   lines: [
-                                        {
-                                             accountCode: 'acc-1000',
-                                             direction: NormalBalance.DEBIT,
-                                             amount: Number(paid),
-                                             billingid: billingID,
-                                             employeeid: employeeID ? Number(employeeID) : null,
-                                             branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
-                                        },
-                                        {
-                                             accountCode: 'acc-4000',
-                                             direction: NormalBalance.CREDIT,
-                                             amount: Number(paid),
-                                             billingid: billingID,
-                                             employeeid: employeeID ? Number(employeeID) : null,
-                                             branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
-                                        },
-                                   ],
-                              },
-                              trx
-                         );
-                         // best-effort "process now" signal via Redis/BullMQ; the periodic DB sweep in app.ts is the durable fallback if Redis is unavailable
+                         await enqueueBillingPayment(tenantId, Number(historyId), billingID, Number(paid), employeeID, trx);
                          signalOutboxReady(tenantId).catch(() => { });
                     }
                }

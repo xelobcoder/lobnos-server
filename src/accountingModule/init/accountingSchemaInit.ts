@@ -74,7 +74,107 @@ export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      }
 
      await ensureStringSourceRefSupport(tenantId);
+     await ensurePeriodTable(tenantId);
+     await ensureManualJournalTables(tenantId);
+     await ensureSubledgerTable(tenantId);
      await seedAccountsFromConfig(tenantId);
+}
+
+async function ensureSubledgerTable(tenantId: number): Promise<void> {
+     const knex = await KnexConnection(tenantId);
+
+     if (await knex.schema.hasTable('acc_subledger_entries')) return;
+
+     await knex.schema.createTable('acc_subledger_entries', (table) => {
+          table.increments('id').primary().unsigned();
+          table.enum('ledger', ['AR', 'AP']).notNullable();
+          table.string('party_type', 30).notNullable();
+          table.integer('party_id').unsigned().nullable();
+          table.string('party_name', 160).nullable();
+          table.string('document_type', 30).notNullable();
+          table.string('document_ref', 60).notNullable();
+          table.date('document_date').notNullable();
+          table.date('due_date').nullable();
+          table.decimal('amount', 14, 2).notNullable();
+          table.decimal('gross_amount', 14, 2).notNullable().defaultTo(0);
+          table.decimal('tax_amount', 14, 2).notNullable().defaultTo(0);
+          table.string('source_module', 30).notNullable();
+          table.string('source_table', 60).notNullable();
+          table.string('source_ref', 80).notNullable();
+          table.integer('branchid').unsigned().nullable();
+          table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+          table.unique(['ledger', 'source_table', 'source_ref'], 'uq_acc_subledger_source');
+          table.index(['ledger', 'party_type', 'party_id'], 'idx_acc_subledger_party');
+          table.index(['ledger', 'document_date'], 'idx_acc_subledger_date');
+     });
+}
+
+async function ensureManualJournalTables(tenantId: number): Promise<void> {
+     const knex = await KnexConnection(tenantId);
+
+     if (!(await knex.schema.hasTable('acc_manual_journals'))) {
+          await knex.schema.createTable('acc_manual_journals', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('journal_no', 30).notNullable().unique();
+               table.date('journal_date').notNullable();
+               table.string('description', 255).notNullable();
+               table.string('reference', 120).nullable();
+               table.enum('status', ['draft', 'submitted', 'approved', 'posted', 'void']).notNullable().defaultTo('draft');
+               table.integer('journal_entry_id').unsigned().nullable();
+               table.integer('created_by').unsigned().nullable();
+               table.integer('submitted_by').unsigned().nullable();
+               table.integer('approved_by').unsigned().nullable();
+               table.integer('posted_by').unsigned().nullable();
+               table.datetime('submitted_at').nullable();
+               table.datetime('approved_at').nullable();
+               table.datetime('posted_at').nullable();
+               table.text('notes').nullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+               table.datetime('updated_at').notNullable().defaultTo(knex.fn.now());
+          });
+     }
+
+     if (!(await knex.schema.hasTable('acc_manual_journal_lines'))) {
+          await knex.schema.createTable('acc_manual_journal_lines', (table) => {
+               table.increments('id').primary().unsigned();
+               table.integer('manual_journal_id').unsigned().notNullable();
+               table.string('account_code', 20).notNullable();
+               table.enum('direction', ['debit', 'credit']).notNullable();
+               table.decimal('amount', 14, 2).notNullable();
+               table.integer('branchid').unsigned().nullable();
+               table.integer('employeeid').unsigned().nullable();
+               table.string('line_description', 255).nullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+               table.index('manual_journal_id', 'idx_acc_manual_journal_lines_parent');
+          });
+     }
+
+     // the source_module enum predates manual journals
+     try {
+          await knex.raw(
+               "ALTER TABLE acc_journal_entries MODIFY COLUMN source_module ENUM('billing','expense','inventory','commission','supplier','payroll','manual') NOT NULL"
+          );
+     } catch {
+     }
+}
+
+async function ensurePeriodTable(tenantId: number): Promise<void> {
+     const knex = await KnexConnection(tenantId);
+
+     if (!(await knex.schema.hasTable('acc_periods'))) {
+          await knex.schema.createTable('acc_periods', (table) => {
+               table.increments('id').primary().unsigned();
+               table.string('period_code', 7).notNullable().unique();
+               table.date('period_start').notNullable();
+               table.date('period_end').notNullable();
+               table.enum('status', ['open', 'soft_closed', 'closed', 'locked']).notNullable().defaultTo('open');
+               table.integer('closed_by').unsigned().nullable();
+               table.datetime('closed_at').nullable();
+               table.text('notes').nullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+               table.datetime('updated_at').notNullable().defaultTo(knex.fn.now());
+          });
+     }
 }
 
 /**
@@ -97,6 +197,7 @@ async function ensureStringSourceRefSupport(tenantId: number): Promise<void> {
           'CREATE UNIQUE INDEX uq_acc_outbox_source_ref ON acc_posting_outbox (source_module, source_table, source_pk, transaction_type, source_ref)',
           'ALTER TABLE acc_journal_entries DROP INDEX uq_acc_journal_source',
           'CREATE UNIQUE INDEX uq_acc_journal_source_ref ON acc_journal_entries (source_module, source_table, source_pk, transaction_type, source_ref)',
+          "ALTER TABLE acc_posting_outbox MODIFY COLUMN status ENUM('pending','posted','failed','dead_letter') NOT NULL DEFAULT 'pending'",
      ];
 
      for (const statement of statements) {
