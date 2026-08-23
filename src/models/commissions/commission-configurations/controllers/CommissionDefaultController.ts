@@ -1,7 +1,16 @@
 import { Request, Response } from 'express';
-import KnexConnection from '../../../../database/KnexConnections';
+import { CommissionDefaultService } from '../services/CommissionDefaultService';
 
 export class CommissionDefaultController {
+     private static handleError(res: Response, error: any, fallbackMessage: string): void {
+          const statusCode = error?.statusCode || 500;
+          res.status(statusCode).json({
+               status: 'error',
+               statusCode,
+               message: error?.message || fallbackMessage,
+          });
+     }
+
      static async createDefault(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
@@ -31,42 +40,12 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-
-               // Check if config exists
-               const config = await connection('commission_configs').where({ id: commission_config_id }).first();
-               if (!config) {
-                    res.status(404).json({
-                         status: 'error',
-                         statusCode: 404,
-                         message: `Commission configuration with ID ${commission_config_id} not found`,
-                    });
-                    return;
-               }
-
-               // Check if default already exists for this recipient type
-               const existing = await connection('commission_default')
-                    .where({ recipient_type, is_active: true })
-                    .first();
-
-               if (existing) {
-                    res.status(409).json({
-                         status: 'error',
-                         statusCode: 409,
-                         message: `Default commission for ${recipient_type} already exists. Only one default per recipient type is allowed.`,
-                    });
-                    return;
-               }
-
-               // Insert default
-               const [id] = await connection('commission_default').insert({
+               const service = new CommissionDefaultService(tenantId);
+               const created = await service.createDefault({
                     recipient_type,
                     commission_config_id,
                     is_active,
-                    created_at: new Date(),
                });
-
-               const created = await connection('commission_default').where({ id }).first();
 
                res.status(201).json({
                     status: 'success',
@@ -75,11 +54,7 @@ export class CommissionDefaultController {
                     result: created,
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to create default commission',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to create default commission');
           }
      }
 
@@ -111,10 +86,8 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-               const defaults = await connection('commission_default')
-                    .where({ recipient_type: recipientType, is_active: true })
-                    .first();
+               const service = new CommissionDefaultService(tenantId);
+               const defaults = await service.getDefault(recipientType as 'clinician' | 'organization');
 
                if (!defaults) {
                     res.status(404).json({
@@ -124,24 +97,14 @@ export class CommissionDefaultController {
                     });
                     return;
                }
-               const config = await connection('commission_configs')
-                    .where({ id: defaults.commission_config_id })
-                    .first();
 
                res.json({
                     status: 'success',
                     statusCode: 200,
-                    result: {
-                         ...defaults,
-                         config: config
-                    },
+                    result: defaults,
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to retrieve default commission',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to retrieve default commission');
           }
      }
 
@@ -162,23 +125,8 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-               const defaults = await connection('commission_default')
-                    .where({ is_active: true })
-                    .select('*');
-
-               // Get config details for each default
-               const defaultsWithConfig = await Promise.all(
-                    defaults.map(async (def: any) => {
-                         const config = await connection('commission_configs')
-                              .where({ id: def.commission_config_id })
-                              .first();
-                         return {
-                              ...def,
-                              config: config
-                         };
-                    })
-               );
+               const service = new CommissionDefaultService(tenantId);
+               const defaultsWithConfig = await service.getAllDefaults();
 
                res.json({
                     status: 'success',
@@ -186,11 +134,7 @@ export class CommissionDefaultController {
                     result: defaultsWithConfig,
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to retrieve commission defaults',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to retrieve commission defaults');
           }
      }
 
@@ -223,68 +167,19 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-
-               // Get specific assignments for this recipient
-               const assignments = await connection('commission_assignments')
-                    .where('scope_type', recipientType)
-                    .where('scope_id', recipientId)
-                    .orderBy('priority', 'desc')
-                    .orderBy('assigned_from', 'desc');
-
-               // Get assignments with config details
-               const assignmentsWithConfig = await Promise.all(
-                    assignments.map(async (assignment: any) => {
-                         const config = await connection('commission_configs')
-                              .where({ id: assignment.commission_config_id })
-                              .first();
-                         return {
-                              type: 'assignment',
-                              assignment: assignment,
-                              config: config
-                         };
-                    })
+               const service = new CommissionDefaultService(tenantId);
+               const routes = await service.getRecipientRoutes(
+                    recipientType as 'clinician' | 'organization',
+                    recipientId
                );
-
-               // Get default for this recipient type
-               const defaultConfig = await connection('commission_default')
-                    .where({ recipient_type: recipientType, is_active: true })
-                    .first();
-
-               let defaultWithConfig = null;
-               if (defaultConfig) {
-                    const config = await connection('commission_configs')
-                         .where({ id: defaultConfig.commission_config_id })
-                         .first();
-                    defaultWithConfig = {
-                         type: 'default',
-                         default: defaultConfig,
-                         config: config
-                    };
-               }
-
-               // Combine results
-               const routes = [
-                    ...assignmentsWithConfig,
-                    ...(defaultWithConfig ? [defaultWithConfig] : [])
-               ];
 
                res.json({
                     status: 'success',
                     statusCode: 200,
-                    result: {
-                         recipient_type: recipientType,
-                         recipient_id: recipientId,
-                         routes: routes,
-                         total_routes: routes.length
-                    },
+                    result: routes,
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to retrieve recipient routes',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to retrieve recipient routes');
           }
      }
 
@@ -292,7 +187,7 @@ export class CommissionDefaultController {
       * Update default commission
       * PUT /api/v1/commission/defaults/:id
       */
-     static async updateDefault(req: Request<{id: string}>, res: Response): Promise<void> {
+     static async updateDefault(req: Request<{ id: string }>, res: Response): Promise<void> {
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const defaultId = parseInt(req.params.id);
@@ -307,28 +202,12 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-
-               if (commission_config_id) {
-                    // Verify config exists
-                    const config = await connection('commission_configs').where({ id: commission_config_id }).first();
-                    if (!config) {
-                         res.status(404).json({
-                              status: 'error',
-                              statusCode: 404,
-                              message: `Commission configuration with ID ${commission_config_id} not found`,
-                         });
-                         return;
-                    }
-               }
-
                const updateData: any = {};
                if (commission_config_id) updateData.commission_config_id = commission_config_id;
                if (is_active !== undefined) updateData.is_active = is_active;
 
-               await connection('commission_default').where({ id: defaultId }).update(updateData);
-
-               const updated = await connection('commission_default').where({ id: defaultId }).first();
+               const service = new CommissionDefaultService(tenantId);
+               const updated = await service.updateDefault(defaultId, updateData);
 
                res.json({
                     status: 'success',
@@ -337,11 +216,7 @@ export class CommissionDefaultController {
                     result: updated,
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to update default commission',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to update default commission');
           }
      }
 
@@ -363,8 +238,8 @@ export class CommissionDefaultController {
                     return;
                }
 
-               const connection = await KnexConnection(tenantId);
-               await connection('commission_default').where({ id: defaultId }).update({ is_active: false });
+               const service = new CommissionDefaultService(tenantId);
+               await service.deactivateDefault(defaultId);
 
                res.json({
                     status: 'success',
@@ -372,11 +247,7 @@ export class CommissionDefaultController {
                     message: 'Default commission deactivated successfully',
                });
           } catch (error: any) {
-               res.status(500).json({
-                    status: 'error',
-                    statusCode: 500,
-                    message: error.message || 'Failed to delete default commission',
-               });
+               CommissionDefaultController.handleError(res, error, 'Failed to delete default commission');
           }
      }
 }

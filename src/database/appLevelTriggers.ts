@@ -1,9 +1,19 @@
 import { Knex } from "knex";
-import { CommissionDefaultsRepository } from "../models/commissions/CommissionDefaultsRepository";
+import { CommissionDefaultRepository } from "../models/commissions/commission-configurations/repositories/CommissionDefaultRepository";
 import OutsourcedCases from "../models/organization/outsourcingOrganization/outsourcedCases";
 import ApplicationSettings from "../models/application/appsettings/appset";
 
 type DbRunner = Knex | Knex.Transaction;
+
+async function getDefaultCommissionPercentage(
+	tenantId: number,
+	db: DbRunner,
+	recipientType: "clinician" | "organization"
+): Promise<number> {
+	const defaultConfig = await new CommissionDefaultRepository(tenantId, db)
+		.findActiveConfigByRecipientType(recipientType);
+	return defaultConfig?.percentage_rate ? Number(defaultConfig.percentage_rate) : 0;
+}
 
 export async function applyNewPatientAfterInsert(
 	db: DbRunner,
@@ -85,7 +95,7 @@ export async function insertDboservicesAudit(
 	});
 }
 
-export async function applyDboservicesAfterInsert(tenantId:number, db: DbRunner, service: any, actor?: string) {
+export async function applyDboservicesAfterInsert(tenantId: number, db: DbRunner, service: any, actor?: string) {
 	await insertDboservicesAudit(db, service, "INSERT", actor);
 
 	if (service.serviceCategory === "SERVICES" && Number(service.categoryTrackId) === 5) {
@@ -236,16 +246,14 @@ export async function applyOrganizationAfterInsert(db: DbRunner, organizationid:
 		.first();
 	if (!account) {
 		// insert default commission value for the organization if global commission default exist for organization
-		const commissionDefault = await new CommissionDefaultsRepository(0, db).getByTargetType('ORGANIZATION');
-		const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
+		const commissionValue = await getDefaultCommissionPercentage(0, db, "organization");
 		await db("organizationaccountinformation").insert({ organizationid, commission: commissionValue });
 	}
 }
 
 export async function applyClinicianAfterInsert(tenantId: number, db: DbRunner, payload: { clinicianid: number; identifier: string }) {
 	// 1. check for default commissions for clinician exist , if yes use the default value to create the clinician commision amount else create with 0 commission
-	const commissionDefault = await new CommissionDefaultsRepository(tenantId, db).getByTargetType('CLINICIAN');
-	const commissionValue = commissionDefault ? commissionDefault.commission_value : 0;
+	const commissionValue = await getDefaultCommissionPercentage(tenantId, db, "clinician");
 	const payment = await db("clinicianpaymentinfo")
 		.select("id")
 		.where({ clinicianid: payload.clinicianid })

@@ -7,8 +7,11 @@ import { billErrors, BillingValidationResult, serviceCategory, ServiceEntry, ser
 import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { TestAscension } from "../operations/ascension";
-import { FinanceLedgerService } from "../../services/finance/FinanceLedgerService";
 import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerInit";
+import { createAccountingService } from "../../accountingModule";
+import { TransactionType } from "../../accountingModule/enums/transaction-type.enum";
+import { SourceModule } from "../../accountingModule/enums/source-module.enum";
+import { NormalBalance } from "../../accountingModule/enums/normal-balance.enum";
 import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
 import { OperationsFailures } from "../operations/types";
 import ResultDeliveryClass from "../../controllers/result/resultDelivery";
@@ -231,20 +234,34 @@ export class BillingSharedRepo {
                          .where({ billingid: billingID })
                          .first();
 
-                    if (historyId) {
-                         await FinanceLedgerService.recordEntry({
+                    if (historyId && Number(paid) > 0) {
+                         const accountingService = createAccountingService(tenantId);
+                         await accountingService.postTransaction({
                               tenantId,
                               trx,
-                              occurredAt: billingRow?.billedon || new Date(),
-                              direction: billingType,
-                              amount: Number(paid || 0),
-                              accountRef: FinanceLedgerService.mapPaymentModeToAccountRef(paymentMode),
-                              sourceModule: 'billing',
+                              transactionType: TransactionType.PAYMENT,
+                              sourceModule: SourceModule.BILLING,
                               sourceTable: 'billinghx',
                               sourcePk: Number(historyId),
-                              billingid: billingID,
-                              employeeid: employeeID ? Number(employeeID) : null,
-                              branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                              occurredAt: billingRow?.billedon || new Date(),
+                              lines: [
+                                   {
+                                        accountCode: 'acc-1000',
+                                        direction: NormalBalance.DEBIT,
+                                        amount: Number(paid),
+                                        billingid: billingID,
+                                        employeeid: employeeID ? Number(employeeID) : null,
+                                        branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                                   },
+                                   {
+                                        accountCode: 'acc-4000',
+                                        direction: NormalBalance.CREDIT,
+                                        amount: Number(paid),
+                                        billingid: billingID,
+                                        employeeid: employeeID ? Number(employeeID) : null,
+                                        branchid: billingRow?.branchid ? Number(billingRow.branchid) : null,
+                                   },
+                              ],
                          });
                     }
                }
@@ -255,6 +272,7 @@ export class BillingSharedRepo {
                return false;
           }
      }
+
 
      static async removeDuplicateServiceFromNewCart(services: MultiTestBillingCartType[] | MultiTestServicesProvided[], categoryTrackId: number, billingid: number, isTestCart: boolean, tenantId: number): Promise<any[]> {
           const db = await KnexConnection(tenantId);
@@ -609,7 +627,7 @@ export class BillingSharedRepo {
      }
 
 
-     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, patientId: number, result_delivery: any,billeddate: any, trx?: any) {
+     public async mapAndInsertServices(tenantId: number, allEntries: any[], billingid: number, patientId: number, result_delivery: any, billeddate: any, trx?: any) {
           try {
                const servicesMap = allEntries.map((service) => {
                     return [
@@ -670,7 +688,7 @@ export class BillingSharedRepo {
                try {
                     const [billingid, trackId, cost, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, registrationType, branchid, isoutsourced, outsourceid, serviceAddedOn, taxList, taxValue, amountIncurredDueTax, taxIncluded, discount, totalcost, totalpayable, isNHIS, isPHIS, insuranceid, claimCode, hasNightAdjustment,
                          nightAdjustmentMode, nightAdjustmentValue, isPackageUsed,
-                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType,billeddate] = item;
+                         packageid, paymentstatus, paidamount, outstanding, outsourceprice, nhismembershipid, claimscheckcode, relatedbillingid, userAdjustedValue, userAdjustmentType, billeddate] = item;
 
                     const actualDiscount = userAdjustmentType === "discount" ? userAdjustedValue : 0;
 
@@ -723,7 +741,7 @@ export class BillingSharedRepo {
                                    ? outcome[0]
                                    : outcome?.serviceid;
                     if (serviceid && typeof serviceid === "number") {
-                         await applyDboservicesAfterInsert(tenantId,queryRunner, {
+                         await applyDboservicesAfterInsert(tenantId, queryRunner, {
                               serviceid,
                               billingid,
                               trackId,

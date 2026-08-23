@@ -18,15 +18,19 @@ The main implementation is under `src/models/commissions/` and has two related p
 ### Configurable commission engine
 
 - `commission-configurations/services/CommissionEngineService.ts` orchestrates calculation.
-- `CommissionResolutionService` resolves an applicable assignment for a clinician or organization, then falls back to a system assignment and finally a default commission configuration.
+- `CommissionResolutionService.resolveAssignment` only resolves `commission_assignments`: first a recipient-scoped assignment (`scopeType` clinician/organization + `scopeId`), then a `scopeType: 'system'` assignment, sorted by priority then most recent `assigned_from`. It has no knowledge of `commission_default` and returns `null` if neither exists.
+- `commission_default` fallback (one active row per `recipient_type`, not per specific clinician/organization) is resolved separately in `CommissionEngineService.getRecipientDefaultConfig`, at two distinct points:
+  1. No assignment at all (`resolveAssignment` returned `null`): check `commission_default`; if still none, create a zero-value `pending` tracking row and return success (reason `SUCCESS`, `final_commission: 0`).
+  2. An assignment was found but its config/tier lookup throws `ConfigNotFoundError`/`TierNotFoundError`/`NoCommissionConfigFoundError`: check `commission_default`; if a default exists, calculate and persist a tracking row against it; if still none, return `reason: 'NO_CONFIG'` with **no tracking row created** (asymmetric with path 1, which always writes a row).
 - Configuration repositories manage `commission_configs`, `commission_tiers`, `commission_assignments`, commission tracking, and defaults. `commissionConfigutationRepo.ts` is a deprecated compatibility wrapper; prefer the newer repositories and factory.
 - `CommissionCalculator` uses `decimal.js`, half-up rounding, and two-decimal GHS amounts.
 - Supported calculation types in code are `percentage`, `fixed`, `hybrid`, `tiered`, and `sliding_scale`.
 - Percentage: service amount multiplied by rate. Fixed: configured fixed component. Hybrid: percentage component plus fixed component. Tiered: matched amount range, with either percentage or fixed tier value. Sliding scale: compares current and previous period totals and chooses the configured rate or sliding maximum rate.
 - `CommissionCapService` applies per-service minimum and maximum caps, then a daily, weekly, monthly, quarterly, or yearly period cap. Existing tracking rows with `pending`, `approved`, or `paid` status count toward the period total.
 - Successful calculation writes a `commission_tracking` record containing service ID, service amount, applied rule, percentage/fixed/tier values, cap adjustments, final amount, recipient, currency, calculation date, and status `pending`.
-- When no assignment/default exists, the engine still records a zero-value tracking row and returns success with a zero commission. Treat this as a deliberate fallback with operational observability, not as evidence that the service was never processed.
+- When no assignment/default exists via path 1 above, the engine still records a zero-value tracking row and returns success with a zero commission. Treat this as a deliberate fallback with operational observability, not as evidence that the service was never processed. Path 2 (config/tier missing on an existing assignment) does NOT write a row when no default exists — verify which branch produced a given `NO_CONFIG` result before assuming a tracking row exists.
 - Recipient selection currently uses clinician when `clinician_id` is present, otherwise organization. Do not assume both recipients are calculated unless the caller explicitly invokes both paths.
+
 
 ### Billing trigger and legacy/direct path
 
@@ -43,7 +47,9 @@ The configuration routes are mounted below the commission router and include:
 - Assignment CRUD and resolution: `/assignments`, `/assignments/:id`, and `/assignments/resolve`.
 - Tracking reads: `/tracking/:id`, `/tracking/service/:serviceId`, unpaid tracking, summary, status, recipient, and period-total queries.
 - Tracking status update: `PUT /tracking/:id/status`.
-- Defaults: create, list, get, update, and deactivate default commission rules.
+- Defaults: create, list, get, update, and deactivate default commission rules. `commission_default.recipient_type` is unique regardless of `is_active`, so `CommissionDefaultService.createDefault` must check for any existing row (`findByRecipientType`, not just the active one) and reactivate/update it in place instead of inserting a duplicate, which previously caused a raw `ER_DUP_ENTRY` failure.
+- `CommissionDefaultRepository` and `CommissionDefaultService` implement `ICommissionDefaultRepository`/`ICommissionDefaultService` in `commission-configurations/interfaces/`. Behavioral caveats (e.g. the unique-constraint/reactivation note above) belong as JSDoc on the interface methods, not as inline comments in the concrete class.
+- Controller static methods passed directly to Express routers (e.g. `router.post('/defaults', CommissionDefaultController.createDefault)`) run with `this` unbound; call shared helpers like `handleError` via the class name (`CommissionDefaultController.handleError`), never `this.handleError`.
 - Commission analytics: dashboard, by-period, by-recipient, by-status, efficiency, summary, and recipient-by-period endpoints.
 - The legacy controller routes under `src/controllers/commission/routes.ts` support rate updates, service batching, batch information, batch breakdown, and service payment history. Specific routes must stay before parameterized routes.
 

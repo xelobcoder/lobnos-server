@@ -115,16 +115,8 @@ export async function bootstrapCommissionTables(tenantId = 1): Promise<void> {
           });
      }
 
-     if (!(await connection.schema.hasTable('commission_defaults'))) {
-          await connection.schema.createTable('commission_defaults', (table) => {
-               table.increments('id').primary();
-               table.enu('target_type', ['GLOBAL', 'CLINICIAN', 'ORGANIZATION']).notNullable();
-               table.enu('commission_type', ['PERCENTAGE', 'FIXED']).notNullable();
-               table.decimal('commission_value', 12, 2).notNullable().defaultTo(0);
-               table.timestamp('created_on').defaultTo(connection.fn.now());
-               table.timestamp('updated_on').defaultTo(connection.fn.now());
-               table.unique(['target_type'], 'uk_commission_defaults_target_type');
-          });
+     if (await connection.schema.hasTable('commission_defaults')) {
+          await connection.schema.dropTable('commission_defaults');
      }
 
      await applyAdvancedCommissionMigration(connection);

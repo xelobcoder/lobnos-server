@@ -81,14 +81,28 @@ STEP 2: Resolve Applicable Assignment
 │ │  └─ is_active = TRUE & dates valid                        │
 │ │  └─ IF FOUND → Return (Priority 1-49)                     │
 │                                                              │
-│ Level 4: DEFAULT FALLBACK ⭐                                │
+│ Level 4: DEFAULT FALLBACK ⭐ (engine-level, not resolver)   │
+│ ├─ `CommissionResolutionService.resolveAssignment` only     │
+│ │  covers Levels 1-3 above and returns NULL if none match.  │
+│ │  The default check happens back in                        │
+│ │  `CommissionEngineService.getRecipientDefaultConfig`.      │
 │ ├─ IF NO ASSIGNMENT FOUND IN LEVELS 1-3:                    │
 │ │  ├─ Query commission_default WHERE:                       │
 │ │  │  ├─ recipient_type = 'clinician' OR 'organization'     │
-│ │  │  ├─ recipient_id = clinician_id OR organization_id     │
 │ │  │  └─ is_active = TRUE                                   │
+│ │  ├─ ONE global row per recipient_type — NOT scoped to a   │
+│ │  │  specific clinician_id/organization_id                 │
 │ │  ├─ IF FOUND → Load config from default                   │
-│ │  └─ IF NOT FOUND → No Commission (Log gap & exit)         │
+│ │  └─ IF NOT FOUND → zero-value tracking row + SUCCESS(0)   │
+│                                                              │
+│ Level 5: SAME DEFAULT CHECK ON CONFIG/TIER ERRORS           │
+│ ├─ IF an assignment WAS found in Levels 1-3 but its config  │
+│ │  or tier lookup throws ConfigNotFoundError/               │
+│ │  TierNotFoundError/NoCommissionConfigFoundError:          │
+│ │  ├─ Re-check commission_default (same query as Level 4)   │
+│ │  ├─ IF FOUND → calculate & persist tracking row           │
+│ │  └─ IF NOT FOUND → reason: 'NO_CONFIG', NO tracking row   │
+│ │     created (asymmetric with Level 4's no-default case)   │
 │                                                              │
 └─────────────────────────────────────────────────────────────┘
 
@@ -343,30 +357,35 @@ ERROR Case (Tier not found, etc):
 
 The `commission_default` table provides fallback configuration when no explicit assignment matches.
 
-### Schema
+### Schema (verified against `CommissionDefaultRepository` and the live unique-key violation `commission_default.uk_recipient_type`)
 
 ```sql
 CREATE TABLE commission_default (
   id INT AUTO_INCREMENT PRIMARY KEY,
   recipient_type ENUM('clinician', 'organization') NOT NULL,
-  recipient_id INT NOT NULL,
   commission_config_id INT NOT NULL,
   is_active BOOLEAN DEFAULT TRUE,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
   FOREIGN KEY (commission_config_id) REFERENCES commission_configs(id),
-  UNIQUE KEY uk_recipient (recipient_type, recipient_id)
+  UNIQUE KEY uk_recipient_type (recipient_type)
 );
 ```
+
+There is no `recipient_id` column. A default is a single global fallback per `recipient_type`
+(one row for all clinicians, one row for all organizations), not a per-clinician/per-organization
+override. Because `recipient_type` alone is unique, only one row can ever exist per type —
+`CommissionDefaultService.createDefault` must reactivate/update an existing inactive row rather
+than insert a new one, or it hits `ER_DUP_ENTRY` on `uk_recipient_type`.
 
 ### Usage Example
 
 **Scenario:** No specific assignment found for Dr. Adjei (clinician 42)
 
 1. Check `commission_assignments` → No match
-2. Check `commission_default` WHERE recipient_type='clinician' AND recipient_id=42
+2. Check `commission_default` WHERE recipient_type='clinician' (applies to every clinician, not just 42)
 3. If found → Use referenced config_id
-4. If not found → No commission (0 GHS)
+4. If not found → zero-value tracking row, `SUCCESS` with `final_commission: 0`
 
 ### Flow with Default
 
@@ -385,14 +404,14 @@ CREATE TABLE commission_default (
 ┌─────────────────────────────────────┐
 │ Check commission_default            │
 │ WHERE recipient_type='clinician'    │
-│   AND recipient_id=42               │
+│ (global default, all clinicians)    │
 └─────────────────────────────────────┘
             ↓
     ✅ Found Default Config (ID: 7)
             ↓
 ┌─────────────────────────────────────┐
 │ Load commission_configs ID=7        │
-│ (e.g., "Dr. Adjei - 15% Rate")     │
+│ (e.g., "Clinician Default 15%")    │
 └─────────────────────────────────────┘
             ↓
 ┌─────────────────────────────────────┐
@@ -424,7 +443,7 @@ commission_assignments:
   - Assignment A: scope_type='organization', scope_id=5, config_id=1, priority=50, active
 
 commission_default:
-  - Default: recipient_type='clinician', recipient_id=42, config_id=7
+  - Default: recipient_type='clinician', config_id=7 (applies to every clinician with no assignment, not just 42)
 ```
 
 ### Execution Flow
@@ -593,6 +612,6 @@ Database Error:
 
 ---
 
-**Last Updated:** May 6, 2026  
-**Version:** 1.0  
+**Last Updated:** August 23, 2026 — corrected `commission_default` schema (no `recipient_id`, unique on `recipient_type` only) and split the single "Level 4" default fallback into the two real engine-level branches (no assignment vs. assignment found but config/tier missing), per `CommissionEngineService`.
+**Version:** 1.1
 **Status:** Production Ready

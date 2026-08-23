@@ -6,7 +6,7 @@ import { CommissionCalculator } from '../utils/CommissionCalculator';
 import { PeriodHelper } from '../utils/PeriodHelper';
 import { ConfigNotFoundError, TierNotFoundError, NoCommissionConfigFoundError } from '../errors/CommissionErrors';
 
-import { CommissionDefaultsRepository } from '../../CommissionDefaultsRepository';
+import { CommissionDefaultRepository } from '../repositories/CommissionDefaultRepository';
 import { ICommissionAssignmentRepository } from '../interfaces/ICommissionAssignmentRepository';
 import { ICommissionTierRepository } from '../interfaces/ICommissionTierRepository';
 import { logger } from '../commissionConfigutationRepo';
@@ -32,13 +32,40 @@ export class CommissionEngineService {
           return this.tenantId;
      }
 
+     private toNumberOrUndefined(value: any): number | undefined {
+          if (value === null || value === undefined || value === '') return undefined;
+          const n = Number(value);
+          return Number.isFinite(n) ? n : undefined;
+     }
+
+     private async getRecipientDefaultConfig(recipientType: 'clinician' | 'organization'): Promise<{ config: any; defaultId: number; configId: number } | null> {
+          const defaultRepo = new CommissionDefaultRepository(this.getTenantId());
+          const defaultRow = await defaultRepo.findActiveByRecipientType(recipientType);
+
+          if (!defaultRow?.commission_config_id) {
+               return null;
+          }
+
+          const config = await this.configRepo.findById(defaultRow.commission_config_id);
+          if (!config) {
+               return null;
+          }
+
+          return {
+               config,
+               defaultId: defaultRow.id,
+               configId: defaultRow.commission_config_id,
+          };
+     }
+
      /**
       * Execute complete commission calculation for a service
       */
      async executeCommissionCalculation(input: CommissionInput): Promise<CommissionCalculationResult> {
+          const recipientType = input.clinician_id ? 'clinician' : 'organization';
+          const recipientId = input.clinician_id || input.organization_id;
+
           try {
-               const recipientType = input.clinician_id ? 'clinician' : 'organization';
-               const recipientId = input.clinician_id || input.organization_id;
                const assignment = await this.resolutionService.resolveAssignment(input);
 
                let config: any = null;
@@ -51,23 +78,23 @@ export class CommissionEngineService {
                          service_id: input.service_id,
                     });
 
-                    // Check commission defaults
-                    const defaultsRepo = new CommissionDefaultsRepository(this.getTenantId());
-                    const defaultConfig = await defaultsRepo.getByTargetType(recipientType.toUpperCase() as 'CLINICIAN' | 'ORGANIZATION');
+                    // Check commission_default (recipient type -> commission config)
+                    const defaultEntry = await this.getRecipientDefaultConfig(recipientType as 'clinician' | 'organization');
 
-                    if (defaultConfig) {
-                         config = {
-                              id: null,
-                              commission_type: defaultConfig.commission_type.toLowerCase(),
-                              percentage_rate: defaultConfig.commission_type === 'PERCENTAGE' ? defaultConfig.commission_value : null,
-                              fixed_component: defaultConfig.commission_type === 'FIXED' ? defaultConfig.commission_value : null,
-                              min_cap: null,
-                              max_cap: null,
-                              period_cap: null,
-                              period_cap_reset: null,
-                              is_active: true,
-                         };
+                    if (defaultEntry) {
+                         config = defaultEntry.config;
+                         config.percentage_rate = this.toNumberOrUndefined(config.percentage_rate);
+                         config.fixed_component = this.toNumberOrUndefined(config.fixed_component);
+                         config.sliding_max_percentage = this.toNumberOrUndefined(config.sliding_max_percentage);
                          assignmentId = undefined;
+                         logger.info('Using commission_default fallback config', {
+                              service_id: input.service_id,
+                              recipient_type: recipientType,
+                              recipient_id: recipientId,
+                              default_id: defaultEntry.defaultId,
+                              config_id: defaultEntry.configId,
+                              commission_type: config.commission_type,
+                         });
                     } else {
                          const tracking = await this.trackingRepo.create({
                               service_id: input.service_id,
@@ -99,6 +126,9 @@ export class CommissionEngineService {
                     }
                } else {
                     config = await this.configRepo.getByIdOrThrow(assignment.commission_config_id);
+                    config.percentage_rate = this.toNumberOrUndefined(config.percentage_rate);
+                    config.fixed_component = this.toNumberOrUndefined(config.fixed_component);
+                    config.sliding_max_percentage = this.toNumberOrUndefined(config.sliding_max_percentage);
                     assignmentId = assignment.id;
                }
 
@@ -217,8 +247,8 @@ export class CommissionEngineService {
                     service_id: input.service_id,
                     service_amount: input.service_amount,
                     commission_type: config.commission_type,
-                    percentage_rate_applied: config.percentage_rate || undefined,
-                    fixed_amount_applied: config.fixed_component || undefined,
+                    percentage_rate_applied: this.toNumberOrUndefined(config.percentage_rate),
+                    fixed_amount_applied: this.toNumberOrUndefined(config.fixed_component),
                     tier_id: matchedTier?.id,
                     commission_due: rawCommission,
                     min_cap_adjustment: adjustments.minCapAdjustment,
@@ -258,10 +288,91 @@ export class CommissionEngineService {
                     error instanceof ConfigNotFoundError ||
                     error instanceof NoCommissionConfigFoundError
                ) {
-                    logger.warn('Commission configuration missing or not applicable for service', {
+                    logger.warn('Commission config/tier missing for assignment, attempting recipient default fallback', {
                          service_id: input.service_id,
+                         recipient_type: recipientType,
+                         recipient_id: recipientId,
                          error: errorMessage,
                     });
+
+                    const defaultEntry = await this.getRecipientDefaultConfig(recipientType as 'clinician' | 'organization');
+
+                    logger.info('Default lookup result for fallback', {
+                         service_id: input.service_id,
+                         recipient_type: recipientType,
+                         recipient_id: recipientId,
+                         has_default: !!defaultEntry,
+                         default_id: defaultEntry?.defaultId,
+                         default_config_id: defaultEntry?.configId,
+                         default_config_type: defaultEntry?.config?.commission_type,
+                    });
+
+                    if (defaultEntry) {
+                         const fallbackConfig = defaultEntry.config as any;
+                         fallbackConfig.percentage_rate = this.toNumberOrUndefined(fallbackConfig.percentage_rate);
+                         fallbackConfig.fixed_component = this.toNumberOrUndefined(fallbackConfig.fixed_component);
+                         fallbackConfig.sliding_max_percentage = this.toNumberOrUndefined(fallbackConfig.sliding_max_percentage);
+
+                         const commissionableAmount = CommissionCalculator.getCommissionableAmount(
+                              fallbackConfig,
+                              input.service_amount,
+                              input.outsourced_lab_cost || 0
+                         );
+
+                         const rawCommission = CommissionCalculator.calculateRawCommission(
+                              fallbackConfig,
+                              commissionableAmount
+                         );
+
+                         const adjustments = await this.capService.applyCaps(
+                              fallbackConfig,
+                              rawCommission,
+                              input,
+                              recipientType,
+                              recipientId
+                         );
+
+                         const tracking = await this.trackingRepo.create({
+                              service_id: input.service_id,
+                              service_amount: input.service_amount,
+                              commission_type: fallbackConfig.commission_type,
+                              percentage_rate_applied: this.toNumberOrUndefined(fallbackConfig.percentage_rate),
+                              fixed_amount_applied: this.toNumberOrUndefined(fallbackConfig.fixed_component),
+                              tier_id: undefined,
+                              commission_due: rawCommission,
+                              min_cap_adjustment: adjustments.minCapAdjustment,
+                              max_cap_adjustment: adjustments.maxCapAdjustment,
+                              period_cap_adjustment: adjustments.periodCapAdjustment,
+                              final_commission: adjustments.final,
+                              config_id: undefined,
+                              assignment_id: undefined,
+                              recipient_type: recipientType,
+                              recipient_id: recipientId,
+                              cap_period_reference: undefined,
+                              calculated_at: new Date(),
+                              currency: 'GHS',
+                              status: 'pending',
+                         });
+
+                         logger.info('Commission calculated using recipient default fallback', {
+                              service_id: input.service_id,
+                              tracking_id: tracking.id,
+                              recipient_type: recipientType,
+                              recipient_id: recipientId,
+                              fallback_used: true,
+                              default_id: defaultEntry.defaultId,
+                              default_config_id: defaultEntry.configId,
+                              default_type: fallbackConfig.commission_type,
+                              commission_due: rawCommission,
+                              final_commission: adjustments.final,
+                         });
+
+                         return {
+                              final_commission: adjustments.final,
+                              tracking_id: tracking.id,
+                              reason: 'SUCCESS',
+                         };
+                    }
 
                     return {
                          final_commission: 0,
