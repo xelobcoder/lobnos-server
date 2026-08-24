@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { ensureAccountingSchema } from '../init/accountingSchemaInit';
+import { parsePaging, parseSort, paginate } from '../utils/pagination';
 import {
      AgingBucket,
      BalanceSheet,
@@ -16,6 +17,15 @@ import {
 } from '../interfaces/IAccountingReportService';
 
 const COST_OF_SALES_CODES = ['acc-5000'];
+const GENERAL_LEDGER_SORT_COLUMNS = [
+     'e.occurred_at',
+     'e.id',
+     'e.transaction_type',
+     'e.source_module',
+     'a.account_code',
+     'l.amount',
+     'l.direction',
+];
 const CASH_ACCOUNTS = ['acc-1000', 'acc-1001'];
 const INVENTORY_ACCOUNT = 'acc-1003';
 const INVESTING_CODES = ['acc-1006', 'acc-1007'];
@@ -50,10 +60,11 @@ export class AccountingReportService implements IAccountingReportService {
           branchId?: number;
           page?: number;
           count?: number;
+          sortby?: string;
      }): Promise<{ data: LedgerLine[]; total: number; page: number; count: number }> {
           const db = await this.connection();
-          const page = Math.max(1, Number(filters.page) || 1);
-          const count = Math.min(200, Math.max(1, Number(filters.count) || 50));
+          const paging = parsePaging(filters, 50);
+          const sort = parseSort(filters, GENERAL_LEDGER_SORT_COLUMNS, { column: 'e.occurred_at', direction: 'desc' });
 
           const base = db('acc_journal_lines as l')
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
@@ -89,11 +100,11 @@ export class AccountingReportService implements IAccountingReportService {
                     'l.invoice_id',
                     'l.employeeid'
                )
-               .orderBy([{ column: 'e.occurred_at', order: 'desc' }, { column: 'e.id', order: 'desc' }])
-               .limit(count)
-               .offset((page - 1) * count);
+               .orderBy([{ column: sort.column, order: sort.direction }, { column: 'e.id', order: 'desc' }])
+               .limit(paging.count)
+               .offset(paging.offset);
 
-          return { data, total: Number(totalRow?.total || 0), page, count };
+          return { data, total: Number(totalRow?.total || 0), page: paging.page, count: paging.count };
      }
 
      async incomeStatement(from: string, to: string, branchId?: number): Promise<IncomeStatement> {
@@ -405,7 +416,7 @@ export class AccountingReportService implements IAccountingReportService {
                .sort((left, right) => right.netProfit - left.netProfit);
      }
 
-     async inventoryValuation(asOf?: string): Promise<InventoryValuation> {
+     async inventoryValuation(asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<InventoryValuation> {
           const db = await this.connection();
 
           const items = await db('inv_inventory_items')
@@ -441,8 +452,18 @@ export class AccountingReportService implements IAccountingReportService {
           const value = round2(rows.reduce((total, row) => total + row.value, 0));
           const generalLedger = round2(inventoryAccount?.balance || 0);
 
+          const paging = parsePaging(options || {}, 50);
+          const sort = parseSort(options || {}, ['name', 'sku', 'quantity', 'unitCost', 'value'], {
+               column: 'value',
+               direction: 'desc',
+          });
+          const page = paginate(rows, paging, sort);
+
           return {
-               rows: rows.sort((left, right) => right.value - left.value),
+               rows: page.data,
+               total: page.total,
+               page: page.page,
+               count: page.count,
                totals: {
                     quantity: round2(rows.reduce((total, row) => total + row.quantity, 0)),
                     value,

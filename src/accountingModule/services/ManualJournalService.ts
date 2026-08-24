@@ -3,6 +3,7 @@ import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { createAccountingService } from '../index';
 import { AccountingError, AccountNotFoundError, EmptyTransactionError, UnbalancedTransactionError } from '../errors/AccountingErrors';
 import { NormalBalance } from '../enums/normal-balance.enum';
+import { parsePaging, parseSort } from '../utils/pagination';
 import { SourceModule } from '../enums/source-module.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
 import {
@@ -200,10 +201,14 @@ export class ManualJournalService implements IManualJournalService {
           to?: string;
           page?: number;
           count?: number;
+          sortby?: string;
      }): Promise<{ data: IManualJournal[]; total: number; page: number; count: number }> {
           const db = await this.connection();
-          const page = Math.max(1, Number(filters.page) || 1);
-          const count = Math.min(200, Math.max(1, Number(filters.count) || 25));
+          const paging = parsePaging(filters, 25);
+          const sort = parseSort(filters, ['id', 'journal_no', 'journal_date', 'status', 'description'], {
+               column: 'id',
+               direction: 'desc',
+          });
 
           const base = db('acc_manual_journals');
           if (filters.status) base.where('status', filters.status);
@@ -211,13 +216,9 @@ export class ManualJournalService implements IManualJournalService {
           if (filters.to) base.where('journal_date', '<=', filters.to);
 
           const totalRow = await base.clone().clearSelect().clearOrder().count('* as total').first();
-          const data = await base
-               .clone()
-               .orderBy('id', 'desc')
-               .limit(count)
-               .offset((page - 1) * count);
+          const data = await base.clone().orderBy(sort.column, sort.direction).limit(paging.count).offset(paging.offset);
 
-          return { data, total: Number(totalRow?.total || 0), page, count };
+          return { data, total: Number(totalRow?.total || 0), page: paging.page, count: paging.count };
      }
 
      private async validate(db: any, input: CreateManualJournalInput): Promise<void> {

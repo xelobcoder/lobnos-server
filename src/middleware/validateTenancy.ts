@@ -55,6 +55,15 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (loginsession) q.andWhere('loginSessionId', String(loginsession));
           const active = await q.first();
           if (!active) return response.status(401).json({ status: 'error', message: 'Session expired or invalid', isExpired: true });
+
+          (request as any).authUser = {
+               employeeid,
+               email,
+               role: roleRow?.role ? String(roleRow.role).toLowerCase().trim() : '',
+               branch: roleRow?.branch ?? null,
+               tenantId,
+          };
+
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);

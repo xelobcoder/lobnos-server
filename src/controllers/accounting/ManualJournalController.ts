@@ -145,6 +145,7 @@ export class ManualJournalController {
                          to: req.query.to as string | undefined,
                          page: Number(req.query.page) || 1,
                          count: Number(req.query.count) || 25,
+                         sortby: req.query.sortby as string | undefined,
                     })
                );
           } catch (error) {

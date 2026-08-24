@@ -1,5 +1,7 @@
 import { Router } from 'express';
 import { SupplierPaymentController } from '..';
+import { checkTokenExists } from '../../../middleware/validateTenancy';
+import { requireAuthority } from '../../../middleware/authority';
 
 const router = Router();
 const supplierPaymentController = new SupplierPaymentController();
@@ -10,7 +12,12 @@ router.get('/payments/by-payment-id/:paymentId', (req, res) => supplierPaymentCo
 router.get('/payments', (req, res) => supplierPaymentController.list(req, res));
 router.get('/payments/grouped', (req, res) => supplierPaymentController.listGrouped(req, res));
 router.put('/payments/:id', (req, res) => supplierPaymentController.update(req, res));
-router.put('/payments/:id/approve', (req, res) => supplierPaymentController.approve(req, res));
+router.put(
+     '/payments/:id/approve',
+     checkTokenExists,
+     requireAuthority('purchase_order.pay', (req) => Number(req.body?.payment_amount ?? req.body?.amount)),
+     (req, res) => supplierPaymentController.approve(req, res)
+);
 router.put('/payments/:id/cancel', (req, res) => supplierPaymentController.cancel(req, res));
 router.put('/payments/:id/reject', (req, res) => supplierPaymentController.reject(req, res));
 router.post('/payments/:id/allocations', (req, res) => supplierPaymentController.addAllocation(req, res));

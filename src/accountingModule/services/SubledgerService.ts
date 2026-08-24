@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { ensureAccountingSchema } from '../init/accountingSchemaInit';
+import { parsePaging, parseSort, paginate } from '../utils/pagination';
 import {
      AgingRow,
      ISubledgerService,
@@ -50,7 +51,7 @@ export class SubledgerService implements ISubledgerService {
                .ignore();
      }
 
-     async balances(ledger: SubledgerName, asOf?: string): Promise<PartyBalance[]> {
+     async balances(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }) {
           const db = await this.connection();
 
           const query = db('acc_subledger_entries')
@@ -72,7 +73,7 @@ export class SubledgerService implements ISubledgerService {
 
           const rows = await query;
 
-          return rows.map((row: any) => ({
+          const mapped: PartyBalance[] = rows.map((row: any) => ({
                partyType: row.party_type,
                partyId: row.party_id ? Number(row.party_id) : null,
                partyName: row.party_name,
@@ -82,9 +83,17 @@ export class SubledgerService implements ISubledgerService {
                balance: round2(Number(row.balance || 0)),
                oldestDocumentDate: row.oldest_document_date ? toDateOnly(row.oldest_document_date) : null,
           }));
+
+          const paging = parsePaging(options || {}, 50);
+          const sort = parseSort(options || {}, ['partyName', 'documents', 'charged', 'settled', 'balance', 'oldestDocumentDate'], {
+               column: 'balance',
+               direction: 'desc',
+          });
+
+          return paginate(mapped, paging, sort);
      }
 
-     async aging(ledger: SubledgerName, asOf?: string) {
+     async aging(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }) {
           const db = await this.connection();
           const cutoff = asOf || new Date().toISOString().split('T')[0];
 
@@ -154,7 +163,16 @@ export class SubledgerService implements ISubledgerService {
                total: round2(rows.reduce((sum, row) => sum + row.total, 0)),
           };
 
-          return { rows, totals };
+          const paging = parsePaging(options || {}, 50);
+          const sort = parseSort(
+               options || {},
+               ['partyName', 'reference', 'documentDate', 'ageDays', 'current', 'days30', 'days60', 'days90', 'over90', 'total'],
+               { column: 'total', direction: 'desc' }
+          );
+          const page = paginate(rows, paging, sort);
+
+          // totals stay whole-report figures so the aging buckets do not change as you page
+          return { rows: page.data, total: page.total, page: page.page, count: page.count, totals };
      }
 
      async statement(
@@ -162,8 +180,9 @@ export class SubledgerService implements ISubledgerService {
           partyType: string,
           partyId: number,
           from?: string,
-          to?: string
-     ): Promise<{ entries: Array<SubledgerEntry & { runningBalance: number }>; openingBalance: number; closingBalance: number }> {
+          to?: string,
+          options?: { page?: number; count?: number }
+     ): Promise<any> {
           const db = await this.connection();
 
           const openingRow = from
@@ -191,7 +210,18 @@ export class SubledgerService implements ISubledgerService {
                return { ...row, runningBalance: running };
           });
 
-          return { entries, openingBalance, closingBalance: running };
+          // the running balance has to be computed across the whole statement before slicing,
+          // otherwise page two would restart from zero
+          const paging = parsePaging(options || {}, 50);
+
+          return {
+               entries: entries.slice(paging.offset, paging.offset + paging.count),
+               total: entries.length,
+               page: paging.page,
+               count: paging.count,
+               openingBalance,
+               closingBalance: running,
+          };
      }
 
      async reconcile(ledger: SubledgerName, asOf?: string) {

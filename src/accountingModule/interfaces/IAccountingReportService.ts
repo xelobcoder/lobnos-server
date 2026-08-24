@@ -112,6 +112,9 @@ export interface InventoryValuationRow {
 
 export interface InventoryValuation {
      rows: InventoryValuationRow[];
+     total: number;
+     page: number;
+     count: number;
      totals: { quantity: number; value: number; generalLedger: number; difference: number };
 }
 
@@ -131,6 +134,7 @@ export interface IAccountingReportService {
           branchId?: number;
           page?: number;
           count?: number;
+          sortby?: string;
      }): Promise<{ data: LedgerLine[]; total: number; page: number; count: number }>;
 
      incomeStatement(from: string, to: string, branchId?: number): Promise<IncomeStatement>;
@@ -173,5 +177,5 @@ export interface IAccountingReportService {
       * Stock on hand valued at its most recent known unit cost, next to the inventory control
       * account so the two can be reconciled.
       */
-     inventoryValuation(asOf?: string): Promise<InventoryValuation>;
+     inventoryValuation(asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<InventoryValuation>;
 }

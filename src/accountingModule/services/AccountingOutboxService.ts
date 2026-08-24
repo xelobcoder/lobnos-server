@@ -2,6 +2,7 @@ import KnexConnection from '../../database/KnexConnections';
 import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { createAccountingService } from '../index';
 import { PostTransactionDto } from '../dto/PostTransactionDto';
+import { parsePaging, parseSort } from '../utils/pagination';
 import logger from '../../hooks/logger';
 
 const MAX_ATTEMPTS = 5;
@@ -108,22 +109,25 @@ export async function getOutboxHealth(tenantId: number): Promise<{
 
 export async function listOutbox(
      tenantId: number,
-     filters: { status?: string; sourceModule?: string; page?: number; count?: number } = {}
+     filters: { status?: string; sourceModule?: string; page?: number; count?: number; sortby?: string } = {}
 ): Promise<{ data: any[]; total: number; page: number; count: number }> {
      await ensureAccountingSchema(tenantId);
      const db = await KnexConnection(tenantId);
 
-     const page = Math.max(1, Number(filters.page) || 1);
-     const count = Math.min(200, Math.max(1, Number(filters.count) || 25));
+     const paging = parsePaging(filters, 25);
+     const sort = parseSort(filters, ['id', 'created_at', 'status', 'attempts', 'source_module', 'transaction_type'], {
+          column: 'id',
+          direction: 'desc',
+     });
 
      const base = db('acc_posting_outbox');
      if (filters.status) base.where('status', filters.status);
      if (filters.sourceModule) base.where('source_module', filters.sourceModule);
 
      const totalRow = await base.clone().clearSelect().clearOrder().count('* as total').first();
-     const data = await base.clone().orderBy('id', 'desc').limit(count).offset((page - 1) * count);
+     const data = await base.clone().orderBy(sort.column, sort.direction).limit(paging.count).offset(paging.offset);
 
-     return { data, total: Number(totalRow?.total || 0), page, count };
+     return { data, total: Number(totalRow?.total || 0), page: paging.page, count: paging.count };
 }
 
 export async function replayOutboxRow(tenantId: number, outboxId: number): Promise<void> {

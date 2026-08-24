@@ -68,23 +68,30 @@ export interface ISubledgerService {
      record(entry: SubledgerEntryInput, trx?: any): Promise<void>;
 
      /** Net balance per party, i.e. charges less settlements. */
-     balances(ledger: SubledgerName, asOf?: string): Promise<PartyBalance[]>;
+     balances(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<any>;
 
      /**
       * Open documents bucketed by age. Settlements are applied oldest-first within a party rather
       * than matched to a specific document, because the operational tables do not record which
       * invoice a payment was meant for.
+      *
+      * The bucket totals cover the whole report, not the current page, so they do not shift as you
+      * page through.
       */
-     aging(ledger: SubledgerName, asOf?: string): Promise<{ rows: AgingRow[]; totals: Omit<AgingRow, 'partyType' | 'partyId' | 'partyName' | 'reference' | 'documentDate' | 'ageDays'> }>;
+     aging(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<any>;
 
-     /** Every entry for one party, oldest first, with a running balance. */
+     /**
+      * Every entry for one party, oldest first, with a running balance. The balance is accumulated
+      * over the full statement before the page is sliced.
+      */
      statement(
           ledger: SubledgerName,
           partyType: string,
           partyId: number,
           from?: string,
-          to?: string
-     ): Promise<{ entries: Array<SubledgerEntry & { runningBalance: number }>; openingBalance: number; closingBalance: number }>;
+          to?: string,
+          options?: { page?: number; count?: number }
+     ): Promise<any>;
 
      /**
       * Compares the subledger total against its control account in the general ledger. A non-zero

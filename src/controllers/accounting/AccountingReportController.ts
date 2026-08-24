@@ -6,6 +6,7 @@ import { AccountingCloseService } from '../../accountingModule/services/Accounti
 import { SubledgerService } from '../../accountingModule/services/SubledgerService';
 import KnexConnection from '../../database/KnexConnections';
 import { ensureAccountingSchema } from '../../accountingModule/init/accountingSchemaInit';
+import { parsePaging, parseSort, paginate } from '../../accountingModule/utils/pagination';
 import { AccountingError } from '../../accountingModule/errors/AccountingErrors';
 import { customError } from '../../hooks/helper';
 
@@ -55,6 +56,7 @@ export class AccountingReportController {
                     branchId: req.query.branchId ? Number(req.query.branchId) : undefined,
                     page: Number(req.query.page) || 1,
                     count: Number(req.query.count) || 50,
+                    sortby: req.query.sortby as string | undefined,
                });
                return ok(res, result);
           } catch (error) {
@@ -97,7 +99,7 @@ export class AccountingReportController {
      static async receivableAging(req: Request, res: Response) {
           try {
                const service = new SubledgerService(getTenantId(req));
-               return ok(res, await service.aging('AR', req.query.asOf as string | undefined));
+               return ok(res, await service.aging('AR', req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
           }
@@ -106,7 +108,7 @@ export class AccountingReportController {
      static async payableAging(req: Request, res: Response) {
           try {
                const service = new SubledgerService(getTenantId(req));
-               return ok(res, await service.aging('AP', req.query.asOf as string | undefined));
+               return ok(res, await service.aging('AP', req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
           }
@@ -120,7 +122,17 @@ export class AccountingReportController {
                const rows = await db('acc_accounts')
                     .select('account_code', 'name', 'type', 'normal_balance', 'is_active')
                     .orderBy('account_code', 'asc');
-               return ok(res, rows);
+
+               // the chart is small and the journal editor needs it whole, so paging is opt-in
+               if (!req.query.page && !req.query.count) return ok(res, rows);
+
+               const paging = parsePaging(req.query, 50);
+               const sort = parseSort(req.query, ['account_code', 'name', 'type', 'normal_balance'], {
+                    column: 'account_code',
+                    direction: 'asc',
+               });
+
+               return ok(res, paginate(rows, paging, sort));
           } catch (error) {
                return handle(error, res);
           }
@@ -132,7 +144,7 @@ export class AccountingReportController {
                if (ledger !== 'AR' && ledger !== 'AP') return customError('ledger must be AR or AP', 400, res);
 
                const service = new SubledgerService(getTenantId(req));
-               return ok(res, await service.balances(ledger, req.query.asOf as string | undefined));
+               return ok(res, await service.balances(ledger, req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
           }
@@ -151,7 +163,8 @@ export class AccountingReportController {
                          String(req.params.partyType),
                          Number(req.params.partyId),
                          req.query.from as string | undefined,
-                         req.query.to as string | undefined
+                         req.query.to as string | undefined,
+                         req.query
                     )
                );
           } catch (error) {
@@ -232,7 +245,7 @@ export class AccountingReportController {
      static async inventoryValuation(req: Request, res: Response) {
           try {
                const service = new AccountingReportService(getTenantId(req));
-               return ok(res, await service.inventoryValuation(req.query.asOf as string | undefined));
+               return ok(res, await service.inventoryValuation(req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
           }
@@ -279,6 +292,7 @@ export class AccountingReportController {
                     sourceModule: req.query.sourceModule as string | undefined,
                     page: Number(req.query.page) || 1,
                     count: Number(req.query.count) || 25,
+                    sortby: req.query.sortby as string | undefined,
                });
                return ok(res, result);
           } catch (error) {
