@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { parsePaging, parseSort, paginate } from '../utils/pagination';
 import {
      AgingRow,
@@ -20,7 +19,6 @@ export class SubledgerService implements ISubledgerService {
 
      private async connection(trx?: any) {
           if (trx) return trx;
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 

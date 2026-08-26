@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { createAccountingService } from '../index';
 import { AccountingError, AccountNotFoundError, EmptyTransactionError, UnbalancedTransactionError } from '../errors/AccountingErrors';
 import { NormalBalance } from '../enums/normal-balance.enum';
@@ -21,7 +20,6 @@ export class ManualJournalService implements IManualJournalService {
 
      private async connection(trx?: any) {
           if (trx) return trx;
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 

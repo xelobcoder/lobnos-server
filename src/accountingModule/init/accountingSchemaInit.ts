@@ -2,6 +2,27 @@ import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
+     if (ensuredAccountingTenants.has(tenantId)) return;
+
+     const pendingEnsure = pendingAccountingEnsures.get(tenantId);
+     if (pendingEnsure) return pendingEnsure;
+
+     const ensurePromise = ensureAccountingSchemaForTenant(tenantId)
+          .then(() => {
+               ensuredAccountingTenants.add(tenantId);
+          })
+          .finally(() => {
+               pendingAccountingEnsures.delete(tenantId);
+          });
+
+     pendingAccountingEnsures.set(tenantId, ensurePromise);
+     return ensurePromise;
+}
+
+const ensuredAccountingTenants = new Set<number>();
+const pendingAccountingEnsures = new Map<number, Promise<void>>();
+
+async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
 
      if (!(await knex.schema.hasTable('acc_accounts'))) {

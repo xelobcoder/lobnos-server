@@ -1,7 +1,6 @@
 import "reflect-metadata";
 import express, { Request, Response } from "express";
 import cors from "cors";
-import os from 'os';
 import branchesHandler from "./controllers/applicationsettings/branches/route";
 import resultChecker from "./controllers/result/route";
 import operationsRouter from "./controllers/operations/route";
@@ -38,14 +37,12 @@ import OutsourcedTestTracking from './controllers/analytics/outsourcedTestTracki
 import InventoryRouter from './controllers/inventory/routes/index';
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
-import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
+import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
 import InterfacingDevicesRouter from "./controllers/settings/devices/route";
 import complianceRouter from './controllers/compliance/routes';
-import { killProcessOnPort } from "./models/security/killport";
-import logger from './hooks/logger';
 import CommissionPaymentsRouter from './controllers/commission/index';
 import leadsRouter from './controllers/crm/leads/route';
 import followupsRouter from './controllers/crm/leads/followups.route';
@@ -54,16 +51,12 @@ import freeServicesRouter from './controllers/billing/FreeServices/routes';
 import commissionConfigRouter from './models/commissions/commission-configurations/controllers/routes';
 import emailRouter from './controllers/email/route';
 import notificationsRouter from './controllers/notifications/route';
-import { bootstrapNotificationDefinitions } from './models/application/notifications/services/NotificationBootstrapService';
-import DeviceModelsVersionProcessing from "./controllers/settings/devices/DeviceDataProcessing";
 import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
-import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from "./models/operations/sample/HomeCollection/BootstrapHomeCollection";
-import { bootstrapCommissionTables } from './models/commissions/commission-configurations/services/CommissionBootstrapService';
-import { bootstrapBillingTables } from './models/billing/BillingTableBootstrapper';
-import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from './accountingModule';
 import accountingRouter from './controllers/accounting/route';
 import { redisConnection } from './accountingModule/queue/redisConnection';
+import { runApplicationBootstrappers, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
+import { logApplicationStarted } from './bootstrap/startupLogger';
 
 
 
@@ -182,77 +175,28 @@ app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
 });
 
 
-app.listen(Number(port), "0.0.0.0", async () => {
-    const pid = process.pid;
+async function startApplication() {
+    const { accountingReady } = await runApplicationBootstrappers(1);
 
-    const timestamp = new Date().toLocaleString("en-US", {
-        month: "2-digit",
-        day: "2-digit",
-        year: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: true,
+    app.listen(Number(port), "0.0.0.0", () => {
+        logApplicationStarted(port);
+        startApplicationBackgroundWorkers(1, { accountingReady });
+
+        //     logger.info("Server startup successful", {
+        //         port: Number(port),
+        //         environment: process.env.NODE_ENV,
+        //         pid,
+        //         addresses: {
+        //             local: localUrl,
+        //             network: networkUrl,
+        //         },
+        //     });
     });
+}
 
-    const localUrl = `http://localhost:${port}`;
-    const networkUrl = `http://${os.hostname()}:${port}`;
-
-    console.log(
-        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Application successfully started`
-    );
-
-    console.log(
-        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Environment : ${process.env.NODE_ENV ?? "development"}`
-    );
-
-    console.log(
-        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Port        : ${port}`
-    );
-
-    console.log(
-        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Local       : ${localUrl}`
-    );
-
-    console.log(
-        `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[Bootstrap]\x1b[0m Network     : ${networkUrl}`
-    );
-
-    await bootstrapBillingTables(1)
-    await bootstrapCommissionTables(1)
-    await bootstrapNotificationDefinitions(1)
-    await bootstrapHomeCollectionTables(1)
-    await bootstrapHomeCollectionSeeds(1)
-
-    // isolated on purpose: an accounting bootstrap/posting failure must never affect billing or server startup
-    try {
-        await bootstrapAccountingTables(1);
-    } catch (error) {
-        console.error("[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):", error);
-    }
-
-    // fast path when Redis is reachable; logs and no-ops otherwise, relying on the sweep below
-    try {
-        startAccountingWorker();
-    } catch (error) {
-        console.error("[Bootstrap] Accounting worker failed to start (isolated, non-fatal):", error);
-    }
-
-    setInterval(() => {
-        processPendingOutbox(1).catch((error) => {
-            console.error("[Accounting] Periodic outbox sweep failed:", error);
-        });
-    }, 60_000);
-
-    //     logger.info("Server startup successful", {
-    //         port: Number(port),
-    //         environment: process.env.NODE_ENV,
-    //         pid,
-    //         addresses: {
-    //             local: localUrl,
-    //             network: networkUrl,
-    //         },
-    //     });
+startApplication().catch((error) => {
+    console.error('[Bootstrap] Application startup failed:', error);
+    process.exit(1);
 });
 
 

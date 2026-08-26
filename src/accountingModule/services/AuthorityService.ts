@@ -20,7 +20,6 @@ export class AuthorityService implements IAuthorityService {
      constructor(private tenantId: number) { }
 
      private async connection() {
-          await ensureAuthorityTable(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 

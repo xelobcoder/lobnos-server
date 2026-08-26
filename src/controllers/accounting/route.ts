@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { AccountingReportController } from './AccountingReportController';
 import { ManualJournalController } from './ManualJournalController';
 import { AuthorityController } from './AuthorityController';
+import { BankReconciliationController, parseBankExcelUpload } from './BankReconciliationController';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireAccountingRole, requireAuthority, requireOwnerRole } from '../../middleware/authority';
 
@@ -11,6 +12,7 @@ const accountingRouter = Router();
 accountingRouter.use('/api/v1/accounting', checkTokenExists, requireAccountingRole);
 
 accountingRouter.get('/api/v1/accounting/reports/trial-balance', AccountingReportController.trialBalance);
+accountingRouter.get('/api/v1/accounting/reports/financial-overview', AccountingReportController.financialOverview);
 accountingRouter.get('/api/v1/accounting/reports/general-ledger', AccountingReportController.generalLedger);
 accountingRouter.get('/api/v1/accounting/reports/income-statement', AccountingReportController.incomeStatement);
 accountingRouter.get('/api/v1/accounting/reports/balance-sheet', AccountingReportController.balanceSheet);
@@ -48,11 +50,24 @@ accountingRouter.post('/api/v1/accounting/close/fiscal-year', AccountingReportCo
 accountingRouter.post('/api/v1/accounting/opening-balances', AccountingReportController.openingBalances);
 
 accountingRouter.get('/api/v1/accounting/authority/permissions', AuthorityController.permissions);
-accountingRouter.get('/api/v1/accounting/authority/employees', AuthorityController.employees);
+accountingRouter.get('/api/v1/accounting/authority/mine', AuthorityController.mine);
 accountingRouter.get('/api/v1/accounting/authority/employees', requireOwnerRole, AuthorityController.employees);
 accountingRouter.get('/api/v1/accounting/authority/delegations', requireOwnerRole, AuthorityController.list);
 accountingRouter.get('/api/v1/accounting/authority/delegations/:employeeid', requireOwnerRole, AuthorityController.forEmployee);
 accountingRouter.post('/api/v1/accounting/authority/delegations', requireOwnerRole, AuthorityController.grant);
 accountingRouter.delete('/api/v1/accounting/authority/delegations/:id', requireOwnerRole, AuthorityController.revoke);
+
+accountingRouter.get('/api/v1/accounting/bank/accounts', BankReconciliationController.listAccounts);
+accountingRouter.post('/api/v1/accounting/bank/accounts', requireOwnerRole, BankReconciliationController.createAccount);
+accountingRouter.put('/api/v1/accounting/bank/accounts/:id', requireOwnerRole, BankReconciliationController.updateAccount);
+accountingRouter.post('/api/v1/accounting/bank/statement/import-excel', parseBankExcelUpload, BankReconciliationController.importExcel);
+accountingRouter.get('/api/v1/accounting/bank/:bankAccountId/statement-lines', BankReconciliationController.statementLines);
+accountingRouter.get('/api/v1/accounting/bank/:bankAccountId/unmatched-ledger', BankReconciliationController.unmatchedLedger);
+accountingRouter.get('/api/v1/accounting/bank/:bankAccountId/suggestions', BankReconciliationController.suggestMatches);
+accountingRouter.get('/api/v1/accounting/bank/:bankAccountId/summary', BankReconciliationController.summary);
+accountingRouter.post('/api/v1/accounting/bank/match', BankReconciliationController.match);
+accountingRouter.post('/api/v1/accounting/bank/match-many', BankReconciliationController.matchMany);
+accountingRouter.put('/api/v1/accounting/bank/statement-lines/:id/unmatch', BankReconciliationController.unmatch);
+accountingRouter.put('/api/v1/accounting/bank/statement-lines/:id/ignore', BankReconciliationController.ignore);
 
 export default accountingRouter;

@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { IAccountingPeriod, PeriodStatus } from '../interfaces/IAccountingPeriod';
 import { IAccountingPeriodService } from '../interfaces/IAccountingPeriodService';
 import { PeriodClosedError, PeriodNotFoundError, UnbalancedTransactionError } from '../errors/AccountingErrors';
@@ -11,7 +10,6 @@ export class AccountingPeriodService implements IAccountingPeriodService {
 
      private async connection(trx?: any) {
           if (trx) return trx;
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 

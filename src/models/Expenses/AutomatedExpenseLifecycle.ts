@@ -49,20 +49,13 @@ export default class AutomatedExpenseLifecycle {
             // 1. Get or Create Category
             let categoryId: number;
             const expenseCategoryRecord = await useTransaction('dboexpensecategory')
-                .where({ category: data.categoryName })
+                .whereRaw("LOWER(REPLACE(REPLACE(category, ' ', '_'), '-', '_')) = ?", [normalizeCategoryName(data.categoryName)])
                 .first();
 
             if (!expenseCategoryRecord) {
-                const [newCategoryId] = await useTransaction('dboexpensecategory')
-                    .insert({
-                        category: data.categoryName,
-                        createdon: new Date(),
-                        employeeid: data.employeeid,
-                    });
-                categoryId = newCategoryId;
-            } else {
-                categoryId = expenseCategoryRecord.id;
+                throw new Error(`Expense category ${data.categoryName} is not configured`);
             }
+            categoryId = expenseCategoryRecord.id;
 
             // 2. Get or Create Merchant
             let merchantId: number;
@@ -155,4 +148,8 @@ export default class AutomatedExpenseLifecycle {
             throw error;
         }
     }
+}
+
+function normalizeCategoryName(category: string): string {
+    return category.trim().toLowerCase().replace(/[\s-]+/g, '_');
 }

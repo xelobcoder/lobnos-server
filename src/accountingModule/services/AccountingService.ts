@@ -1,6 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
 import { FinanceLedgerService } from '../../services/finance/FinanceLedgerService';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { AccountingPeriodService } from './AccountingPeriodService';
 import { IAccountingService } from '../interfaces/IAccountingService';
 import { IAccountingRepository } from '../interfaces/IAccountingRepository';
@@ -27,9 +26,6 @@ export class AccountingService implements IAccountingService {
           if (!input.lines || input.lines.length === 0) {
                throw new EmptyTransactionError();
           }
-
-          // must run even when the caller passes its own trx, since a supplied trx skips the repository's lazy schema check
-          await ensureAccountingSchema(input.tenantId);
 
           const existing = await this.repository.findJournalEntryBySource(
                input.sourceModule,
@@ -127,8 +123,6 @@ export class AccountingService implements IAccountingService {
      }
 
      async reverse(input: ReverseTransactionDto): Promise<{ entry: IJournalEntry; lines: IJournalLine[] }> {
-          await ensureAccountingSchema(input.tenantId);
-
           const original = await this.repository.findJournalEntryById(input.journalEntryId, input.trx);
           if (!original) {
                throw new JournalEntryNotFoundError(input.journalEntryId);

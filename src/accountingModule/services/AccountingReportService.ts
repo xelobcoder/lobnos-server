@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { parsePaging, parseSort, paginate } from '../utils/pagination';
 import {
      AgingBucket,
@@ -9,6 +8,7 @@ import {
      CashFlowStatement,
      IAccountingReportService,
      IncomeStatement,
+     FinancialOverview,
      InventoryValuation,
      InventoryValuationRow,
      LedgerLine,
@@ -35,8 +35,74 @@ export class AccountingReportService implements IAccountingReportService {
      constructor(private tenantId: number) { }
 
      private async connection() {
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
+     }
+
+     async financialOverview(asOf: string, options: { branchId?: number } = {}): Promise<FinancialOverview> {
+          const date = asOf || new Date().toISOString().split('T')[0];
+          const monthStart = `${date.slice(0, 7)}-01`;
+          const yearStart = `${date.slice(0, 4)}-01-01`;
+          const branchId = options.branchId;
+          const db = await this.connection();
+
+          const [today, monthToDate, yearToDate, balanceSheet, receivables, payables, trend, currentPeriod] = await Promise.all([
+               this.incomeStatement(date, date, branchId),
+               this.incomeStatement(monthStart, date, branchId),
+               this.incomeStatement(yearStart, date, branchId),
+               this.balanceSheet(date, branchId),
+               this.receivableAging(date),
+               this.payableAging(date),
+               this.monthlyTrend(yearStart, date, branchId),
+               db('acc_periods').where('period_start', '<=', date).where('period_end', '>=', date).first(),
+          ]);
+
+          const accountBalance = (code: string) => balanceSheet.assets.concat(balanceSheet.liabilities, balanceSheet.equity)
+               .find((row) => row.account_code === code)?.balance || 0;
+          const cash = round2(accountBalance('acc-1000'));
+          const bank = round2(accountBalance('acc-1001'));
+          const inventory = round2(accountBalance(INVENTORY_ACCOUNT));
+          const fixedAssets = round2(accountBalance('acc-1006') + accountBalance('acc-1007'));
+
+          return {
+               asOf: date,
+               period: { from: yearStart, to: date, code: currentPeriod?.period_code || date.slice(0, 7), status: currentPeriod?.status || null },
+               performance: {
+                    today: performanceTotals(today),
+                    monthToDate: performanceTotals(monthToDate),
+                    yearToDate: performanceTotals(yearToDate),
+               },
+               position: {
+                    cash,
+                    bank,
+                    cashAndBank: round2(cash + bank),
+                    receivables: round2(receivables.totals.total),
+                    overdueReceivables: round2(receivables.totals.days90 + receivables.totals.over90),
+                    payables: round2(payables.totals.total),
+                    overduePayables: round2(payables.totals.days90 + payables.totals.over90),
+                    inventory,
+                    fixedAssets,
+                    totalAssets: round2(balanceSheet.totals.assets),
+                    totalLiabilities: round2(balanceSheet.totals.liabilities),
+                    equity: round2(balanceSheet.totals.equity + balanceSheet.totals.retainedProfit),
+                    netAssets: round2(balanceSheet.totals.assets - balanceSheet.totals.liabilities),
+                    balanceDifference: round2(balanceSheet.totals.difference),
+               },
+               trend,
+          };
+     }
+
+     private async monthlyTrend(from: string, to: string, branchId?: number) {
+          const [revenue, expense] = await Promise.all([
+               this.periodBreakdown('revenue', from, to, branchId),
+               this.periodBreakdown('expense', from, to, branchId),
+          ]);
+          const periods = [...new Set([...revenue.periods, ...expense.periods])].sort();
+          return {
+               periods,
+               revenue: periods.map((period) => round2(revenue.totals[period] || 0)),
+               expenses: periods.map((period) => round2(expense.totals[period] || 0)),
+               profit: periods.map((period) => round2((revenue.totals[period] || 0) - (expense.totals[period] || 0))),
+          };
      }
 
      async trialBalance(
@@ -79,6 +145,7 @@ export class AccountingReportService implements IAccountingReportService {
 
           const totalRow = await base.clone().clearSelect().clearOrder().count('* as total').first();
 
+
           const data = await base
                .clone()
                .select(
@@ -100,7 +167,7 @@ export class AccountingReportService implements IAccountingReportService {
                     'l.invoice_id',
                     'l.employeeid'
                )
-               .orderBy([{ column: sort.column, order: sort.direction }, { column: 'e.id', order: 'desc' }])
+               .orderBy([{ column: sort.column, order: filters.sortby || sort.direction.toLowerCase() }, { column: 'e.id', order: 'desc' }])
                .limit(paging.count)
                .offset(paging.offset);
 
@@ -602,4 +669,13 @@ function sumBalances(rows: TrialBalanceRow[]): number {
 
 function round2(value: number): number {
      return Math.round(value * 100) / 100;
+}
+
+function performanceTotals(statement: IncomeStatement) {
+     const expenses = round2(statement.totals.costOfSales + statement.totals.operatingExpenses);
+     return {
+          revenue: round2(statement.totals.revenue),
+          expenses,
+          profit: round2(statement.totals.revenue - expenses),
+     };
 }

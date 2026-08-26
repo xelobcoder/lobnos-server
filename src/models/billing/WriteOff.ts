@@ -194,16 +194,16 @@ export class WriteOff {
                     [billingid, paymentmode, totalRefunded.paid, employeeid, 'debit']
                );
 
+               await trx.commit();
+               
                await enqueueBillingRefund(
                     tenantId,
                     billingid,
                     Number(billBeforeVoid?.payable || 0),
                     Number(totalRefunded?.paid || 0),
-                    employeeid,
-                    trx
+                    employeeid
                );
 
-               await trx.commit();
                return true;
           } catch (err) {
                console.error('Error refunding transaction:', err);

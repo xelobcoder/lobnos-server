@@ -13,6 +13,9 @@ import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_da
 import { addressInformation, NewRegistration, PatientRecords, registrationOutcome } from "./types";
 import { Request, Response } from "express";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import NewPatientsRepo from "../patients/respositories/newPatientsRepo.repo";
+import PatientService from "../patients/services/Patient.services";
+import { PATIENT_REGISTRATION_FAILURES } from "../patients/enums/Failures.Patient.enum";
 
 export default class Registration {
 	private static normalizePhoneTo10(value: any): string | null {
@@ -169,18 +172,7 @@ export default class Registration {
 		return 0;
 	}
 
-	static async generatePatientFullUniqueId(tenantId: number) {
-		const connection = await KnexConnection(tenantId);
-		const lastPatient = await connection("new_patients")
-			.select("patientid")
-			.orderBy("patientid", "desc")
-			.first();
-		const lastId = lastPatient ? lastPatient.patientid + 1 : 1;
-		const paddedId = String(lastId).padStart(6, "0");
-		const codeValues = await ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(tenantId);
-		if (!codeValues) return null;
-		return `${codeValues.region}-${paddedId}-${codeValues.district}`;
-	}
+
 
 	static async getPatientDataUsingPatientId(tenantId: number, patientid: number): Promise<PrimeLimsTablenew_patients | string | null> {
 		if (!patientid) return OperationsFailures.noArgumentsProvided;
@@ -205,24 +197,14 @@ export default class Registration {
 		return rows.length > 0 ? rows[0] : null;
 	}
 
-	public static async patientMobileRecordExist(tenantId: number, mobile: number | string): Promise<boolean> {
-		try {
-			const mobileStr = String(mobile).trim();
-			if (!mobileStr || mobileStr.length === 0) return false;
-			const connection = await KnexConnection(tenantId);
-			const result = await connection("new_patients")
-				.where("mobile_number", mobileStr)
-				.first();
-			return !!result;
-		} catch (error) {
-			throw new Error(`Error checking mobile record existence: ${error instanceof Error ? error.message : String(error)}`);
-		}
-	}
-
 	public static async addPersonalInformation(tenantId: number, records: ICreateNewPatient): Promise<number | void | string> {
 		try {
-			const generatedId = await this.generatePatientFullUniqueId(tenantId);
-			if (!generatedId) throw new Error("Failed to generate unique patient ID,Reason: Regional or District code not found in application settings");
+			const connection = await KnexConnection(tenantId);
+			const transaction = await connection.transaction();
+			const patientRepo = new NewPatientsRepo(tenantId, transaction);
+			const generatedId = await patientRepo.generatePatientFullUniqueId(tenantId);
+
+			if (!generatedId) throw new Error(PATIENT_REGISTRATION_FAILURES.PATIENT_UNIQUE_ID_GENERATION_FAILED);
 
 			const {
 				designation,
@@ -244,17 +226,24 @@ export default class Registration {
 				contact_pointer,
 			} = records;
 
+			let patientMobileNumber = mobile_number;
+			let patientContactPointer = contact_pointer;
+			let patientRelativeContactNumber = records.relativecontactnumber;
+
 			if (contact_pointer === "self" && mobile_number) {
-				const isRecordExist = await this.patientMobileRecordExist(tenantId, mobile_number as number | string);
-				if (isRecordExist) throw new Error(
-					"Patient With this mobile number already exists. Please check the number or use a different one."
-				)
+				const isRecordExist = await new PatientService(tenantId, transaction).patientMobileRecordExist(mobile_number as number | string);
+				if (isRecordExist) {
+					patientContactPointer = "relative";
+					patientRelativeContactNumber = patientRelativeContactNumber ?? mobile_number;
+					patientMobileNumber = null as any;
+				}
 			}
 
-			const connection = await KnexConnection(tenantId);
-			const transaction = await connection.transaction();
+
 			const dateofBirth = dob ? new Date(dob).toISOString().split("T")[0] : null;
-			const insertOutcome = await transaction("new_patients").insert({
+
+
+			const patientData = {
 				firstname,
 				lastname,
 				middlename: middlename ?? null,
@@ -263,20 +252,25 @@ export default class Registration {
 				agetype: agetype,
 				dob: dateofBirth,
 				marital_status,
-				mobile_number,
+				mobile_number: patientMobileNumber,
 				occupation: occupation ?? null,
 				gender: gender ?? null,
 				organization: organization ?? null,
 				fullpatientid: generatedId,
-				contactpointer: contact_pointer,
+				contactpointer: patientContactPointer,
 				designation: designation ?? null,
 				registeredby: records.registeredby,
 				relativecontactname: relativecontactname ?? null,
-				relativecontactnumber: records.relativecontactnumber ?? null,
+				relativecontactnumber: patientRelativeContactNumber ?? null,
 				whatsapp_country_code: whatsapp_country_code ?? null,
 				mobile_country_code: mobile_country_code ?? null,
 				whatAppcontact: records.whatAppcontact ?? null,
-			});
+			}
+
+			const sanitizedPatientData = new TiifuWorkingClass("new_patients").ignoredNullUndefinedProperties(patientData);
+
+
+			const insertOutcome = await patientRepo.create(sanitizedPatientData);
 
 			const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
 
@@ -501,6 +495,8 @@ export default class Registration {
 			});
 		}
 		try {
+			await new PatientService(tenantId).moveDuplicateSelfMobileToRelative(data);
+
 			const isAlreadyRegistered = await this.isClientSame(tenantId, data);
 			if (isAlreadyRegistered && data.contact_pointer == "self") {
 				response.status(404).send({

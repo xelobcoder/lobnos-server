@@ -7,7 +7,6 @@ import { billErrors, BillingValidationResult, serviceCategory, ServiceEntry, ser
 import { AddtoTestAscenstionQuery } from "./queries";
 import { PrimeBillingPromoCodeRepo } from "./repositories/PrimeBillingPromoCodeRepo";
 import { TestAscension } from "../operations/ascension";
-import { ensureFinanceLedgerTables } from "../../services/finance/financeLedgerInit";
 import { signalOutboxReady } from "../../accountingModule";
 import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
@@ -205,8 +204,8 @@ export class BillingSharedRepo {
                          discount: 0.0,
                          branchid: branchid,
                          lastupdatedby: employeeid,
-                    }).returning("billingid");
-               return typeof id === "number" ? id : id.billingid;
+                    });
+               return typeof id === "number" ? id : id?.billingid;
           } catch (error) {
                if (trx) {
                     await trx.rollback();
@@ -218,7 +217,6 @@ export class BillingSharedRepo {
 
      static async insertBillHistory(tenantId: number, trx: any, billingID: number, paymentMode: any, paid: any, employeeID: any, billingType: any): Promise<boolean> {
           try {
-               await ensureFinanceLedgerTables(tenantId);
                const insertion = await trx.raw(
                     "INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)",
                     [billingID, paymentMode, paid, employeeID, billingType]

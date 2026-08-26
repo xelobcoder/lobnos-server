@@ -1,0 +1,42 @@
+import { bootstrapNotificationDefinitions } from '../models/application/notifications/services/NotificationBootstrapService';
+import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from '../models/operations/sample/HomeCollection/BootstrapHomeCollection';
+import { bootstrapCommissionTables } from '../models/commissions/commission-configurations/services/CommissionBootstrapService';
+import { bootstrapBillingTables } from '../models/billing/BillingTableBootstrapper';
+import { bootstrapExpenseCategories } from '../models/Expenses/ExpenseCategoryBootstrapper';
+import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
+
+export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
+     await bootstrapBillingTables(tenantId);
+     await bootstrapCommissionTables(tenantId);
+     await bootstrapExpenseCategories(tenantId);
+     await bootstrapNotificationDefinitions(tenantId);
+     await bootstrapHomeCollectionTables(tenantId);
+     await bootstrapHomeCollectionSeeds(tenantId);
+
+     let accountingReady = false;
+
+     try {
+          await bootstrapAccountingTables(tenantId);
+          accountingReady = true;
+     } catch (error) {
+          console.error('[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):', error);
+     }
+
+     return { accountingReady };
+}
+
+export function startApplicationBackgroundWorkers(tenantId = 1, options: { accountingReady: boolean }): void {
+     if (!options.accountingReady) return;
+
+     try {
+          startAccountingWorker();
+     } catch (error) {
+          console.error('[Bootstrap] Accounting worker failed to start (isolated, non-fatal):', error);
+     }
+
+     setInterval(() => {
+          processPendingOutbox(tenantId).catch((error) => {
+               console.error('[Accounting] Periodic outbox sweep failed:', error);
+          });
+     }, 60_000);
+}

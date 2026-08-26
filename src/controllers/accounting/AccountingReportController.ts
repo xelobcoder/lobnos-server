@@ -5,7 +5,6 @@ import { getOutboxHealth, listOutbox, replayOutboxRow } from '../../accountingMo
 import { AccountingCloseService } from '../../accountingModule/services/AccountingCloseService';
 import { SubledgerService } from '../../accountingModule/services/SubledgerService';
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../../accountingModule/init/accountingSchemaInit';
 import { parsePaging, parseSort, paginate } from '../../accountingModule/utils/pagination';
 import { AccountingError } from '../../accountingModule/errors/AccountingErrors';
 import { customError } from '../../hooks/helper';
@@ -31,6 +30,18 @@ function ok(response: Response, result: any, statusCode = 200) {
 }
 
 export class AccountingReportController {
+     static async financialOverview(req: Request, res: Response) {
+          try {
+               const asOf = (req.query.asOf as string) || new Date().toISOString().split('T')[0];
+               const service = new AccountingReportService(getTenantId(req));
+               return ok(res, await service.financialOverview(asOf, {
+                    branchId: req.query.branchId ? Number(req.query.branchId) : undefined,
+               }));
+          } catch (error) {
+               return handle(error, res);
+          }
+     }
+
      static async trialBalance(req: Request, res: Response) {
           try {
                const service = new AccountingReportService(getTenantId(req));
@@ -117,7 +128,6 @@ export class AccountingReportController {
      static async accounts(req: Request, res: Response) {
           try {
                const tenantId = getTenantId(req);
-               await ensureAccountingSchema(tenantId);
                const db = await KnexConnection(tenantId);
                const rows = await db('acc_accounts')
                     .select('account_code', 'name', 'type', 'normal_balance', 'is_active')

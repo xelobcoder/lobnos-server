@@ -1,5 +1,6 @@
 import KnexConnection from "../../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../../database/TiifuWorkingClass";
+import ApplicationSettings from "../../application/appsettings/appset";
 import { logger } from "../../commissions/commission-configurations";
 import { ICreateNewPatient } from "../interfaces";
 
@@ -8,18 +9,32 @@ export default class NewPatientsRepo {
      private tableName: string;
      private tenantId: number;
 
-     constructor(tenantId: number,trx?:any) {
-          this.connection = KnexConnection(tenantId) || trx;
+     constructor(tenantId: number, trx?: any) {
+          this.connection = trx || KnexConnection(tenantId);
           this.tableName = "new_patients";
           this.tenantId = tenantId;
+     }
+
+     async generatePatientFullUniqueId(tenantId: number) {
+          const connection = await this.connection;
+          const lastPatient = await connection(this.tableName)
+               .select("patientid")
+               .orderBy("patientid", "desc")
+               .first();
+          const lastId = lastPatient ? lastPatient.patientid + 1 : 1;
+          const paddedId = String(lastId).padStart(6, "0");
+          const codeValues = await ApplicationSettings.getLabRegionalAndDistrictCodeAbbreviations(tenantId);
+          console.log("codeValues", codeValues);
+          if (!codeValues) return null;
+          return `${codeValues.region}-${paddedId}-${codeValues.district}`;
      }
 
 
      create = async (newPatient: ICreateNewPatient): Promise<void> => {
           try {
                const connection = await this.connection;
-               await connection(this.tableName).insert(newPatient);
-          } catch (error:any) {
+               return await connection(this.tableName).insert(newPatient);
+          } catch (error: any) {
                logger.error(error)
                throw new Error("Error creating new patient");
           }
@@ -76,7 +91,7 @@ export default class NewPatientsRepo {
                     .update({ is_deleted: true });
                return result > 0;
           }
-          catch (error:any) {
+          catch (error: any) {
                logger.error(error);
                throw new Error("Error soft deleting new patient");
           }
@@ -89,7 +104,7 @@ export default class NewPatientsRepo {
                const result = await connection(this.tableName)
                     .where(filter);
                return result;
-          } catch (error:any) {
+          } catch (error: any) {
                logger.error(error);
                throw new Error("Error fetching patients by filter");
           }

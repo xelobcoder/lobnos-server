@@ -55,6 +55,33 @@ export interface BalanceSheet {
      };
 }
 
+export interface FinancialOverview {
+     asOf: string;
+     period: { from: string; to: string; code: string; status: string | null };
+     performance: {
+          today: { revenue: number; expenses: number; profit: number };
+          monthToDate: { revenue: number; expenses: number; profit: number };
+          yearToDate: { revenue: number; expenses: number; profit: number };
+     };
+     position: {
+          cash: number;
+          bank: number;
+          cashAndBank: number;
+          receivables: number;
+          overdueReceivables: number;
+          payables: number;
+          overduePayables: number;
+          inventory: number;
+          fixedAssets: number;
+          totalAssets: number;
+          totalLiabilities: number;
+          equity: number;
+          netAssets: number;
+          balanceDifference: number;
+     };
+     trend: { periods: string[]; revenue: number[]; expenses: number[]; profit: number[] };
+}
+
 export interface AgingBucket {
      reference: string;
      partyId: number | null;
@@ -119,6 +146,8 @@ export interface InventoryValuation {
 }
 
 export interface IAccountingReportService {
+     financialOverview(asOf: string, options?: { branchId?: number }): Promise<FinancialOverview>;
+
      /**
       * Balances are signed by the account's normal side, so a debit-normal account with more
       * credits than debits reports negative rather than flipping column.

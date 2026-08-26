@@ -9,6 +9,7 @@ import { configuration } from "../hooks/configuration";
 import TokenValidator from "../models/settings/users/TokenValidator";
 import RolesRepository from "../models/settings/users/RolesRepository";
 import KnexConnection from "../database/KnexConnections";
+import { ApplicationLoginLoggingService } from "../models/security/services/ApplicationLoginLoggging.services";
 
 
 export const parseCookies = (cookieHeader?: string): Record<string, string> => {
@@ -33,7 +34,6 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           const tenantIdRaw = request.query.tenantId;
           const tenantId = tenantIdRaw ? parseInt(tenantIdRaw.toString(), 10) : NaN;
           if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
-
           const tokenValue = primeUserHeader.toString();
           const status = await new TokenValidator().validateAccessToken(tokenValue) as { expired: boolean | undefined };
           if (status.expired == null || status.expired == undefined) return customError("Invalid Token Provided", 500, response);
@@ -46,14 +46,9 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           const roleRow = await new RolesRepository(tenantId).getRoleByEmail(email);
           const employeeid = roleRow?.employeeid ? parseInt(roleRow.employeeid.toString(), 10) : NaN;
           if (!employeeid || isNaN(employeeid)) return customError('Invalid token', 401, response);
-
-          const conn = await KnexConnection(tenantId);
-          const now = new Date().toISOString().slice(0, 19).replace('T', ' ');
-          const q = conn('sessiontracker')
-               .where({ employeeid })
-               .andWhere('logoutTime', '>', now);
-          if (loginsession) q.andWhere('loginSessionId', String(loginsession));
-          const active = await q.first();
+          const sessionService = new ApplicationLoginLoggingService(employeeid, tenantId);
+          const active = await sessionService.isEmployeeHaveActiveSession();
+          console.log('Active session status:', active);
           if (!active) return response.status(401).json({ status: 'error', message: 'Session expired or invalid', isExpired: true });
 
           (request as any).authUser = {

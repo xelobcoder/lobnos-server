@@ -2,13 +2,15 @@ import { customError } from "../../hooks/helper";
 import { parseCookies } from "../../middleware/validateTenancy";
 import ApplicationSettings from "../../models/application/appsettings/appset";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
+import { SessionCreationError } from "../../models/security/errors/SecurityErrors";
 import Security from "../../models/security/securityClass";
+import { ApplicationLoginLoggingService } from "../../models/security/services/ApplicationLoginLoggging.services";
 import { getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import TokenValidator from "../../models/settings/users/TokenValidator";
-import { Request,Response } from "express";
+import { Request, Response } from "express";
 export class AuthController {
 	private authRepo: AuthenticationRepository | null = null;
 	private tokenValidator: TokenValidator;
@@ -45,9 +47,16 @@ export class AuthController {
 				})
 			}
 			const security = new Security(parseInt(String(employeeid), 10), 6);
-			const canInitiate = await security.getCanInitiateLogin(tenantId);
-			if (!canInitiate) await security.destroyUserSessions(tenantId);
-			const { sessionExpiryTime, loginsessionId } = await security.insertLoginHistory(tenantId, browserInfo ?? {});
+
+			const applicationLoginLoggingService = new ApplicationLoginLoggingService(parseInt(String(employeeid), 10), tenantId);
+
+			const canInitiate = await applicationLoginLoggingService.initUserLoginSession(browserInfo ?? {});
+
+			if (!canInitiate) throw new SessionCreationError(Number(employeeid), tenantId);
+
+			const sessionExpiryTime = canInitiate?.logoutTime;
+			const loginsessionId = canInitiate?.loginSessionId;
+
 			const applicationSettings = new ApplicationSettings();
 			const settings = await applicationSettings.getAllAppSettings(tenantId);
 			res.status(200).json({

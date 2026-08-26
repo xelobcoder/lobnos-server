@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { createAccountingService } from '../index';
 import { AccountingReportService } from './AccountingReportService';
 import { AccountingError, EmptyTransactionError, UnbalancedTransactionError } from '../errors/AccountingErrors';
@@ -19,7 +18,6 @@ export class AccountingCloseService implements IAccountingCloseService {
      constructor(private tenantId: number) { }
 
      private async connection() {
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 

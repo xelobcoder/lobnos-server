@@ -19,7 +19,9 @@ import { AppError, ApplicationBillSettings, ApplicationSettingsData, AppSetting,
 
 import { promisifyQuery, rowAffected } from "../../../hooks/helper";
 import KnexConnection from "../../../database/KnexConnections";
-import { PrimeLimsTabledistricts, PrimeLimsTableregions } from "../../../database/DatabaseTableSchema";
+import RegionsDistrictsService from "./services/regions-districts-service";
+
+
 
 
 type numberBoolean = 0 | 1;
@@ -40,27 +42,12 @@ export default class ApplicationSettings {
 		return null
 	}
 
-	private static async getLabRegionalAndDistrictCode(tenantId: number) {
-		const connection = await KnexConnection(tenantId)
-		return connection("applicationsettings")
-			.select(["regioncode", "districtcode"])
-			.where("keyid", 1)
-			.first();
-	}
+
+	private static regionsDistrictsService = new RegionsDistrictsService();
 
 	public static async getLabRegionalAndDistrictCodeAbbreviations(tenantId: number): Promise<{ region: string, district: string } | null> {
-		const codeValues = await this.getLabRegionalAndDistrictCode(tenantId);
-		if (!codeValues) return null;
-		const connection = await KnexConnection(tenantId)
-		const result: PrimeLimsTableregions & PrimeLimsTabledistricts = await connection("districts")
-			.join("regions", "regions.id", "districts.regionid")
-			.where({ "districts.regionid": codeValues.regioncode, "districts.id": codeValues.districtcode })
-			.select("*")
-			.first();
-		if (!result) return null;
-		return { region: result.regioncode, district: result.code }
+		return ApplicationSettings.regionsDistrictsService.getLabRegionalAndDistrictCodeAbbreviations(tenantId);
 	}
-
 
 
 	public async getAppBillSettings(tenantId: number): Promise<AppSetting> {

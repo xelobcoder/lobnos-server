@@ -1,4 +1,4 @@
-import { IAccountingPeriod, PeriodStatus } from './IAccountingPeriod';
+import { IAccountingPeriod, PeriodStatus } from "./IAccountingPeriod";
 
 export interface IAccountingPeriodService {
      /**

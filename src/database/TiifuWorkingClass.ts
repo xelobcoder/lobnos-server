@@ -16,8 +16,16 @@ export class TiifuWorkingClass {
           return result.length > 0;
      }
 
-
-
+     ignoredNullUndefinedProperties = (obj: any): any => {
+          if (obj && typeof obj === 'object') {
+               Object.keys(obj).forEach(key => {
+                    if (obj[key] === undefined || obj[key] === null) {
+                         delete obj[key];
+                    }
+               });
+          }
+          return obj;
+     }
 
      createColumnIfNotExists = async (tenantId: number, columnName: string, constraint: string): Promise<void> => {
           const columnExists = await this.checkColumnExists(columnName);

@@ -6,7 +6,7 @@ export interface Paging {
 
 export interface Sort {
      column: string;
-     direction: 'asc' | 'desc';
+     direction: 'asc' | 'desc' | 'ASC' | 'DESC';
 }
 
 const MAX_COUNT = 500;

@@ -173,6 +173,7 @@ export class SubmitCustomerBilling {
 
             let billingID = 0;
             let finalBillingIdForEvent = 0;
+            let shouldTriggerCommission = false;
 
             try {
                 if (!hasRelatedBilling) {
@@ -511,9 +512,7 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                if ([2, 4, 6].includes(billingSource)) {
-                    await SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID, trx);
-                }
+                shouldTriggerCommission = [2, 4, 6].includes(billingSource);
                 await trx.commit();
             } catch (error: any) {
                 try {
@@ -522,10 +521,21 @@ export class SubmitCustomerBilling {
                 throw error;
             }
 
+            if (shouldTriggerCommission) {
+                SubmitCustomerBilling.triggerCommissionCalculation(tenantId, finalBillingIdForEvent || billingID).catch((err) => {
+                    CommissionLogger.error('Deferred commission calculation failed', {
+                        billingid: finalBillingIdForEvent || billingID,
+                        error: err?.message || String(err),
+                    });
+                });
+            }
+
 
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
             const repo = new PrimeEventsSMSDataSource(tenantId);
-            await repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId);
+            repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId).catch((err) => {
+                logger.error('PAYMENT_CONFIRMATION_SMS dispatch failed', err);
+            });
 
             const billingRef = { billingId: finalBillingIdForEvent || billingID };
             NotificationDispatcher.dispatch(tenantId, 'INVOICE_CREATED', billingRef, parsedEmployeeId).catch((err) => {
@@ -548,9 +558,9 @@ export class SubmitCustomerBilling {
      * Trigger commission calculation for all services in a billing
      * Called after successful billing submission to calculate and store commissions
      */
-    static async triggerCommissionCalculation(tenantId: number, billingId: number, trx: any): Promise<void> {
+    static async triggerCommissionCalculation(tenantId: number, billingId: number, trx?: any): Promise<void> {
         try {
-            const connection = await trx ? trx : KnexConnection(tenantId);
+            const connection = trx || await KnexConnection(tenantId);
 
             const services = await connection('dboservices')
                 .where({ billingid: billingId })
@@ -656,7 +666,6 @@ export class SubmitCustomerBilling {
                 error: error.message,
             });
 
-            trx ? await trx.rollback() : null;
             throw error;
         }
     }

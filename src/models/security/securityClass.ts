@@ -28,14 +28,10 @@ class Security {
           return this.loginDuration > 0 && this.loginDuration <= 6;
      }
 
-     public async insertLoginHistory(tenantId: number, browserInformation: any): Promise<{sessionExpiryTime:number, loginsessionId:string}> {
+     public async insertLoginHistory(tenantId: number, browserInformation: any): Promise<{ sessionExpiryTime: number, loginsessionId: string }> {
           const expiryTime = new Date(Date.now() + (this.loginDuration * 60 * 60 * 1000));
-          if (!this.isEmployeeid()) {
-               throw new Error("employeeid not provided");
-          }
-          if (!this.validDurationProvided()) {
-               throw new Error("login Duration must be between 1 and 6");
-          }
+          if (!this.isEmployeeid()) throw new Error("employeeid not provided");
+          if (!this.validDurationProvided()) throw new Error("login Duration must be between 1 and 6");
           let sessionId = await this.createSessionId(tenantId);
           const query = queries.insertLoginHistory;
           const values = [this.employeeid, sessionId, expiryTime, JSON.stringify(browserInformation)];
@@ -51,7 +47,7 @@ class Security {
                const sessionValues = [this.employeeid, sessionId, expiryTime, loginHistoryId];
                await promisifyQuery(tenantId, sessionQuery, sessionValues);
           }
-          return {loginsessionId: sessionId, sessionExpiryTime: expiryTime.getTime()}
+          return { loginsessionId: sessionId, sessionExpiryTime: expiryTime.getTime() }
      }
 
      public currentTime(): string {
@@ -188,7 +184,7 @@ class Security {
                     return true;
                     // to be implemented delete resource from computer if the software is run on unauthorized device.
                }
-          } catch (err:any) {
+          } catch (err: any) {
                if (err.code === "ENOENT") {
                     console.log("no such folder");
                }

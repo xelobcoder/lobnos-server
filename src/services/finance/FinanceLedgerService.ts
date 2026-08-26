@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureFinanceLedgerTables } from './financeLedgerInit';
 
 type RecordLedgerEntryInput = {
      tenantId: number;
@@ -42,7 +41,6 @@ export class FinanceLedgerService {
                return null;
           }
 
-          await ensureFinanceLedgerTables(input.tenantId);
           const db = input.trx || await KnexConnection(input.tenantId);
 
           const payload = {
@@ -92,7 +90,6 @@ export class FinanceLedgerService {
           direction?: 'credit' | 'debit',
           trx?: any
      ): Promise<number | null> {
-          await ensureFinanceLedgerTables(tenantId);
           const db = trx || await KnexConnection(tenantId);
           const query = db('finance_ledger')
                .select('id')
@@ -125,7 +122,6 @@ export class FinanceLedgerService {
           amountInHand: number;
           moduleBreakdown: Array<{ source_module: string; total_credits: number; total_debits: number; balance: number }>;
      }> {
-          await ensureFinanceLedgerTables(tenantId);
           const db = await KnexConnection(tenantId);
 
           const baseQuery = db('finance_ledger').where({ status: 'posted' });

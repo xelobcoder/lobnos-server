@@ -1,5 +1,4 @@
 import KnexConnection from '../../database/KnexConnections';
-import { ensureAccountingSchema } from '../init/accountingSchemaInit';
 import { IAccountingRepository } from '../interfaces/IAccountingRepository';
 import { IAccount } from '../interfaces/IAccount';
 import { IJournalEntry } from '../interfaces/IJournalEntry';
@@ -13,7 +12,6 @@ export class AccountingRepository implements IAccountingRepository {
 
      private async connection(trx?: any) {
           if (trx) return trx;
-          await ensureAccountingSchema(this.tenantId);
           return KnexConnection(this.tenantId);
      }
 
