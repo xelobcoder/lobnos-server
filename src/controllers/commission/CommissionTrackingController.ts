@@ -52,9 +52,9 @@ export class CommissionTrackingController {
      async updateCommissionTracking(request: Request, response: Response) {
           try {
                const { id } = request.params;
-               const { serviceId, newCommissionAmount:commissionRate, recipientType, recipientId } = request.body;
+               const { serviceid, commissionRate, recipientType, recipientId } = request.body;
 
-               if (!serviceId || !commissionRate || !recipientType || !recipientId) {
+               if (!serviceid || !commissionRate || !recipientType || !recipientId) {
                     return customError("Missing required fields", 400, response);
                }
 
@@ -66,12 +66,12 @@ export class CommissionTrackingController {
                const commissionTrackingRepo = this.commissionTrackingRepo;
                const batchServicesRepo = this.batchServicesRepo;
                const conn = await this.connection;
-               const isBatched = await batchServicesRepo.isServiceBatched(serviceId);
+               const isBatched = await batchServicesRepo.isServiceBatched(serviceid);
 
                if (isBatched) return customError("Cannot update commission rate for a service that is already included in a batch payment", 400, response);
 
                const totalpayable = await conn('dboservices')
-                    .where('serviceid', serviceId)
+                    .where('serviceid', serviceid)
                     .first()
                     .then((row: any) => row ? parseFloat(row.totalpayable) : 0);
 

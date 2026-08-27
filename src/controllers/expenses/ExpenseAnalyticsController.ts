@@ -342,11 +342,68 @@ export class ExpenseAnalyticsController {
           }
      }
 
+     static async getRejectedExpenseAnalyticsByMonth(req: Request, res: Response) {
+          try {
+               const { tenantId, startDate, endDate, branchid } = req.query;
+
+               if (!tenantId || !startDate || !endDate) {
+                    return customError('tenantId, startDate, and endDate are required', 400, res);
+               }
+
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const result = await analytics.getRejectedExpenseAnalyticsByMonth(
+                    startDate as string,
+                    endDate as string,
+                    branchid ? parseInt(branchid as string) : undefined
+               );
+
+               res.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'Monthly rejected expense analytics retrieved successfully',
+                    data: result[0]
+               });
+          } catch (error) {
+               console.error('Error in getRejectedExpenseAnalyticsByMonth:', error);
+               customError('Failed to retrieve monthly rejected expense analytics', 500, res);
+          }
+     }
+
+     static async getRejectedExpenseDetailsByMonth(req: Request, res: Response) {
+          try {
+               const { tenantId, year, month, branchid } = req.query;
+               const yearNumber = Number(year);
+               const monthNumber = Number(month);
+
+               if (!tenantId || !year || !month || !Number.isInteger(yearNumber) ||
+                    !Number.isInteger(monthNumber) || monthNumber < 1 || monthNumber > 12) {
+                    return customError('tenantId, year, and month are required; month must be between 1 and 12', 400, res);
+               }
+
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const result = await analytics.getRejectedExpenseDetailsByMonth(
+                    yearNumber,
+                    monthNumber,
+                    branchid ? parseInt(branchid as string) : undefined
+               );
+
+               res.status(200).json({
+                    status: 'success',
+                    statusCode: 200,
+                    message: 'Rejected expense details retrieved successfully',
+                    data: result[0]
+               });
+          } catch (error) {
+               console.error('Error in getRejectedExpenseDetailsByMonth:', error);
+               customError('Failed to retrieve rejected expense details', 500, res);
+          }
+     }
+
      static async getBranchMonthlyExpenseAnalytics(req: Request, res: Response) {
           try {
                const { tenantId, startDate, endDate, branchid } = req.query;
 
-               if (!tenantId || !startDate || !endDate ) {
+               if (!tenantId || !startDate || !endDate) {
                     return customError('tenantId, startDate, endDate, and branchid are required', 400, res);
                }
 

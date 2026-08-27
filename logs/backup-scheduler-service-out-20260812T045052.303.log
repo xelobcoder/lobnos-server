@@ -1,5 +1,0 @@
-PrimeLab backup scheduler (schedule-only)
-[BackupScheduler] starting (tenantId=1, poll=every minute, schedule-driven)
-
-SIGINT received, stopping...
-[BackupScheduler] stopped

@@ -23,7 +23,7 @@ export async function UtilityOutsourcing(tenantId: number, key: string, branchid
 	if (year && !startdate && !enddate) {
 		if (['dailyOutsourcedAmountLast30Days', 'weeklyOutsourcedTrend', 'quarterlyOutsourcedTrend',
 			'top20OutsourcedFacilities', 'topFacilityPerMonth', 'grandSummaryDashboard'].includes(key)) {
-	
+
 			const startOfYear = `${year}-01-01`;
 			const endOfYear = `${year}-12-31`;
 			const params = [startOfYear, endOfYear, branchid, branchid, outsourceId, outsourceId];
@@ -54,6 +54,10 @@ const analyticsFunctions: { [key: string]: Function } = {
 
 	totalSalesByClinician: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
 		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
+	},
+
+	clinicianServiceDetails: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, clinicianId: number) => {
+		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['clinicianServiceDetails'], [startdate, enddate, clinicianId]);
 	},
 
 	totalSalesByOrganization: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
@@ -176,6 +180,7 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 	tenantId: number,
 	endDate: string,
 	branchid: number,
+	clinicianId: number,
 	targetDate: string,
 	year: number,
 	outsourceId: number
@@ -207,6 +212,30 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 				details: error.message
 			});
 		}
+	}
+
+	if (analyticsKey === "clinicianServiceDetails") {
+		const clinicianId = parseInt(request.query.clinicianId?.toString())
+		if (!clinicianId) {
+			return response.status(400).json({
+				error: "clinicianId is required for clinicianServiceDetails analytics"
+			});
+		}
+
+
+
+
+		try {
+			const result = await analyticsFunctions[analyticsKey](tenantId, branchIdNum, startDate, endDate, clinicianId);
+			return response.json(result);
+
+		} catch (error: any) {
+			return response.status(500).json({
+				error: "Failed to fetch analytics data",
+				details: error.message
+			});
+		}
+
 	}
 
 	if (analyticsFunctions[analyticsKey]) {

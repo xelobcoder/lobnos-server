@@ -1,6 +1,3 @@
-
-
-
 import { NextFunction, Request, Response } from "express";
 import { customError, responseError } from "../hooks/helper";
 import { OperationsFailures } from "../models/operations/types";
@@ -8,7 +5,6 @@ import { TenancyRepository } from "../models/Tenancy/tenancyRepo";
 import { configuration } from "../hooks/configuration";
 import TokenValidator from "../models/settings/users/TokenValidator";
 import RolesRepository from "../models/settings/users/RolesRepository";
-import KnexConnection from "../database/KnexConnections";
 import { ApplicationLoginLoggingService } from "../models/security/services/ApplicationLoginLoggging.services";
 
 
@@ -48,7 +44,6 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (!employeeid || isNaN(employeeid)) return customError('Invalid token', 401, response);
           const sessionService = new ApplicationLoginLoggingService(employeeid, tenantId);
           const active = await sessionService.isEmployeeHaveActiveSession();
-          console.log('Active session status:', active);
           if (!active) return response.status(401).json({ status: 'error', message: 'Session expired or invalid', isExpired: true });
 
           (request as any).authUser = {

@@ -104,6 +104,8 @@ router.get('/api/v1/expenses/analytics/yearly', handleOverLoad(ExpenseAnalyticsC
 router.get('/api/v1/expenses/analytics/branch', handleOverLoad(ExpenseAnalyticsController.getExpenseAnalyticsByBranch));
 router.get('/api/v1/expenses/analytics/top-categories', handleOverLoad(ExpenseAnalyticsController.getTopExpenseCategories));
 router.get('/api/v1/expenses/analytics/payment-status', handleOverLoad(ExpenseAnalyticsController.getExpensePaymentStatusAnalytics));
+router.get('/api/v1/expenses/analytics/rejected/monthly', handleOverLoad(ExpenseAnalyticsController.getRejectedExpenseAnalyticsByMonth));
+router.get('/api/v1/expenses/analytics/rejected/monthly/details', handleOverLoad(ExpenseAnalyticsController.getRejectedExpenseDetailsByMonth));
 router.get('/api/v1/expenses/analytics/rejected', handleOverLoad(ExpenseAnalyticsController.getRejectedExpenseAnalytics));
 router.get('/api/v1/expenses/analytics/branch-monthly', handleOverLoad(ExpenseAnalyticsController.getBranchMonthlyExpenseAnalytics));
 router.get('/api/v1/expenses/analytics/buckets', handleOverLoad(ExpenseAnalyticsController.getExpenseBuckets));

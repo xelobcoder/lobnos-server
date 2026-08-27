@@ -201,6 +201,24 @@ export class BillingAnalyticsWithDate {
         GROUP BY dboservices.clinicianId;
     `;
 
+    public static clinicianServiceDetails = `
+    SELECT
+            dboservices.clinicianId,
+            dboservices.status,
+            dboservices.serviceAddedOn,
+    COUNT(*) AS totalServicesRendered,
+    COALESCE(SUM(dboservices.totalcost), 0) AS gross_revenue,
+        COALESCE(SUM(dboservices.paidamount), 0) AS cash_collected,
+            COALESCE(SUM(dboservices.totalpayable), 0) AS earned_revenue,
+                COALESCE(SUM(dboservices.discount), 0) AS discount,
+                    COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
+                        c.name AS clinician_name
+        FROM dboservices
+        JOIN clinicianbasicinfo AS c ON c.id = dboservices.clinicianId
+        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
+        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? ${ major_constraints } AND dboservices.clinicianId = ?
+        GROUP BY dboservices.clinicianId, dboservices.serviceid
+    `;
     public static monthlySalesTrend = `
        WITH sales AS (
         SELECT MONTHNAME(serviceAddedOn) AS month,

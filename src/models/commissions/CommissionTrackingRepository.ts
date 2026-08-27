@@ -146,6 +146,8 @@ export class CommissionTrackingRepo {
           try {
                const conn = await this.connection;
                const { notes: _notes, ...safeUpdates } = updates as any;
+               delete safeUpdates['commission_percentage'];
+               delete safeUpdates['type'];
                return await conn('commission_tracking')
                     .where({ id })
                     .update(safeUpdates);
