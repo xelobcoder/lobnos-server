@@ -433,6 +433,42 @@ export default class Creator {
 		}
 	}
 
+	async canPrintResult(tenantId: number, ascensionid: number): Promise<boolean> {
+		const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (Number(appSettings?.allowPrintingUnpaid) === 1) return true;
+
+		const connection = await KnexConnection(tenantId);
+		const serviceRecord = await connection('dboservices AS ds')
+			.innerJoin('test_ascension AS ta', 'ds.serviceid', 'ta.serviceid')
+			.select('ds.paymentstatus')
+			.where('ta.id', ascensionid)
+			.first();
+
+		return serviceRecord?.paymentstatus?.toLowerCase() === 'paid';
+	}
+
+	async getPrintableBillingAscensionIds(tenantId: number, billingid: number): Promise<number[]> {
+		const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const connection = await KnexConnection(tenantId);
+		const query = connection('test_ascension AS ta')
+			.leftJoin('dboservices AS ds', 'ds.serviceid', 'ta.serviceid')
+			.where('ta.billingid', billingid)
+			.select('ta.id');
+
+		if (Number(appSettings?.allowPrintingUnpaid) !== 1) {
+			query.whereRaw("LOWER(COALESCE(ds.paymentstatus, '')) = 'paid'");
+		}
+
+		const rows = await query;
+		return rows.map((row: { id: number }) => row.id);
+	}
+
+	async getBillingIdByAscensionId(tenantId: number, ascensionid: number): Promise<number | null> {
+		const connection = await KnexConnection(tenantId);
+		const row = await connection('test_ascension').select('billingid').where({ id: ascensionid }).first();
+		return row?.billingid ?? null;
+	}
+
 	protected static async logCriticalValue(tenantId: number, testid: number, billingid: number, statement: string, employeeid: number): Promise<boolean> {
 		const result = await promisifyQuery(tenantId, insert_critical_value_alert, [billingid, testid, statement, employeeid]);
 		return rowAffected(result);

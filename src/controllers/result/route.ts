@@ -15,6 +15,7 @@ import {
        completeFlowByPassHandler,
        completeFlowByPassMultipleHandler,
        CheckPaymentStatus,
+       CheckMultiplePaymentStatus,
        setResultDeliveryPreference,
        getResultDeliveryPreference,
        recordResultDelivery,
@@ -75,7 +76,7 @@ router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 
 // Result Printout 
 router.get("/api/v1/result/printout/ascension/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintoutHandler))
-router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckPaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
+router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckMultiplePaymentStatus, handleOverLoad(getResultPrintMultipleHandler))
 
 router.post('/api/v1/result/delivery/preference', handleOverLoad(setResultDeliveryPreference));
 router.get('/api/v1/result/delivery/preference/:billingid', handleOverLoad(getResultDeliveryPreference));

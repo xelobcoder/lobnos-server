@@ -191,7 +191,7 @@ export const CheckPaymentStatus = async (request: Request<{}, {}, {}, { ascensio
 	try {
 		const tenantIdP = parseInt(tenantId.toString())
 		const numAscensionId = parseInt(ascensionId.toString());
-		const isPaymentStatusValid = await new Creator(0).CheckPaymentStatus(tenantIdP, numAscensionId);
+		const isPaymentStatusValid = await new Creator(0).canPrintResult(tenantIdP, numAscensionId);
 		if (!isPaymentStatusValid) {
 			return customError("Cannot Print Result For Unpaid Service or test", 403, response);
 		} else {
@@ -203,6 +203,22 @@ export const CheckPaymentStatus = async (request: Request<{}, {}, {}, { ascensio
 	}
 
 }
+
+export const CheckMultiplePaymentStatus = async (request: Request<{}, {}, {}, { ascensionId: string, tenantId: string }>, response: Response, next: Function) => {
+	try {
+		const { ascensionId, tenantId } = request.query;
+		if (!ascensionId || !tenantId) return customError("ascensionId and tenantId are required", 400, response);
+		const tenantIdP = parseInt(tenantId.toString(), 10);
+		const firstAscensionId = parseInt(ascensionId.toString(), 10);
+		if (Number.isNaN(tenantIdP) || Number.isNaN(firstAscensionId)) return customError("Invalid payment check parameters", 400, response);
+
+		const billingid = await new Creator(0).getBillingIdByAscensionId(tenantIdP, firstAscensionId);
+		if (!billingid) return customError("Billing record not found", 404, response);
+		next();
+	} catch (err) {
+		responseError(response, err);
+	}
+};
 
 export const getResultPrintoutHandler = async (request: Request<
 	{}, {}, {},
@@ -384,12 +400,14 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 		if (patientid && billingid) {
 			const isvalidBillingid = await Billing.checkValidityOfBillingid(tenantIdP, billingid);
 			if (!isvalidBillingid) return response.send({ status: false, message: OperationsFailures.notFound });
-			const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[] | []
+			const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[];
+			const printableAscensionIds = new Set(await creator.getPrintableBillingAscensionIds(tenantIdP, billingid));
+			const printableBillingAscensions = billingAscensions.filter((item) => printableAscensionIds.has(Number(item.id)));
 
-			if (billingAscensions.length === 0) return response.send({ status: false, message: 'No result Associated with billingid' })
+			if (printableBillingAscensions.length === 0) return response.send({ status: false, message: 'No paid results available for printing' })
 
 			let qualifiedForPrintOut = await Promise.all(
-				billingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
+				printableBillingAscensions.map(async (ascensionItem: PrimeLimsTabletest_ascension, index: number) => {
 					const { id, testid } = ascensionItem;
 					const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, id as any, "minimum");
 					return resultApproved ? { ascensionid: id, testid } : null
