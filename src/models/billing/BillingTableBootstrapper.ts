@@ -52,7 +52,7 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
 
                table.integer('record_validated_and_signed_off_by').unsigned().nullable();
 
-               table.foreign('record_validated_and_signed_off_by').references('employeeid').inTable('roles').onUpdate('CASCADE').onDelete('IGNORE');
+               table.foreign('record_validated_and_signed_off_by').references('employeeid').inTable('roles').onUpdate('CASCADE').onDelete('RESTRICT');
           });
      }
 
@@ -64,7 +64,7 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                table.date('billing_date').notNullable();
                table.timestamp('validated_at').notNullable().defaultTo(connection.fn.now());
                table.integer("validated_by").unsigned().notNullable();
-               table.foreign('validated_by').references('employeeid').inTable('roles').onUpdate('CASCADE').onDelete('IGNORE');
+               table.foreign('validated_by').references('employeeid').inTable('roles').onUpdate('CASCADE').onDelete('RESTRICT');
                table.unique([
                     'billing_date'
                ], 'uq_validated_billing_dates');
