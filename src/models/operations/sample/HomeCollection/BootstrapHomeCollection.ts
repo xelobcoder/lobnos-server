@@ -73,7 +73,7 @@ export async function bootstrapHomeCollectionTables(tenantId: number) {
                table.index(['checklist_stage'], 'idx_checklist_stage');
                table.index(['completed_by'], 'idx_completed_by');
           });
-     
+
      }
 }
 
