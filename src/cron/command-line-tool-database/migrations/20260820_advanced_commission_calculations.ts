@@ -20,6 +20,12 @@ export async function up(knex: Knex): Promise<void> {
      }
 
      if (await knex.schema.hasTable('commission_tracking')) {
+          if (!(await knex.schema.hasColumn('commission_tracking', 'commission_type'))) {
+               await knex.schema.alterTable('commission_tracking', (table) => {
+                    table.enu('commission_type', commissionTypes.slice(1, -1).split("','")).notNullable().defaultTo('percentage');
+               });
+          }
+
           await knex.raw(`ALTER TABLE commission_tracking MODIFY COLUMN commission_type ENUM(${commissionTypes}) NOT NULL`);
      }
 }
