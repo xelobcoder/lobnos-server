@@ -134,6 +134,6 @@ export async function bootstrapHomeCollectionSeeds(tenantId: number) {
                checklist_stage: 'AFTER_COLLECTION',
                checklist_item: 'Samples delivered to the laboratory'
           }
-     ]);     
+     ]).onConflict('checklist_item').ignore();
 
 }
