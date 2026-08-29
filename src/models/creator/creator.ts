@@ -304,7 +304,7 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
-		const isPaymentStatusValid = await this.CheckPaymentStatus(tenantId, ascensionid);
+		const isPaymentStatusValid = await this.canPrintResult(tenantId, ascensionid);
 
 		if (!isPaymentStatusValid) {
 			throw new Error("Result entry not allowed for unpaid services");
@@ -404,32 +404,26 @@ export default class Creator {
 			});
 
 			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
+
+			// Fire-and-forget result value analytics processing
+			const { ResultValueAnalyticsService } = await import("../result-value-analytics/ResultValueAnalyticsService");
+			void ResultValueAnalyticsService.processCommittedResultEntry({
+				tenantId,
+				testid,
+				ascensionid,
+				patientid,
+				fields: fields as Array<{ fieldid: number; originalvalue: string | null; value: string | null }>,
+			}).catch((error) => console.error("Result value analytics processing failed", error));
+
+			// Fire-and-forget test analytics pre-computation
+			const { TestAnalyticsPreComputeService } = await import("../result-value-analytics/TestAnalyticsPreComputeService");
+			void TestAnalyticsPreComputeService.recomputeTestAnalytics(tenantId, testid)
+				.catch((error) => console.error("Test analytics pre-computation failed", error));
+
 			return true;
 
 		} catch (error) {
 			throw error;
-		}
-	}
-
-
-	async CheckPaymentStatus(tenantId: number, ascensionid: number): Promise<boolean> {
-		const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
-		const allowResultEnteringUpaid = appSettings?.allowResultEnteringUpaid || 0;
-
-		if (allowResultEnteringUpaid === 1) return true;
-
-		const connection = await KnexConnection(tenantId);
-
-		const servicesData = connection('dboservices AS ds')
-			.innerJoin('test_ascension AS ta', 'ds.serviceid', 'ta.serviceid')
-			.select('paymentstatus')
-			.where({ 'ta.id': ascensionid });
-		const serviceRecord = await servicesData.first();
-
-		if (serviceRecord && serviceRecord.paymentstatus !== 'paid' && allowResultEnteringUpaid === 0) {
-			return false;
-		} else {
-			return true;
 		}
 	}
 

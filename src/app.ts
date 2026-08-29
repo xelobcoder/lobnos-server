@@ -181,16 +181,6 @@ async function startApplication() {
     app.listen(Number(port), "0.0.0.0", () => {
         logApplicationStarted(port);
         startApplicationBackgroundWorkers(1, { accountingReady });
-
-        //     logger.info("Server startup successful", {
-        //         port: Number(port),
-        //         environment: process.env.NODE_ENV,
-        //         pid,
-        //         addresses: {
-        //             local: localUrl,
-        //             network: networkUrl,
-        //         },
-        //     });
     });
 }
 

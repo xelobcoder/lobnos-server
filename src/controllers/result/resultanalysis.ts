@@ -3,7 +3,6 @@ import ResultAnalysis from "../../models/result/ResultAnalysis";
 import { Request, Response } from "express";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 
-
 export async function handlerTestTotalCasesCount(request: Request<{}, {}, {}, {
     employeeid: string,
     testid: string,
@@ -135,17 +134,38 @@ export async function handlergetTestMonthlyCountForYear(request: Request<{}, {},
 
 export async function handlergetAllTestYearlyAnalysis(request: Request<{}, {}, {}, {
     employeeid: string,
-    tenantId: string
+    tenantId: string,
+    year?: string
 }>, response: Response) {
     try {
-        let { employeeid } = request.query;
+        const { employeeid, tenantId, year } = request.query;
         const parsedEmployeeid = parseInt(employeeid.toString());
-        const tenantId = parseInt(request.query.tenantId.toString())
-        const resultv = await new ResultAnalysis(parsedEmployeeid).getAllTestMonthChangeForYear(tenantId, 'percentage');
-        response.send(resultv);
+        const parsedTenantId = parseInt(tenantId.toString());
+        const parsedYear = year ? parseInt(year.toString()) : new Date().getFullYear();
+
+        if (isNaN(parsedEmployeeid) || isNaN(parsedTenantId)) {
+            return customError('Invalid numeric parameters', 400, response);
+        }
+
+        // Use pre-computed analytics snapshot for performance
+        const { TestAnalyticsPreComputeService } = await import('../../models/result-value-analytics/TestAnalyticsPreComputeService');
+        const snapshots = await TestAnalyticsPreComputeService.getAllTestAnalytics(parsedTenantId, parsedYear);
+
+        // Transform snapshot data to match expected format for frontend (ResultItem[])
+        const result = snapshots.map((snap) => ({
+            testid: snap.testid,
+            testname: snap.testname,
+            year: snap.year || parsedYear,
+            totalTestsCount: snap.total_tests_count,
+            totalCasesCount: snap.total_cases_count,
+            data: snap.monthly_cases,
+            lastUpdated: snap.last_updated,
+        }));
+
+        response.send(result);
 
     } catch (err) {
-        console.log(err)
+        console.log(err);
         responseError(response);
     }
 }
@@ -176,6 +196,43 @@ export async function handlergetTestResultValuesForMonth(request: Request<{}, {}
 }
 
 
+
+export async function getResultValueAnalyticsHandler(request: Request<{}, {}, {}, {
+    testid: string,
+    fieldid: string,
+    tenantId: string,
+    startDate?: string,
+    endDate?: string
+}>, response: Response) {
+    try {
+        const { testid, fieldid, tenantId, startDate, endDate } = request.query;
+        if (!testid || !fieldid || !tenantId) {
+            return customError('testid, fieldid, and tenantId are required', 400, response);
+        }
+
+        const parsedTestid = parseInt(testid.toString());
+        const parsedFieldid = parseInt(fieldid.toString());
+        const parsedTenantId = parseInt(tenantId.toString());
+
+        if (isNaN(parsedTestid) || isNaN(parsedFieldid) || isNaN(parsedTenantId)) {
+            return customError('Invalid numeric parameters', 400, response);
+        }
+
+        const { ResultValueAnalyticsRepository } = await import('../../models/result-value-analytics/ResultValueAnalyticsRepository');
+        const repo = new ResultValueAnalyticsRepository(parsedTenantId);
+        const dailyAggregates = await repo.getDailyAggregates(
+            parsedTestid,
+            parsedFieldid,
+            startDate?.toString(),
+            endDate?.toString(),
+        );
+
+        response.send({ status: 'success', statusCode: 200, result: dailyAggregates });
+    } catch (err) {
+        console.error(err);
+        responseError(response);
+    }
+}
 
 export async function getFieldResultValuesAcrossMonthOverYear(request: Request<{}, {}, {}, {
     employeeid: string,

@@ -53,6 +53,7 @@ router.post("/api/v1/testpanel/list", postTestPanelCreate);
 router.put("/api/v1/testpanel/list", putTestPanelUpdate);
 router.delete("/api/v1/testpanel/list", deleteTestPanel);
 router.get("/api/v1/testpanel/list/customtestrule", getTestPanelCreationRule);
+router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);
 router.get("/api/v1/", getTestPanelData);
 router.put("/api/v1/testpanel/list/createcustom", putTestPanelChangeName);
 router.get("/api/v1/testpanel/list/bulk/billing", testpanel.getPanelBulKLessInformation);
