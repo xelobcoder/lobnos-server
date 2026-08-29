@@ -76,21 +76,24 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                'registrationToCollection',
                'collectionDuration',
                'processingDuration',
+               'resultEntryDuration',
                'turnaroundtime'
           ];
           const timingColumnsExist = await Promise.all(
                timingColumns.map((column) => connection.schema.hasColumn('test_ascension', column))
           );
 
-          if (timingColumnsExist.every(Boolean)) {
+          const missingTimingColumns = timingColumns.filter((_, index) => !timingColumnsExist[index]);
+          if (missingTimingColumns.length > 0) {
                await connection.schema.alterTable('test_ascension', (table) => {
-                    timingColumns.forEach((column) => table.decimal(column, 10, 2).nullable().alter());
+                    missingTimingColumns.forEach((column) => table.decimal(column, 10, 2).nullable());
                });
+          }
 
-               await connection.raw('DROP TRIGGER IF EXISTS trg_test_ascension_before_insert');
-               await connection.raw('DROP TRIGGER IF EXISTS trg_test_ascension_before_update');
+          await connection.raw('DROP TRIGGER IF EXISTS trg_test_ascension_before_insert');
+          await connection.raw('DROP TRIGGER IF EXISTS trg_test_ascension_before_update');
 
-               await connection.raw(`
+          await connection.raw(`
                     CREATE TRIGGER trg_test_ascension_before_insert
                     BEFORE INSERT ON test_ascension
                     FOR EACH ROW
@@ -113,6 +116,12 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                               SET NEW.processingDuration = NULL;
                          END IF;
 
+                         IF NEW.resultEntryStart IS NOT NULL AND NEW.resultEntryEnd IS NOT NULL THEN
+                              SET NEW.resultEntryDuration = ROUND(TIMESTAMPDIFF(SECOND, NEW.resultEntryStart, NEW.resultEntryEnd) / 60, 2);
+                         ELSE
+                              SET NEW.resultEntryDuration = NULL;
+                         END IF;
+
                          IF NEW.ascension_date IS NOT NULL AND NEW.resultEntryEnd IS NOT NULL THEN
                               SET NEW.turnaroundtime = ROUND(TIMESTAMPDIFF(SECOND, NEW.ascension_date, NEW.resultEntryEnd) / 60, 2);
                          ELSE
@@ -121,7 +130,7 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                     END
                `);
 
-               await connection.raw(`
+          await connection.raw(`
                     CREATE TRIGGER trg_test_ascension_before_update
                     BEFORE UPDATE ON test_ascension
                     FOR EACH ROW
@@ -144,6 +153,12 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                               SET NEW.processingDuration = NULL;
                          END IF;
 
+                         IF NEW.resultEntryStart IS NOT NULL AND NEW.resultEntryEnd IS NOT NULL THEN
+                              SET NEW.resultEntryDuration = ROUND(TIMESTAMPDIFF(SECOND, NEW.resultEntryStart, NEW.resultEntryEnd) / 60, 2);
+                         ELSE
+                              SET NEW.resultEntryDuration = NULL;
+                         END IF;
+
                          IF NEW.ascension_date IS NOT NULL AND NEW.resultEntryEnd IS NOT NULL THEN
                               SET NEW.turnaroundtime = ROUND(TIMESTAMPDIFF(SECOND, NEW.ascension_date, NEW.resultEntryEnd) / 60, 2);
                          ELSE
@@ -152,7 +167,7 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                     END
                `);
 
-               await connection.raw(`
+          await connection.raw(`
                     UPDATE test_ascension
                     SET
                          registrationToCollection = CASE
@@ -168,6 +183,11 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                          processingDuration = CASE
                               WHEN processingStartDate IS NOT NULL AND processingEndDate IS NOT NULL
                               THEN ROUND(TIMESTAMPDIFF(SECOND, processingStartDate, processingEndDate) / 60, 2)
+                              ELSE NULL
+                         END,
+                         resultEntryDuration = CASE
+                              WHEN resultEntryStart IS NOT NULL AND resultEntryEnd IS NOT NULL
+                              THEN ROUND(TIMESTAMPDIFF(SECOND, resultEntryStart, resultEntryEnd) / 60, 2)
                               ELSE NULL
                          END,
                          turnaroundtime = CASE
@@ -197,6 +217,13 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                          END
                     )
                     OR NOT (
+                         resultEntryDuration <=> CASE
+                              WHEN resultEntryStart IS NOT NULL AND resultEntryEnd IS NOT NULL
+                              THEN ROUND(TIMESTAMPDIFF(SECOND, resultEntryStart, resultEntryEnd) / 60, 2)
+                              ELSE NULL
+                         END
+                    )
+                    OR NOT (
                          turnaroundtime <=> CASE
                               WHEN ascension_date IS NOT NULL AND resultEntryEnd IS NOT NULL
                               THEN ROUND(TIMESTAMPDIFF(SECOND, ascension_date, resultEntryEnd) / 60, 2)
@@ -204,6 +231,5 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
                          END
                     )
                `);
-          }
      }
 }

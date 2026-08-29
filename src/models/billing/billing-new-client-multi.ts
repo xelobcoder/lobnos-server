@@ -532,19 +532,9 @@ export class SubmitCustomerBilling {
 
 
             const parsedEmployeeId = parseInt((employeeid || this.payload.employeeid).toString(), 10);
-            const repo = new PrimeEventsSMSDataSource(tenantId);
-            repo.paymentConfirmationEvent(tenantId, finalBillingIdForEvent || billingID, parsedEmployeeId).catch((err) => {
-                logger.error('PAYMENT_CONFIRMATION_SMS dispatch failed', err);
-            });
-
-            const billingRef = { billingId: finalBillingIdForEvent || billingID };
-            NotificationDispatcher.dispatch(tenantId, 'INVOICE_CREATED', billingRef, parsedEmployeeId).catch((err) => {
-                logger.error('INVOICE_CREATED notification dispatch failed', err);
-            });
-            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_INITIATED', billingRef, parsedEmployeeId).catch(() => { });
-            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', billingRef, parsedEmployeeId).catch(() => { });
-            NotificationDispatcher.dispatch(tenantId, 'PAYMENT_CONFIRMED', billingRef, parsedEmployeeId).catch(() => { });
-            NotificationDispatcher.dispatch(tenantId, 'INVOICE_SENT', billingRef, parsedEmployeeId).catch(() => { });
+            const notificationBillingId = finalBillingIdForEvent || billingID;
+            NotificationDispatcher.dispatch(tenantId, 'BILLING_CREATED', { billingId: notificationBillingId }, parsedEmployeeId)
+                .catch((err) => logger.error('BILLING_CREATED in-app notification failed', err));
 
             return { status: true, message: "Order submitted successfully", billingid: billingID };
         } catch (error: any) {

@@ -245,7 +245,7 @@ export async function approveRequestForRefund(request: Request<{}, {}, { service
 		const isAprovalSuccess = await Refund.approveRequestedRefund(tenantId, serviceid, employeeid, parsedApproveStatement);
 		if (isAprovalSuccess) {
 			const eventCode = parsedApproveStatement === 1 ? 'REFUND_APPROVED' : 'REFUND_REJECTED';
-			NotificationDispatcher.dispatch(tenantId, eventCode, { billingId: serviceid }, employeeid).catch(() => { });
+			NotificationDispatcher.dispatch(tenantId, eventCode, { serviceId: serviceid }, employeeid).catch(() => { });
 		}
 		response.send({ status: isAprovalSuccess });
 	} catch (err) {
@@ -269,8 +269,8 @@ export async function requestForRefundCashIssueOut(
 		const isCashoutDocumented = await Refund.issueOutCashOutOfRefund(tenantId, request.body);
 
 		if (isCashoutDocumented) {
-			NotificationDispatcher.dispatch(tenantId, 'REFUND_PROCESSED', { billingId: serviceid }, employeeid).catch(() => { });
-			NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REFUNDED', { billingId: serviceid }, employeeid).catch(() => { });
+			NotificationDispatcher.dispatch(tenantId, 'REFUND_PROCESSED', { serviceId: serviceid }, employeeid).catch(() => { });
+			NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REFUNDED', { serviceId: serviceid }, employeeid).catch(() => { });
 		}
 
 		response.send({

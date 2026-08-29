@@ -5,8 +5,7 @@ import { applyNewPatientAfterInsert } from "../../database/appLevelTriggers";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
-import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
-import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
+import { InAppNotificationService } from "../application/in-app-notifications/InAppNotificationService";
 import { OperationsFailures } from "../operations/types";
 import { ICreateNewPatient } from "../patients/interfaces";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
@@ -529,10 +528,16 @@ export default class Registration {
 					message: "New patient added successfully",
 					patientid: insertId,
 				});
-				new PrimeEventsSMSDataSource(tenantId).patientRegistrationEvent(tenantId, parseInt(insertId.toString()), employeeId);
-				NotificationDispatcher.dispatch(tenantId, 'PATIENT_CREATED', { patientId: Number(insertId) }, employeeId ?? undefined).catch((err) => {
-					logger.error('PATIENT_CREATED notification dispatch failed', err);
-				});
+				const patientName = [data.firstname, data.middlename, data.lastname].filter(Boolean).join(" ");
+				InAppNotificationService.publish(tenantId, {
+					eventCode: 'PATIENT_CREATED',
+					module: 'registration',
+					title: 'Patient registered',
+					message: `${patientName || 'A patient'} was registered.`,
+					referenceType: 'patient',
+					referenceId: Number(insertId),
+					actorEmployeeId: employeeId,
+				}).catch((err) => logger.error('PATIENT_CREATED in-app notification failed', err));
 			}
 			else {
 				response.status(400).send({

@@ -4,12 +4,14 @@ import { bootstrapCommissionTables } from '../models/commissions/commission-conf
 import { bootstrapBillingTables } from '../models/billing/BillingTableBootstrapper';
 import { bootstrapExpenseCategories } from '../models/Expenses/ExpenseCategoryBootstrapper';
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
+import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
      await bootstrapBillingTables(tenantId);
      await bootstrapCommissionTables(tenantId);
      await bootstrapExpenseCategories(tenantId);
      await bootstrapNotificationDefinitions(tenantId);
+     await bootstrapInAppNotificationTables(tenantId);
      await bootstrapHomeCollectionTables(tenantId);
      await bootstrapHomeCollectionSeeds(tenantId);
 

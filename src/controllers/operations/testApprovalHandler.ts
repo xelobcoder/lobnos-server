@@ -3,7 +3,7 @@ import { Request, Response } from "express";
 import { OperationsFailures } from "../../models/operations/types";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { customError, responseError } from "../../hooks/helper";
-import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
+import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 
 export const getAscensionApprovalDetailsHandler = async (req: Request, res: Response) => {
 	const { ascensionid, employeeid, tenantId } = req.query;
@@ -37,8 +37,15 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
 			const tId = parseInt(tenantId.toString());
 			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId);
 			if (typeof updateTestApproval === "boolean" && updateTestApproval) {
-				NotificationDispatcher.dispatch(tId, 'RESULT_VERIFIED', { ascensionId }, employeeId).catch(() => { });
-				NotificationDispatcher.dispatch(tId, 'REPORT_VERIFIED', { ascensionId }, employeeId).catch(() => { });
+				InAppNotificationService.publish(tId, {
+					eventCode: 'RESULT_VALIDATED',
+					module: 'result',
+					title: 'Result validated',
+					message: `Result for ascension #${ascensionId} was validated.`,
+					referenceType: 'ascension',
+					referenceId: ascensionId,
+					actorEmployeeId: employeeId,
+				}).catch(() => { });
 				res.send({ status: updateTestApproval });
 			} else {
 				res.send({ status: false, message: updateTestApproval });

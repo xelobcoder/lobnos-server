@@ -31,6 +31,8 @@ import { EmailQueueService } from '../../models/application/email/services/Email
 import { ProviderFactory } from '../../models/application/email/services/ProviderFactory';
 import { TemplateRenderer } from '../../models/application/email/services/TemplateRenderer';
 import { parsePagination } from '../../hooks/pagination';
+import { checkTokenExists } from '../../middleware/validateTenancy';
+import { InAppNotificationService } from '../../models/application/in-app-notifications/InAppNotificationService';
 
 function buildServices(tenantId: number) {
      const eventsRepo = new NotificationEventsRepo(tenantId);
@@ -89,6 +91,43 @@ function firstParam(value: string | string[]): string {
 }
 
 const router = Router();
+
+type AuthenticatedNotificationRequest = Request & { authUser: { employeeid: number; tenantId: number; role: string } };
+
+const inAppNotificationViewer = (req: AuthenticatedNotificationRequest, res: Response, next: () => void) => {
+     const allowedRoles = ['admin', 'manager', 'super-admin', 'super admin'];
+     if (!allowedRoles.includes(req.authUser.role)) {
+          return customError('You do not have permission to view notifications', 403, res);
+     }
+     next();
+};
+
+router.get('/api/v1/notifications/inbox', checkTokenExists, handleOverLoad(inAppNotificationViewer), handleOverLoad(async (req: AuthenticatedNotificationRequest, res: Response) => {
+     const limit = Math.min(Math.max(Number(req.query.limit) || 10, 1), 10);
+     const unreadOnly = req.query.unreadOnly === 'true';
+     const result = await InAppNotificationService.getInbox(req.authUser.tenantId, req.authUser.employeeid, limit, unreadOnly);
+     res.send({ status: 'success', statusCode: 200, result });
+}));
+
+router.get('/api/v1/notifications/inbox/unread-count', checkTokenExists, handleOverLoad(inAppNotificationViewer), handleOverLoad(async (req: AuthenticatedNotificationRequest, res: Response) => {
+     const count = await InAppNotificationService.getUnreadCount(req.authUser.tenantId, req.authUser.employeeid);
+     res.send({ status: 'success', statusCode: 200, count });
+}));
+
+router.patch('/api/v1/notifications/inbox/:id/read', checkTokenExists, handleOverLoad(inAppNotificationViewer), handleOverLoad(async (req: AuthenticatedNotificationRequest, res: Response) => {
+     await InAppNotificationService.markRead(req.authUser.tenantId, req.authUser.employeeid, Number(req.params.id));
+     res.send({ status: 'success', statusCode: 200 });
+}));
+
+router.patch('/api/v1/notifications/inbox/:id/dismiss', checkTokenExists, handleOverLoad(inAppNotificationViewer), handleOverLoad(async (req: AuthenticatedNotificationRequest, res: Response) => {
+     await InAppNotificationService.dismiss(req.authUser.tenantId, req.authUser.employeeid, Number(req.params.id));
+     res.send({ status: 'success', statusCode: 200 });
+}));
+
+router.patch('/api/v1/notifications/inbox/read-all', checkTokenExists, handleOverLoad(inAppNotificationViewer), handleOverLoad(async (req: AuthenticatedNotificationRequest, res: Response) => {
+     await InAppNotificationService.markAllRead(req.authUser.tenantId, req.authUser.employeeid);
+     res.send({ status: 'success', statusCode: 200 });
+}));
 
 router.use((req, _res, next) => {
      const tenantId = parseTenantId(req.query.tenantId ?? req.query.tenant);

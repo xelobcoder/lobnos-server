@@ -23,7 +23,7 @@ import RequestAccess from "../../models/security/RequestAcessResult/requestAcess
 import { Services } from "../../models/services/services";
 import KnexConnection from "../../database/KnexConnections";
 import ResultDeliveryClass from "./resultDelivery";
-import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
+import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
@@ -50,11 +50,15 @@ export const resultEntry = async (req: Request<{}, {}, { testid: number }, { ten
 			const ascensionId = body?.ascensionid || body?.ascensionId;
 			const actorId = body?.employeeid ? Number(body.employeeid) : undefined;
 			if (ascensionId) {
-				const refs = { ascensionId: Number(ascensionId) };
-				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PROCESSING', refs, actorId).catch(() => { });
-				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_PENDING_VERIFICATION', refs, actorId).catch(() => { });
-				NotificationDispatcher.dispatch(tenantIdP, 'RESULT_READY', refs, actorId).catch(() => { });
-				NotificationDispatcher.dispatch(tenantIdP, 'REPORT_READY', refs, actorId).catch(() => { });
+				InAppNotificationService.publish(tenantIdP, {
+					eventCode: 'RESULT_ENTERED',
+					module: 'result',
+					title: 'Result entered',
+					message: `Result data was entered for ascension #${ascensionId} and is awaiting validation.`,
+					referenceType: 'ascension',
+					referenceId: Number(ascensionId),
+					actorEmployeeId: actorId,
+				}).catch(() => { });
 			}
 			response.send({ status: "success", statusCode: 200, message: "records updated successfully" });
 		} else {
@@ -815,12 +819,15 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 
 
 		if (result && normalizedDeliveredMode) {
-			const refs = {
-				billingId: pBillingId,
-				ascensionId: pAscensionId ?? undefined,
-			};
-			NotificationDispatcher.dispatch(tenantId, 'RESULT_RELEASED', refs, pEmployeeId).catch(() => { });
-			NotificationDispatcher.dispatch(tenantId, 'REPORT_RELEASED', refs, pEmployeeId).catch(() => { });
+			InAppNotificationService.publish(tenantId, {
+				eventCode: 'RESULT_DELIVERED',
+				module: 'result',
+				title: 'Result delivered',
+				message: `Result for billing #${pBillingId} was delivered by ${normalizedDeliveredMode}.`,
+				referenceType: pAscensionId ? 'ascension' : 'billing',
+				referenceId: pAscensionId ?? pBillingId,
+				actorEmployeeId: pEmployeeId,
+			}).catch(() => { });
 		}
 
 		res.status(201).send({ status: true, result });

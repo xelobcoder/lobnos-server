@@ -3,12 +3,6 @@
 import moment from "moment";
 import { paginationQuery, promisifyQuery } from "../../hooks/helper";
 import { q_get_ascension_ids_for_tat_archive, q_get_date_for_tat_analysis, q_get_tat_analysis_archive_by_date, q_upsert_tat_analysis_archive } from "./queries";
-import {
-	PrimeLimsTablebilling,
-	PrimeLimsTabledboservices,
-	PrimeLimsTablenew_patients,
-	PrimeLimsTabletest_ascension,
-} from "../../database/DatabaseTableSchema";
 
 class TestAscensionTurnAroundTime {
 	private ascensionid: number;
@@ -26,7 +20,7 @@ class TestAscensionTurnAroundTime {
 			try {
 				await TestAscensionTurnAroundTime.computeAndArchiveTATForAscension(row.id, tenantId);
 				archivedCount++;
-			} catch (e) {
+			} catch (e:any) {
 				throw new Error(`Failed to archive TAT for ascension ${row.id}: ${e.message}`);
 			}
 		}
@@ -64,44 +58,23 @@ class TestAscensionTurnAroundTime {
 		await promisifyQuery(tenantId, upsertSql, values);
 		return tat;
 	}
-	
 
-	/** Static helper to calculate time difference and format it */
-	static formatDuration(start: string, end: string): string {
-		try {
-			if (!start || !end) return "N/A";
-			const startTime = moment(start);
-			const endTime = moment(end);
-			const diffMs = endTime.diff(startTime);
-			const diffMinutes = diffMs / (1000 * 60);
-			if (diffMinutes < 0) return "N/A";
-			const roundedMinutes = Math.round(diffMinutes);
-			if (roundedMinutes < 60) {
-				return `${roundedMinutes} min`;
-			} else if (roundedMinutes < 1440) {
-				return `${Math.floor(roundedMinutes / 60)} hr ${roundedMinutes % 60} min`;
-			} else {
-				return `${Math.floor(roundedMinutes / 1440)} days ${Math.floor(
-					(roundedMinutes % 1440) / 60
-				)} hr`;
-			}
-		} catch (e) {
-			return "N/A";
-		}
+
+	static normalizeDuration(value: unknown): number | null {
+		const duration = typeof value === "number" ? value : Number(value);
+		return Number.isFinite(duration) && duration >= 0 ? duration : null;
 	}
 
-	/** Static helper to calculate difference in minutes between two timestamps */
-	static getMinutes(start: string, end: string): number | null {
-		try {
-			if (!start || !end) return null;
-			const startTime = moment(start);
-			const endTime = moment(end);
-			const diffMs = endTime.diff(startTime);
-			const diffMinutes = diffMs / (1000 * 60);
-			return diffMinutes >= 0 ? Math.round(diffMinutes) : null;
-		} catch (e) {
-			return null;
+	static formatDuration(minutes: number | null): string {
+		if (minutes == null) return "N/A";
+		const roundedMinutes = Math.round(minutes);
+		if (roundedMinutes < 60) return `${roundedMinutes} min`;
+		if (roundedMinutes < 1440) {
+			return `${Math.floor(roundedMinutes / 60)} hr ${roundedMinutes % 60} min`;
 		}
+		return `${Math.floor(roundedMinutes / 1440)} days ${Math.floor(
+			(roundedMinutes % 1440) / 60
+		)} hr`;
 	}
 
 	/** Returns paginated list of TAT data with duration and flags */
@@ -125,22 +98,21 @@ class TestAscensionTurnAroundTime {
 				query += `bb.billedon IS NOT NULL`;
 			}
 
+			const queryParameters: number[] = [];
 			if (ascensionId) {
 				query += `AND ta.id = ? `;
+				queryParameters.push(ascensionId);
 			}
 
 			query += `ORDER BY ta.id ${sorting} LIMIT ? OFFSET ?`;
 
 
-			const rows: (PrimeLimsTabledboservices &
-				PrimeLimsTablenew_patients &
-				PrimeLimsTabletest_ascension &
-				PrimeLimsTablebilling)[] = await paginationQuery(
-					{ count, page },
-					query,
-					[],
-					tenantId
-				);
+			const rows: Record<string, unknown>[] = await paginationQuery(
+				{ count, page },
+				query,
+				queryParameters,
+				tenantId
+			);
 
 			const results = rows.map((row: any) =>
 				TestAscensionTurnAroundTime.analyzeTATRow(row)
@@ -162,23 +134,10 @@ class TestAscensionTurnAroundTime {
 		const postTatSet = TestAscensionTurnAroundTime.parseDuration(row.post_Tat);
 		const totalTatSet = TestAscensionTurnAroundTime.parseDuration(row.tat);
 
-		// Calculate all durations in minutes
-		const preTatActual = TestAscensionTurnAroundTime.getMinutes(
-			row.collectionStartDate,
-			row.collectionEndDate
-		);
-		const processingTatActual = TestAscensionTurnAroundTime.getMinutes(
-			row.processingStartDate,
-			row.processingEndDate
-		);
-		const postTatActual = TestAscensionTurnAroundTime.getMinutes(
-			row.resultEntryStart,
-			row.resultEntryEnd
-		);
-		const totalTatActual = TestAscensionTurnAroundTime.getMinutes(
-			row.collectionStartDate,
-			row.resultEntryEnd
-		);
+		const preTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.collectionDuration);
+		const processingTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.processingDuration);
+		const postTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.resultEntryDuration);
+		const totalTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.turnaroundtime);
 
 		// Calculate exceeded by (actual - expected)
 		const preTatExceededBy =
@@ -202,26 +161,18 @@ class TestAscensionTurnAroundTime {
 				? totalTatActual - totalTatSet
 				: 0;
 
-		// Consistency check: validate timestamp sequence and calculate waiting times
+		// Consistency check: validate timestamp sequence without recalculating durations.
 		let tatConsistencyWarning = null;
-		if (totalTatActual != null) {
-			const collectionToProcessingGap = processingTatActual != null && preTatActual != null ?
-				TestAscensionTurnAroundTime.getMinutes(row.collectionEndDate, row.processingStartDate) : null;
-			const processingToResultGap = postTatActual != null && processingTatActual != null ?
-				TestAscensionTurnAroundTime.getMinutes(row.processingEndDate, row.resultEntryStart) : null;
-
-			// Check for backwards timestamps
-			if (preTatActual != null && preTatActual < 0) {
-				tatConsistencyWarning = "Collection end before collection start";
-			} else if (processingTatActual != null && processingTatActual < 0) {
-				tatConsistencyWarning = "Processing end before processing start";
-			} else if (postTatActual != null && postTatActual < 0) {
-				tatConsistencyWarning = "Result entry end before result entry start";
-			} else if (collectionToProcessingGap != null && collectionToProcessingGap < 0) {
-				tatConsistencyWarning = "Processing started before collection ended";
-			} else if (processingToResultGap != null && processingToResultGap < 0) {
-				tatConsistencyWarning = "Result entry started before processing ended";
-			}
+		if (row.collectionStartDate && row.collectionEndDate && moment(row.collectionEndDate).isBefore(row.collectionStartDate)) {
+			tatConsistencyWarning = "Collection end before collection start";
+		} else if (row.processingStartDate && row.processingEndDate && moment(row.processingEndDate).isBefore(row.processingStartDate)) {
+			tatConsistencyWarning = "Processing end before processing start";
+		} else if (row.resultEntryStart && row.resultEntryEnd && moment(row.resultEntryEnd).isBefore(row.resultEntryStart)) {
+			tatConsistencyWarning = "Result entry end before result entry start";
+		} else if (row.collectionEndDate && row.processingStartDate && moment(row.processingStartDate).isBefore(row.collectionEndDate)) {
+			tatConsistencyWarning = "Processing started before collection ended";
+		} else if (row.processingEndDate && row.resultEntryStart && moment(row.resultEntryStart).isBefore(row.processingEndDate)) {
+			tatConsistencyWarning = "Result entry started before processing ended";
 		}
 
 		return {
@@ -244,22 +195,10 @@ class TestAscensionTurnAroundTime {
 			resultEntryEnd: row.resultEntryEnd,
 
 			// Actual durations (formatted)
-			preTAT: TestAscensionTurnAroundTime.formatDuration(
-				row.collectionStartDate,
-				row.collectionEndDate
-			),
-			processingTAT: TestAscensionTurnAroundTime.formatDuration(
-				row.processingStartDate,
-				row.processingEndDate
-			),
-			postTAT: TestAscensionTurnAroundTime.formatDuration(
-				row.resultEntryStart,
-				row.resultEntryEnd
-			),
-			totalTAT: TestAscensionTurnAroundTime.formatDuration(
-				row.collectionStartDate,
-				row.resultEntryEnd
-			),
+			preTAT: TestAscensionTurnAroundTime.formatDuration(preTatActual),
+			processingTAT: TestAscensionTurnAroundTime.formatDuration(processingTatActual),
+			postTAT: TestAscensionTurnAroundTime.formatDuration(postTatActual),
+			totalTAT: TestAscensionTurnAroundTime.formatDuration(totalTatActual),
 
 			// Numeric durations (minutes)
 			preTatMinutes: preTatActual,

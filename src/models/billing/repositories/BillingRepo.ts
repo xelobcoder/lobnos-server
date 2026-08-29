@@ -52,6 +52,31 @@ export class BillingRepo {
           }
      }
 
+     async findNotificationContext(billingId: number): Promise<{ patientName: string | null } | undefined> {
+          const conn = await this.connection;
+          const result = await conn('billing as billing')
+               .leftJoin('new_patients as patient', 'patient.patientid', 'billing.patientid')
+               .select(conn.raw("TRIM(CONCAT_WS(' ', patient.firstname, patient.middlename, patient.lastname)) as patientName"))
+               .where('billing.billingid', billingId)
+               .first();
+          return result;
+     }
+
+     async findRefundNotificationContext(serviceId: number): Promise<{ patientName: string | null; amountRefunded: string | number | null } | undefined> {
+          const conn = await this.connection;
+          const result = await conn('dboservices as service')
+               .innerJoin('billing as billing', 'billing.billingid', 'service.billingid')
+               .leftJoin('new_patients as patient', 'patient.patientid', 'billing.patientid')
+               .leftJoin('dbobillingrefundtable as refund', 'refund.serviceid', 'service.serviceid')
+               .select(
+                    'refund.amountRefunded',
+                    conn.raw("TRIM(CONCAT_WS(' ', patient.firstname, patient.middlename, patient.lastname)) as patientName"),
+               )
+               .where('service.serviceid', serviceId)
+               .first();
+          return result;
+     }
+
      async findByPatientId(patientId: number) {
           try {
                let conn = await this.connection;
