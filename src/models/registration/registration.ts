@@ -277,7 +277,7 @@ export default class Registration {
 				throw new Error("Failed to create patient");
 			}
 
-			await applyNewPatientAfterInsert(transaction, {
+			await applyNewPatientAfterInsert(tenantId, transaction, {
 				patientid,
 				firstname,
 				lastname,

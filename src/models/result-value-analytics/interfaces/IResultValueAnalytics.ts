@@ -6,7 +6,9 @@ export interface NumericValueObservation {
 	testid: number;
 	fieldid: number;
 	observedDate: string;
-	numericValue: Decimal;
+	valueKind: 'numeric' | 'categorical';
+	numericValue: Decimal | null;
+	categoricalValue: string | null;
 	unit: string | null;
 	lowerLimit: Decimal | null;
 	upperLimit: Decimal | null;
@@ -15,11 +17,13 @@ export interface NumericValueObservation {
 }
 
 export interface DailyAggregate {
-	observedDate: string;
+	observedDate: string | null;
 	testid: number;
 	fieldid: number;
 	rangeVersion: string;
 	bucketKey: string;
+	valueKind: 'numeric' | 'categorical';
+	categoricalValue: string | null;
 	observationCount: number;
 	valueSum: Decimal;
 	valueSumSquares: Decimal;
@@ -71,6 +75,7 @@ export interface IResultValueAnalyticsRepository {
 	markResultsProcessed(resultIds: number[]): Promise<void>;
 	upsertObservation(observation: NumericValueObservation): Promise<void>;
 	upsertObservationsBatch(observations: NumericValueObservation[]): Promise<void>;
+	rebuildTotalAggregatesFromObservations(): Promise<void>;
 	getDailyAggregates(testid: number, fieldid: number, startDate?: string, endDate?: string): Promise<DailyAggregate[]>;
 	getPatientDemographics(patientId: number): Promise<PatientDemographics | null>;
 	getPatientDemographicsBatch(patientIds: number[]): Promise<Map<number, PatientDemographics>>;

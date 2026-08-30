@@ -2,6 +2,7 @@ import { Knex } from "knex";
 import { CommissionDefaultRepository } from "../models/commissions/commission-configurations/repositories/CommissionDefaultRepository";
 import OutsourcedCases from "../models/organization/outsourcingOrganization/outsourcedCases";
 import ApplicationSettings from "../models/application/appsettings/appset";
+import { buildLoginUsername, getLabLoginPrefix } from "../models/auth/LoginUsernameBootstrapper";
 
 type DbRunner = Knex | Knex.Transaction;
 
@@ -16,15 +17,18 @@ async function getDefaultCommissionPercentage(
 }
 
 export async function applyNewPatientAfterInsert(
+	tenantId: number,
 	db: DbRunner,
 	payload: { patientid: number; firstname: string; lastname: string }
 ) {
 	const username = `${payload.firstname}${payload.lastname}`;
 	const password = `${payload.firstname}${payload.lastname}${payload.patientid}`;
+	const loginPrefix = await getLabLoginPrefix(tenantId, db);
 
 	await db("patients_credentials").insert({
 		patientid: payload.patientid,
 		username,
+		login_username: buildLoginUsername(loginPrefix, 'patient', payload.patientid),
 		password,
 		updated_on: new Date(),
 	});
@@ -273,9 +277,11 @@ export async function applyClinicianAfterInsert(tenantId: number, db: DbRunner, 
 	if (!credentials) {
 		const crypto = await import("crypto");
 		const randomPassword = crypto.randomBytes(10).toString("hex");
+		const loginPrefix = await getLabLoginPrefix(tenantId, db);
 		await db("clinicianscredentials").insert({
 			clinicianid: payload.clinicianid,
 			identifier: payload.identifier,
+			login_username: buildLoginUsername(loginPrefix, 'clinician', payload.clinicianid),
 			password: randomPassword,
 			authenticationMode: "SMS",
 		});

@@ -6,14 +6,97 @@ import {
 	ResultValueAnalyticsInput,
 } from '../interfaces';
 import { NumericResultParser } from '../entities/NumericResultParser';
-import { ReferenceRangeResolver } from '../entities/ReferenceRangeResolver';
 import { ResultValueAnalyticsRepository } from '../repositories/ResultValueAnalyticsRepository';
+import { decrypt_value } from '../../../utils/encryptionModels';
 
 export class ResultValueAnalyticsService implements IResultValueAnalyticsService {
 	constructor(
 		private analyticsRepo: ResultValueAnalyticsRepository,
 		private rulesRepo: TestCreationRulesRepository,
-	) {}
+	) { }
+
+	private static decryptIfEncrypted(value: string | null): string | null {
+		if (!value) {
+			return value;
+		}
+
+		const trimmedValue = String(value).trim();
+		const looksEncrypted = trimmedValue.length >= 24 && /^[A-Za-z0-9+/]+={0,2}$/.test(trimmedValue);
+		if (!looksEncrypted) {
+			return value;
+		}
+
+		try {
+			const decryptedValue = decrypt_value(trimmedValue);
+			return decryptedValue || value;
+		} catch {
+			return value;
+		}
+	}
+
+	private static getResultValue(field: { originalvalue: string | null; value: string | null }): string | null {
+		const resultValue = field.originalvalue ?? field.value ?? null;
+		return ResultValueAnalyticsService.decryptIfEncrypted(resultValue);
+	}
+
+	private static normalizeResultValue(value: string | null): string | null {
+		if (value === null || value === undefined) {
+			return null;
+		}
+
+		const normalizedValue = String(value).trim().replace(/\s+/g, ' ');
+		return normalizedValue.length > 0 ? normalizedValue : null;
+	}
+
+	private static createSourceResultId(testid: number, ascensionid: number, fieldid: number): number {
+		const sourceResultKey = `${testid}-${ascensionid}-${fieldid}`;
+		return Math.abs(
+			sourceResultKey
+				.split('')
+				.reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0)
+		) % 2147483647;
+	}
+
+	private static createValueBucketKey(value: string): string {
+		const normalizedKey = value.toLowerCase();
+		const hash = Math.abs(
+			normalizedKey
+				.split('')
+				.reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0)
+		) % 2147483647;
+		return `value_${hash}`;
+	}
+
+	private static buildExactValueObservation(
+		sourceResultId: number,
+		ascensionid: number,
+		testid: number,
+		fieldid: number,
+		observedDate: string,
+		value: string | null,
+	) {
+		const resultValue = ResultValueAnalyticsService.normalizeResultValue(value);
+		if (!resultValue) {
+			return null;
+		}
+		const numericValue = NumericResultParser.parse(resultValue);
+
+		return {
+			sourceResultId,
+			ascensionid,
+			testid,
+			fieldid,
+			observedDate,
+			valueKind: numericValue === null ? 'categorical' as const : 'numeric' as const,
+			numericValue: numericValue === null ? null : new Decimal(numericValue),
+			categoricalValue: resultValue,
+			unit: null,
+			lowerLimit: null,
+			upperLimit: null,
+			rangeVersion: 'exact_value',
+			bucketKey: ResultValueAnalyticsService.createValueBucketKey(resultValue),
+		};
+	}
 
 	static create(tenantId: number): ResultValueAnalyticsService {
 		return new ResultValueAnalyticsService(
@@ -32,6 +115,11 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 		return await service.backfillHistoricalResultValues(tenantId, batchSize);
 	}
 
+	static async rebuildAggregateTotals(tenantId: number): Promise<void> {
+		const service = ResultValueAnalyticsService.create(tenantId);
+		await service.analyticsRepo.rebuildTotalAggregatesFromObservations();
+	}
+
 	async processCommittedResultEntry(input: ResultValueAnalyticsInput): Promise<void> {
 		try {
 			const {
@@ -48,60 +136,23 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 
 			const observedDate = createdOn.toISOString().split('T')[0];
 
-			const demographics = await this.analyticsRepo.getPatientDemographics(patientid);
-			const patientGender = demographics?.gender || null;
-			const patientAge = demographics?.age ?? null;
-
 			for (const field of fields) {
 				try {
-					const { fieldid, originalvalue } = field;
+					const { fieldid } = field;
+					const rawValue = ResultValueAnalyticsService.getResultValue(field);
 
-					const numericValue = NumericResultParser.parse(originalvalue);
-					if (numericValue === null) {
-						continue;
-					}
-
-					const rule = await this.rulesRepo.findByTestIdAndId(testid, fieldid);
-					if (!rule) {
-						continue;
-					}
-
-					const resolvedRange = ReferenceRangeResolver.resolve(
-						rule,
-						patientGender,
-						patientAge,
-						'years',
-					);
-					if (!resolvedRange) {
-						continue;
-					}
-
-					const bucketKey = NumericResultParser.bucketize(
-						numericValue,
-						resolvedRange.lowerLimit,
-						resolvedRange.upperLimit,
-					);
-
-					const sourceResultKey = `${testid}-${ascensionid}-${fieldid}`;
-					const sourceResultId = Math.abs(
-						sourceResultKey
-							.split('')
-							.reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0)
-					) % 2147483647;
-
-					await this.analyticsRepo.upsertObservation({
+					const sourceResultId = ResultValueAnalyticsService.createSourceResultId(testid, ascensionid, fieldid);
+					const observation = ResultValueAnalyticsService.buildExactValueObservation(
 						sourceResultId,
 						ascensionid,
 						testid,
 						fieldid,
 						observedDate,
-						numericValue: new Decimal(numericValue),
-						unit: resolvedRange.unit,
-						lowerLimit: resolvedRange.lowerLimit ? new Decimal(resolvedRange.lowerLimit) : null,
-						upperLimit: resolvedRange.upperLimit ? new Decimal(resolvedRange.upperLimit) : null,
-						rangeVersion: resolvedRange.rangeVersion,
-						bucketKey,
-					});
+						rawValue,
+					);
+					if (observation) {
+						await this.analyticsRepo.upsertObservation(observation);
+					}
 				} catch (fieldError) {
 					logger.error(`Result value analytics processing failed for field ${field.fieldid}`, fieldError);
 				}
@@ -116,56 +167,17 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 		try {
 			await this.analyticsRepo.ensureAnalyticsProcessedColumn();
 
-			const ruleCache = new Map<string, any>();
-
 			while (true) {
 				const batch = await this.analyticsRepo.getUnprocessedResultsBatch(batchSize);
 				if (!batch || batch.length === 0) {
 					break;
 				}
 
-				const patientIds = Array.from(new Set(batch.map((b) => b.patientid).filter((id) => Boolean(id) && id > 0)));
-				const demographicsMap = await this.analyticsRepo.getPatientDemographicsBatch(patientIds);
-
 				const observationsToUpsert: any[] = [];
 
 				for (const row of batch) {
 					try {
-						const rawVal = row.originalvalue || row.value;
-						const numericValue = NumericResultParser.parse(rawVal);
-						if (numericValue === null) {
-							continue;
-						}
-
-						const ruleCacheKey = `${row.testid}|${row.fieldid}`;
-						let rule = ruleCache.get(ruleCacheKey);
-						if (rule === undefined) {
-							rule = await this.rulesRepo.findByTestIdAndId(row.testid, row.fieldid);
-							ruleCache.set(ruleCacheKey, rule || null);
-						}
-						if (!rule) {
-							continue;
-						}
-
-						const demographics = demographicsMap.get(row.patientid);
-						const patientGender = demographics?.gender || null;
-						const patientAge = demographics?.age ?? null;
-
-						const resolvedRange = ReferenceRangeResolver.resolve(
-							rule,
-							patientGender,
-							patientAge,
-							'years',
-						);
-						if (!resolvedRange) {
-							continue;
-						}
-
-						const bucketKey = NumericResultParser.bucketize(
-							numericValue,
-							resolvedRange.lowerLimit,
-							resolvedRange.upperLimit,
-						);
+						const rawVal = ResultValueAnalyticsService.getResultValue(row);
 
 						let observedDate = new Date().toISOString().split('T')[0];
 						if (row.created_on) {
@@ -175,19 +187,17 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 							}
 						}
 
-						observationsToUpsert.push({
-							sourceResultId: row.id,
-							ascensionid: row.ascensionid,
-							testid: row.testid,
-							fieldid: row.fieldid,
+						const observation = ResultValueAnalyticsService.buildExactValueObservation(
+							row.id,
+							row.ascensionid,
+							row.testid,
+							row.fieldid,
 							observedDate,
-							numericValue: new Decimal(numericValue),
-							unit: resolvedRange.unit,
-							lowerLimit: resolvedRange.lowerLimit ? new Decimal(resolvedRange.lowerLimit) : null,
-							upperLimit: resolvedRange.upperLimit ? new Decimal(resolvedRange.upperLimit) : null,
-							rangeVersion: resolvedRange.rangeVersion,
-							bucketKey,
-						});
+							rawVal,
+						);
+						if (observation) {
+							observationsToUpsert.push(observation);
+						}
 					} catch (rowError) {
 						logger.error(`[ResultValueAnalyticsService] Failed processing historical result id ${row.id}:`, rowError);
 					}

@@ -122,6 +122,9 @@ abstract class DeviceProcessorBase<TPayload> {
                fields: obxResults,
                hasDrugs: false
           };
+
+          console.log(finalData)
+          
           const resultEntry = await new Creator(knownTestId).resultEntry(this.tenantId, finalData as any);
 
           return {

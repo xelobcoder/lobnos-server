@@ -9,7 +9,7 @@ import {
 } from '../interfaces';
 
 export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepository {
-	constructor(private tenantId: number) {}
+	constructor(private tenantId: number) { }
 
 	async ensureAnalyticsProcessedColumn(): Promise<void> {
 		const connection = await KnexConnection(this.tenantId);
@@ -79,6 +79,11 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 		const connection = await KnexConnection(this.tenantId);
 
 		await connection.transaction(async (trx) => {
+			const previousObservation = await trx('result_value_analytics_observations')
+				.select('testid', 'fieldid', 'range_version', 'bucket_key')
+				.where('source_result_id', observation.sourceResultId)
+				.first();
+
 			await trx('result_value_analytics_observations')
 				.insert({
 					source_result_id: observation.sourceResultId,
@@ -86,7 +91,9 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 					testid: observation.testid,
 					fieldid: observation.fieldid,
 					observed_date: observation.observedDate,
-					numeric_value: observation.numericValue.toString(),
+					value_kind: observation.valueKind,
+					numeric_value: observation.numericValue ? observation.numericValue.toString() : null,
+					categorical_value: observation.categoricalValue,
 					unit: observation.unit,
 					lower_limit: observation.lowerLimit ? observation.lowerLimit.toString() : null,
 					upper_limit: observation.upperLimit ? observation.upperLimit.toString() : null,
@@ -100,7 +107,9 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 					testid: observation.testid,
 					fieldid: observation.fieldid,
 					observed_date: observation.observedDate,
-					numeric_value: observation.numericValue.toString(),
+					value_kind: observation.valueKind,
+					numeric_value: observation.numericValue ? observation.numericValue.toString() : null,
+					categorical_value: observation.categoricalValue,
 					unit: observation.unit,
 					lower_limit: observation.lowerLimit ? observation.lowerLimit.toString() : null,
 					upper_limit: observation.upperLimit ? observation.upperLimit.toString() : null,
@@ -109,14 +118,31 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 					processed_at: new Date(),
 				});
 
-			await this.rebuildDailyAggregate(
+			await this.rebuildTotalAggregate(
 				trx,
-				observation.observedDate,
 				observation.testid,
 				observation.fieldid,
 				observation.rangeVersion,
 				observation.bucketKey,
 			);
+
+			if (
+				previousObservation &&
+				(
+					Number(previousObservation.testid) !== observation.testid ||
+					Number(previousObservation.fieldid) !== observation.fieldid ||
+					String(previousObservation.range_version) !== observation.rangeVersion ||
+					String(previousObservation.bucket_key) !== observation.bucketKey
+				)
+			) {
+				await this.rebuildTotalAggregate(
+					trx,
+					Number(previousObservation.testid),
+					Number(previousObservation.fieldid),
+					String(previousObservation.range_version),
+					String(previousObservation.bucket_key),
+				);
+			}
 		});
 	}
 
@@ -124,7 +150,7 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 		if (!observations || observations.length === 0) return;
 		const connection = await KnexConnection(this.tenantId);
 
-		const successfulKeys = new Map<string, { observedDate: string; testid: number; fieldid: number; rangeVersion: string; bucketKey: string }>();
+		const successfulKeys = new Map<string, { testid: number; fieldid: number; rangeVersion: string; bucketKey: string }>();
 
 		for (const obs of observations) {
 			try {
@@ -135,7 +161,9 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 						testid: obs.testid,
 						fieldid: obs.fieldid,
 						observed_date: obs.observedDate,
-						numeric_value: obs.numericValue.toString(),
+						value_kind: obs.valueKind,
+						numeric_value: obs.numericValue ? obs.numericValue.toString() : null,
+						categorical_value: obs.categoricalValue,
 						unit: obs.unit,
 						lower_limit: obs.lowerLimit ? obs.lowerLimit.toString() : null,
 						upper_limit: obs.upperLimit ? obs.upperLimit.toString() : null,
@@ -149,7 +177,9 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 						testid: obs.testid,
 						fieldid: obs.fieldid,
 						observed_date: obs.observedDate,
-						numeric_value: obs.numericValue.toString(),
+						value_kind: obs.valueKind,
+						numeric_value: obs.numericValue ? obs.numericValue.toString() : null,
+						categorical_value: obs.categoricalValue,
 						unit: obs.unit,
 						lower_limit: obs.lowerLimit ? obs.lowerLimit.toString() : null,
 						upper_limit: obs.upperLimit ? obs.upperLimit.toString() : null,
@@ -158,10 +188,9 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 						processed_at: new Date(),
 					});
 
-				const key = `${obs.observedDate}|${obs.testid}|${obs.fieldid}|${obs.rangeVersion}|${obs.bucketKey}`;
+				const key = `${obs.testid}|${obs.fieldid}|${obs.rangeVersion}|${obs.bucketKey}`;
 				if (!successfulKeys.has(key)) {
 					successfulKeys.set(key, {
-						observedDate: obs.observedDate,
 						testid: obs.testid,
 						fieldid: obs.fieldid,
 						rangeVersion: obs.rangeVersion,
@@ -175,21 +204,19 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 
 		for (const item of Array.from(successfulKeys.values())) {
 			try {
-				await this.rebuildDailyAggregate(
+				await this.rebuildTotalAggregate(
 					connection,
-					item.observedDate,
 					item.testid,
 					item.fieldid,
 					item.rangeVersion,
 					item.bucketKey,
 				);
-			} catch {}
+			} catch { }
 		}
 	}
 
-	private async rebuildDailyAggregate(
+	private async rebuildTotalAggregate(
 		trx: any,
-		observedDate: string,
 		testid: number,
 		fieldid: number,
 		rangeVersion: string,
@@ -198,12 +225,13 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 		const rows = await trx('result_value_analytics_observations')
 			.select(
 				trx.raw('COUNT(*) as cnt'),
+				trx.raw('MAX(value_kind) as value_kind'),
+				trx.raw('MIN(categorical_value) as categorical_value'),
 				trx.raw('COALESCE(SUM(CAST(numeric_value AS DECIMAL(32,8))), 0) as sum_val'),
 				trx.raw('COALESCE(SUM(POW(CAST(numeric_value AS DECIMAL(32,8)), 2)), 0) as sum_sq'),
 				trx.raw('MIN(CAST(numeric_value AS DECIMAL(24,8))) as min_val'),
 				trx.raw('MAX(CAST(numeric_value AS DECIMAL(24,8))) as max_val'),
 			)
-			.where('observed_date', observedDate)
 			.where('testid', testid)
 			.where('fieldid', fieldid)
 			.where('range_version', rangeVersion)
@@ -211,8 +239,7 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 			.first();
 
 		if (!rows || rows.cnt === 0) {
-			await trx('result_value_analytics_daily')
-				.where('observed_date', observedDate)
+			await trx('result_value_analytics_totals')
 				.where('testid', testid)
 				.where('fieldid', fieldid)
 				.where('range_version', rangeVersion)
@@ -225,13 +252,14 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 			const minVal = rows.min_val ? new Decimal(rows.min_val) : null;
 			const maxVal = rows.max_val ? new Decimal(rows.max_val) : null;
 
-			await trx('result_value_analytics_daily')
+			await trx('result_value_analytics_totals')
 				.insert({
-					observed_date: observedDate,
 					testid,
 					fieldid,
 					range_version: rangeVersion,
 					bucket_key: bucketKey,
+					value_kind: rows.value_kind || 'numeric',
+					categorical_value: rows.categorical_value || null,
 					observation_count: cnt,
 					value_sum: sumVal.toString(),
 					value_sum_squares: sumSq.toString(),
@@ -239,9 +267,51 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 					max_value: maxVal ? maxVal.toString() : null,
 					updated_at: new Date(),
 				})
-				.onConflict(['observed_date', 'testid', 'fieldid', 'range_version', 'bucket_key'])
+				.onConflict(['testid', 'fieldid', 'range_version', 'bucket_key'])
 				.merge();
 		}
+	}
+
+	async rebuildTotalAggregatesFromObservations(): Promise<void> {
+		const connection = await KnexConnection(this.tenantId);
+		if (!(await connection.schema.hasTable('result_value_analytics_observations'))) return;
+		if (!(await connection.schema.hasTable('result_value_analytics_totals'))) return;
+
+		await connection.transaction(async (trx) => {
+			await trx('result_value_analytics_totals').del();
+			await trx.raw(`
+				INSERT INTO result_value_analytics_totals (
+					testid,
+					fieldid,
+					range_version,
+					bucket_key,
+					value_kind,
+					categorical_value,
+					observation_count,
+					value_sum,
+					value_sum_squares,
+					min_value,
+					max_value,
+					updated_at
+				)
+				SELECT
+					testid,
+					fieldid,
+					range_version,
+					bucket_key,
+					MAX(value_kind) AS value_kind,
+					MIN(categorical_value) AS categorical_value,
+					COUNT(*) AS observation_count,
+					COALESCE(SUM(CAST(numeric_value AS DECIMAL(32,8))), 0) AS value_sum,
+					COALESCE(SUM(POW(CAST(numeric_value AS DECIMAL(32,8)), 2)), 0) AS value_sum_squares,
+					MIN(CAST(numeric_value AS DECIMAL(24,8))) AS min_value,
+					MAX(CAST(numeric_value AS DECIMAL(24,8))) AS max_value,
+					NOW() AS updated_at
+				FROM result_value_analytics_observations
+				WHERE range_version = 'exact_value'
+				GROUP BY testid, fieldid, range_version, bucket_key
+			`);
+		});
 	}
 
 	async getDailyAggregates(
@@ -252,13 +322,14 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 	): Promise<DailyAggregate[]> {
 		const connection = await KnexConnection(this.tenantId);
 
-		let query = connection('result_value_analytics_daily')
+		let query = connection('result_value_analytics_totals')
 			.select(
-				'observed_date',
 				'testid',
 				'fieldid',
 				'range_version',
 				'bucket_key',
+				'value_kind',
+				'categorical_value',
 				'observation_count',
 				'value_sum',
 				'value_sum_squares',
@@ -266,23 +337,19 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 				'max_value',
 			)
 			.where('testid', testid)
-			.where('fieldid', fieldid);
+			.where('fieldid', fieldid)
+			.where('range_version', 'exact_value');
 
-		if (startDate) {
-			query = query.where('observed_date', '>=', startDate);
-		}
-		if (endDate) {
-			query = query.where('observed_date', '<=', endDate);
-		}
-
-		const rows = await query.orderBy('observed_date', 'asc');
+		const rows = await query.orderBy('observation_count', 'desc');
 
 		return rows.map((row: any) => ({
-			observedDate: row.observed_date instanceof Date ? row.observed_date.toISOString().split('T')[0] : String(row.observed_date),
+			observedDate: null,
 			testid: Number(row.testid),
 			fieldid: Number(row.fieldid),
 			rangeVersion: String(row.range_version),
 			bucketKey: String(row.bucket_key),
+			valueKind: row.value_kind === 'categorical' ? 'categorical' : 'numeric',
+			categoricalValue: row.categorical_value ? String(row.categorical_value) : null,
 			observationCount: Number(row.observation_count),
 			valueSum: new Decimal(row.value_sum || 0),
 			valueSumSquares: new Decimal(row.value_sum_squares || 0),

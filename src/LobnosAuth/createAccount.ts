@@ -11,6 +11,7 @@ import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import KnexConnection from "../database/KnexConnections";
 import knex from "knex";
 import { NotificationDispatcher } from "../models/application/notifications/services/NotificationDispatcher";
+import { buildLoginUsername, getLabLoginPrefix } from "../models/auth/LoginUsernameBootstrapper";
 
 export interface UserRequest extends Request {
      body: {
@@ -71,7 +72,7 @@ export interface NewAccountRequest {
      },
 }
 
-const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: number }> => {
+const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: number; loginUsername?: string }> => {
      try {
           const { name, password, role, email, branch } = req.body;
 
@@ -118,6 +119,12 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                pin: req.body.pin ? parseInt(req.body.pin) : 0,
           });
 
+          const loginPrefix = await getLabLoginPrefix(tenantId, connection);
+          const loginUsername = buildLoginUsername(loginPrefix, 'staff', Number(insertResult));
+          await connection("roles")
+               .where({ employeeid: insertResult })
+               .update({ login_username: loginUsername });
+
           const createdRow = await connection("roles")
                .select([
                     "employeeid",
@@ -133,7 +140,8 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                     "branch",
                     "mobile",
                     "alternativeMobile",
-                    "dob"
+                    "dob",
+                    "login_username"
                ])
                .where({ employeeid: insertResult })
                .first();
@@ -154,7 +162,7 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                logger.error('USER_CREATED notification dispatch failed', err);
           });
 
-          return { userId: insertResult };
+          return { userId: insertResult, loginUsername };
      } catch (error: any) {
           logger.error(error);
           // never send my sql errors to the client
@@ -227,6 +235,7 @@ const getAllLogins = async (tenantId: number, records: {
       SELECT
         rl.employeeid,
         rl.username,
+     rl.login_username AS loginUsername,
         rl.role,
         rl.email,
         rl.branch,
@@ -346,7 +355,7 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
      }
 };
 
-const updateUserBasicInfo = async (body:any, tenantId: number, isUser: boolean = false): Promise<number> => {
+const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean = false): Promise<number> => {
      const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile } = body;
      const roleRepo = new RolesRepository(tenantId);
      const employeeId = Number(employeeid);

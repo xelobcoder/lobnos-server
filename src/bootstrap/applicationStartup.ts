@@ -6,6 +6,7 @@ import { bootstrapExpenseCategories } from '../models/Expenses/ExpenseCategoryBo
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
+import { bootstrapLoginUsernames } from '../models/auth/LoginUsernameBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapBillingTables(tenantId);
@@ -13,6 +14,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapExpenseCategories(tenantId);
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
+	await bootstrapLoginUsernames(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapHomeCollectionSeeds(tenantId);
@@ -30,17 +32,17 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 }
 
 export function startApplicationBackgroundWorkers(tenantId = 1, options: { accountingReady: boolean }): void {
-     if (!options.accountingReady) return;
+	if (!options.accountingReady) return;
 
-     try {
-          startAccountingWorker();
-     } catch (error) {
-          console.error('[Bootstrap] Accounting worker failed to start (isolated, non-fatal):', error);
-     }
+	try {
+		startAccountingWorker();
+	} catch (error) {
+		console.error('[Bootstrap] Accounting worker failed to start (isolated, non-fatal):', error);
+	}
 
-     setInterval(() => {
-          processPendingOutbox(tenantId).catch((error) => {
-               console.error('[Accounting] Periodic outbox sweep failed:', error);
-          });
-     }, 60_000);
+	setInterval(() => {
+		processPendingOutbox(tenantId).catch((error) => {
+			console.error('[Accounting] Periodic outbox sweep failed:', error);
+		});
+	}, 60_000);
 }

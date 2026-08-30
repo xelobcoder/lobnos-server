@@ -3,10 +3,19 @@ import User from '../../LobnosAuth/user'
 import logger from "../../hooks/logger";
 import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
-import { OperationsFailures } from "../../models/operations/types"; 
+import { OperationsFailures } from "../../models/operations/types";
 import { parseCookies } from "../../middleware/validateTenancy";
 import Security from "../../models/security/securityClass";
 import TokenValidator from "../../models/settings/users/TokenValidator";
+import bcrypt from "bcrypt";
+import KnexConnection from "../../database/KnexConnections";
+
+const passwordMatches = async (password: string, storedPassword: string, isUpdated?: number): Promise<boolean> => {
+	if (Number(isUpdated) === 1 || storedPassword.startsWith('$2')) {
+		return await bcrypt.compare(password, storedPassword);
+	}
+	return storedPassword === password;
+};
 
 
 export const getLogins = async (request: Request<{}, {}, {}, { count: number, page: number, sortby: 'ASC' | 'DESC', name: string, email: string, role: string, tenantId: string }>, response: Response) => {
@@ -126,6 +135,84 @@ export const authenticateClinician = async (req: Request<{}, {}, { email: string
 	} catch (err) {
 		logger.error(err);
 		customError("Something wrong has occurred", 404, res);
+	}
+};
+
+export const authenticateClinicianPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, email?: string, password: string }, { tenantId: number }>, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const { username, identifier, email, password } = req.body;
+		const loginIdentifier = username || identifier || email;
+		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
+
+		const connection = await KnexConnection(tenantId);
+		const hasLoginUsername = await connection.schema.hasColumn('clinicianscredentials', 'login_username');
+		const query = connection('clinicianscredentials as cc')
+			.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid')
+			.select('cc.*', 'cbi.name', 'cbi.phone', 'cbi.email as clinician_email')
+			.where('cc.identifier', loginIdentifier)
+			.orWhere('cc.email', loginIdentifier);
+		if (hasLoginUsername) query.orWhere('cc.login_username', loginIdentifier);
+
+		const clinician = await query.first();
+		if (!clinician) return customError("Invalid credentials", 401, res);
+
+		const matched = await passwordMatches(password, clinician.password, clinician.ispasswordUpdated);
+		if (!matched) return customError("Invalid credentials", 401, res);
+
+		const user = {
+			role: "clinician",
+			employeeid: clinician.clinicianid,
+			clinicianid: clinician.clinicianid,
+			username: clinician.name || clinician.identifier || clinician.login_username,
+			email: clinician.email || clinician.clinician_email,
+			loginUsername: clinician.login_username,
+		};
+		const token = await new User(null, null, null, null, null).tokenizeData(user, "12h");
+		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user });
+	} catch (err) {
+		logger.error(err);
+		customError("Something wrong has occurred", 500, res);
+	}
+};
+
+export const authenticatePatientPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, email?: string, password: string }, { tenantId: number }>, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const { username, identifier, email, password } = req.body;
+		const loginIdentifier = username || identifier || email;
+		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
+
+		const connection = await KnexConnection(tenantId);
+		const hasLoginUsername = await connection.schema.hasColumn('patients_credentials', 'login_username');
+		const query = connection('patients_credentials as pc')
+			.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')
+			.select('pc.*', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
+			.where('pc.username', loginIdentifier)
+			.orWhere('np.email', loginIdentifier)
+			.orWhere('np.fullpatientid', loginIdentifier);
+		if (hasLoginUsername) query.orWhere('pc.login_username', loginIdentifier);
+
+		const patient = await query.first();
+		if (!patient) return customError("Invalid credentials", 401, res);
+
+		const matched = await passwordMatches(password, patient.password, patient.updated === true || patient.updated === 'true' ? 1 : 0);
+		if (!matched) return customError("Invalid credentials", 401, res);
+
+		const user = {
+			role: "patient",
+			employeeid: patient.patientid,
+			patientid: patient.patientid,
+			username: `${patient.firstname || ''} ${patient.lastname || ''}`.trim() || patient.username,
+			email: patient.email,
+			loginUsername: patient.login_username,
+			fullpatientid: patient.fullpatientid,
+		};
+		const token = await new User(null, null, null, null, null).tokenizeData(user, "12h");
+		res.send({ message: "Patient authenticated", statusCode: 200, status: "success", accessToken: token, token, user });
+	} catch (err) {
+		logger.error(err);
+		customError("Something wrong has occurred", 500, res);
 	}
 };
 

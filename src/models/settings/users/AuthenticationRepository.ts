@@ -1,7 +1,6 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import KnexConnection from "../../../database/KnexConnections";
-import { z } from 'zod';
 
 export default class AuthenticationRepository {
     private connection;
@@ -16,18 +15,24 @@ export default class AuthenticationRepository {
         return await bcrypt.hash(password, saltRounds);
     }
 
-    async validatePassword(email: string, password: string): Promise<boolean> {
-        const emailSchema = z.string().email();
-        try {
-            emailSchema.parse(email);
-        } catch (error) {
-            throw new Error("Invalid Email Provided")
-        }
-
+    async getUserByLoginIdentifier(identifier: string): Promise<any | null> {
         const connection = await this.connection;
-        const user = await connection(this.tablename).where({ email }).first();
-        if (!user) return false;
-        return await bcrypt.compare(password, user.password);
+        const loginIdentifier = String(identifier || '').trim();
+        if (!loginIdentifier) return null;
+        const hasLoginUsername = await connection.schema.hasColumn(this.tablename, 'login_username');
+        const query = connection(this.tablename).where({ email: loginIdentifier });
+        if (hasLoginUsername) {
+            query.orWhere({ login_username: loginIdentifier });
+        }
+        query.orWhere({ username: loginIdentifier });
+        return await query.first() || null;
+    }
+
+    async validatePassword(identifier: string, password: string): Promise<any | null> {
+        const user = await this.getUserByLoginIdentifier(identifier);
+        if (!user) return null;
+        const passwordMatched = await bcrypt.compare(password, user.password);
+        return passwordMatched ? user : null;
     }
 
     async generateAccessToken(email: string): Promise<string> {
@@ -43,11 +48,11 @@ export default class AuthenticationRepository {
         return jwt.sign({ email }, secretKey as string, { expiresIn: '7d' });
     }
 
-    async login(email: string, password: string): Promise<{ accessToken: string, refreshToken: string } | null> {
-        const isValidPassword = await this.validatePassword(email, password);
-        if (!isValidPassword) return null;
-        const accessToken = await this.generateAccessToken(email);
-        const refreshToken = await this.generateRefreshToken(email);
-        return { accessToken, refreshToken };
+    async login(identifier: string, password: string): Promise<{ accessToken: string, refreshToken: string, user: any } | null> {
+        const user = await this.validatePassword(identifier, password);
+        if (!user) return null;
+        const accessToken = await this.generateAccessToken(user.email);
+        const refreshToken = await this.generateRefreshToken(user.email);
+        return { accessToken, refreshToken, user };
     }
 }

@@ -31,15 +31,16 @@ export class AuthController {
 		try {
 			const tenantId = this.getTenantId(req);
 			this.authRepo = new AuthenticationRepository(tenantId);
-			const { email, password, browserInfo } = req.body;
-			const tokens = await this.authRepo.login(email, password);
+			const { email, username, identifier, password, browserInfo } = req.body;
+			const loginIdentifier = username || identifier || email;
+			const tokens = await this.authRepo.login(loginIdentifier, password);
 			if (!tokens) {
-				const message = 'Invalid email or password'
+				const message = 'Invalid username or password'
 				res.status(401).json({ status: false, error: message });
 				return;
 			}
-			const user = await new RolesRepository(tenantId).getRoleByEmail(email);
-			const { role, username, employeeid, activation } = user;
+			const user = tokens.user;
+			const { role, username: displayUsername, employeeid, activation, email: userEmail, login_username } = user;
 			if (parseInt(activation.toString()) == 0) {
 				res.send({
 					status: false,
@@ -62,7 +63,7 @@ export class AuthController {
 			res.status(200).json({
 				status: true,
 				accessToken: tokens.accessToken,
-				user: { role, employeeid, username, email },
+				user: { role, employeeid, username: displayUsername, email: userEmail, loginUsername: login_username },
 				sessionExpiryTime,
 				loginsessionId,
 				settings: {
