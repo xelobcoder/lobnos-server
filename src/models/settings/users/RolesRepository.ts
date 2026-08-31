@@ -5,7 +5,7 @@ export interface IEmployee {
 	role: 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist';
 	password: string;
 	pin: number;
-	date_created?: string |Date,
+	date_created?: string | Date,
 	time?: string;
 	refresh_token?: string | null;
 	activation: number;
@@ -16,6 +16,10 @@ export interface IEmployee {
 	mobile: string;
 	alternativeMobile?: string | null;
 	dob?: string | null;
+	firstname?: string | null;
+	middlename?: string | null;
+	lastname?: string | null;
+	staff_designation?: string | null;
 }
 import KnexConnection from "../../../database/KnexConnections";
 import logger from "../../../hooks/logger";
@@ -101,7 +105,7 @@ export default class RolesRepository {
 
 	async getEmployeeRole(employeeId: number): Promise<IEmployee['role'] | undefined> {
 		const employee = await this.getRoleById(employeeId);
-		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist','super_admin'];
+		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin'];
 		return employee && allowedRoles.includes(employee.role) ? employee.role as IEmployee['role'] : undefined;
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {

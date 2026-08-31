@@ -9,8 +9,10 @@ import Security from "../../models/security/securityClass";
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import bcrypt from "bcrypt";
 import KnexConnection from "../../database/KnexConnections";
+import crypto from "crypto";
 
 const passwordMatches = async (password: string, storedPassword: string, isUpdated?: number): Promise<boolean> => {
+	if (!password || !storedPassword) return false;
 	if (Number(isUpdated) === 1 || storedPassword.startsWith('$2')) {
 		return await bcrypt.compare(password, storedPassword);
 	}
@@ -93,6 +95,46 @@ export const updatePermissions = async (req: Request, res: Response) => {
 	updateUserPermission(req as UserRequest, res);
 };
 
+export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeeid: string | number }, { tenantId: string }>, res: Response) => {
+	try {
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const targetEmployeeid = parseInt(req.body.employeeid.toString(), 10);
+		const authUser = (req as any).authUser;
+		const actorEmployeeid = parseInt(authUser?.employeeid?.toString(), 10);
+
+		if (isNaN(targetEmployeeid) || isNaN(actorEmployeeid)) {
+			return customError("employeeid and authenticated actor are required", 400, res);
+		}
+
+		const connection = await KnexConnection(tenantId);
+		const actorRole = String(authUser?.role || '').toLowerCase();
+		if (!['admin', 'manager'].includes(actorRole)) {
+			return customError("Only admin or manager can reset staff passwords", 403, res);
+		}
+
+		const target = await connection("roles").select("employeeid").where({ employeeid: targetEmployeeid }).first();
+		if (!target) {
+			return customError("Employee not found", 404, res);
+		}
+
+		const temporaryPassword = crypto.randomBytes(5).toString("hex");
+		const passwordHash = await bcrypt.hash(temporaryPassword, 10);
+		await connection("roles")
+			.where({ employeeid: targetEmployeeid })
+			.update({ password: passwordHash, updated_on: new Date() });
+
+		res.send({
+			status: "success",
+			statusCode: 200,
+			message: "Password reset successfully",
+			temporaryPassword,
+		});
+	} catch (error) {
+		logger.error(error);
+		responseError(res);
+	}
+};
+
 export const authenticateClinician = async (req: Request<{}, {}, { email: string, password: string }, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantIdP = parseInt(req.query.tenantId.toString())
@@ -147,12 +189,18 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 
 		const connection = await KnexConnection(tenantId);
 		const hasLoginUsername = await connection.schema.hasColumn('clinicianscredentials', 'login_username');
+		const hasEmail = await connection.schema.hasColumn('clinicianscredentials', 'email');
+		const generatedClinicianIdMatch = loginIdentifier.match(/C(\d+)$/i);
+		const generatedClinicianId = generatedClinicianIdMatch ? parseInt(generatedClinicianIdMatch[1], 10) : null;
 		const query = connection('clinicianscredentials as cc')
 			.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid')
 			.select('cc.*', 'cbi.name', 'cbi.phone', 'cbi.email as clinician_email')
-			.where('cc.identifier', loginIdentifier)
-			.orWhere('cc.email', loginIdentifier);
-		if (hasLoginUsername) query.orWhere('cc.login_username', loginIdentifier);
+			.where((builder) => {
+				builder.where('cc.identifier', loginIdentifier).orWhere('cbi.email', loginIdentifier);
+				if (hasEmail) builder.orWhere('cc.email', loginIdentifier);
+				if (hasLoginUsername) builder.orWhere('cc.login_username', loginIdentifier);
+				if (generatedClinicianId && Number.isFinite(generatedClinicianId)) builder.orWhere('cc.clinicianid', generatedClinicianId);
+			});
 
 		const clinician = await query.first();
 		if (!clinician) return customError("Invalid credentials", 401, res);
@@ -188,10 +236,12 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 		const query = connection('patients_credentials as pc')
 			.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')
 			.select('pc.*', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
-			.where('pc.username', loginIdentifier)
-			.orWhere('np.email', loginIdentifier)
-			.orWhere('np.fullpatientid', loginIdentifier);
-		if (hasLoginUsername) query.orWhere('pc.login_username', loginIdentifier);
+			.where((builder) => {
+				builder.where('pc.username', loginIdentifier)
+					.orWhere('np.email', loginIdentifier)
+					.orWhere('np.fullpatientid', loginIdentifier);
+				if (hasLoginUsername) builder.orWhere('pc.login_username', loginIdentifier);
+			});
 
 		const patient = await query.first();
 		if (!patient) return customError("Invalid credentials", 401, res);

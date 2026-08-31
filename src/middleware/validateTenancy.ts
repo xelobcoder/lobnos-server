@@ -36,6 +36,22 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (status.expired == true) return customError('Token expired', 500, response);
 
           const decoded = await new TokenValidator().decodeAccessToken(tokenValue);
+          const role = decoded?.role ? String(decoded.role).toLowerCase().trim() : '';
+          if (role === 'clinician' || role === 'patient') {
+               const portalId = role === 'clinician' ? decoded?.clinicianid || decoded?.employeeid : decoded?.patientid || decoded?.employeeid;
+               if (!portalId) return customError('Invalid token', 401, response);
+               (request as any).authUser = {
+                    employeeid: Number(portalId),
+                    clinicianid: role === 'clinician' ? Number(portalId) : undefined,
+                    patientid: role === 'patient' ? Number(portalId) : undefined,
+                    email: decoded?.email || null,
+                    role,
+                    branch: null,
+                    tenantId,
+               };
+               return next();
+          }
+
           const email = decoded?.email ? String(decoded.email) : null;
           if (!email) return customError('Invalid token', 401, response);
 

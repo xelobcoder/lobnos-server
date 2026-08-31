@@ -3,7 +3,6 @@ import { Request, response, Response } from "express";
 import { customError, responseError, paginationQuery, promisifyQuery, rowAffected } from "../hooks/helper";
 import { OperationsFailures } from "../models/operations/types";
 import Security from "../models/security/securityClass";
-import { PrimeLimsTableroles } from "../database/DatabaseTableSchema";
 import logger from "../hooks/logger";
 import RolesRepository from "../models/settings/users/RolesRepository";
 import RolesAuditRepository from "../models/settings/users/RolesAuditRepository";
@@ -66,6 +65,10 @@ export interface NewAccountRequest {
           department: string;
           employeeId: string;
           address: string;
+          designation: string;
+          firstname: string;
+          middlename?: string;
+          lastname: string;
      },
      query: {
           tenantId: string;
@@ -74,7 +77,7 @@ export interface NewAccountRequest {
 
 const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: number; loginUsername?: string }> => {
      try {
-          const { name, password, role, email, branch } = req.body;
+          const { name, password, role, email, branch, designation, firstname, middlename, lastname } = req.body;
 
           const tenantId = parseInt(req.query.tenantId);
           const user = new RolesRepository(tenantId);
@@ -113,6 +116,10 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                mobile: req.body.mobile || "",
                alternativeMobile: req.body.altMobile || null,
                dob: req.body.dob || null,
+               firstname: firstname || null,
+               middlename: middlename || null,
+               lastname: lastname || null,
+               staff_designation: designation || null,
                updated_on: new Date(),
                date_created: new Date(),
                activation: 1,
@@ -141,6 +148,10 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                     "mobile",
                     "alternativeMobile",
                     "dob",
+                    "firstname",
+                    "middlename",
+                    "lastname",
+                    "staff_designation",
                     "login_username"
                ])
                .where({ employeeid: insertResult })
@@ -228,7 +239,7 @@ const getAllLogins = async (tenantId: number, records: {
      sortby: 'ASC' | 'DESC',
      page: number,
      count: number
-}): Promise<PrimeLimsTableroles[] | any> => {
+}): Promise<any[] | any> => {
      const { name, email, role, sortby = 'DESC', page, count } = records
      try {
           let query = `
@@ -345,7 +356,7 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
           const { id, tenantId } = req.query;
           const tenantIdP = parseInt(tenantId.toString())
           if (!id) return customError("employeeid required", 404, res);
-          const queryString = `SELECT employeeid, username, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin FROM roles WHERE employeeid = ?`;
+          const queryString = `SELECT employeeid, username, login_username AS loginUsername, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin, firstname, middlename, lastname, staff_designation AS designation FROM roles WHERE employeeid = ?`;
 
           const result = await promisifyQuery(tenantIdP, queryString, [parseInt(id)]);
           res.send({ result, message: "success", statusCode: 200 });
@@ -356,7 +367,7 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
 };
 
 const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean = false): Promise<number> => {
-     const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile } = body;
+     const { employeeid, name, email, role, branch, pin, cpassword, password, dob, altMobile, mobile, alternativeMobile, firstname, middlename, lastname, designation } = body;
      const roleRepo = new RolesRepository(tenantId);
      const employeeId = Number(employeeid);
 
@@ -373,7 +384,7 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
 
 
      const knex = await KnexConnection(tenantId);
-     const passwordHash = await roleRepo.hashPassword(password);
+     const passwordHash = password ? await roleRepo.hashPassword(password) : null;
 
 
      const isPinUnique = await knex('roles')
@@ -402,24 +413,37 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
                     "branch",
                     "mobile",
                     "alternativeMobile",
-                    "dob"
+                    "dob",
+                    "firstname",
+                    "middlename",
+                    "lastname",
+                    "staff_designation"
                ])
                .where({ employeeid: targetEmployeeid })
                .first();
 
+          const updatePayload: Record<string, any> = {
+               username: name,
+               email: email,
+               mobile: mobile || "",
+               alternativeMobile: altMobile || alternativeMobile || null,
+               role: role,
+               branch: parseInt(branch),
+               pin: pin ? parseInt(pin.toString()) : null,
+               dob: dob || null,
+               firstname: firstname || null,
+               middlename: middlename || null,
+               lastname: lastname || null,
+               staff_designation: designation || null,
+          };
+
+          if (passwordHash) {
+               updatePayload.password = passwordHash;
+          }
+
           const updateCount = await knex('roles')
                .where('employeeid', employeeid)
-               .update({
-                    username: name,
-                    email: email,
-                    mobile: mobile || "",
-                    alternativeMobile: altMobile || alternativeMobile || null,
-                    role: role,
-                    branch: parseInt(branch),
-                    password: passwordHash,
-                    pin: pin ? parseInt(pin.toString()) : null,
-                    dob: dob || null,
-               });
+               .update(updatePayload);
 
           if (updateCount > 0) {
                const newRow = await knex("roles")
@@ -437,7 +461,11 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
                          "branch",
                          "mobile",
                          "alternativeMobile",
-                         "dob"
+                         "dob",
+                         "firstname",
+                         "middlename",
+                         "lastname",
+                         "staff_designation"
                     ])
                     .where({ employeeid: targetEmployeeid })
                     .first();

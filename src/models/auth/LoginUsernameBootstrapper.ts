@@ -61,6 +61,11 @@ export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
 
           if (await connection.schema.hasTable('roles')) {
                await ensureLoginUsernameColumn(connection, 'roles', 'idx_roles_login_username');
+               if (!(await connection.schema.hasColumn('roles', 'staff_designation'))) {
+                    await connection.schema.alterTable('roles', (table) => {
+                         table.string('staff_designation', 100).nullable();
+                    });
+               }
                const rows = await connection('roles')
                     .select('employeeid')
                     .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));
@@ -87,6 +92,16 @@ export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
 
           if (await connection.schema.hasTable('clinicianscredentials')) {
                await ensureLoginUsernameColumn(connection, 'clinicianscredentials', 'idx_clinicians_credentials_login_username');
+               if (!(await connection.schema.hasColumn('clinicianscredentials', 'email'))) {
+                    await connection.schema.alterTable('clinicianscredentials', (table) => {
+                         table.string('email', 255).nullable();
+                    });
+               }
+               if (!(await connection.schema.hasColumn('clinicianscredentials', 'ispasswordUpdated'))) {
+                    await connection.schema.alterTable('clinicianscredentials', (table) => {
+                         table.tinyint('ispasswordUpdated').notNullable().defaultTo(0);
+                    });
+               }
                const rows = await connection('clinicianscredentials')
                     .select('clinicianid')
                     .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));

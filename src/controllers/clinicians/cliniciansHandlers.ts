@@ -5,6 +5,20 @@ import { responseError, customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ClinicianClass from "../../models/clincians/clinicianClass";
 import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
+import KnexConnection from "../../database/KnexConnections";
+import { decrypt_value } from "../../utils/encryptionModels";
+
+function decryptResultValue(value: string | null | undefined): string | null {
+	if (!value) return value || null;
+	const trimmedValue = String(value).trim();
+	const looksEncrypted = trimmedValue.length >= 24 && /^[A-Za-z0-9+/]+={0,2}$/.test(trimmedValue);
+	if (!looksEncrypted) return value;
+	try {
+		return decrypt_value(trimmedValue);
+	} catch {
+		return value;
+	}
+}
 
 export async function getCliniciansHandler(request: Request<{}, {}, {}, ClinicianFilterParams & { tenantId: string }>, response: Response): Promise<void> {
 	try {
@@ -93,7 +107,7 @@ export async function getSingleClinicianHandler(req: Request<{}, {}, {}, { tenan
 }
 
 
-export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTableclinicianbasicinfo,{tenantId: string}>, res: Response): Promise<void> {
+export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTableclinicianbasicinfo, { tenantId: string }>, res: Response): Promise<void> {
 	try {
 		const { id } = req.body;
 
@@ -118,7 +132,7 @@ export async function putCliniciansHandler(req: Request<{}, {}, PrimeLimsTablecl
 	}
 }
 
-export async function deleteCliniciansHandler(request: Request<{}, {}, {id: string}, { tenantId: string }>, response: Response): Promise<void> {
+export async function deleteCliniciansHandler(request: Request<{}, {}, { id: string }, { tenantId: string }>, response: Response): Promise<void> {
 	try {
 		const { id } = request.body;
 		const parseId = parseInt(id);
@@ -159,7 +173,7 @@ export async function postCliniciansHandler(req: Request, res: Response): Promis
 }
 
 
-export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Request<{}, {}, {email: string; phone: string}, { tenantId: string }>, response: Response, next: NextFunction) {
+export async function verifyClinicianPhoneNumberAndEmailMiddleware(request: Request<{}, {}, { email: string; phone: string }, { tenantId: string }>, response: Response, next: NextFunction) {
 	const phone = request.body.phone;
 	const email = request.body.email;
 	const TenantId = request.query.tenantId;
@@ -218,6 +232,178 @@ export async function getBillingTestBasedByClinicianHandler(req: Request<{}, {},
 		const result = await new ClinicianClass().getBillingTestBasedByClinician(tenantId, parseInt(billingid.toString()), parseInt(clinicianid));
 
 		res.send({ statusCode: 200, status: "success", result });
+	} catch (err: any) {
+		logger.error(err);
+		customError(err?.message || "something went wrong", 500, res);
+	}
+}
+
+export async function getClinicianPortalRequestsHandler(req: Request<{}, {}, {}, { tenantId: string, startdate?: string, enddate?: string, page?: string, count?: string }>, res: Response): Promise<void> {
+	try {
+		const authUser = (req as any).authUser;
+		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
+		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const page = Math.max(1, parseInt(req.query.page || '1', 10) || 1);
+		const count = Math.min(100, Math.max(1, parseInt(req.query.count || '10', 10) || 10));
+		const offset = (page - 1) * count;
+		const connection = await KnexConnection(tenantId);
+		const baseQuery = () => connection('dboservices as ds')
+			.innerJoin('billing as b', 'b.billingid', 'ds.billingid')
+			.innerJoin('test_ascension as ta', 'ta.serviceid', 'ds.serviceid')
+			.innerJoin('new_patients as np', 'np.patientid', 'b.patientid')
+			.innerJoin('test_panels as tp', 'tp.id', 'ta.testid')
+			.leftJoin('samplestatus as ss', 'ss.ascensionid', 'ta.id')
+			.where('ds.clinicianId', clinicianid)
+			.where('ds.serviceCategory', 'CLINICIAN_SPECIAL_BILLING')
+			.where((builder) => builder.where('ds.isDeleted', 0).orWhereNull('ds.isDeleted'));
+
+		let query = baseQuery()
+			.select(
+				'b.billingid',
+				'b.billedon',
+				'np.patientid',
+				'np.fullpatientid',
+				'np.firstname',
+				'np.middlename',
+				'np.lastname',
+				'ta.id as ascensionid',
+				'ta.testid',
+				'tp.name as testname',
+				'ta.collection',
+				'ta.processing',
+				'ta.ready',
+				'ta.approvalStatus',
+				'ss.approvalstatus as sampleApprovalStatus',
+				'ta.resultEntryStart',
+				'ta.resultEntryEnd',
+			);
+		let countQuery = baseQuery().countDistinct({ total: 'ta.id' }).first();
+
+		if (req.query.startdate && req.query.enddate) {
+			query = query.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [req.query.startdate, req.query.enddate]);
+			countQuery = countQuery.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [req.query.startdate, req.query.enddate]);
+		}
+
+		const [result, totalRow] = await Promise.all([
+			query.orderBy('b.billedon', 'desc').limit(count).offset(offset),
+			countQuery,
+		]);
+		const total = Number((totalRow as any)?.total || 0);
+		res.send({ status: "success", statusCode: 200, result, pagination: { page, count, total, totalPages: Math.ceil(total / count) } });
+	} catch (err: any) {
+		logger.error(err);
+		customError(err?.message || "something went wrong", 500, res);
+	}
+}
+
+export async function getClinicianPortalRequestDetailsHandler(req: Request<{ ascensionid: string }, {}, {}, { tenantId: string }>, res: Response): Promise<void> {
+	try {
+		const authUser = (req as any).authUser;
+		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
+		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const ascensionid = parseInt(req.params.ascensionid.toString(), 10);
+		if (isNaN(ascensionid)) return customError("Invalid ascensionid", 400, res);
+
+		const connection = await KnexConnection(tenantId);
+		const request = await connection('dboservices as ds')
+			.innerJoin('billing as b', 'b.billingid', 'ds.billingid')
+			.innerJoin('test_ascension as ta', 'ta.serviceid', 'ds.serviceid')
+			.innerJoin('new_patients as np', 'np.patientid', 'b.patientid')
+			.innerJoin('test_panels as tp', 'tp.id', 'ta.testid')
+			.select(
+				'b.billingid',
+				'b.billedon',
+				'np.patientid',
+				'np.fullpatientid',
+				'np.firstname',
+				'np.middlename',
+				'np.lastname',
+				'ta.id as ascensionid',
+				'ta.testid',
+				'tp.name as testname',
+				'ta.collection',
+				'ta.processing',
+				'ta.ready',
+				'ta.approvalStatus',
+				'ta.resultEntryStart',
+				'ta.resultEntryEnd',
+			)
+			.where('ds.clinicianId', clinicianid)
+			.where('ds.serviceCategory', 'CLINICIAN_SPECIAL_BILLING')
+			.where('ta.id', ascensionid)
+			.where((builder) => builder.where('ds.isDeleted', 0).orWhereNull('ds.isDeleted'))
+			.first();
+
+		if (!request) return customError("Request not found", 404, res);
+
+		const results = await connection('test_results')
+			.select('field', 'fieldid', 'value', 'originalvalue', 'created_on', 'updated_on', 'employeeid')
+			.where({ ascensionid, billingid: request.billingid, testid: request.testid })
+			.orderBy('fieldid', 'asc');
+
+		const comments = await connection('result_comments')
+			.select('comments')
+			.where({ billingid: request.billingid, testid: request.testid })
+			.first();
+
+		res.send({
+			status: "success",
+			statusCode: 200,
+			result: {
+				request,
+				results: results.map((row: any) => ({
+					...row,
+					value: decryptResultValue(row.originalvalue || row.value),
+				})),
+				comments: comments?.comments || null,
+			}
+		});
+	} catch (err: any) {
+		logger.error(err);
+		customError(err?.message || "something went wrong", 500, res);
+	}
+}
+
+export async function updateClinicianPortalRequestCommentHandler(req: Request<{ ascensionid: string }, { comments?: string }, { comments?: string }, { tenantId: string }>, res: Response): Promise<void> {
+	try {
+		const authUser = (req as any).authUser;
+		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
+		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+
+		const tenantId = parseInt(req.query.tenantId.toString());
+		const ascensionid = parseInt(req.params.ascensionid.toString(), 10);
+		const comments = String(req.body?.comments || '').trim();
+		if (isNaN(ascensionid)) return customError("Invalid ascensionid", 400, res);
+
+		const connection = await KnexConnection(tenantId);
+		const request = await connection('dboservices as ds')
+			.innerJoin('billing as b', 'b.billingid', 'ds.billingid')
+			.innerJoin('test_ascension as ta', 'ta.serviceid', 'ds.serviceid')
+			.select('b.billingid', 'ta.testid')
+			.where('ds.clinicianId', clinicianid)
+			.where('ta.id', ascensionid)
+			.where((builder) => builder.where('ds.isDeleted', 0).orWhereNull('ds.isDeleted'))
+			.first();
+
+		if (!request) return customError("Request not found", 404, res);
+
+		const existing = await connection('result_comments')
+			.where({ billingid: request.billingid, testid: request.testid })
+			.first();
+
+		if (existing) {
+			await connection('result_comments')
+				.where({ billingid: request.billingid, testid: request.testid })
+				.update({ comments });
+		} else {
+			await connection('result_comments').insert({ billingid: request.billingid, testid: request.testid, comments });
+		}
+
+		res.send({ status: "success", statusCode: 200, message: "Comment saved", comments });
 	} catch (err: any) {
 		logger.error(err);
 		customError(err?.message || "something went wrong", 500, res);
@@ -332,7 +518,7 @@ export async function postProcessedOrderHandler(req: Request, res: Response): Pr
 
 		// 	res.send({ message: "order processed successfully", statusCode: 200, status: "success" });
 		// }
-	} catch (err:any) {
+	} catch (err: any) {
 		customError(err?.message || err, 500, res);
 	}
 }

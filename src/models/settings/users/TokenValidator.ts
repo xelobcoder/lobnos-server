@@ -18,7 +18,7 @@ export default class TokenValidator {
           try {
                this.initializeSecretKey();
                const verified = jwt.verify(token, this.secretKey as string) as jwt.JwtPayload;
-               if (verified?.email) return { expired: false };
+               if (verified?.email || verified?.role) return { expired: false };
                return undefined;
           } catch (error) {
                if (error instanceof jwt.TokenExpiredError) {

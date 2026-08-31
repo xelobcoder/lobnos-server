@@ -439,7 +439,7 @@ export default class Operations {
 				conditions.push(`%${patientname.toLowerCase().trim().replace(/\s+/g, " ")}%`);
 			}
 
-			if (clinicianId) {
+			if (clinicianId && !isNaN(clinicianId as any as number)) {
 				finalQuery += ` AND ds.clinicianId = ?`;
 				conditions.push(clinicianId as any as string);
 			}
@@ -594,7 +594,8 @@ export default class Operations {
 				patientid, billingid, ascensionid,
 				testid: queryParams.testid,
 				patientname: queryParams.patientname,
-				isUltrasound, clinicianId, organizationId, grouped: queryParams.grouped || null
+				isUltrasound, clinicianId,
+				organizationId, grouped: queryParams.grouped || null
 			});
 			let query = finalQuery;
 			let conditionValues = conditionx;

@@ -1,7 +1,8 @@
-import { Router } from "express";
+import { Request, Response, Router } from "express";
 import * as clinicianHandlers from "./cliniciansHandlers";
 import { ClinicianPaymentHandler } from './ClinicianPaymentHandler';
 import { handleOverLoad } from "../../hooks/helper";
+import { checkTokenExists } from "../../middleware/validateTenancy";
 const router = Router();
 
 router.get("/api/v1/clinicians", handleOverLoad(clinicianHandlers.getCliniciansHandler));
@@ -12,6 +13,9 @@ router.post("/api/v1/clinicians", handleOverLoad(clinicianHandlers.verifyClinici
 router.post("/api/v1/client/filter/clinician", clinicianHandlers.filterClinicianHandler);
 router.get("/api/v1/clinician/resultsets", clinicianHandlers.getClinicianResultHandler);
 router.get("/api/v1/clinician/resultsets/billingid", clinicianHandlers.getBillingTestBasedByClinicianHandler);
+router.get("/api/v1/clinician/portal/requests", handleOverLoad(checkTokenExists), handleOverLoad(clinicianHandlers.getClinicianPortalRequestsHandler));
+router.get("/api/v1/clinician/portal/requests/:ascensionid", handleOverLoad(checkTokenExists), handleOverLoad(clinicianHandlers.getClinicianPortalRequestDetailsHandler));
+router.post("/api/v1/clinician/portal/requests/:ascensionid/comments", handleOverLoad(checkTokenExists), handleOverLoad(clinicianHandlers.updateClinicianPortalRequestCommentHandler));
 router.post("/api/v1/orders/temporary", clinicianHandlers.postTemporaryOrderHandler);
 router.get("/api/v1/orders/temporary", clinicianHandlers.getTemporaryOrdersHandler);
 router.get("/api/v1/orders/temporary/processing", clinicianHandlers.getTemporaryOrdersProcessingHandler);
@@ -59,8 +63,8 @@ router.get('/api/v1/billing/specialcodeinfo', handleOverLoad(getEntityInfoUsingS
 const clinicianPaymentHandler = new ClinicianPaymentHandler();
 
 router.put('/api/v1/clinicians/payments/:id', isAuthorizedRoleAdmin, (req, res) => clinicianPaymentHandler.createPayment(req, res));
-router.get('/api/v1/clinicians/payments/:id', handleOverLoad((req, res) => clinicianPaymentHandler.getPaymentById(req, res)));
-router.get('/api/v1/clinicians/payments/clinician/:clinicianId', handleOverLoad((req, res) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res)));
+router.get('/api/v1/clinicians/payments/:id', handleOverLoad((req: Request<{ id: string }, any, any, { tenantId: string }>, res: Response) => clinicianPaymentHandler.getPaymentById(req, res)));
+router.get('/api/v1/clinicians/payments/clinician/:clinicianId', handleOverLoad((req: Request<{ clinicianId: string }, any, any, { tenantId: string }>, res: Response) => clinicianPaymentHandler.getPaymentsByClinicianId(req, res)));
 
 
 export default router;

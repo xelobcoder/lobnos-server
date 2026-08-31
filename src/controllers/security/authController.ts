@@ -85,22 +85,48 @@ export class AuthController {
 			if (!isValid) return res.status(401).json({ message: 'Invalid token', status: false });
 			const { expired } = isValid;
 			if (expired) return res.status(401).json({ message: 'Token has expired', status: false });
-			const response = await new TokenValidator().decodeAccessToken(token) as { email: string }
+			const response = await new TokenValidator().decodeAccessToken(token) as any;
+			const portalRole = response?.role ? String(response.role).toLowerCase().trim() : '';
+			const companyInfo = await getAllCompanyProfiles(tenantId);
+			if (!companyInfo) return res.status(404).json({ message: 'Company information not found', status: false });
+			const { name: company } = companyInfo;
+			const applicationSettings = new ApplicationSettings();
+			const settings = await applicationSettings.getAllAppSettings(tenantId);
+
+			if (portalRole === 'clinician' || portalRole === 'patient') {
+				const portalId = portalRole === 'clinician' ? response?.clinicianid || response?.employeeid : response?.patientid || response?.employeeid;
+				if (!portalId) return res.status(401).json({ message: 'Invalid token', status: false });
+				return res.status(200).json({
+					message: 'Token is valid',
+					status: true,
+					user: {
+						loginDuration: 12,
+						customization: { theme: 'light' },
+						user: {
+							role: portalRole,
+							employeeid: Number(portalId),
+							clinicianid: portalRole === 'clinician' ? Number(portalId) : undefined,
+							patientid: portalRole === 'patient' ? Number(portalId) : undefined,
+							username: response?.username || '',
+							email: response?.email || null,
+							loginUsername: response?.loginUsername || null,
+						},
+						company,
+						tenantId,
+					},
+					settings
+				});
+			}
+
 			const { email } = response;
 			if (!email) return res.status(401).json({ message: 'Invalid token', status: false });
 			const user = await new RolesRepository(tenantId).getRoleByEmail(email);
 			const { role, username, employeeid, branch } = user;
-			const companyInfo = await getAllCompanyProfiles(tenantId);
-			if (!companyInfo) return res.status(404).json({ message: 'Company information not found', status: false });
-			const { name: company } = companyInfo;
 			const resultsettings = await ResultSettings.getResultEntrySettings(tenantId);
 			if (!resultsettings) return res.status(404).json({ message: 'Result settings not found', status: false });
 
 			const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
 			const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
-			const applicationSettings = new ApplicationSettings();
-			const settings = await applicationSettings.getAllAppSettings(tenantId);
-
 			return res.status(200).json({
 				message: 'Token is valid',
 				status: true,

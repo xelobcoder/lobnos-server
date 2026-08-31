@@ -12,9 +12,10 @@ import {
      authenticateClinician,
      authenticateClinicianPortal,
      authenticatePatientPortal,
+     resetStaffPasswordHandler,
      logoutUser,
 } from "./authHandlers";
-import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
+import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
 const router = express.Router();
 
@@ -24,6 +25,7 @@ router.post("/api/v1/logins", createAccount);
 router.delete("/api/v1/logins", deleteAccountHandler);
 router.post("/api/v1/logins/update", isAuthorizedRoleAdmin, updateBasicInfo);
 router.post("/api/v1/logins/update/user-updates", updateBasicInfo);
+router.post("/api/v1/logins/reset-password", checkTokenExists, resetStaffPasswordHandler);
 router.post("/api/v1/authenticate", authenticateUser);
 router.put("/api/v1/user/authentication/activate", activateUser);
 router.get("/api/v1/user/permissions", getUserPermissions);
