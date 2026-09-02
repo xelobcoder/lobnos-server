@@ -1,4 +1,6 @@
-export type PharmacyStockStatus = 'in_stock' | 'low_stock' | 'out_of_stock';
+import { PharmacyStockStatus } from '../entities/PharmacyStock';
+
+export type { PharmacyStockStatus };
 
 export interface PharmacyCatalogueItem {
      inventoryItemId: string;

@@ -5,6 +5,8 @@ export const PHARMACY_ROLES = [
      'pharmacy_dispensary_officer'
 ] as const;
 
+export const PHARMACY_ACCESS_ROLES = ['admin', 'manager', ...PHARMACY_ROLES];
+
 export const PHARMACY_CATEGORY_ID = 'CAT-PHARMACY';
 export const PHARMACY_CATEGORY_NAME = 'Pharmacy';
 
@@ -25,3 +27,18 @@ export const PHARMACY_SORT_COLUMNS = {
 
 export const PHARMACY_DEFAULT_SORT_FIELD = 'name';
 export const PHARMACY_DEFAULT_SORT_DIRECTION = 'asc';
+
+export const PHARMACY_SALE_STATUS_COMPLETED = 'completed';
+
+/** Reversal intent, and the terminal sale status each one lands on. */
+export const PHARMACY_REVERSAL_STATUSES = {
+     refund: 'refunded',
+     void: 'voided',
+     cancel: 'cancelled'
+} as const;
+
+/** Reversing a sale is a privileged correction, not a cashier action. */
+export const PHARMACY_REVERSAL_ROLES = ['admin', 'manager', 'pharmacy_manager'];
+
+export const PHARMACY_REVERSAL_MIN_REASON_LENGTH = 5;
+export const PHARMACY_REVERSAL_MAX_REASON_LENGTH = 500;

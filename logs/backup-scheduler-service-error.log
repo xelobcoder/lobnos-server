@@ -45,3 +45,10 @@
     error: 'Backup encryption failed: File size (4122935027) is greater than 2 GiB'
   }
 ]
+[BackupScheduler] some scheduled backups failed: [
+  {
+    scheduleId: 4,
+    success: false,
+    error: 'Backup encryption failed: File size (4784114847) is greater than 2 GiB'
+  }
+]

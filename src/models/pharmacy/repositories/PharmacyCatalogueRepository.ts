@@ -9,14 +9,14 @@ import {
      PHARMACY_MAX_PAGE_SIZE,
      PHARMACY_SORT_COLUMNS
 } from '../constants/pharmacy.constants';
+import { resolveStockStatus } from '../entities/PharmacyStock';
 import {
      IPharmacyCatalogueRepository,
      PharmacyCatalogueFilters,
      PharmacyCatalogueItem,
      PharmacyCataloguePage,
      PharmacyCataloguePageRequest,
-     PharmacyStockSummary,
-     PharmacyStockStatus
+     PharmacyStockSummary
 } from '../interfaces/IPharmacyCatalogueRepository';
 
 export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository {
@@ -111,13 +111,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                availableStock,
                minimumStock,
                salePrice: Number(row.sale_price || 0),
-               stockStatus: this.resolveStockStatus(availableStock, minimumStock)
+               stockStatus: resolveStockStatus(availableStock, minimumStock)
           };
-     }
-
-     private resolveStockStatus(availableStock: number, minimumStock: number): PharmacyStockStatus {
-          if (availableStock <= 0) return 'out_of_stock';
-          if (availableStock <= minimumStock) return 'low_stock';
-          return 'in_stock';
      }
 }

@@ -42,4 +42,13 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
                table.index(['sale_id'], 'idx_pharmacy_sale_lines_sale');
           });
      }
+
+     if (!await connection.schema.hasColumn('pharmacy_sales', 'reversal_type')) {
+          await connection.schema.alterTable('pharmacy_sales', (table) => {
+               table.string('reversal_type', 32).nullable();
+               table.string('reversal_reason', 500).nullable();
+               table.integer('reversed_by').unsigned().nullable();
+               table.timestamp('reversed_at').nullable();
+          });
+     }
 }

@@ -1,74 +1,253 @@
 import { randomUUID } from 'crypto';
-import { Knex } from 'knex';
-import KnexConnection from '../../../database/KnexConnections';
-import { PHARMACY_CATEGORY_NAME } from '../constants/pharmacy.constants';
-import { IPharmacySaleService, CreatePharmacySaleInput, PharmacySaleHistory, PharmacySaleReceipt } from '../interfaces/IPharmacySaleService';
+import {
+     PHARMACY_REVERSAL_MAX_REASON_LENGTH,
+     PHARMACY_REVERSAL_MIN_REASON_LENGTH,
+     PHARMACY_REVERSAL_STATUSES,
+     PHARMACY_SALE_STATUS_COMPLETED
+} from '../constants/pharmacy.constants';
+import { resolveStockStatus } from '../entities/PharmacyStock';
+import {
+     IPharmacySaleRepository,
+     PharmacySaleLineRow,
+     PharmacySaleRow,
+     PharmacyUnitOfWork
+} from '../interfaces/IPharmacySaleRepository';
+import {
+     IPharmacySaleService,
+     CreatePharmacySaleInput,
+     PharmacyPaymentMethod,
+     PharmacySaleDetail,
+     PharmacySaleHistory,
+     PharmacySaleHistoryItem,
+     PharmacySaleReceipt,
+     PharmacySaleReversal,
+     PharmacySaleReversalType,
+     ReversePharmacySaleInput
+} from '../interfaces/IPharmacySaleService';
 
 export class PharmacySaleService implements IPharmacySaleService {
-     private readonly connection: Promise<Knex>;
-
-     constructor(tenantId: number) { this.connection = KnexConnection(tenantId); }
+     constructor(private readonly saleRepository: IPharmacySaleRepository) { }
 
      async completeSale(input: CreatePharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt> {
           if (!input.idempotencyKey || !input.lines?.length) throw new Error('A sale requires an idempotency key and at least one line');
           if (new Set(input.lines.map((line) => line.inventoryItemId)).size !== input.lines.length) throw new Error('Duplicate inventory items are not allowed');
-          const connection = await this.connection;
-          return connection.transaction(async (trx) => {
-               const existing = await trx('pharmacy_sales').where({ idempotency_key: input.idempotencyKey }).first();
+
+          return this.saleRepository.withTransaction(async (unitOfWork) => {
+               const existing = await this.saleRepository.findSaleByIdempotencyKey(input.idempotencyKey, unitOfWork);
                if (existing) return this.toReceipt(existing);
-               const itemIds = input.lines.map((line) => line.inventoryItemId).sort();
-               const catalogue = await trx('inv_inventory_items as item')
-                    .join('inv_categories as category', 'category.id', 'item.category_id')
-                    .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.sale_price')
-                    .whereIn('item.id', itemIds).where('item.is_active', true).where('category.name', PHARMACY_CATEGORY_NAME).orderBy('item.id').forUpdate();
-               if (catalogue.length !== itemIds.length) throw new Error('One or more pharmacy items are unavailable');
-               const catalogueById = new Map(catalogue.map((item: any) => [item.id, item]));
-               const total = input.lines.reduce((sum, line) => {
-                    if (!Number.isFinite(line.quantity) || line.quantity <= 0) throw new Error('Sale quantities must be positive');
-                    const item = catalogueById.get(line.inventoryItemId);
-                    if (!Number.isFinite(Number(item.sale_price)) || Number(item.sale_price) <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
-                    if (Number(item.current_stock) < line.quantity) throw new Error(`${item.name} has insufficient stock`);
-                    return sum + Number(item.sale_price) * line.quantity;
-               }, 0);
+
+               const itemIds = input.lines.map((line) => line.inventoryItemId);
+               const items = await this.saleRepository.lockSellableItems(itemIds, unitOfWork);
+               if (items.length !== itemIds.length) throw new Error('One or more pharmacy items are unavailable');
+
+               const itemsById = new Map(items.map((item) => [item.id, item]));
                const now = new Date();
-               const sale = { id: randomUUID(), receipt_number: `PHM-${Date.now()}`, idempotency_key: input.idempotencyKey, customer_name: input.customerName?.trim() || 'Walk-in customer', patient_id: input.patientId || null, payment_method: input.paymentMethod, payment_reference: input.paymentReference?.trim() || null, total_amount: total, cashier_id: cashierId, status: 'completed', completed_at: now, created_at: now, updated_at: now };
-               await trx('pharmacy_sales').insert(sale);
-               for (const line of input.lines) {
-                    const item: any = catalogueById.get(line.inventoryItemId);
-                    const newStock = Number(item.current_stock) - line.quantity;
-                    const saleLine = { id: randomUUID(), sale_id: sale.id, inventory_item_id: item.id, item_name_snapshot: item.name, sku_snapshot: item.sku, quantity: line.quantity, unit_price: Number(item.sale_price), line_total: Number(item.sale_price) * line.quantity, created_at: now };
-                    await trx('pharmacy_sale_lines').insert(saleLine);
-                    await trx('inv_inventory_items').where({ id: item.id }).update({ current_stock: newStock, last_updated: now, updated_at: now });
-                    await trx('inv_inventory_transactions').insert({ id: `PHM-TXN-${randomUUID()}`, item_id: item.id, transaction_type: 'consumption', quantity: line.quantity, unit_type: 'consumption', previous_stock: item.current_stock, new_stock: newStock, total_cost: null, reason: 'Pharmacy POS sale', reference_id: sale.id, patientid: sale.patient_id, performed_by: cashierId, transaction_date: now, notes: sale.receipt_number, created_at: now });
+               const saleId = randomUUID();
+               const lines: PharmacySaleLineRow[] = [];
+               let total = 0;
+
+               for (const requested of input.lines) {
+                    const item = itemsById.get(requested.inventoryItemId)!;
+                    if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
+                    if (item.salePrice <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
+                    if (item.currentStock < requested.quantity) throw new Error(`${item.name} has insufficient stock`);
+
+                    const lineTotal = item.salePrice * requested.quantity;
+                    total += lineTotal;
+                    lines.push({
+                         id: randomUUID(),
+                         saleId,
+                         inventoryItemId: item.id,
+                         name: item.name,
+                         sku: item.sku,
+                         quantity: requested.quantity,
+                         unitPrice: item.salePrice,
+                         lineTotal
+                    });
                }
+
+               const sale: PharmacySaleRow = {
+                    id: saleId,
+                    receiptNumber: `PHM-${Date.now()}`,
+                    idempotencyKey: input.idempotencyKey,
+                    customerName: input.customerName?.trim() || 'Walk-in customer',
+                    patientId: input.patientId || null,
+                    paymentMethod: input.paymentMethod,
+                    paymentReference: input.paymentReference?.trim() || null,
+                    totalAmount: total,
+                    cashierId,
+                    status: PHARMACY_SALE_STATUS_COMPLETED,
+                    completedAt: now,
+                    reversalType: null,
+                    reversalReason: null,
+                    reversedBy: null,
+                    reversedAt: null
+               };
+
+               await this.saleRepository.insertSale(sale, unitOfWork);
+               await this.saleRepository.insertSaleLines(lines, unitOfWork);
+
+               for (const line of lines) {
+                    await this.applyStockChange(itemsById.get(line.inventoryItemId)!, -line.quantity, {
+                         direction: 'issue',
+                         reason: 'Pharmacy POS sale',
+                         sale,
+                         performedBy: cashierId,
+                         occurredAt: now,
+                         unitOfWork
+                    });
+               }
+
                return this.toReceipt(sale);
           });
      }
 
      async getSalesHistory(page: number, count: number, search?: string): Promise<PharmacySaleHistory> {
-          const connection = await this.connection;
           const safePage = Math.max(1, page);
           const safeCount = Math.min(100, Math.max(1, count));
-          let query = connection('pharmacy_sales')
-               .select('id', 'receipt_number', 'customer_name', 'payment_method', 'total_amount', 'status', 'completed_at', 'cashier_id')
-               .orderBy('completed_at', 'desc');
-          if (search?.trim()) {
-               const term = `%${search.trim()}%`;
-               query = query.where((builder) => builder.where('receipt_number', 'like', term).orWhere('customer_name', 'like', term));
-          }
-          const totalResult = await query.clone().clearSelect().clearOrder().count('* as count').first();
-          const total = Number(totalResult?.count || 0);
-          const rows = await query.limit(safeCount).offset((safePage - 1) * safeCount);
+          const { sales, total } = await this.saleRepository.listSales({ page: safePage, count: safeCount, search });
+
           return {
-               sales: rows.map((sale: any) => ({ id: sale.id, receiptNumber: sale.receipt_number, customerName: sale.customer_name, paymentMethod: sale.payment_method, total: Number(sale.total_amount), status: sale.status, completedAt: sale.completed_at, cashierId: Number(sale.cashier_id) })),
+               sales: sales.map((sale) => this.toHistoryItem(sale)),
                total,
                page: safePage,
                count: safeCount,
-               totalPages: Math.ceil(total / safeCount)
+               totalPages: Math.max(1, Math.ceil(total / safeCount))
           };
      }
 
-     private toReceipt(sale: any): PharmacySaleReceipt {
-          return { id: sale.id, receiptNumber: sale.receipt_number, total: Number(sale.total_amount), paymentMethod: sale.payment_method, completedAt: sale.completed_at };
+     async getSaleDetail(saleId: string): Promise<PharmacySaleDetail> {
+          const sale = await this.saleRepository.findSaleById(saleId);
+          if (!sale) throw new Error('Sale not found');
+          const lines = await this.saleRepository.findSaleLines(saleId);
+
+          return {
+               ...this.toHistoryItem(sale),
+               paymentReference: sale.paymentReference,
+               patientId: sale.patientId,
+               reversedBy: sale.reversedBy,
+               lines: lines.map((line) => ({
+                    id: line.id,
+                    inventoryItemId: line.inventoryItemId,
+                    name: line.name,
+                    sku: line.sku,
+                    quantity: line.quantity,
+                    unitPrice: line.unitPrice,
+                    lineTotal: line.lineTotal
+               }))
+          };
+     }
+
+     async reverseSale(saleId: string, input: ReversePharmacySaleInput, actorId: number): Promise<PharmacySaleReversal> {
+          const status = PHARMACY_REVERSAL_STATUSES[input?.type as keyof typeof PHARMACY_REVERSAL_STATUSES];
+          if (!status) throw new Error('Reversal type must be refund, void or cancel');
+          const reason = input.reason?.trim() || '';
+          if (reason.length < PHARMACY_REVERSAL_MIN_REASON_LENGTH) throw new Error('A reversal reason of at least 5 characters is required');
+          if (reason.length > PHARMACY_REVERSAL_MAX_REASON_LENGTH) throw new Error('The reversal reason is too long');
+
+          return this.saleRepository.withTransaction(async (unitOfWork) => {
+               // Locked before the status check so two reviewers cannot both restock the same receipt.
+               const sale = await this.saleRepository.lockSale(saleId, unitOfWork);
+               if (!sale) throw new Error('Sale not found');
+               if (sale.status !== PHARMACY_SALE_STATUS_COMPLETED) throw new Error(`This sale is already ${sale.status} and cannot be reversed again`);
+
+               const lines = await this.saleRepository.findSaleLines(saleId, unitOfWork);
+               if (!lines.length) throw new Error('This sale has no lines to reverse');
+
+               const now = new Date();
+               const restockedItems: PharmacySaleReversal['restockedItems'] = [];
+
+               for (const line of lines) {
+                    const item = await this.saleRepository.lockItem(line.inventoryItemId, unitOfWork);
+                    if (item) {
+                         await this.applyStockChange(item, line.quantity, {
+                              direction: 'return',
+                              reason: `Pharmacy sale ${input.type}: ${reason}`,
+                              sale,
+                              performedBy: actorId,
+                              occurredAt: now,
+                              unitOfWork
+                         });
+                    }
+                    restockedItems.push({ inventoryItemId: line.inventoryItemId, name: line.name, quantity: line.quantity });
+               }
+
+               await this.saleRepository.markSaleReversed(sale.id, { status, type: input.type, reason, actorId, occurredAt: now }, unitOfWork);
+
+               return {
+                    id: sale.id,
+                    receiptNumber: sale.receiptNumber,
+                    status,
+                    reversalType: input.type,
+                    reason,
+                    reversedBy: actorId,
+                    reversedAt: now,
+                    restockedItems
+               };
+          });
+     }
+
+     /** Moves stock by `delta` and keeps the stored status column in step, so inventory screens stay truthful. */
+     private async applyStockChange(
+          item: { id: string; currentStock: number; minimumStock: number },
+          delta: number,
+          context: {
+               direction: 'issue' | 'return';
+               reason: string;
+               sale: PharmacySaleRow;
+               performedBy: number;
+               occurredAt: Date;
+               unitOfWork: PharmacyUnitOfWork;
+          }
+     ): Promise<void> {
+          const previousStock = item.currentStock;
+          const newStock = previousStock + delta;
+
+          await this.saleRepository.applyStockLevel(
+               item.id,
+               newStock,
+               resolveStockStatus(newStock, item.minimumStock),
+               context.occurredAt,
+               context.unitOfWork
+          );
+          await this.saleRepository.recordStockMovement({
+               itemId: item.id,
+               quantity: Math.abs(delta),
+               previousStock,
+               newStock,
+               direction: context.direction,
+               reason: context.reason,
+               referenceId: context.sale.id,
+               patientId: context.sale.patientId,
+               performedBy: context.performedBy,
+               receiptNumber: context.sale.receiptNumber,
+               occurredAt: context.occurredAt
+          }, context.unitOfWork);
+     }
+
+     private toHistoryItem(sale: PharmacySaleRow): PharmacySaleHistoryItem {
+          return {
+               id: sale.id,
+               receiptNumber: sale.receiptNumber,
+               customerName: sale.customerName,
+               paymentMethod: sale.paymentMethod as PharmacyPaymentMethod,
+               total: sale.totalAmount,
+               status: sale.status,
+               completedAt: sale.completedAt,
+               cashierId: sale.cashierId,
+               reversalType: (sale.reversalType as PharmacySaleReversalType) || null,
+               reversalReason: sale.reversalReason,
+               reversedAt: sale.reversedAt
+          };
+     }
+
+     private toReceipt(sale: PharmacySaleRow): PharmacySaleReceipt {
+          return {
+               id: sale.id,
+               receiptNumber: sale.receiptNumber,
+               total: sale.totalAmount,
+               paymentMethod: sale.paymentMethod as PharmacyPaymentMethod,
+               completedAt: sale.completedAt as Date
+          };
      }
 }
