@@ -155,6 +155,12 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      async listSales(filters: PharmacySaleListFilters): Promise<{ sales: PharmacySaleRow[]; total: number }> {
           const connection = await this.connection;
           let query = connection('pharmacy_sales').orderBy('completed_at', 'desc');
+          if (filters.statuses?.length) {
+               query = query.whereIn('status', filters.statuses);
+          }
+          if (filters.reversalType) {
+               query = query.where('reversal_type', filters.reversalType);
+          }
           if (filters.search?.trim()) {
                const term = `%${filters.search.trim()}%`;
                query = query.where((builder) => builder.where('receipt_number', 'like', term).orWhere('customer_name', 'like', term));

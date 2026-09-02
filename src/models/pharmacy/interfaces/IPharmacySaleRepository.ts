@@ -59,6 +59,8 @@ export interface PharmacySaleListFilters {
      page: number;
      count: number;
      search?: string;
+     statuses?: string[];
+     reversalType?: string;
 }
 
 export interface IPharmacySaleRepository {

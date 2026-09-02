@@ -37,6 +37,9 @@ export const PHARMACY_REVERSAL_STATUSES = {
      cancel: 'cancelled'
 } as const;
 
+/** Every terminal status produced by a reversal, used to list refunded/voided/cancelled sales. */
+export const PHARMACY_REVERSED_STATUSES = Object.values(PHARMACY_REVERSAL_STATUSES) as string[];
+
 /** Reversing a sale is a privileged correction, not a cashier action. */
 export const PHARMACY_REVERSAL_ROLES = ['admin', 'manager', 'pharmacy_manager'];
 

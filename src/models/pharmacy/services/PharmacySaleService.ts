@@ -19,6 +19,7 @@ import {
      PharmacySaleDetail,
      PharmacySaleHistory,
      PharmacySaleHistoryItem,
+     PharmacySaleHistoryRequest,
      PharmacySaleReceipt,
      PharmacySaleReversal,
      PharmacySaleReversalType,
@@ -102,10 +103,16 @@ export class PharmacySaleService implements IPharmacySaleService {
           });
      }
 
-     async getSalesHistory(page: number, count: number, search?: string): Promise<PharmacySaleHistory> {
-          const safePage = Math.max(1, page);
-          const safeCount = Math.min(100, Math.max(1, count));
-          const { sales, total } = await this.saleRepository.listSales({ page: safePage, count: safeCount, search });
+     async getSalesHistory(request: PharmacySaleHistoryRequest): Promise<PharmacySaleHistory> {
+          const safePage = Math.max(1, request.page);
+          const safeCount = Math.min(100, Math.max(1, request.count));
+          const { sales, total } = await this.saleRepository.listSales({
+               page: safePage,
+               count: safeCount,
+               search: request.search,
+               statuses: request.statuses,
+               reversalType: request.reversalType
+          });
 
           return {
                sales: sales.map((sale) => this.toHistoryItem(sale)),

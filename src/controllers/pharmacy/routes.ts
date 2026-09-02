@@ -14,6 +14,7 @@ router.get('/stock', PharmacyCatalogueController.getStock);
 router.get('/dashboard', PharmacyDashboardController.getDashboard);
 
 router.get('/sales-history', PharmacySaleController.getSalesHistory);
+router.get('/sales/reversals', PharmacySaleController.getReversedSales);
 router.post('/sales', PharmacySaleController.completeSale);
 router.get('/sales/:saleId', PharmacySaleController.getSaleDetail);
 router.post('/sales/:saleId/reverse', pharmacyReversalAccess, PharmacySaleController.reverseSale);

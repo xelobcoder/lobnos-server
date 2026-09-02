@@ -57,6 +57,15 @@ export interface PharmacySaleHistory {
      totalPages: number;
 }
 
+export interface PharmacySaleHistoryRequest {
+     page: number;
+     count: number;
+     search?: string;
+     /** Restricts the listing to these sale statuses. Defaults to every status. */
+     statuses?: string[];
+     reversalType?: PharmacySaleReversalType;
+}
+
 export interface PharmacySaleLine {
      id: string;
      inventoryItemId: string;
@@ -77,8 +86,8 @@ export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
 export interface IPharmacySaleService {
      /** Completes an idempotent sale and atomically records the resulting inventory issue. */
      completeSale(input: CreatePharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt>;
-     /** Lists completed pharmacy sales without exposing mutable inventory state. */
-     getSalesHistory(page: number, count: number, search?: string): Promise<PharmacySaleHistory>;
+     /** Lists pharmacy sales, optionally narrowed to particular statuses. */
+     getSalesHistory(request: PharmacySaleHistoryRequest): Promise<PharmacySaleHistory>;
      /** Returns one sale with the item lines captured at the time of sale. */
      getSaleDetail(saleId: string): Promise<PharmacySaleDetail>;
      /** Refunds, voids or cancels a completed sale and atomically returns its stock. */

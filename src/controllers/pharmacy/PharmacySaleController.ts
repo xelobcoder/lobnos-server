@@ -1,21 +1,39 @@
 import { Request, Response } from 'express';
+import { PHARMACY_REVERSED_STATUSES } from '../../models/pharmacy/constants/pharmacy.constants';
+import { PharmacySaleReversalType } from '../../models/pharmacy/interfaces/IPharmacySaleService';
 import { PharmacySaleRepository } from '../../models/pharmacy/repositories/PharmacySaleRepository';
 import { PharmacySaleService } from '../../models/pharmacy/services/PharmacySaleService';
 import { actorOf, tenantOf } from './pharmacyContext';
 
 const saleService = (request: Request) => new PharmacySaleService(new PharmacySaleRepository(tenantOf(request)));
 
+const listParams = (request: Request) => ({
+     page: Number(request.query.page || 1),
+     count: Number(request.query.count || 20),
+     search: String(request.query.search || '')
+});
+
 export class PharmacySaleController {
      static async getSalesHistory(request: Request, response: Response): Promise<void> {
           try {
-               const history = await saleService(request).getSalesHistory(
-                    Number(request.query.page || 1),
-                    Number(request.query.count || 20),
-                    String(request.query.search || '')
-               );
+               const history = await saleService(request).getSalesHistory(listParams(request));
                response.json({ success: true, data: history });
           } catch (error: any) {
                response.status(500).json({ success: false, error: { code: 'SALES_HISTORY_UNAVAILABLE', message: error.message } });
+          }
+     }
+
+     static async getReversedSales(request: Request, response: Response): Promise<void> {
+          try {
+               const requestedType = String(request.query.type || '');
+               const history = await saleService(request).getSalesHistory({
+                    ...listParams(request),
+                    statuses: PHARMACY_REVERSED_STATUSES,
+                    reversalType: (requestedType || undefined) as PharmacySaleReversalType | undefined
+               });
+               response.json({ success: true, data: history });
+          } catch (error: any) {
+               response.status(500).json({ success: false, error: { code: 'REVERSALS_UNAVAILABLE', message: error.message } });
           }
      }
 
