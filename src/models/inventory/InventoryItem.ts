@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { randomUUID } from 'crypto';
 import {
      InventoryItem,
      CreateInventoryItemRequest,
@@ -85,6 +86,7 @@ export class InventoryItemModel {
                current_stock: currentStock,
                min_stock: minStock,
                max_stock: maxStock,
+               sale_price: request.sale_price || 0,
                location_id: request.location_id || null,
                status: status,
                is_active: true,
@@ -94,6 +96,16 @@ export class InventoryItemModel {
           };
 
           await connection('inv_inventory_items').insert(itemData);
+
+          await connection('inv_brands').insert({
+               id: `BRD-${randomUUID()}`,
+               name: `Default brand - ${itemData.sku}`,
+               inventory_item_id: itemData.id,
+               created_date: new Date(),
+               item_count: 1,
+               created_at: new Date(),
+               updated_at: new Date()
+          });
 
           // Update category item counts
           if (request.category_id) {
@@ -132,6 +144,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               sale_price: Number(result.sale_price || 0),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -171,6 +184,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               sale_price: Number(result.sale_price || 0),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -256,6 +270,7 @@ export class InventoryItemModel {
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               sale_price: Number(result.sale_price || 0),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -346,6 +361,7 @@ export class InventoryItemModel {
                if (updates.current_stock !== undefined) updateData.current_stock = updates.current_stock;
                if (updates.min_stock !== undefined) updateData.min_stock = updates.min_stock;
                if (updates.max_stock !== undefined) updateData.max_stock = updates.max_stock;
+               if (updates.sale_price !== undefined) updateData.sale_price = updates.sale_price;
                if (updates.location_id !== undefined) updateData.location_id = updates.location_id;
                if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
 
@@ -436,7 +452,7 @@ export class InventoryItemModel {
                const totalResult = await connection('inv_units')
                     .count('* as total')
                     .first();
-               const total = parseInt(totalResult.total as string);
+               const total = parseInt(totalResult?.total as string || '0');
 
                // Build query with sorting
                let query = connection('inv_units').select('*');

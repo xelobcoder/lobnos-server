@@ -86,6 +86,7 @@ async function canValidateResults(employeeId: number, tenantId: number): Promise
 	}
 
 	const validationSettings = await ResultSettings.getResultEntrySettings(tenantId);
+
 	return (
 		typeof validationSettings === "object" &&
 		Array.isArray(validationSettings.staffQualifiedToValidationResult) &&

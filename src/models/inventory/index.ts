@@ -9,6 +9,7 @@ export { PurchaseOrderModel } from './PurchaseOrder';
 export { PurchaseOrderItemModel } from './PurchaseOrderItem';
 export { InventoryTransactionModel } from './InventoryTransaction';
 export { SupplierPaymentModel } from './SupplierPayment';
+export { bootstrapInventoryDefaults } from './InventoryBootstrapper';
 
 // Re-export types for convenience
 export * from './types';

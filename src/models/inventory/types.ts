@@ -175,6 +175,7 @@ export interface InventoryItem extends BaseEntity {
      current_stock: number; // Always in consumption units
      min_stock: number; // Always in consumption units
      max_stock: number; // Always in consumption units
+     sale_price?: number;
      location_id?: string;
      status: InventoryStatus;
      is_active: boolean;
@@ -195,6 +196,7 @@ export interface CreateInventoryItemRequest {
      current_stock?: number; // In consumption units
      min_stock?: number; // In consumption units
      max_stock?: number; // In consumption units
+     sale_price?: number;
      location_id?: string;
 }
 
@@ -207,6 +209,7 @@ export interface UpdateInventoryItemRequest {
      current_stock?: number;
      min_stock?: number;
      max_stock?: number;
+     sale_price?: number;
      location_id?: string;
      is_active?: boolean;
 }
@@ -544,10 +547,10 @@ export interface InventoryTransaction {
 export interface CreateInventoryTransactionRequest {
      item_id: string;
      transaction_type: TransactionType;
-     quantity: number; 
+     quantity: number;
      unit_type: 'consumption' | 'purchase';
-     purchase_unit?: string; 
-     units_per_purchase_unit?: number; 
+     purchase_unit?: string;
+     units_per_purchase_unit?: number;
      batch_number?: string;
      expiry_date?: string;
      unit_cost?: number;

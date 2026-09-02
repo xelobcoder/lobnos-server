@@ -84,6 +84,9 @@ export class InventoryItemController {
                     value: data.max_stock
                });
           }
+          if (data.sale_price !== undefined && (typeof data.sale_price !== 'number' || data.sale_price < 0)) {
+               errors.push({ field: 'sale_price', message: 'Sale price must be a non-negative number', value: data.sale_price });
+          }
 
           return {
                isValid: errors.length === 0,
@@ -156,6 +159,9 @@ export class InventoryItemController {
                     message: 'Maximum stock must be a non-negative number',
                     value: data.max_stock
                });
+          }
+          if (data.sale_price !== undefined && (typeof data.sale_price !== 'number' || data.sale_price < 0)) {
+               errors.push({ field: 'sale_price', message: 'Sale price must be a non-negative number', value: data.sale_price });
           }
 
           return {
@@ -252,8 +258,8 @@ export class InventoryItemController {
           try {
                const tenantId = this.getTenantId(req);
                const {
-                    page ,
-                    count ,
+                    page,
+                    count,
                     category_id,
                     location_id,
                     status,

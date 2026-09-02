@@ -7,8 +7,12 @@ import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker 
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
 import { bootstrapLoginUsernames } from '../models/auth/LoginUsernameBootstrapper';
+import { bootstrapPharmacyTables } from '../models/pharmacy/PharmacyBootstrapper';
+import { bootstrapInventoryDefaults } from '../models/inventory/InventoryBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
+	await bootstrapInventoryDefaults(tenantId);
+	await bootstrapPharmacyTables(tenantId);
 	await bootstrapBillingTables(tenantId);
 	await bootstrapCommissionTables(tenantId);
 	await bootstrapExpenseCategories(tenantId);
@@ -18,6 +22,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapResultValueAnalyticsTables(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapHomeCollectionSeeds(tenantId);
+
 
 	let accountingReady = false;
 
