@@ -7,9 +7,15 @@ import { pharmacyAccess, pharmacyReversalAccess } from './pharmacyAccess.middlew
 
 const router = Router();
 
-router.use(checkTokenExists, pharmacyAccess);
+router.use(checkTokenExists);
 
+// Read-only catalogue: needed by clinicians prescribing drugs during consultation
+// (they are the ordering party, not pharmacy staff). Sales, stock and dispensing
+// remain restricted to pharmacy roles below.
 router.get('/catalogue', PharmacyCatalogueController.getCatalogue);
+
+router.use(pharmacyAccess);
+
 router.get('/stock', PharmacyCatalogueController.getStock);
 router.get('/dashboard', PharmacyDashboardController.getDashboard);
 

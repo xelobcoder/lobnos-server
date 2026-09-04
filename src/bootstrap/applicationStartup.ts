@@ -9,10 +9,14 @@ import { bootstrapResultValueAnalyticsTables } from '../models/result-value-anal
 import { bootstrapLoginUsernames } from '../models/auth/LoginUsernameBootstrapper';
 import { bootstrapPharmacyTables } from '../models/pharmacy/PharmacyBootstrapper';
 import { bootstrapInventoryDefaults } from '../models/inventory/InventoryBootstrapper';
+import { bootstrapPrescriptionTables } from '../models/prescriptions/PrescriptionBootstrapper';
+import { bootstrapEntityOrderTables } from '../models/entityorders/EntityOrderBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
 	await bootstrapPharmacyTables(tenantId);
+	await bootstrapPrescriptionTables(tenantId);
+	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
 	await bootstrapCommissionTables(tenantId);
 	await bootstrapExpenseCategories(tenantId);

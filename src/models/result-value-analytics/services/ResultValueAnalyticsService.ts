@@ -43,7 +43,6 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 		if (value === null || value === undefined) {
 			return null;
 		}
-
 		const normalizedValue = String(value).trim().replace(/\s+/g, ' ');
 		return normalizedValue.length > 0 ? normalizedValue : null;
 	}

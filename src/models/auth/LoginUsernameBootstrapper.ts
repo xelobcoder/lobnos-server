@@ -54,12 +54,38 @@ async function ensureLoginUsernameColumn(connection: Knex, tableName: string, in
      }
 }
 
+/**
+ * The legacy `roles.role` column was created as a restrictive ENUM that predates
+ * newer roles (clinician, pharmacy_*, customer service representative, super_admin, ...).
+ * MySQL truncates any value not in the enum ("Data truncated for column 'role'").
+ * Widen it once to a VARCHAR so all current and future roles are accepted.
+ * Idempotent: only runs when the column is not already a native varchar.
+ */
+async function ensureRoleColumnIsVarchar(connection: Knex): Promise<void> {
+     try {
+          const [rows]: any = await connection.raw(
+               `SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roles' AND COLUMN_NAME = 'role'`
+          );
+          const dataType = String(rows?.[0]?.data_type || '').toLowerCase();
+          if (dataType && dataType !== 'varchar') {
+               await connection.raw(
+                    `ALTER TABLE roles MODIFY COLUMN role VARCHAR(50) NOT NULL DEFAULT 'scientist'`
+               );
+               logger.info(`[Bootstrap] Widened roles.role column from ${dataType} to VARCHAR(50)`);
+          }
+     } catch (error) {
+          logger.error('[Bootstrap] Failed to widen roles.role column:', error);
+     }
+}
+
 export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
      try {
           const connection = await KnexConnection(tenantId);
           const prefix = await getLabLoginPrefix(tenantId, connection);
 
           if (await connection.schema.hasTable('roles')) {
+               await ensureRoleColumnIsVarchar(connection);
                await ensureLoginUsernameColumn(connection, 'roles', 'idx_roles_login_username');
                if (!(await connection.schema.hasColumn('roles', 'staff_designation'))) {
                     await connection.schema.alterTable('roles', (table) => {

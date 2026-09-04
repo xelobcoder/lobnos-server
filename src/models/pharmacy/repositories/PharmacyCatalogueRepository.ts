@@ -38,7 +38,8 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                     .orderBy(column, direction)
                     .limit(count)
                     .offset((page - 1) * count),
-               this.buildQuery(connection, request).count('* as total').first()
+               this.buildQuery(connection, request)
+                    .count('* as total').first()
           ]);
 
           return { items: rows.map((row: any) => this.toCatalogueItem(row)), total: Number((totalResult as any)?.total || 0) };

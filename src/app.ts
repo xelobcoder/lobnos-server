@@ -36,6 +36,8 @@ import ExcelParser from './controllers/utilities/excelparserHandler';
 import OutsourcedTestTracking from './controllers/analytics/outsourcedTestTracking.routes'
 import InventoryRouter from './controllers/inventory/routes/index';
 import pharmacyRouter from './controllers/pharmacy/routes';
+import prescriptionRouter from './controllers/prescriptions/routes';
+import entityOrdersRouter from './controllers/entityorders/routes';
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
@@ -122,6 +124,8 @@ app.use(InterfacingDevicesRouter)
 app.use(complianceRouter)
 app.use('/api/v1/inventory', InventoryRouter);
 app.use('/api/v1/pharmacy', pharmacyRouter);
+app.use('/api/v1', prescriptionRouter);
+app.use(entityOrdersRouter);
 app.use(CommissionPaymentsRouter);
 app.use('/api/v1/leads', leadsRouter);
 app.use('/api/v1/followups', followupsRouter);
