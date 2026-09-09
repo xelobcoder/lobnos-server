@@ -82,6 +82,7 @@ export class PrescriptionService implements IPrescriptionService {
                count: safeCount,
                statuses: request.statuses,
                patientId: request.patientId,
+               clinicianId: request.clinicianId,
                search: request.search
           });
 

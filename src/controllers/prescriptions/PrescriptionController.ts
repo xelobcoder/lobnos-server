@@ -39,6 +39,7 @@ export class PrescriptionController {
                     count: Number(request.query.count || 20),
                     statuses,
                     patientId: request.query.patientId ? Number(request.query.patientId) : undefined,
+                    clinicianId: request.query.clinicianId ? Number(request.query.clinicianId) : undefined,
                     search: String(request.query.search || '')
                });
                response.json({ success: true, data: list });

@@ -90,7 +90,7 @@ export class InventoryPackageModel {
           };
      }
 
-     async openPackage(packageId: string, openedBy: string): Promise<InventoryPackage> {
+     async openPackage(packageId: string, openedBy: number): Promise<InventoryPackage> {
           const connection = await this.connection;
           const trx = await connection.transaction();
 

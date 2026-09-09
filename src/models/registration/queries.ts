@@ -6,7 +6,7 @@ export const q_patient_data = "SELECT np.* FROM new_patients AS np LEFT JOIN rol
 
 export const q_filter_patients = `  SELECT np.*,
 rr.username AS registeredbyusername, 
-         CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) AS fullname,
+         TRIM(CONCAT_WS(' ', np.firstname, NULLIF(np.middlename, ''), np.lastname)) AS fullname,
          np.mobile_number AS contact
   FROM new_patients AS np LEFT JOIN roles AS rr ON rr.employeeid = np.registeredby`
 

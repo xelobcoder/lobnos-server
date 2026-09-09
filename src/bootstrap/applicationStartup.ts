@@ -11,6 +11,8 @@ import { bootstrapPharmacyTables } from '../models/pharmacy/PharmacyBootstrapper
 import { bootstrapInventoryDefaults } from '../models/inventory/InventoryBootstrapper';
 import { bootstrapPrescriptionTables } from '../models/prescriptions/PrescriptionBootstrapper';
 import { bootstrapEntityOrderTables } from '../models/entityorders/EntityOrderBootstrapper';
+import { bootstrapEmailTables } from '../models/application/email/EmailBootstrapper';
+import { bootstrapPayrollTables } from '../models/payroll/PayrollBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -20,9 +22,11 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapBillingTables(tenantId);
 	await bootstrapCommissionTables(tenantId);
 	await bootstrapExpenseCategories(tenantId);
+	await bootstrapPayrollTables(tenantId);
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
 	await bootstrapLoginUsernames(tenantId);
+	await bootstrapEmailTables(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapHomeCollectionSeeds(tenantId);

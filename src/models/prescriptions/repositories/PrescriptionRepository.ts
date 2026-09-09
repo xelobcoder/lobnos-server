@@ -77,6 +77,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
 
           if (filters.statuses?.length) query = query.whereIn('p.status', filters.statuses);
           if (filters.patientId) query = query.where('p.patient_id', filters.patientId);
+          if (filters.clinicianId) query = query.where('p.clinician_id', filters.clinicianId);
           if (filters.search?.trim()) {
                const term = `%${filters.search.trim()}%`;
                query = query.where((builder) => builder

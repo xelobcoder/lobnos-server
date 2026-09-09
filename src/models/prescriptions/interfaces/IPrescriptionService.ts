@@ -62,6 +62,7 @@ export interface PrescriptionListRequest {
      count: number;
      statuses?: PrescriptionStatus[];
      patientId?: number;
+     clinicianId?: number;
      search?: string;
 }
 

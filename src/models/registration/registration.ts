@@ -316,8 +316,8 @@ export default class Registration {
 			values.push(mobileNum);
 		}
 		if (fullname && fullname.length > 2) {
-			conditions.push(`CONCAT(np.firstname, ' ', COALESCE(np.middlename, ''), ' ', np.lastname) LIKE ?`);
-			values.push(`%${fullname}%`);
+			conditions.push(`REPLACE(TRIM(CONCAT_WS(' ', np.firstname, NULLIF(np.middlename, ''), np.lastname)), '  ', ' ') LIKE ?`);
+			values.push(`%${String(fullname).trim().replace(/\s+/g, ' ')}%`);
 		}
 		if (email && email.includes("@")) {
 			conditions.push(` np.email = ?`);
@@ -564,6 +564,7 @@ export default class Registration {
 			const fieldMapping: Record<string, string> = {
 				"patientid": "patientid",
 				"firstname": "firstname",
+				"fullname": "fullname",
 				"lastname": "lastname",
 				"middlename": "middlename",
 				"fullpatientid": "fullpatientid",
@@ -574,6 +575,8 @@ export default class Registration {
 				"patientOrganization": "organization",
 				"occupation": "occupation"
 			};
+
+		
 
 			const db = await KnexConnection(tenantid);
 			let query = db("new_patients")
@@ -594,7 +597,7 @@ export default class Registration {
 					"new_patients.registeredby",
 					"rr.username as registeredbyusername",
 					"new_patients.date",
-					db.raw("CONCAT(new_patients.firstname, ' ', COALESCE(new_patients.middlename, ''), ' ', new_patients.lastname) as fullname")
+					db.raw("TRIM(CONCAT_WS(' ', new_patients.firstname, NULLIF(new_patients.middlename, ''), new_patients.lastname)) as fullname")
 				);
 
 
@@ -606,6 +609,14 @@ export default class Registration {
 
 				if (dbColumn === "gender" || dbColumn === "marital_status") {
 					query = query.andWhere(`new_patients.${dbColumn}`, value.toLowerCase());
+				} else if (dbColumn === "fullname") {
+					const term = String(value).trim().replace(/\s+/g, ' ');
+					query = query.andWhere(
+						db.raw(
+							"REPLACE(TRIM(CONCAT_WS(' ', new_patients.firstname, NULLIF(new_patients.middlename, ''), new_patients.lastname)), '  ', ' ') LIKE ?",
+							[`%${term}%`]
+						)
+					);
 				} else if (dbColumn === "mobile_number") {
 
 					let mobileStr = String(value).trim();

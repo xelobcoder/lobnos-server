@@ -39,6 +39,7 @@ export interface PrescriptionListFilters {
      count: number;
      statuses?: PrescriptionStatus[];
      patientId?: number;
+     clinicianId?: number;
      search?: string;
 }
 

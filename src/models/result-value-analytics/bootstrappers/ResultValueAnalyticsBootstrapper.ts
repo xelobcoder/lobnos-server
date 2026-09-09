@@ -164,7 +164,6 @@ export async function bootstrapResultValueAnalyticsTables(tenantId = 1): Promise
 			}
 		}
 
-		void runResultValueAnalyticsBackgroundBackfill(tenantId);
 	} catch (error) {
 		logger.error('[ResultValueAnalyticsBootstrapper] Failed to bootstrap result value analytics tables:', error);
 	}

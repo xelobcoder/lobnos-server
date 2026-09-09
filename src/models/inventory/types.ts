@@ -844,7 +844,7 @@ export interface PackageTransaction extends BaseEntity {
      previous_remaining: number;
      new_remaining: number;
      reason?: string;
-     performed_by?: string;
+     performed_by?: number;
      transaction_date: string;
 }
 
@@ -865,5 +865,5 @@ export interface PackageConsumptionRequest {
      package_id: string;
      quantity: number;
      reason?: string;
-     performed_by: string;
+     performed_by: number;
 }
