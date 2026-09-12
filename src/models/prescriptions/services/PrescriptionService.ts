@@ -83,6 +83,7 @@ export class PrescriptionService implements IPrescriptionService {
                statuses: request.statuses,
                patientId: request.patientId,
                clinicianId: request.clinicianId,
+               consultationId: request.consultationId,
                search: request.search
           });
 
@@ -101,6 +102,10 @@ export class PrescriptionService implements IPrescriptionService {
                count: safeCount,
                totalPages: Math.max(1, Math.ceil(total / safeCount))
           };
+     }
+
+     async linkToConsultation(prescriptionIds: string[], patientId: number, consultationId: number): Promise<number> {
+          return this.repository.linkPrescriptionsToConsultation(prescriptionIds, patientId, consultationId);
      }
 
      async fulfill(id: string, input: FulfillPrescriptionInput, cashierId: number): Promise<FulfillPrescriptionResult> {

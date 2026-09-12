@@ -40,6 +40,7 @@ export interface PrescriptionListFilters {
      statuses?: PrescriptionStatus[];
      patientId?: number;
      clinicianId?: number;
+     consultationId?: number;
      search?: string;
 }
 
@@ -56,6 +57,8 @@ export interface IPrescriptionRepository {
      findById(id: string): Promise<PrescriptionRow | null>;
      findItemsByPrescriptionId(prescriptionId: string): Promise<PrescriptionItemRow[]>;
      listPrescriptions(filters: PrescriptionListFilters): Promise<{ prescriptions: PrescriptionSummaryRow[]; total: number }>;
+     /** Backfills prescriptions placed before a consultation existed; only touches this patient's still-unlinked prescriptions. */
+     linkPrescriptionsToConsultation(prescriptionIds: string[], patientId: number, consultationId: number): Promise<number>;
      /** Atomically writes the dispensed quantities/status for each fulfilled item and the prescription's new overall status. */
      applyFulfillment(prescriptionId: string, itemUpdates: PrescriptionItemFulfillmentUpdate[], prescriptionStatus: PrescriptionStatus, occurredAt: Date): Promise<void>;
      /** Atomically marks the given items as referred out and updates the prescription's overall status. */

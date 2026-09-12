@@ -18,10 +18,10 @@ export const createEntityOrderHandler = (req: Request, res: Response) => handle(
      res.status(201).json({ status: 'success', statusCode: 201, message: 'Order created', data: order });
 });
 
-/** GET /api/v1/entityorders?patientid=&entityType=&entityId=&status=&pendingReview= */
+/** GET /api/v1/entityorders?patientid=&entityType=&entityId=&status=&pendingReview=&consultationid= */
 export const listEntityOrdersHandler = (req: Request, res: Response) => handle(res, async () => {
      const tenantId = getTenant(req);
-     const { patientid, entityType, entityId, status, pendingReview, sampleLocation, page, count } = req.query as any;
+     const { patientid, entityType, entityId, status, pendingReview, sampleLocation, consultationid, page, count } = req.query as any;
      const svc = new EntityOrderService(tenantId);
      const data = await svc.listOrders({
           patientId: patientid ? Number(patientid) : undefined,
@@ -30,6 +30,7 @@ export const listEntityOrdersHandler = (req: Request, res: Response) => handle(r
           status: (status as EntityOrderStatus) || undefined,
           pendingReview: pendingReview === '1' || pendingReview === 'true',
           sampleLocation: (sampleLocation as 'center' | 'referrer') || undefined,
+          consultationId: consultationid ? Number(consultationid) : undefined,
           page: page ? Number(page) : undefined,
           count: count ? Number(count) : undefined,
      });
@@ -50,6 +51,18 @@ export const getEntityOrderHandler = (req: Request, res: Response) => handle(res
      const svc = new EntityOrderService(tenantId);
      const order = await svc.getOrder(Number(req.params.id));
      res.status(200).json({ status: 'success', statusCode: 200, data: order });
+});
+
+/** PUT /api/v1/entityorders/link-consultation  { orderIds: number[], patientId, consultationId } — backfills orders placed before a consultation was first saved. */
+export const linkEntityOrdersToConsultationHandler = (req: Request, res: Response) => handle(res, async () => {
+     const tenantId = getTenant(req);
+     const { orderIds, patientId, consultationId } = req.body;
+     if (!Array.isArray(orderIds) || !orderIds.length || !patientId || !consultationId) {
+          return customError('orderIds, patientId and consultationId are required', 400, res);
+     }
+     const svc = new EntityOrderService(tenantId);
+     const linked = await svc.linkOrdersToConsultation(orderIds.map(Number), Number(patientId), Number(consultationId));
+     res.status(200).json({ status: 'success', statusCode: 200, message: 'Orders linked to consultation', linked });
 });
 
 const action = (

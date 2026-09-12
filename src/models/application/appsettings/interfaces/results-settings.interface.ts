@@ -28,6 +28,14 @@ export interface ApplicationResultSettings {
      testTableHeaderBackgroundColor: string;
      comments: {
           fontFamily: string;
+          fontSize?: number;
+          color?: string;
+          backgroundColor?: string;
+          fontStyle?: 'normal' | 'italic';
+          fontWeight?: 'normal' | 'bold';
+          textAlign?: 'left' | 'center' | 'right' | 'justify';
+          showHeading?: boolean;
+          headingColor?: string;
      },
      testTableHeaderTextColor: string;
      mainReportHeaderColor: string;

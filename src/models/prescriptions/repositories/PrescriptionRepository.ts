@@ -78,6 +78,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
           if (filters.statuses?.length) query = query.whereIn('p.status', filters.statuses);
           if (filters.patientId) query = query.where('p.patient_id', filters.patientId);
           if (filters.clinicianId) query = query.where('p.clinician_id', filters.clinicianId);
+          if (filters.consultationId) query = query.where('p.consultation_id', filters.consultationId);
           if (filters.search?.trim()) {
                const term = `%${filters.search.trim()}%`;
                query = query.where((builder) => builder
@@ -94,6 +95,15 @@ export class PrescriptionRepository implements IPrescriptionRepository {
                prescriptions: rows.map((row: any) => ({ ...this.toPrescriptionRow(row), patientName: row.patient_name?.trim() || 'Unknown patient', clinicianName: row.clinician_name || 'Unknown clinician' })),
                total: Number((totalResult as any)?.total || 0)
           };
+     }
+
+     async linkPrescriptionsToConsultation(prescriptionIds: string[], patientId: number, consultationId: number): Promise<number> {
+          const connection = await this.connection;
+          return connection('prescriptions')
+               .whereIn('id', prescriptionIds)
+               .where('patient_id', patientId)
+               .whereNull('consultation_id')
+               .update({ consultation_id: consultationId });
      }
 
      async applyFulfillment(prescriptionId: string, itemUpdates: PrescriptionItemFulfillmentUpdate[], prescriptionStatus: PrescriptionStatus, occurredAt: Date): Promise<void> {

@@ -10,6 +10,7 @@ router.use(checkTokenExists);
 // Raised by a clinician during consultation; any authenticated clinical user may create or view one.
 router.post('/prescriptions', PrescriptionController.createPrescription);
 router.get('/prescriptions/:id', PrescriptionController.getPrescription);
+router.put('/prescriptions/link-consultation', PrescriptionController.linkPrescriptionsToConsultation);
 
 // Fulfillment queue and dispensing actions are pharmacy-staff only. A clinician may list
 // their OWN orders (clinicianId === their id) via prescriptionListAccess; the broad queue

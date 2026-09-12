@@ -1,0 +1,73 @@
+[BackupScheduler] tick failed: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1194:18)
+    at afterConnectMultiple (node:net:1784:7) {
+  code: 'ECONNREFUSED',
+  fatal: true,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:2309
+        at createConnectionError (node:net:1747:14)
+        at afterConnectMultiple (node:net:1777:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 2309
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:2309
+        at createConnectionError (node:net:1747:14)
+        at afterConnectMultiple (node:net:1777:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 2309
+    }
+  ]
+}
+[BackupScheduler] tick failed: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1194:18)
+    at afterConnectMultiple (node:net:1784:7) {
+  code: 'ECONNREFUSED',
+  fatal: true,
+  [errors]: [
+    Error: connect ECONNREFUSED ::1:2309
+        at createConnectionError (node:net:1747:14)
+        at afterConnectMultiple (node:net:1777:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '::1',
+      port: 2309
+    },
+    Error: connect ECONNREFUSED 127.0.0.1:2309
+        at createConnectionError (node:net:1747:14)
+        at afterConnectMultiple (node:net:1777:16) {
+      errno: -4078,
+      code: 'ECONNREFUSED',
+      syscall: 'connect',
+      address: '127.0.0.1',
+      port: 2309
+    }
+  ]
+}
+[BackupScheduler] some scheduled backups failed: [
+  {
+    scheduleId: 3,
+    success: false,
+    error: 'Backup encryption failed: File size (8235835713) is greater than 2 GiB'
+  }
+]
+[BackupScheduler] some scheduled backups failed: [
+  {
+    scheduleId: 7,
+    success: false,
+    error: 'Backup encryption failed: File size (8235861030) is greater than 2 GiB'
+  }
+]
+[BackupScheduler] some scheduled backups failed: [
+  {
+    scheduleId: 4,
+    success: false,
+    error: 'Backup encryption failed: File size (8235861260) is greater than 2 GiB'
+  }
+]

@@ -24,7 +24,7 @@ export class EntityOrderService {
           this.strategy = new BillingStrategy();
      }
 
-     
+
      async getCatalogueForEntity(entityType: EntityOrderEntityType, entityId: number | null, search?: string) {
           const type: EntityOrderEntityType = entityType || 'general';
           const id = type === 'general' ? 0 : Number(entityId || 0);
@@ -59,7 +59,7 @@ export class EntityOrderService {
           return { hasStrategy, billingSource: BILLING_SOURCE[type], items };
      }
 
-     
+
      private async resolveEntity(input: CreateEntityOrderInput): Promise<{ type: EntityOrderEntityType; id: number | null }> {
           if (input.entityType && input.entityType !== 'general' && input.entityId) {
                return { type: input.entityType, id: Number(input.entityId) };
@@ -70,7 +70,7 @@ export class EntityOrderService {
           return { type: input.entityType || 'general', id: input.entityId ? Number(input.entityId) : null };
      }
 
-     
+
      async createOrder(input: CreateEntityOrderInput) {
           const { patientId, orderedByEmployeeId, consultationId, branchId, sampleLocation, notes, lines } = input;
           if (!patientId) throw new Error('patientId is required');
@@ -103,7 +103,7 @@ export class EntityOrderService {
           return this.repo.getOrderById(orderId);
      }
 
-     
+
      private async resolveLines(entityType: EntityOrderEntityType, entityId: number | null, lines: EntityOrderLineInput[]) {
           const conn = await KnexConnection(this.tenantId);
           const resolved: any[] = [];
@@ -143,11 +143,16 @@ export class EntityOrderService {
           return order;
      }
 
-     async listOrders(filters: { patientId?: number; entityType?: string; entityId?: number; status?: EntityOrderStatus; pendingReview?: boolean; sampleLocation?: 'center' | 'referrer'; page?: number; count?: number }) {
+     async listOrders(filters: { patientId?: number; entityType?: string; entityId?: number; status?: EntityOrderStatus; pendingReview?: boolean; sampleLocation?: 'center' | 'referrer'; consultationId?: number; page?: number; count?: number }) {
           return this.repo.listOrders(filters);
      }
 
-     
+     /** Backfills orders placed before a consultation existed (consultation_id was still null) once it is saved. */
+     async linkOrdersToConsultation(orderIds: number[], patientId: number, consultationId: number): Promise<number> {
+          return this.repo.linkOrdersToConsultation(orderIds, patientId, consultationId);
+     }
+
+
      async submit(orderId: number, actorId: number) {
           const order = await this.repo.getOrderRow(orderId);
           if (!order) throw new Error('Order not found');
@@ -157,7 +162,7 @@ export class EntityOrderService {
           return this.getOrder(orderId);
      }
 
-     
+
      async approve(orderId: number, actorId: number, reason?: string) {
           const order = await this.repo.getOrderRow(orderId);
           if (!order) throw new Error('Order not found');
@@ -169,7 +174,7 @@ export class EntityOrderService {
           return this.getOrder(orderId);
      }
 
-     
+
      async hold(orderId: number, actorId: number, reason: string) {
           if (!reason?.trim()) throw new Error('A reason is required to hold an order');
           const order = await this.repo.getOrderRow(orderId);
@@ -180,7 +185,7 @@ export class EntityOrderService {
           return this.getOrder(orderId);
      }
 
-     
+
      async reject(orderId: number, actorId: number, reason: string) {
           if (!reason?.trim()) throw new Error('A reason is required to reject an order');
           const order = await this.repo.getOrderRow(orderId);
@@ -193,7 +198,7 @@ export class EntityOrderService {
           return this.getOrder(orderId);
      }
 
-     
+
      async revise(orderId: number, actorId: number, lines: EntityOrderLineInput[]) {
           const order = await this.repo.getOrderRow(orderId);
           if (!order) throw new Error('Order not found');
@@ -214,7 +219,7 @@ export class EntityOrderService {
           return this.getOrder(orderId);
      }
 
-     
+
      async convert(orderId: number, actorId: number, reviewerBranchId?: number | null) {
           const order = await this.repo.getOrderRow(orderId);
           if (!order) throw new Error('Order not found');
@@ -311,7 +316,7 @@ export class EntityOrderService {
           return { order: await this.getOrder(orderId), billingId };
      }
 
-     
+
      async cancel(orderId: number, actorId: number, reason?: string) {
           const order = await this.repo.getOrderRow(orderId);
           if (!order) throw new Error('Order not found');

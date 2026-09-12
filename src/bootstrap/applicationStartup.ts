@@ -13,6 +13,7 @@ import { bootstrapPrescriptionTables } from '../models/prescriptions/Prescriptio
 import { bootstrapEntityOrderTables } from '../models/entityorders/EntityOrderBootstrapper';
 import { bootstrapEmailTables } from '../models/application/email/EmailBootstrapper';
 import { bootstrapPayrollTables } from '../models/payroll/PayrollBootstrapper';
+import { bootstrapTestReportSettingsTable } from '../models/application/appsettings/result-settings/TestReportSettingsBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -28,6 +29,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapLoginUsernames(tenantId);
 	await bootstrapEmailTables(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId);
+	await bootstrapTestReportSettingsTable(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapHomeCollectionSeeds(tenantId);
 

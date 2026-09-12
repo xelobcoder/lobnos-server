@@ -40,6 +40,7 @@ export class PrescriptionController {
                     statuses,
                     patientId: request.query.patientId ? Number(request.query.patientId) : undefined,
                     clinicianId: request.query.clinicianId ? Number(request.query.clinicianId) : undefined,
+                    consultationId: request.query.consultationId ? Number(request.query.consultationId) : undefined,
                     search: String(request.query.search || '')
                });
                response.json({ success: true, data: list });
@@ -55,6 +56,25 @@ export class PrescriptionController {
           } catch (error: any) {
                const status = /not found/i.test(error.message) ? 404 : /already|unavailable|insufficient/i.test(error.message) ? 409 : 400;
                response.status(status).json({ success: false, error: { code: 'FULFILLMENT_REJECTED', message: error.message } });
+          }
+     }
+
+     /** PUT /prescriptions/link-consultation { prescriptionIds, patientId, consultationId } — backfills prescriptions placed before a consultation was first saved. */
+     static async linkPrescriptionsToConsultation(request: Request, response: Response): Promise<void> {
+          try {
+               const { prescriptionIds, patientId, consultationId } = request.body;
+               if (!Array.isArray(prescriptionIds) || !prescriptionIds.length || !patientId || !consultationId) {
+                    response.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'prescriptionIds, patientId and consultationId are required' } });
+                    return;
+               }
+               const linked = await prescriptionService(request).linkToConsultation(
+                    prescriptionIds.map(String),
+                    Number(patientId),
+                    Number(consultationId)
+               );
+               response.json({ success: true, data: { linked } });
+          } catch (error: any) {
+               response.status(500).json({ success: false, error: { code: 'LINK_FAILED', message: error.message } });
           }
      }
 

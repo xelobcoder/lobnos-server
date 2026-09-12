@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
+import TestReportSettings from "../../models/application/appsettings/result-settings/TestReportSettings";
 import { ApplicationResultSettings } from "../../models/application/appsettings/interfaces/results-settings.interface";
 import { companyInfo, getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import Registration from "../../models/registration/registration";
@@ -288,7 +289,7 @@ export const getResultPrintoutHandler = async (request: Request<
 			testdetailcategory: null,
 		};
 
-		const resultsettings = await new ResultSettings(tenantIdP).getResultSettings(tenantIdP);
+		const resultsettings = await TestReportSettings.resolve(tenantIdP, parsedTestId);
 
 		if (typeof resultsettings != "boolean") dataset.resultsettings = resultsettings;
 		const companyInfo = await getAllCompanyProfiles(tenantIdP);
@@ -530,7 +531,11 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					return dataset
 				}))
 
-				const resultsettings = await new ResultSettings(0).getResultSettings(tenantIdP);
+				const distinctTestIds = Array.from(new Set(qualifiedForPrintOut.map((item: any) => item?.testid).filter(Boolean)));
+				// Only apply a per-test report override when the whole batch is a single test; mixed-test batches use the general settings.
+				const resultsettings = distinctTestIds.length === 1
+					? await TestReportSettings.resolve(tenantIdP, distinctTestIds[0])
+					: await new ResultSettings(0).getResultSettings(tenantIdP);
 
 				if (typeof resultsettings != "boolean") {
 					finalResult.resultsettings = resultsettings as any

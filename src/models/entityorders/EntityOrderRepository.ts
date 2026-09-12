@@ -91,6 +91,7 @@ export class EntityOrderRepository {
           status?: EntityOrderStatus;
           pendingReview?: boolean;
           sampleLocation?: 'center' | 'referrer';
+          consultationId?: number;
           page?: number;
           count?: number;
      }) {
@@ -106,6 +107,7 @@ export class EntityOrderRepository {
                     if (filters.status) q.where('o.status', filters.status);
                     if (filters.pendingReview) q.whereIn('o.status', ['PENDING', 'ON_HOLD']);
                     if (filters.sampleLocation) q.where('o.sample_location', filters.sampleLocation);
+                    if (filters.consultationId) q.where('o.consultation_id', filters.consultationId);
                });
 
           const countRow = await base().count('o.id as total').first();
@@ -140,6 +142,16 @@ export class EntityOrderRepository {
           });
 
           return { result, total, page, count, totalPages: Math.max(1, Math.ceil(total / count)) };
+     }
+
+     /** Backfills orders placed before a consultation existed; only touches this patient's still-unlinked orders. */
+     async linkOrdersToConsultation(orderIds: number[], patientId: number, consultationId: number): Promise<number> {
+          const conn = await this.connection;
+          return conn('entity_orders')
+               .whereIn('id', orderIds)
+               .where('patient_id', patientId)
+               .whereNull('consultation_id')
+               .update({ consultation_id: consultationId });
      }
 
      async updateOrder(orderId: number, updates: Partial<EntityOrderRow>, trx?: any): Promise<void> {

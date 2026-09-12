@@ -10,6 +10,7 @@ import {
      reviseEntityOrderHandler,
      convertEntityOrderHandler,
      cancelEntityOrderHandler,
+     linkEntityOrdersToConsultationHandler,
 } from './entityOrdersHandlers';
 import { handleOverLoad } from '../../hooks/helper';
 
@@ -23,6 +24,7 @@ const router = Router();
 // collection
 router.get('/api/v1/entityorders', handleOverLoad(listEntityOrdersHandler));
 router.post('/api/v1/entityorders', handleOverLoad(createEntityOrderHandler));
+router.put('/api/v1/entityorders/link-consultation', handleOverLoad(linkEntityOrdersToConsultationHandler));
 
 // item
 router.get('/api/v1/entityorders/:id', handleOverLoad(getEntityOrderHandler));

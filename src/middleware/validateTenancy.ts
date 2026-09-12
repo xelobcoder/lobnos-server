@@ -20,6 +20,7 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
      const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword', '/api/v1/logins/logout'];
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
+     if (request.method === 'GET' && request.path === '/api/v1/interfacing/devices') return next();
      const headers = request.headers;
      const cookies = parseCookies(headers['cookie'] as string);
      const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];

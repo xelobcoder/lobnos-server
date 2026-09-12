@@ -81,6 +81,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);
 app.use(ValidateTenancyAgreement)
 // app.use(checkTokenExists)
+app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
 app.use(SecurityRouter);
@@ -136,7 +137,6 @@ app.use(emailRouter);
 app.use(notificationsRouter);
 app.use(employeeSettingsRouter);
 app.use(accountingRouter);
-app.use(InterfacingDevicesRouterT);
 
 
 app.get("/", (req: Request, res: Response) => {

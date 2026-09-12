@@ -63,6 +63,7 @@ export interface PrescriptionListRequest {
      statuses?: PrescriptionStatus[];
      patientId?: number;
      clinicianId?: number;
+     consultationId?: number;
      search?: string;
 }
 

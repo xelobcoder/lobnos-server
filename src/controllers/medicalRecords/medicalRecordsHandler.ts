@@ -8,7 +8,8 @@ export const createAConsultationRecord = async (request: Request<{}, {}, { consu
      try {
           const { consultation_notes, record_type, patientid, consulationby, associatedTransactionid } = request.body;
 
-          if (!consultation_notes || !patientid || !record_type || !consulationby) {
+          // consultation_notes may be empty when a consultation is first drafted (before the clinician has typed a note).
+          if (consultation_notes === undefined || consultation_notes === null || !patientid || !record_type || !consulationby) {
                return response.status(400).json({ message: "Missing required fields: consultation_notes, record_type, patientid, or consulationby." });
           }
 

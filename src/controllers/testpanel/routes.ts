@@ -26,6 +26,7 @@ import {
 } from "./testpanelHandlers";
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
+import { getTestReportSettingsHandler, putTestReportSettingsHandler, deleteTestReportSettingsHandler } from "./testReportSettingsHandlers";
 import { handleOverLoad } from "../../hooks/helper";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
@@ -57,6 +58,10 @@ router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);
 router.get("/api/v1/", getTestPanelData);
 router.put("/api/v1/testpanel/list/createcustom", putTestPanelChangeName);
 router.get("/api/v1/testpanel/list/bulk/billing", testpanel.getPanelBulKLessInformation);
+// Per-test report settings (falls back to general report settings when no override exists)
+router.get("/api/v1/testpanel/reportsettings", handleOverLoad(getTestReportSettingsHandler));
+router.put("/api/v1/testpanel/reportsettings", handleOverLoad(putTestReportSettingsHandler));
+router.delete("/api/v1/testpanel/reportsettings", handleOverLoad(deleteTestReportSettingsHandler));
 // Test Setup Routes
 router.get("/api/v1/testsetup/literature", getTestSetupLiterature);
 router.put("/api/v1/testsetup/literature", putTestSetupLiterature);
@@ -69,8 +74,8 @@ router.post('/api/v1/field-constraints', createFieldConstraintsHandler);
 router.get('/api/v1/field-constraints/field/:fieldId', isAuthorizedRoleAdmin, getFieldConstraintsByFieldIdHandler);
 router.get('/api/v1/field-constraints/test/:testId', isAuthorizedRoleAdmin, handleOverLoad(getFieldConstraintsByTestIdHandler));
 router.put('/api/v1/field-constraints/:id', isAuthorizedRoleAdmin, updateFieldConstraintHandler);
-router.delete('/api/v1/field-constraints/:id',isAuthorizedRoleAdmin, deleteFieldConstraintHandler);
-router.delete('/api/v1/field-constraints/field/:fieldId', isAuthorizedRoleAdmin,deleteFieldConstraintsByFieldIdHandler)
+router.delete('/api/v1/field-constraints/:id', isAuthorizedRoleAdmin, deleteFieldConstraintHandler);
+router.delete('/api/v1/field-constraints/field/:fieldId', isAuthorizedRoleAdmin, deleteFieldConstraintsByFieldIdHandler)
 
 
 export default router;
