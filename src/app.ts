@@ -57,6 +57,7 @@ import notificationsRouter from './controllers/notifications/route';
 import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
 import accountingRouter from './controllers/accounting/route';
+import staffFocRouter from './controllers/foc/routes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 import { runApplicationBootstrappers, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
 import { logApplicationStarted } from './bootstrap/startupLogger';
@@ -137,6 +138,7 @@ app.use(emailRouter);
 app.use(notificationsRouter);
 app.use(employeeSettingsRouter);
 app.use(accountingRouter);
+app.use(staffFocRouter);
 
 
 app.get("/", (req: Request, res: Response) => {

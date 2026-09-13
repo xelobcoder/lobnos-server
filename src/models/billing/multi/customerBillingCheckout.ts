@@ -9,6 +9,8 @@ import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
 import { applyDboservicesAfterUpdate } from "../../../database/appLevelTriggers";
 import User from "../../../LobnosAuth/user";
 import DiscountLimitService from "../billing-services/discount-limit";
+import { StaffFocService } from "../../foc/services/StaffFocService";
+import logger from "../../../hooks/logger";
 
 
 
@@ -320,6 +322,17 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                };
           }
 
+          const focStaffId = paymentDetails?.focStaffId || (paymentDetails?.mode === 'foc' ? paymentDetails?.focStaffId || employeeid : undefined);
+          let focValidation: any = null;
+          if (focStaffId && patientId) {
+               try {
+                    const focService = new StaffFocService();
+                    focValidation = await focService.validateFocCoverage(tenantId, Number(focStaffId), Number(patientId), totalpayable);
+               } catch (e) {
+                    logger.error('[FOC] FOC validation during checkout failed:', e);
+               }
+          }
+
           return {
                success: true,
                message: 'Checkout recalculation successful. No payment has been received yet.',
@@ -337,6 +350,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     totalsurcharge,
                     paid,
                     balance,
+                    focValidation,
                     cart: recalculatedCart.map(item => ({
                          ...item,
                          totalpayable: toFixed2(item.totalpayable),

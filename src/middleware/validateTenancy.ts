@@ -136,5 +136,30 @@ export const isAuthorizedRoleAdmin = async (request: Request<{}, {}, { employeeI
      }
 }
 
+export const isAuthorizedRoleAdminOrAccountant = async (request: Request, response: Response, next: NextFunction) => {
+     try {
+          const tenantId = parseInt(String(request.query.tenantId), 10);
+          const employeeid = request.query.employeeid
+               || request.body?.employeeid
+               || request.body?.employeeId
+               || request.body?.approverEmployeeId
+               || request.body?.revokerEmployeeId;
+
+          if (!tenantId || !employeeid) return customError('tenantId and employeeid are required', 400, response);
+
+          const userdata = await new RolesRepository(tenantId).getRoleById(parseInt(String(employeeid), 10));
+          const role = String(userdata?.role || '').toLowerCase().trim().replace(/_/g, '-');
+          const allowedRoles = ['admin', 'super-admin', 'superadmin', 'accountant'];
+
+          if (!allowedRoles.includes(role)) {
+               return customError(OperationsFailures.dontHaveAccessPermission, 403, response);
+          }
+
+          next();
+     } catch (err) {
+          responseError(response);
+     }
+}
+
 
 

@@ -14,6 +14,7 @@ import User from "../../LobnosAuth/user";
 import DiscountLimitService from "./billing-services/discount-limit";
 import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
+import { StaffFocService } from "../foc/services/StaffFocService";
 
 
 
@@ -487,6 +488,25 @@ export class SubmitCustomerBilling {
                 if (data.isPromo && data.promoCode && data.promoDetails.id) {
                     const promoRepo = new PrimeBillingPromoCodeRepo(this.tenantId);
                     await promoRepo.incrementUsage(data.promoDetails.id, trx);
+                }
+
+                const focStaffId = this.payload.focStaffId || this.payload.paymentDetails?.focStaffId;
+                if (focStaffId) {
+                    const focService = new StaffFocService();
+                    await focService.processFocTransaction(
+                        this.tenantId,
+                        {
+                            employeeid: Number(focStaffId),
+                            patientid: Number(this.payload.patientid || this.payload.patientId),
+                            billingid: finalBillingId,
+                            branchid: Number(updatedBillingData.branchid || 1),
+                            gross_amount: Number(dataToUpdate.payable || 0),
+                            requested_by: Number(employeeid || this.payload.employeeid),
+                            reason: this.payload.focReason || 'Staff Medical Benefit',
+                            allow_override: Boolean(this.payload.allowFocOverride),
+                        },
+                        trx
+                    );
                 }
 
                 const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];
