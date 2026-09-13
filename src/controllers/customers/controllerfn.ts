@@ -15,17 +15,27 @@ export async function getCustomers(request: Request<{}, {}, {}, PatientRecords>,
 	}
 }
 
+export async function getCustomerSummary(request: Request, response: Response) {
+	try {
+		const tenantId = parseInt(String(request.query.tenantId), 10);
+		const summary = await new Registration().getCustomerSummary(tenantId);
+		response.send(summary);
+	} catch (err) {
+		response.status(500).send({ error: 'Unable to load customer summary' });
+	}
+}
+
 
 
 export async function AdvancedPatientFilterHandler(request: Request, response: Response) {
-     try {
-         const tenantId: number = parseInt(request.query.tenantId as string, 10);
-	    const patients = await Registration.AdvancedPatientFilter(tenantId, request.body);
-	    response.send({
-		   success: true,
-		   count: patients.length,
-		   data: patients
-	    });
+	try {
+		const tenantId: number = parseInt(request.query.tenantId as string, 10);
+		const patients = await Registration.AdvancedPatientFilter(tenantId, request.body);
+		response.send({
+			success: true,
+			count: patients.length,
+			data: patients
+		});
 	} catch (error) {
 		console.error("Error in AdvancedPatientFilterHandler:", error);
 		response.status(500).send({ error: 'An error occurred while filtering patients' });

@@ -347,6 +347,42 @@ export default class Registration {
 		}
 	}
 
+	public async getCustomerSummary(tenantId: number): Promise<{
+		totalRecords: number;
+		duplicateRecords: number;
+		uniquePatients: number;
+		registeredToday: number;
+	}> {
+		const result: any = await promisifyQuery(tenantId, `
+			SELECT
+				COUNT(*) AS totalRecords,
+				COUNT(DISTINCT identity_key) AS uniquePatients,
+				COUNT(*) - COUNT(DISTINCT identity_key) AS duplicateRecords,
+				SUM(CASE WHEN DATE(registered_date) = CURRENT_DATE THEN 1 ELSE 0 END) AS registeredToday
+			FROM (
+				SELECT
+					patientid,
+					date AS registered_date,
+					CONCAT_WS('|',
+						LOWER(TRIM(firstname)),
+						LOWER(TRIM(COALESCE(middlename, ''))),
+						LOWER(TRIM(lastname)),
+						DATE_FORMAT(dob, '%Y-%m-%d'),
+						COALESCE(NULLIF(TRIM(mobile_number), ''), LOWER(TRIM(COALESCE(email, ''))))
+					) AS identity_key
+				FROM new_patients
+			) AS patient_records
+		`, []);
+
+		const summary = result?.[0] || {};
+		return {
+			totalRecords: Number(summary.totalRecords || 0),
+			duplicateRecords: Number(summary.duplicateRecords || 0),
+			uniquePatients: Number(summary.uniquePatients || 0),
+			registeredToday: Number(summary.registeredToday || 0),
+		};
+	}
+
 	addressingInformation(tenantId: number, paientid: number, records: addressInformation): Promise<boolean | void> {
 		throw new Error("Method not implemented.");
 	}
@@ -576,7 +612,7 @@ export default class Registration {
 				"occupation": "occupation"
 			};
 
-		
+
 
 			const db = await KnexConnection(tenantid);
 			let query = db("new_patients")
