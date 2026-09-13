@@ -16,6 +16,7 @@ import { bootstrapPayrollTables } from '../models/payroll/PayrollBootstrapper';
 import { bootstrapTestReportSettingsTable } from '../models/application/appsettings/result-settings/TestReportSettingsBootstrapper';
 import { bootstrapRefundTableSanitization } from '../models/billing/RefundBootstrapper';
 import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
+import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -34,6 +35,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapEmailTables(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId);
 	await bootstrapTestReportSettingsTable(tenantId);
+	await bootstrapApplicationSettings(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapHomeCollectionSeeds(tenantId);
 

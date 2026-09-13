@@ -7,11 +7,13 @@ import logger from "../../hooks/logger";
 
 export const getUltrasoundTestListHandler = async function (request: Request, response: Response) {
        try {
-              const tenantId = parseInt(request.query.tenantId.toString())
+              const tenantIdValue = request.query.tenantId;
+              if (!tenantIdValue) return customError('tenantId is required', 400, response);
+              const tenantId = parseInt(String(tenantIdValue), 10);
               const ultrasoundList = await testpanel.getUltrasoundScanTestList(tenantId);
               response.send(ultrasoundList);
        } catch (err) {
-              logger.log(err)
+              logger.error(err instanceof Error ? err.message : String(err));
               responseError(response);
        }
 }
@@ -29,7 +31,9 @@ export const createUltrasoundTemplateHandler = async function (request: Request,
               if (!isValidBodyPart) {
                      return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
               }
-              const tenantId = parseInt(request.query.tenantId.toString())
+              const tenantIdValue = request.query.tenantId;
+              if (!tenantIdValue) return customError('tenantId is required', 400, response);
+              const tenantId = parseInt(String(tenantIdValue), 10);
               const isCreated_Value = await Creator.createUltrasoundTemplate(tenantId, request.body);
               response.send({ status: isCreated_Value });
        } catch (err) {
@@ -42,8 +46,10 @@ export const createUltrasoundTemplateHandler = async function (request: Request,
 export const getUltrasoundTemplateSingleDetailHandler = async function (request: Request, response: Response) {
        try {
               const { templateid } = request.query;
-              const parsedTemplateId = parseInt(templateid.toString());
-              const tenantId = parseInt(request.query.tenantId.toString())
+              const tenantIdValue = request.query.tenantId;
+              if (!templateid || !tenantIdValue) return customError('templateid and tenantId are required', 400, response);
+              const parsedTemplateId = parseInt(String(templateid), 10);
+              const tenantId = parseInt(String(tenantIdValue), 10);
               const templateDetail = await Creator.getUltrasoundTemplateSingleDetail(tenantId, parsedTemplateId);
               response.send(templateDetail);
        } catch (err) {
@@ -61,7 +67,9 @@ export const updateUltrasoundTemplateHandler = async function (request: Request,
               if (!isValidBodyPart) {
                      return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
               }
-              const tenantId = parseInt(request.query.tenantId.toString())
+              const tenantIdValue = request.query.tenantId;
+              if (!tenantIdValue) return customError('tenantId is required', 400, response);
+              const tenantId = parseInt(String(tenantIdValue), 10);
               const isCreated_Value = await Creator.updateUltrasoundTemplate(tenantId, request.body);
 
               response.send({ status: isCreated_Value });
@@ -90,7 +98,7 @@ export const getUltrasoundScanTestListHandler = async function (request: Request
                             parsedTestId = parseInt(testid.toString());
                      }
                      const tenantId = parseInt(request.query.tenantId.toString())
-                     if (testid && !isNaN(parsedTestId)) {
+                     if (testid && parsedTestId !== undefined && !isNaN(parsedTestId)) {
                             const list = await Creator.getUltrasoundTypeTemplates(tenantId, parsedTestId, parseInt(count.toString()), parseInt(page.toString()), parseInt(employeeid.toString()));
                             response.send(list);
                      }

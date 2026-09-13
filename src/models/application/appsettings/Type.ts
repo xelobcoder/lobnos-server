@@ -35,6 +35,13 @@ export type ApplicationSettingsData = {
      fontsize: string;
      textcolor: string;
      BackgroundColor: string;
+     headerColor?: string | null;
+     sidebarColor?: string | null;
+     pageBackgroundColor?: string | null;
+     headerTextColor?: string | null;
+     sidebarTextColor?: string | null;
+     primaryColor?: string | null;
+     secondaryColor?: string | null;
      DeactivateBilling24hrs: number;
      allowManagerToRefund: numberBoolean;
      makepdfprintingcompulsory: numberBoolean;
