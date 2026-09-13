@@ -212,7 +212,7 @@ export class StaffFocService implements IStaffFocService {
                     await trx.commit();
                }
 
-               const transaction = await this.repo.getTransactionById(tenantId, txId);
+               const transaction = await this.repo.getTransactionById(tenantId, txId, isManagedTrx ? undefined : trx);
                return transaction!;
           } catch (error: any) {
                if (isManagedTrx) {
@@ -282,7 +282,54 @@ export class StaffFocService implements IStaffFocService {
                const newRemaining = Math.min(currentLimit, currentLimit - newUsed);
 
                await this.repo.updateAccountBalance(tenantId, lockedAccount.id, newUsed, newRemaining, trx);
-               await this.repo.updateTransactionStatus(tenantId, transactionId, 'reversed', revokerEmployeeId, trx);
+
+               const serviceRows = await trx('dboservices')
+                    .where({
+                         billingid: tx.billingid,
+                         foc_transaction_id: transactionId,
+                    })
+                    .select('serviceid', 'totalpayable', 'paidamount', 'foc_amount');
+
+               for (const serviceRow of serviceRows) {
+                    const serviceFocAmount = Number(serviceRow.foc_amount || 0);
+                    const paidAfterReversal = Math.max(0, Number(serviceRow.paidamount || 0) - serviceFocAmount);
+                    const outstandingAfterReversal = Math.max(0, Number(serviceRow.totalpayable || 0) - paidAfterReversal);
+
+                    await trx('dboservices')
+                         .where({ serviceid: serviceRow.serviceid })
+                         .update({
+                              foc_amount: 0,
+                              paidamount: paidAfterReversal,
+                              outstanding: outstandingAfterReversal,
+                              paymentstatus: outstandingAfterReversal === 0
+                                   ? 'Paid'
+                                   : paidAfterReversal > 0
+                                        ? 'partial'
+                                        : 'pending',
+                         });
+               }
+
+               const billingTotals = await trx('dboservices')
+                    .where({ billingid: tx.billingid })
+                    .sum({ totalpayable: 'totalpayable' })
+                    .sum({ paidamount: 'paidamount' })
+                    .sum({ outstanding: 'outstanding' })
+                    .first();
+               const billingPayable = Number(billingTotals?.totalpayable || 0);
+               const billingPaid = Number(billingTotals?.paidamount || 0);
+               const billingOutstanding = Math.max(0, Number(billingTotals?.outstanding || billingPayable - billingPaid));
+
+               await trx('billing')
+                    .where({ billingid: tx.billingid })
+                    .update({
+                         paid: billingPaid,
+                         outstanding: billingOutstanding,
+                         balance: billingPaid > billingPayable ? billingPaid - billingPayable : 0,
+                         status: billingOutstanding === 0 ? 'paid' : billingPaid > 0 ? 'partial' : 'pending',
+                         clientstatus: billingOutstanding === 0 ? 'paid' : billingPaid > 0 ? 'partial' : 'pending',
+                    });
+
+               await this.repo.updateTransactionStatus(tenantId, transactionId, 'reversed', revokerEmployeeId, trx, reason);
 
                await trx.commit();
                return true;

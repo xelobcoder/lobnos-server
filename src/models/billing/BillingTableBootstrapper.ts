@@ -3,6 +3,19 @@ import KnexConnection from '../../database/KnexConnections';
 export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
 
+     if (await connection.schema.hasTable('dboservices')) {
+          const focColumns = [
+               { name: 'foc_amount', add: (table: any) => table.decimal('foc_amount', 12, 2).notNullable().defaultTo(0) },
+               { name: 'foc_transaction_id', add: (table: any) => table.integer('foc_transaction_id').unsigned().nullable() },
+          ];
+
+          for (const column of focColumns) {
+               if (!(await connection.schema.hasColumn('dboservices', column.name))) {
+                    await connection.schema.alterTable('dboservices', column.add);
+               }
+          }
+     }
+
      if (!(await connection.schema.hasTable('package_assignments'))) {
           await connection.schema.createTable('package_assignments', (table) => {
                table.bigIncrements('id').primary().unsigned();

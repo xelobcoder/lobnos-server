@@ -82,6 +82,18 @@ export async function bootstrapStaffFocTables(tenantId = 1): Promise<void> {
                logger.info('[Bootstrap] Created staff_foc_transaction table');
           }
 
+          const reversalColumns = [
+               { name: 'reversal_reason', add: (table: any) => table.text('reversal_reason').nullable() },
+               { name: 'reversed_by', add: (table: any) => table.integer('reversed_by').unsigned().nullable() },
+               { name: 'reversed_at', add: (table: any) => table.datetime('reversed_at').nullable() },
+          ];
+
+          for (const column of reversalColumns) {
+               if (!(await connection.schema.hasColumn('staff_foc_transaction', column.name))) {
+                    await connection.schema.alterTable('staff_foc_transaction', column.add);
+               }
+          }
+
           // Automatically initialize current year FOC accounts for all active staff in roles table if missing
           const currentYear = new Date().getFullYear();
           const periodStart = `${currentYear}-01-01`;

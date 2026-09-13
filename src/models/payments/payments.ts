@@ -137,6 +137,8 @@ class Payment {
 					connection.raw('SUM(COALESCE(s.totalcost, 0)) AS totalcost'),
 					connection.raw("SUM(COALESCE(s.discount, 0)) AS discount"),
 					connection.raw("SUM(COALESCE(s.paidamount, 0)) AS paidamount"),
+					connection.raw("SUM(COALESCE(s.foc_amount, 0)) AS foc_amount"),
+					connection.raw("MAX(COALESCE(s.foc_transaction_id, 0)) AS foc_transaction_id"),
 					connection.raw("SUM(COALESCE(s.totalpayable, 0)) AS totalpayable"),
 					connection.raw("SUM(COALESCE(s.outstanding, 0)) AS outstanding"),
 					connection.raw('SUM(COALESCE(s.amountIncurredDueTax, 0)) AS amountIncurredDueTax'),

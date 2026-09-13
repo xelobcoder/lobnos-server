@@ -139,7 +139,8 @@ export const isAuthorizedRoleAdmin = async (request: Request<{}, {}, { employeeI
 export const isAuthorizedRoleAdminOrAccountant = async (request: Request, response: Response, next: NextFunction) => {
      try {
           const tenantId = parseInt(String(request.query.tenantId), 10);
-          const employeeid = request.query.employeeid
+          const employeeid = request.query.requesterEmployeeid
+               || request.query.employeeid
                || request.body?.employeeid
                || request.body?.employeeId
                || request.body?.approverEmployeeId

@@ -32,6 +32,9 @@ export interface IStaffFocTransaction {
      requested_by: number;
      approved_by?: number | null;
      approved_on?: string | Date | null;
+     reversal_reason?: string | null;
+     reversed_by?: number | null;
+     reversed_at?: string | Date | null;
      created_at?: string | Date;
      staff_name?: string;
      patient_name?: string;

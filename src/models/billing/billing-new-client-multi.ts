@@ -493,7 +493,7 @@ export class SubmitCustomerBilling {
                 const focStaffId = this.payload.focStaffId || this.payload.paymentDetails?.focStaffId;
                 if (focStaffId) {
                     const focService = new StaffFocService();
-                    await focService.processFocTransaction(
+                    const focTransaction = await focService.processFocTransaction(
                         this.tenantId,
                         {
                             employeeid: Number(focStaffId),
@@ -507,6 +507,35 @@ export class SubmitCustomerBilling {
                         },
                         trx
                     );
+
+                    if (focTransaction?.id) {
+                        const serviceRows = await trx('dboservices')
+                            .where({ billingid: finalBillingId })
+                            .orderBy('serviceid', 'asc');
+                        let remainingFoc = Number(focTransaction.foc_amount || 0);
+
+                        for (const serviceRow of serviceRows) {
+                            const existingPaid = Number(serviceRow.paidamount || 0);
+                            const servicePayable = Math.max(0, Number(serviceRow.totalpayable || 0));
+                            const serviceRemaining = Math.max(0, servicePayable - existingPaid);
+                            const serviceFoc = Math.min(serviceRemaining, remainingFoc);
+                            const paidAfterFoc = existingPaid + serviceFoc;
+                            const outstandingAfterFoc = Math.max(0, servicePayable - paidAfterFoc);
+
+                            await trx('dboservices')
+                                .where({ serviceid: serviceRow.serviceid })
+                                .update({
+                                    foc_amount: serviceFoc,
+                                    foc_transaction_id: focTransaction.id,
+                                    paidamount: paidAfterFoc,
+                                    outstanding: outstandingAfterFoc,
+                                    paymentstatus: outstandingAfterFoc === 0 ? 'Paid' : 'partial',
+                                });
+
+                            remainingFoc = Math.max(0, remainingFoc - serviceFoc);
+                            if (remainingFoc === 0) break;
+                        }
+                    }
                 }
 
                 const paymentsArr = Array.isArray(this.payload.payments) ? this.payload.payments : [];

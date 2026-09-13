@@ -124,7 +124,7 @@ export class StaffFocRepository {
           return tx || null;
      }
 
-     async updateTransactionStatus(tenantId: number, transactionId: number, status: 'approved' | 'rejected' | 'reversed', approverId?: number, trx?: any): Promise<void> {
+     async updateTransactionStatus(tenantId: number, transactionId: number, status: 'approved' | 'rejected' | 'reversed', approverId?: number, trx?: any, reversalReason?: string): Promise<void> {
           const conn = trx || await KnexConnection(tenantId);
           const updateData: any = {
                status,
@@ -132,6 +132,11 @@ export class StaffFocRepository {
           if (approverId) {
                updateData.approved_by = approverId;
                updateData.approved_on = new Date();
+          }
+          if (status === 'reversed') {
+               updateData.reversal_reason = reversalReason || null;
+               updateData.reversed_by = approverId || null;
+               updateData.reversed_at = new Date();
           }
 
           await conn('staff_foc_transaction')
