@@ -8,7 +8,7 @@ SELECT
     r.username,
     er.approved,
     rb.username AS approvedby,
-    er.date,
+    DATE_FORMAT(er.date, '%Y-%m-%d') AS date,
     er.createdon,
     em.name AS merchant_name,
     er.id,

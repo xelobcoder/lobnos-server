@@ -70,10 +70,9 @@ export class Refund {
 		const result = await promisifyQuery(tenantId, q_refunds_has_witness_before, [
 			employeeid,
 			employeeid,
-			employeeid,
 			trackId,
 		]);
-		return result[0]['count'] > 0
+		return result[0]['count'] > 0;
 	}
 
 
@@ -103,11 +102,13 @@ export class Refund {
 	) {
 		const user = new User(null, null, null, null, null);
 		const role = await user.getUserRole(employeeid, tenantId);
-		let values = [];
+		const stringRole = (role || '').toString().toLowerCase();
+		const isAdminRole = ['admin', 'superadmin', 'super-admin', 'manager', 'crm', 'accountant', 'customer service representative'].includes(stringRole);
+
+		let values: any[] = [];
 		let query = '';
-		if (role !== 'admin' && status === 'completed') {
+		if (!isAdminRole && status === 'completed') {
 			query = q_refund_get_all_refunds_status_completed_employee_specific;
-			values.push(employeeid);
 			values.push(employeeid);
 			values.push(employeeid);
 		} else {
@@ -121,29 +122,29 @@ export class Refund {
 
 		let result: dbReturned[] | combinedType[] = await paginationQuery({ count, page }, query, values, tenantId);
 
-		let outcome = await Refund.refundItemProcessed(tenantId, result, user, employeeid, role, status)
-		return outcome
+		let outcome = await Refund.refundItemProcessed(tenantId, result, user, employeeid, role || '', status);
+		return outcome;
 	}
 
-	private static async refundItemProcessed(tenantId: number, result: dbReturned[] | combinedType[], user: User, employeeid: number, role: string, status: string) {
+	private static async refundItemProcessed(tenantId: number, result: any[], user: User, employeeid: number, role: string, status: string) {
 		if (result.length > 0) {
 			result = await Promise.all(
-				result.map(async (item: withnessUpdatedType) => {
+				result.map(async (item: any) => {
 					return await Refund.serviceDifferentiatedToWithness(tenantId, item, user, employeeid, role, status);
 				})
 			);
 		}
 
-		const accessoriesBillingInformation = new Billing(null);
-		return await Promise.all(Refund.prepareServiceItemForResponseBulk(tenantId, result, accessoriesBillingInformation, role))
+		const accessoriesBillingInformation = new Billing(0);
+		return await Promise.all(Refund.prepareServiceItemForResponseBulk(tenantId, result, accessoriesBillingInformation, role));
 	}
 
 
-	private static prepareServiceItemForResponseBulk(tenantId: number, result: dbReturned[] | combinedType[], accessoriesBillingInformation: Billing, role: string): Promise<{ refundid: number; serviceid: number; serviceCategory: string; witnesses: withnessUpdatedType; cost: number; amountIncurredDueTax: number; billedby: string; serviceName: string; billingid: number; canwitness: boolean; canEdit: boolean; isRefundApproved: number; } | { isRefundCompleted: number; refundid: number; serviceid: number; serviceCategory: string; witnesses: withnessUpdatedType; cost: number; amountIncurredDueTax: number; billedby: string; serviceName: string; billingid: number; canwitness: boolean; canEdit: boolean; isRefundApproved: number; }>[] {
-		return result.map(async (item: combinedType & { witnesses: withnessUpdatedType; billedby: string; canwitness: boolean; canEdit: boolean; }) => {
+	private static prepareServiceItemForResponseBulk(tenantId: number, result: any[], accessoriesBillingInformation: Billing, role: string): Promise<any>[] {
+		return result.map(async (item: any) => {
 			const responseData = await Refund.prepareResponseData(tenantId, accessoriesBillingInformation, item);
 
-			if (role != 'admin') {
+			if (role !== 'admin') {
 				return responseData;
 			}
 			return { ...responseData, isRefundCompleted: item.isRefundCompleted };
@@ -151,7 +152,7 @@ export class Refund {
 	}
 
 
-	private static async prepareResponseData(tenantId: number, accessoriesBillingInformation: Billing, item: PrimeLimsTabledbobillingrefundtable & PrimeLimsTabledboservices & PrimeLimsTablebilling[] & witnessedType & { witnesses: withnessUpdatedType; billedby: string; canwitness: boolean; canEdit: boolean; }) {
+	private static async prepareResponseData(tenantId: number, accessoriesBillingInformation: Billing, item: any) {
 		let serviceName: string = '';
 		const accessories = await accessoriesBillingInformation.diffentiateBilledToIndividualServices(tenantId, [item]);
 		if (accessories.length > 0) {
@@ -173,13 +174,14 @@ export class Refund {
 			billingid: item.billingid,
 			canwitness: item.canwitness,
 			canEdit: item.canEdit,
-			isRefundApproved: item.isRefundApproved
+			isRefundApproved: item.isRefundApproved,
+			isRefundCompleted: item.isRefundCompleted
 		};
 		return responseData;
 	}
 
 
-	private static async serviceDifferentiatedToWithness(tenantId: number, item: withnessUpdatedType, user: User, employeeid: number, role: string, status: string) {
+	private static async serviceDifferentiatedToWithness(tenantId: number, item: any, user: User, employeeid: number, role: string, status: string) {
 		let witnesses: witnessedType[] = await Refund.getWithnessFromServiceItem(tenantId, item, user, employeeid);
 		item.canEdit = false;
 		item.canwitness = false;
@@ -191,12 +193,12 @@ export class Refund {
 	}
 
 
-	private static processNonAdminServiceItem(witnesses: witnessedType[], employeeid: number, status: string, item: withnessUpdatedType) {
-		if (witnesses.length > 0 && witnesses.length <= 3) {
-			const hasWitnessBefore = witnesses.map((_witness) => _witness.employeeid).includes(parseInt(employeeid.toString()));
+	private static processNonAdminServiceItem(witnesses: witnessedType[], employeeid: number, status: string, item: any) {
+		if (witnesses.length > 0) {
+			const hasWitnessBefore = witnesses.map((_witness) => _witness.employeeid).includes(parseInt(employeeid.toString(), 10));
 
-			const moreWithnessNeeded = witnesses.filter((_witness: Witness, index: number) => {
-				return _witness.employeeid == null;
+			const moreWithnessNeeded = witnesses.filter((_witness: witnessedType) => {
+				return _witness.employeeid == null || _witness.employeeid === 0;
 			});
 
 			if (status === "pending") {
@@ -227,23 +229,22 @@ export class Refund {
 	}
 
 
-	private static async getWithnessFromServiceItem(tenantId: number, item: withnessUpdatedType, user: User, employeeid: number) {
-		const { firstWitness, secondWitness, thirdWitness } = item;
+	private static async getWithnessFromServiceItem(tenantId: number, item: any, user: User, employeeid: number) {
+		const witnessId = (item.firstWitness && Number(item.firstWitness) > 0)
+			? Number(item.firstWitness)
+			: (item.initiatedBy && Number(item.initiatedBy) > 0) ? Number(item.initiatedBy) : 0;
 		let witnesses: witnessedType[] = [];
-		const witnessEntries = Object.entries({ firstWitness, secondWitness, thirdWitness });
 
-		for (const [key, value] of witnessEntries) {
-			if (value > 0) {
-				const userData = await user.getUserDataById(value, tenantId);
-				if (userData.length > 0) {
-					const { username, employeeid } = userData[0];
-					witnesses.push({ witness: key, name: username, message: `${item[key + 'Purpose']}`, employeeid });
-				} else {
-					witnesses.push({ witness: key, name: 'not found', message: `${item[key + 'Purpose']}`, employeeid });
-				}
+		if (witnessId > 0) {
+			const userData = await user.getUserDataById(witnessId, tenantId);
+			if (userData && userData.length > 0) {
+				const { username, employeeid: empId } = userData[0];
+				witnesses.push({ witness: 'witness', name: username, message: `${item.firstWitnessPurpose || item.rejectionmessage || ''}`, employeeid: empId });
 			} else {
-				witnesses.push({ witness: key, name: null, message: `${item[key + 'Purpose']}`, employeeid: null });
+				witnesses.push({ witness: 'witness', name: 'not found', message: `${item.firstWitnessPurpose || item.rejectionmessage || ''}`, employeeid: witnessId });
 			}
+		} else {
+			witnesses.push({ witness: 'witness', name: null, message: `${item.firstWitnessPurpose || ''}`, employeeid: 0 });
 		}
 		return witnesses;
 	}
@@ -275,14 +276,11 @@ export class Refund {
 			'dbobillingrefundtable'
 		).findOne(tenantId, 'serviceid', serviceid);
 
-		if (!refundServiceInformation) return false;
-		const { firstWitness, secondWitness, thirdWitness } = refundServiceInformation;
+		if (!refundServiceInformation) return 'witness';
+		const { firstWitness, initiatedBy } = refundServiceInformation;
 
-		if (firstWitness === 0) return 'firstWitness';
-		if (secondWitness === 0) return 'secondWitness';
-		if (thirdWitness === 0) return 'thirdWitness';
-		if (firstWitness > 0 && secondWitness > 0 && thirdWitness > 0) return 'allWitnessesAssigned';
-		return false;
+		if ((!firstWitness || Number(firstWitness) === 0) && (!initiatedBy || Number(initiatedBy) === 0)) return 'witness';
+		return 'allWitnessesAssigned';
 	}
 
 
@@ -306,11 +304,7 @@ export class Refund {
 		employeeid: number,
 		reason: string
 	): Promise<boolean> {
-		const query = q_services_refund_status_change
-			.replace('{withness}', witness)
-			.replace('{date}', `${witness}Date`)
-			.replace('{withness}', witness);
-		const result = await promisifyQuery(tenantId, query, [employeeid, reason, serviceid]);
+		const result = await promisifyQuery(tenantId, q_services_refund_status_change, [employeeid, reason, serviceid]);
 		return rowAffected(result);
 	}
 
@@ -337,10 +331,9 @@ export class Refund {
 			const withnessStatus = await this.withnessStatus(tenantId, serviceid);
 			const stringifyRole = role.toString().trim();
 
-			if (withnessStatus == 'allWitnessesAssigned') return OperationsFailures.allWitnessesAssigned;
-			if (withnessStatus == "thirdWitness") return OperationsFailures.nopermissiontobethirdwitness;
+			if (withnessStatus === 'allWitnessesAssigned') return OperationsFailures.allWitnessesAssigned;
 
-			await this.updateWitnessOfRefund(
+			const witnessResult = await this.updateWitnessOfRefund(
 				tenantId, {
 				serviceid,
 				employeeid,
@@ -348,16 +341,28 @@ export class Refund {
 				reason,
 			});
 
+			if (typeof witnessResult === 'string') return witnessResult;
+
+			await promisifyQuery(
+				tenantId,
+				`UPDATE dbobillingrefundtable SET isRefundInitiated = 1, initiatedBy = ? WHERE serviceid = ?`,
+				[employeeid, serviceid]
+			);
+
 			const applicationsettings = await new ApplicationSettings()
 				.getAllAppSettings(tenantId);
 
-			if (!applicationsettings) return OperationsFailures.notFound;
+			const allowManagerToRefund = applicationsettings?.allowManagerToRefund || 0;
 
-			const { allowManagerToRefund } = applicationsettings;
-			if (['admin', 'superadmin'].includes(stringifyRole) || (stringifyRole == 'manager' && parseInt(allowManagerToRefund.toString()) == 1)) {
+			if (
+				['admin', 'superadmin', 'super-admin'].includes(stringifyRole) ||
+				(stringifyRole === 'manager' && parseInt(allowManagerToRefund.toString(), 10) === 1)
+			) {
 				const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [1, new Date(), employeeid, serviceid]);
 				return rowAffected(result);
 			}
+
+			return true;
 		} catch (error: any) {
 			return error.message;
 		}
@@ -507,9 +512,9 @@ export class Refund {
 					employeeid,
 					billingid,
 					refundAmount: amountToRefund,
-					trackId: null,
-					name: null,
-					cost: null
+					trackId: 0,
+					name: '',
+					cost: 0
 				});
 				return issueOutCash;
 			}

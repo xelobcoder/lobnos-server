@@ -100,8 +100,7 @@ export class Billing {
 		const connection = await KnexConnection(tenantId);
 		const servicesProfile: PrimeLimsTablebilling[] = await connection('dboservices')
 			.select('dboservices.*', 'dbobillingrefundtable.*', 'organization.name as organizationName',
-				'clinicianbasicinfo.name as clinicianName', 'roles_first.username as firstWitnessName',
-				'roles_second.username as secondWitnessName', 'roles_third.username as thirdWitnessName',
+				'clinicianbasicinfo.name as clinicianName', 'roles_first.username as witnessName',
 				'roles_initiated.username as initiatedByName', 'deleted_by_role.username as deletedByName',
 				'roles_approved.username as approvedByName')
 			.leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')
@@ -110,8 +109,6 @@ export class Billing {
 			.leftJoin('roles as roles_initiated', 'dbobillingrefundtable.initiatedBy', 'roles_initiated.employeeid')
 			.leftJoin('roles as roles_approved', 'dbobillingrefundtable.approvedby', 'roles_approved.employeeid')
 			.leftJoin('roles as roles_first', 'dbobillingrefundtable.firstWitness', 'roles_first.employeeid')
-			.leftJoin('roles as roles_second', 'dbobillingrefundtable.secondWitness', 'roles_second.employeeid')
-			.leftJoin('roles as roles_third', 'dbobillingrefundtable.thirdWitness', 'roles_third.employeeid')
 			.leftJoin('roles as deleted_by_role', 'dboservices.isdeletedBy', 'deleted_by_role.employeeid')
 			.where({ billingid })
 			.orWhere({ relatedbillingid: billingid });
@@ -156,17 +153,17 @@ export class Billing {
 
 	public diffentiateBilledToIndividualServices(tenantId: number, servicesList: any) {
 		return Promise.all(
-			servicesList.map(async (item) => {
-				const addVitalInformation = async function (item) {
+			servicesList.map(async (item: any) => {
+				const addVitalInformation = async function (item: any) {
 					const { isoutsourced, trackId, categoryTrackId, serviceAddedOn, outsourceid, organizationId } = item;
-					let OutSourcingOrganization = [];
+					let OutSourcingOrganization: any = [];
 					let outsouring_organization = null;
 
 					if (isoutsourced == 1 && outsourceid) {
-						OutSourcingOrganization = await new Outsourcing(null, null).getOrganizationBasicInformation(tenantId, outsourceid);
+						OutSourcingOrganization = await new Outsourcing(null as any, null as any).getOrganizationBasicInformation(tenantId, outsourceid);
 
 						if (Array.isArray(OutSourcingOrganization) && OutSourcingOrganization.length > 0) {
-							outsouring_organization = OutSourcingOrganization[0]['name'];
+							outsouring_organization = OutSourcingOrganization[0]?.['name'];
 						}
 					}
 
@@ -177,11 +174,11 @@ export class Billing {
 							return { ...item, outsourcingOrganization: outsouring_organization, name: testname1 };
 
 						case 5:
-							const servicenformation = await new Services(trackId).getAService(tenantId);
+							const servicenformation: any = await new Services(trackId).getAService(tenantId);
 							let testname5 = await testpanel.getTestUsingTestid(tenantId, trackId);
-							return servicenformation.length === 0
+							return !servicenformation || servicenformation.length === 0
 								? { ...item, name: testname5 }
-								: { ...item, name: servicenformation[0]['serviceName'], testname: testname5 };
+								: { ...item, name: servicenformation[0]?.['serviceName'], testname: testname5 };
 
 						case 2:
 							const organizationalBillingName = await new OrganizationalBilling(organizationId).getOrganizationBasic(tenantId);

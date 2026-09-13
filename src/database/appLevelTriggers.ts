@@ -115,8 +115,6 @@ export async function applyDboservicesAfterInsert(tenantId: number, db: DbRunner
 			serviceid: service.serviceid,
 			refundedBy: 0,
 			firstWitness: 0,
-			secondWitness: 0,
-			thirdWitness: 0,
 		});
 	}
 

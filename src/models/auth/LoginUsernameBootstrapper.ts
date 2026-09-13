@@ -79,6 +79,36 @@ async function ensureRoleColumnIsVarchar(connection: Knex): Promise<void> {
      }
 }
 
+async function ensureRolesColumns(connection: Knex): Promise<void> {
+     const columnsToCheck: Array<{ name: string; add: (table: Knex.CreateTableBuilder) => void }> = [
+          { name: 'pin', add: (t) => t.integer('pin').unsigned().nullable().defaultTo(0) },
+          { name: 'date_created', add: (t) => t.datetime('date_created').nullable().defaultTo(connection.fn.now()) },
+          { name: 'refresh_token', add: (t) => t.string('refresh_token', 255).nullable() },
+          { name: 'activation', add: (t) => t.boolean('activation').notNullable().defaultTo(false) },
+          { name: 'updated_on', add: (t) => t.datetime('updated_on', { precision: 6 }).nullable() },
+          { name: 'emailAuthenticated', add: (t) => t.string('emailAuthenticated', 6).notNullable().defaultTo('false') },
+          { name: 'branch', add: (t) => t.integer('branch').unsigned().nullable() },
+          { name: 'mobile', add: (t) => t.string('mobile', 10).nullable() },
+          { name: 'alternativeMobile', add: (t) => t.string('alternativeMobile', 10).nullable() },
+          { name: 'dob', add: (t) => t.date('dob').nullable() },
+          { name: 'time', add: (t) => t.datetime('time', { precision: 6 }).nullable() },
+          { name: 'firstname', add: (t) => t.string('firstname', 100).nullable() },
+          { name: 'middlename', add: (t) => t.string('middlename', 100).nullable() },
+          { name: 'lastname', add: (t) => t.string('lastname', 100).nullable() },
+          { name: 'designation', add: (t) => t.integer('designation').nullable() },
+          { name: 'staff_designation', add: (t) => t.string('staff_designation', 100).nullable() }
+     ];
+
+     for (const col of columnsToCheck) {
+          if (!(await connection.schema.hasColumn('roles', col.name))) {
+               await connection.schema.alterTable('roles', (table) => {
+                    col.add(table);
+               });
+               logger.info(`[Bootstrap] Added missing column roles.${col.name}`);
+          }
+     }
+}
+
 export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
      try {
           const connection = await KnexConnection(tenantId);
@@ -86,12 +116,8 @@ export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
 
           if (await connection.schema.hasTable('roles')) {
                await ensureRoleColumnIsVarchar(connection);
+               await ensureRolesColumns(connection);
                await ensureLoginUsernameColumn(connection, 'roles', 'idx_roles_login_username');
-               if (!(await connection.schema.hasColumn('roles', 'staff_designation'))) {
-                    await connection.schema.alterTable('roles', (table) => {
-                         table.string('staff_designation', 100).nullable();
-                    });
-               }
                const rows = await connection('roles')
                     .select('employeeid')
                     .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));

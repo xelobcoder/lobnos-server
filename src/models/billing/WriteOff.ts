@@ -153,16 +153,10 @@ export class WriteOff {
                               amountRefunded: service.totalpayable,
                               isRefundMatterClosed: 1,
                               firstWitness: employeeid,
-                              secondWitness: employeeid,
-                              thirdWitness: employeeid,
                               initiatedBy: employeeid,
                               approvalDate: new Date(),
                               firstWitnessPurpose: comprehensiveMessage,
-                              secondWitnessPurpose: comprehensiveMessage,
-                              thirdWitnessPurpose: comprehensiveMessage,
-                              firstWitnessDate: new Date(),
-                              secondWitnessDate: new Date(),
-                              thirdWitnessDate: new Date()
+                              firstWitnessDate: new Date()
                          });
                }
 
@@ -195,7 +189,7 @@ export class WriteOff {
                );
 
                await trx.commit();
-               
+
                await enqueueBillingRefund(
                     tenantId,
                     billingid,

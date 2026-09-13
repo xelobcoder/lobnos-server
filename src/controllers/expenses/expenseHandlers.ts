@@ -1,3 +1,27 @@
+function parseDateParam(dateStr: unknown): string | null {
+	if (!dateStr) return null;
+	const str = String(dateStr).trim();
+	if (!str) return null;
+
+	const yyyymmdd = str.match(/^(d{4})[/-](d{1,2})[/-](d{1,2})/);
+	if (yyyymmdd) {
+		const y = yyyymmdd[1];
+		const m = yyyymmdd[2].padStart(2, '0');
+		const d = yyyymmdd[3].padStart(2, '0');
+		return y + '-' + m + '-' + d;
+	}
+
+	const ddmmyyyy = str.match(/^(d{1,2})[/-](d{1,2})[/-](d{4})/);
+	if (ddmmyyyy) {
+		const d = ddmmyyyy[1].padStart(2, '0');
+		const m = ddmmyyyy[2].padStart(2, '0');
+		const y = ddmmyyyy[3];
+		return y + '-' + m + '-' + d;
+	}
+
+	return str;
+}
+
 import { Request, Response } from "express";
 import Expenses from "../../models/Expenses/ExpenseService";
 import ExpenseInvoiceRepo from "../../models/Expenses/ExpenseInvoiceRepo";
@@ -14,6 +38,7 @@ import { SupplierPaymentExpenseSync } from "../../models/inventory/SupplierPayme
 import User from "../../LobnosAuth/user";
 import { ExpenseData } from "../../models/Expenses/interfaces/types";
 import { PayrollReversalService } from "../../services/payroll/PayrollReversalService";
+import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -121,14 +146,21 @@ export const getExpensesRecord = async (req: Request, res: Response) => {
 			expenseId: null
 		});
 
+
+		const formatedDateFrom = parseDateParam(from);
+		const formatedDateTo = parseDateParam(to) || formatedDateFrom;
+
+
+		console.log({formatedDateFrom, formatedDateTo})
+
 		const records = await expenses.getExpensesRecord(
 			parseInt(tenantId.toString()),
 			parseInt(employeeid.toString()),
 			parseInt(branchid.toString()),
 			status?.toString(),
 			{ page: parseInt(page?.toString() || "1"), count: parseInt(count?.toString() || "10") },
-			from?.toString(),
-			to?.toString()
+			formatedDateFrom,
+			formatedDateTo
 		);
 
 		res.send(records);

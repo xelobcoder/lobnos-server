@@ -177,8 +177,8 @@ export default class Expenses implements IExpenseRepository {
           branchid: number,
           status: string | undefined,
           pageQuery: { count: number; page: number } = { count: 10, page: 1 },
-          from?: string,
-          to?: string,
+          from?: string | null,
+          to?: string | null,
           state?: string
      ): Promise<any> {
           const record = await new User(null, null, null, null, null).userExistWithId(employeeid, tenantId);
@@ -191,7 +191,8 @@ export default class Expenses implements IExpenseRepository {
 
           const role = record[0]['role'];
 
-          const isAdmin = (role === 'admin' || role === 'manager');
+          const isAdmin = (role === 'admin' || role === 'manager' || role == "accountant");
+
           if (!isAdmin) {
                query += ` WHERE er.employeeid = ?`;
                values = [employeeid];
@@ -208,12 +209,16 @@ export default class Expenses implements IExpenseRepository {
                addCondition('er.approved = 1');
           } else if (status === 'rejected') {
                addCondition('er.approved = 2');
-          } else if (status === 'pending') {
+          } else if (status === 'pending' || status === 'requested') {
                addCondition('er.approved = 0');
           }
 
           if (from && to) {
-               addCondition('er.date BETWEEN ? AND ?', [from, to]);
+               addCondition('DATE(er.date) BETWEEN ? AND ?', [from, to]);
+          } else if (from) {
+               addCondition('DATE(er.date) >= ?', [from]);
+          } else if (to) {
+               addCondition('DATE(er.date) <= ?', [to]);
           }
 
           if (state) {
@@ -221,6 +226,7 @@ export default class Expenses implements IExpenseRepository {
           }
 
           query += ` ORDER BY er.id DESC LIMIT ? OFFSET ?`;
+
           return await paginationQuery(pageQuery, query, values, tenantId);
      }
 

@@ -8,7 +8,7 @@ export type RefundRequestBodyParams = {
     refundMessage: string
 }
 
-export type WitnessCategory = "firstWitness" | "secondWitness" | "thirdWitness"
+export type WitnessCategory = "witness" | "firstWitness"
 type Witness = {
     employeeid: number;
     message: string;
@@ -30,7 +30,7 @@ export type UpdatePreviousWitnessNoteBodyParams = {
 
 
 
-export type IDetermineStageOfRefund ={
+export type IDetermineStageOfRefund = {
     serviceid: number;
     employeeid: number;
     purpose: string;

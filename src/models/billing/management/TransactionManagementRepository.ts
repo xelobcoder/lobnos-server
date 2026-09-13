@@ -100,8 +100,6 @@ export class TransactionManagementRepository {
             .leftJoin('outsourcingorganization as oo', 'ott.outsourceid', 'oo.outsourceid')
             .leftJoin('dbobillingrefundtable as rf', 'ds.serviceid', 'rf.serviceid')
             .leftJoin('roles as r1', 'rf.firstWitness', 'r1.employeeid')
-            .leftJoin('roles as r2', 'rf.secondWitness', 'r2.employeeid')
-            .leftJoin('roles as r3', 'rf.thirdWitness', 'r3.employeeid')
             .select(
                 'ds.*',
                 'c.name as clinician_name',
@@ -115,9 +113,7 @@ export class TransactionManagementRepository {
                 'rf.isRefundApproved',
                 'rf.isRefundCompleted',
                 'rf.amountRefunded',
-                'r1.username as first_witness_name',
-                'r2.username as second_witness_name',
-                'r3.username as third_witness_name'
+                'r1.username as witness_name'
             )
             .where('ds.billingid', billingId);
     }

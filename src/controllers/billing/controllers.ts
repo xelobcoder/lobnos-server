@@ -117,19 +117,32 @@ export async function determineStageOfRefundRequestHandler(request: Request<{}, 
 
 export async function requestForRefundHandler(request: Request<{}, {}, RefundRequestBodyParams, { tenantId: string | number }>, response: Response) {
 	try {
-		const { categoryTrackId, billingid, serviceid, employeeid, taxIncluded, refundMessage, trackId } = request.body;
-		const isValidRequestBody = categoryTrackId && !isNaN(categoryTrackId)
-			&& billingid && !isNaN(billingid) && employeeid && !isNaN(employeeid) && [1, 0].includes(taxIncluded) && refundMessage && refundMessage.toString().length > 3
-		const tenantId = parseInt(request.query.tenantId.toString(), 10);
-		if (isValidRequestBody) {
-			const request = await Refund.requestForServicesAsRefundWitness(tenantId, employeeid, serviceid, refundMessage);
-			if (request && typeof request !== 'string') {
-				NotificationDispatcher.dispatch(tenantId, 'REFUND_REQUESTED', { billingId: billingid }, employeeid).catch(() => { });
-			}
-			response.send({ status: request });
-		} else {
-			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		const { billingid, serviceid, employeeid, refundMessage } = request.body;
+		const parsedServiceId = parseInt(serviceid?.toString() || '0', 10);
+		const parsedEmployeeId = parseInt(employeeid?.toString() || '0', 10);
+		const parsedBillingId = parseInt(billingid?.toString() || '0', 10);
+		const cleanReason = refundMessage ? refundMessage.toString().trim() : '';
+
+		if (!parsedServiceId || !parsedEmployeeId || cleanReason.length < 3) {
+			return customError("Please provide a valid service ID, employee ID, and reason for refund (at least 3 characters)", 400, response);
 		}
+
+		const tenantId = parseInt(request.query.tenantId.toString(), 10);
+		const result = await Refund.requestForServicesAsRefundWitness(tenantId, parsedEmployeeId, parsedServiceId, cleanReason);
+
+		if (result === OperationsFailures.allWitnessesAssigned) {
+			return customError("A refund request has already been submitted for this service", 400, response);
+		}
+
+		if (typeof result === 'string') {
+			return customError(result, 400, response);
+		}
+
+		if (result) {
+			NotificationDispatcher.dispatch(tenantId, 'REFUND_REQUESTED', { billingId: parsedBillingId }, parsedEmployeeId).catch(() => { });
+		}
+
+		response.send({ status: true, message: "Request for refund submitted successfully" });
 	} catch (err) {
 		responseError(response);
 	}
@@ -165,15 +178,18 @@ export async function updateBilledTransaction(request: Request<{}, {}, { isCondi
 
 export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {}, {
 	status: "completed" | "pending",
-	count: string,
-	page: string,
-	sortby: 'ASC' | 'DESC',
+	count?: string,
+	page?: string,
+	sortby?: 'ASC' | 'DESC',
+	orderDirection?: 'ASC' | 'DESC',
 	tenantId: string,
 	employeeid: number
 }>, response: Response) {
-	const { page = 10, count = 1, status, employeeid, sortby } = request.query;
-	const parsedPage = parseInt(page.toString());
-	const parsedCount = parseInt(count.toString());
+	const { status, employeeid, sortby, orderDirection } = request.query;
+	const parsedPage = request.query.page ? parseInt(request.query.page.toString(), 10) : 1;
+	const parsedCount = request.query.count ? parseInt(request.query.count.toString(), 10) : 10;
+	const parsedEmployeeId = parseInt(employeeid?.toString() || '0', 10);
+	const direction = (sortby || orderDirection || 'DESC').toString().toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
 
 	if (!status || !["pending", "completed"].includes(status)) {
 		return customError(OperationsFailures.invalidResquestQuery + " right status not included", 404, response);
@@ -181,8 +197,8 @@ export async function getAlRefundsPaginationHandler(request: Request<{}, {}, {},
 
 	try {
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, sortby, employeeid);
-		response.send({ result })
+		const result = await Refund.getAllRefundsWithPagination(tenantId, status, parsedCount, parsedPage, direction, parsedEmployeeId);
+		response.send({ result });
 	} catch (err) {
 		responseError(response);
 	}

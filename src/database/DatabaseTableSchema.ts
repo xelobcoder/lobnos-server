@@ -438,17 +438,11 @@ export type PrimeLimsTabledbobillingrefundtable = {
   serviceid: number;
   refundedBy: number;
   firstWitness: number;
-  secondWitness: number;
-  thirdWitness: number;
   firstWitnessPurpose?: string;
   firstWitnessDate?: Date | string;
-  secondWitnessDate?: Date | string;
-  thirdWitnessDate?: Date | string;
   isRefundCompleted: number;
   isRefundInitiated: number;
   initiatedBy?: number;
-  secondWitnessPurpose?: string;
-  thirdWitnessPurpose?: string;
   isRefundApproved: number;
   approvalDate: number;
   approvedby?: number;

@@ -17,9 +17,9 @@ export const q_get_all_services_associated_billingid_exclusive = `SELECT * FROM 
 
 
 
-export const q_services_refund_status_change = `UPDATE dbobillingrefundtable SET {withness} = ? , {date} = NOW() ,{withness}Purpose = ? WHERE serviceid = ?`;
+export const q_services_refund_status_change = `UPDATE dbobillingrefundtable SET firstWitness = ? , firstWitnessDate = NOW() , firstWitnessPurpose = ? WHERE serviceid = ?`;
 
-export const q_refunds_has_witness_before = `SELECT COUNT(*) AS count FROM dbobillingrefundtable WHERE (firstWitness  = ? OR secondWitness = ? OR thirdWitness  = ?) AND serviceid = ? `;
+export const q_refunds_has_witness_before = `SELECT COUNT(*) AS count FROM dbobillingrefundtable WHERE (firstWitness = ? OR initiatedBy = ?) AND serviceid = ? `;
 
 export const q_get_a_service_refund_details = `
 
@@ -51,21 +51,19 @@ export const q_services_exist_using_billId_trackId = `SELECT COUNT(*) AS count F
 
 export const q_services_refund_has_withness_data = `
 SELECT
-   CASE
-     WHEN rf.firstWitness = rr.employeeid THEN 'firstWitness'
-     WHEN rf.secondWitness = rr.employeeid THEN 'secondWitness'
-     WHEN rf.thirdWitness = rr.employeeid THEN 'thirdWitness'
-   END AS witnessType,
+   'witness' AS witnessType,
    rr.username,
    rr.employeeid
 FROM dbobillingrefundtable AS rf
 INNER JOIN roles AS rr
-ON (rf.firstWitness = rr.employeeid OR rf.secondWitness = rr.employeeid OR rf.thirdWitness = rr.employeeid)
+ON (
+   (rf.firstWitness > 0 AND rf.firstWitness = rr.employeeid)
+   OR (rf.firstWitness = 0 AND rf.initiatedBy = rr.employeeid)
+)
 WHERE rf.serviceid = ?
 AND (
-   rf.firstWitness IS NOT NULL
-   OR rf.secondWitness IS NOT NULL
-   OR rf.thirdWitness IS NOT NULL
+   rf.firstWitness > 0
+   OR rf.initiatedBy > 0
 )`
 
 
@@ -73,26 +71,26 @@ export const q_refund_get_all_refunds_status_pending = `
 SELECT
     rf.*,
     ss.*,
-    CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) AS fullname,
+    CONCAT_WS(" ", np.firstname, np.middlename, np.lastname) AS fullname,
     rr.username AS billedby
 FROM
     dbobillingrefundtable AS rf
 INNER JOIN
     dboservices AS ss
     ON ss.serviceid = rf.serviceid
-INNER JOIN
+LEFT JOIN
     billing AS bb
     ON bb.billingid = ss.billingid
-INNER JOIN
+LEFT JOIN
     new_patients AS np
     ON np.patientid = bb.patientid
-INNER JOIN
+LEFT JOIN
     roles AS rr
     ON rr.employeeid = ss.employeeid
 WHERE
     rf.isRefundInitiated = 1
     AND rf.isRefundCompleted = 0
-    AND rf.isRefundMatterClosed = 0
+    AND (rf.isRefundMatterClosed = 0 OR rf.isRefundMatterClosed IS NULL)
 ORDER BY
     rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
@@ -102,7 +100,7 @@ export const q_refund_get_all_refunds_status_completed = `
 SELECT
     rf.*,
     ss.*,
-    CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) AS fullname,
+    CONCAT_WS(" ", np.firstname, np.middlename, np.lastname) AS fullname,
     rr.username AS billedby,
     refundedbyrole.username AS refundedBy
 FROM
@@ -110,13 +108,13 @@ FROM
 INNER JOIN
     dboservices AS ss
     ON ss.serviceid = rf.serviceid
-INNER JOIN
+LEFT JOIN
     billing AS bb
     ON bb.billingid = ss.billingid
-INNER JOIN
+LEFT JOIN
     new_patients AS np
     ON np.patientid = bb.patientid
-INNER JOIN
+LEFT JOIN
     roles AS rr
     ON rr.employeeid = ss.employeeid
 LEFT JOIN
@@ -125,7 +123,6 @@ LEFT JOIN
 WHERE
     rf.isRefundInitiated = 1
     AND rf.isRefundCompleted = 1
-    AND rf.isRefundMatterClosed = 1
 ORDER BY
     rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
@@ -135,26 +132,26 @@ export const q_refund_get_all_refunds_status_completed_employee_specific = `
 SELECT
     rf.*,
     ss.*,
-    CONCAT(np.firstname, " ", np.middlename, " ", np.lastname) AS fullname,
+    CONCAT_WS(" ", np.firstname, np.middlename, np.lastname) AS fullname,
     rr.username AS billedby
 FROM
     dbobillingrefundtable AS rf
 INNER JOIN
     dboservices AS ss
     ON ss.serviceid = rf.serviceid
-INNER JOIN
+LEFT JOIN
     billing AS bb
     ON bb.billingid = ss.billingid
-INNER JOIN
+LEFT JOIN
     new_patients AS np
     ON np.patientid = bb.patientid
-INNER JOIN
+LEFT JOIN
     roles AS rr
     ON rr.employeeid = ss.employeeid
 WHERE
     rf.isRefundInitiated = 1
     AND rf.isRefundCompleted = 1
-    AND (firstWitness = ? OR secondWitness = ? OR thirdWitness  = ?)
+    AND (rf.firstWitness = ? OR rf.initiatedBy = ?)
 ORDER BY
     rf.refundid {orderDirection}
 LIMIT ? OFFSET ?;
