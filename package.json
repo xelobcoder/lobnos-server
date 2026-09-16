@@ -43,6 +43,8 @@
     "email:worker:dev": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js --files ./src/models/application/email/workers/emailQueueWorker.ts",
     "notification:test": "node --env-file=./.env ./scripts/test-notification.js",
     "email:send:gmail": "node --env-file=./.env ./scripts/send-gmail-email.js",
+    "setup:new-client": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/setup-new-client.ts",
+    "export:db": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/export-database.ts",
     "create-distribution": "node ./scripts/create-distribution.js",
     "create-distribution:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/create-distribution.bat",
     "create-distribution:linux": "bash ./scripts/create-distribution.sh",

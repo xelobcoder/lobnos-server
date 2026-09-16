@@ -1,6 +1,6 @@
 exports.seed = async function (knex) {
 
- const registrationFields = {
+     const registrationFields = {
           personalInformation: {
                designation: { visible: true, compulsory: true },
                email: { visible: true, compulsory: true },
@@ -38,5 +38,5 @@ exports.seed = async function (knex) {
           }
      }
      const jsonify = JSON.stringify(registrationFields);
-     await knex('registrationsettings').insert({ fields: jsonify })
+     await knex('registrationsettings').insert({ fields: jsonify, updatedby: 1 })
 }

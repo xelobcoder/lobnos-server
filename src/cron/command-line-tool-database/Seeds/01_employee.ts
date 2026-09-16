@@ -10,7 +10,7 @@ exports.seed = async function (knex) {
                role: 'super-admin',
                password: superAdminPassword,
                date_created: new Date(),
-               time: new Date().toTimeString().split(' ')[0],
+               time: new Date(), // roles.time is datetime(6), not a bare HH:MM:SS string
                refresh_token: null,
                activation: 1,
                pin: 1234,
@@ -37,7 +37,7 @@ exports.seed = async function (knex) {
                role: 'admin',
                password: adminPassword,
                date_created: new Date(),
-               time: new Date().toTimeString().split(' ')[0],
+               time: new Date(),
                refresh_token: null,
                activation: 1,
                email: 'admin@lobnos.com',

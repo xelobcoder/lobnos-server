@@ -38,7 +38,7 @@ exports.seed = async function (knex) {
                activation: 1,
                address: '123 Main Street, Accra, Ghana',
                email: 'primelaboratorysystem@gmail.com',
-               contact: 233595964565,
+               contact: 595964565, // branch.contact is int unsigned; country-code-prefixed value overflows it
                managerid: '1'
           }
      ]);
