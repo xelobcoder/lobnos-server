@@ -4,6 +4,6 @@ interface Configuration {
 }
 
 export const configuration: Configuration = {
-    isMultiTenant: false,
+    isMultiTenant: true,
     tenancyNaming: (tenantId: string | number) => `primetenant${tenantId.toString()}`,
 };

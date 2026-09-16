@@ -9,7 +9,7 @@ export class OutsourcedTestTrackingController {
                const repo = new OutsourcedTestTrackingRepo(tenantId);
                const result = await repo.getProfitPerTestByOutsource(outsourceid);
                res.json(result);
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({ error: error.message });
           }
      }
@@ -21,7 +21,7 @@ export class OutsourcedTestTrackingController {
                const repo = new OutsourcedTestTrackingRepo(tenantId);
                const result = await repo.getProfitByOutsourcedTest(outsourceid);
                res.json(result);
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({ error: error.message });
           }
      }
@@ -36,7 +36,7 @@ export class OutsourcedTestTrackingController {
                const result = await repo.getOursourcedTestCasesPaginated(page, count, sortby);
                res.json(result);
           }
-          catch (error) {
+          catch (error:any) {
                res.status(500).json({ error: error.message });
           }
      }
@@ -49,7 +49,7 @@ export class OutsourcedTestTrackingController {
                const repo = new OutsourcedTestTrackingRepo(tenantId);
                const result = await repo.getProfitByOutsourcedTest(outsourceid, testid);
                res.json(result);
-          } catch (error) {
+          } catch (error:any) {
                res.status(500).json({ error: error.message });
           }
      }
