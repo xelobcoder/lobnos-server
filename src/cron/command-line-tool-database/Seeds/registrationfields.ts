@@ -1,4 +1,4 @@
-exports.seed = async function (knex) {
+exports.seed = async function (knex:any) {
 
      const registrationFields = {
           personalInformation: {

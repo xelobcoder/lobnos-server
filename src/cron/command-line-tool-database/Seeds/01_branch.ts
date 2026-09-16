@@ -1,4 +1,4 @@
-exports.seed = async function (knex) {
+exports.seed = async function (knex:any) {
      // Disable foreign key checks to allow deletion
      await knex.raw('SET FOREIGN_KEY_CHECKS = 0');
 

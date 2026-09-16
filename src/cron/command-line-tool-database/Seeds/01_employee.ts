@@ -1,6 +1,6 @@
 import bcrypt from "bcrypt";
 
-exports.seed = async function (knex) {
+exports.seed = async function (knex:any) {
      const superAdminPassword = await bcrypt.hash("primelab", 10);
      const adminPassword = await bcrypt.hash("admin", 10);
 
