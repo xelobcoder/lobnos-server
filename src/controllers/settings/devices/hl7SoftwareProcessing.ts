@@ -98,7 +98,6 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
      try {
           const tenantId = Number(req.query.tenantId) || 3;
           const { data, device, timestamp } = req.body;
-          console.log(data)
           // Check if data contains only '\x02' segment and ignore it
           if (data.length === 1 && data[0].SEGMENT === '\x02') {
                return res.status(200).json({
