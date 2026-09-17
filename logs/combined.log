@@ -868,3 +868,5 @@
 {"arch":"x64","host":"THAD","level":"info","message":"Accounting queue worker disabled; relying on periodic outbox sweep","platform":"win32","service":"lobnos-server","timestamp":"2026-09-17T04:30:27.986Z"}
 {"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":109,"service":"lobnos-server","tenantId":1,"timestamp":"2026-09-17T11:12:14.127Z"}
 {"arch":"x64","host":"THAD","level":"info","message":"Accounting queue worker disabled; relying on periodic outbox sweep","platform":"win32","service":"lobnos-server","timestamp":"2026-09-17T11:12:14.802Z"}
+{"arch":"x64","backfilledTemplates":0,"createdTemplates":0,"host":"THAD","insertedVariables":0,"level":"info","message":"Notifications bootstrap complete","platform":"win32","seededEvents":109,"service":"lobnos-server","tenantId":1,"timestamp":"2026-09-17T11:25:48.477Z"}
+{"arch":"x64","host":"THAD","level":"info","message":"Accounting queue worker disabled; relying on periodic outbox sweep","platform":"win32","service":"lobnos-server","timestamp":"2026-09-17T11:25:48.928Z"}
