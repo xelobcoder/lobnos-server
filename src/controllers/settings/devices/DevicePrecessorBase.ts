@@ -160,9 +160,18 @@ abstract class DeviceProcessorBase<TPayload> {
 
      async process(payload: TPayload): Promise<IDeviceProcessResult & { ascensionInformation?: any }> {
           try {
-               const { ascensionId, employeeid } = this.validatePatientId(this.extractPatientId(payload));
+               let ascensionId: number | undefined = undefined;
+               let employeeid: number | undefined = undefined;
 
-               const ascensionInformation = await this.resolveAscension(ascensionId);
+               console.log("Processing payload:", payload);
+           
+               if (payload && typeof payload === 'object' && !ascensionId && !employeeid) {
+                    const data = this.validatePatientId(this.extractPatientId(payload));
+                    ascensionId = data.ascensionId;
+                    employeeid = data.employeeid; 
+               }
+
+               const ascensionInformation = await this.resolveAscension(ascensionId as any);
                const knownTestId = ascensionInformation.testid;
 
                const { deviceInterfaceMapping, testCreationRules } = await this.getDeviceInterfaceData(knownTestId);
