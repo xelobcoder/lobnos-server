@@ -41,3 +41,12 @@ PrimeLab backup scheduler (schedule-only)
 [BackupScheduler] processed=1 successful=0 failed=1
 [heartbeat] running tenant=1 source=backup_schedules
 [heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
+[heartbeat] running tenant=1 source=backup_schedules
