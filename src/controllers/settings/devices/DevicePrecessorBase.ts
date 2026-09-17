@@ -123,7 +123,7 @@ abstract class DeviceProcessorBase<TPayload> {
                hasDrugs: false
           };
 
-          console.log(finalData)
+          console.log("Data Before insertion", finalData);
           
           const resultEntry = await new Creator(knownTestId).resultEntry(this.tenantId, finalData as any);
 
@@ -160,18 +160,9 @@ abstract class DeviceProcessorBase<TPayload> {
 
      async process(payload: TPayload): Promise<IDeviceProcessResult & { ascensionInformation?: any }> {
           try {
-               let ascensionId: number | undefined = undefined;
-               let employeeid: number | undefined = undefined;
+               const { ascensionId, employeeid } = this.validatePatientId(this.extractPatientId(payload));
 
-               console.log("Processing payload:", payload);
-           
-               if (payload && typeof payload === 'object' && !ascensionId && !employeeid) {
-                    const data = this.validatePatientId(this.extractPatientId(payload));
-                    ascensionId = data.ascensionId;
-                    employeeid = data.employeeid; 
-               }
-
-               const ascensionInformation = await this.resolveAscension(ascensionId as any);
+               const ascensionInformation = await this.resolveAscension(ascensionId);
                const knownTestId = ascensionInformation.testid;
 
                const { deviceInterfaceMapping, testCreationRules } = await this.getDeviceInterfaceData(knownTestId);
