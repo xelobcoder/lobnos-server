@@ -15,6 +15,7 @@ backups/
 *.encrypted
 *.bin
 data/
+deploy.sh
 backups/
 cert/
 public/uploads/
