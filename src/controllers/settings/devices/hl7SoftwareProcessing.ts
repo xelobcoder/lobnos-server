@@ -239,6 +239,7 @@ export async function handleReceivedIntefacingDataProcessor(req: Request<{}, {},
           if (!payload || !name) {
                return res.status(400).json({ error: "Payload and name are required" });
           }
+          console.log("Received interfacing data processor request:", { payload, name });
 
           const tenantId = req.query.tenantId;
           switch (name) {
