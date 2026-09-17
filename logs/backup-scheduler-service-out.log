@@ -11,7 +11,3 @@ PrimeLab backup scheduler (schedule-only)
 [heartbeat] running tenant=1 source=backup_schedules
 [heartbeat] running tenant=1 source=backup_schedules
 [heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules

@@ -34,6 +34,9 @@ const EVENT_CODES = [
      'USER_CREATED',
      'USER_ACTIVATED',
      'PASSWORD_RESET',
+     'HOME_COLLECTION_SCHEDULED',
+     'HOME_COLLECTION_ASSIGNED',
+     'HOME_COLLECTION_STATUS_UPDATED',
 ];
 
 function moduleFromEventCode(eventCode: string): string {
@@ -42,6 +45,7 @@ function moduleFromEventCode(eventCode: string): string {
      if (eventCode.startsWith('SAMPLE')) return 'sample';
      if (eventCode.startsWith('RESULT') || eventCode === 'CRITICAL_RESULT') return 'result';
      if (eventCode.startsWith('INVOICE') || eventCode.startsWith('PAYMENT')) return 'billing';
+     if (eventCode.startsWith('HOME_COLLECTION')) return 'sample';
      if (eventCode.startsWith('REPORT')) return 'report';
      return 'security';
 }
@@ -139,7 +143,7 @@ async function ensureCoreTables(tenantId: number) {
                table.foreign('template_id').references('id').inTable('notification_templates').onDelete('CASCADE');
           });
      }
-     
+
 }
 
 async function seedEvents(tenantId: number) {

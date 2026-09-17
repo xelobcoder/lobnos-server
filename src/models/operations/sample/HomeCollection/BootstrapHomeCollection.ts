@@ -33,6 +33,7 @@ export async function bootstrapHomeCollectionTables(tenantId: number) {
           await connection.schema.createTable('home_collection_orders', (table) => {
                table.increments('id').primary();
                table.integer('patientid').unsigned().notNullable();
+               table.integer('billingid').unsigned().nullable();
                table.date('appointment_date');
                table.time('appointment_time');
                table.text('address');
@@ -51,6 +52,12 @@ export async function bootstrapHomeCollectionTables(tenantId: number) {
                     'Cancelled'
                ]).defaultTo('Pending');
                table.timestamp('created_at').defaultTo(connection.fn.now());
+          });
+     }
+
+     if (!(await connection.schema.hasColumn('home_collection_orders', 'billingid'))) {
+          await connection.schema.alterTable('home_collection_orders', (table) => {
+               table.integer('billingid').unsigned().nullable();
           });
      }
 
@@ -74,6 +81,22 @@ export async function bootstrapHomeCollectionTables(tenantId: number) {
                table.index(['completed_by'], 'idx_completed_by');
           });
 
+     }
+
+     const hasHomeCollectionOrderTests = await connection.schema.hasTable('home_collection_order_tests');
+
+     if (!hasHomeCollectionOrderTests) {
+          await connection.schema.createTable('home_collection_order_tests', (table) => {
+               table.increments('id').primary();
+               table.integer('home_collection_id').unsigned().notNullable();
+               table.integer('testid').unsigned().notNullable();
+               table.string('test_name_snapshot', 255).notNullable();
+               table.decimal('price', 10, 2).notNullable().defaultTo(0);
+               table.timestamp('created_at').defaultTo(connection.fn.now());
+
+               table.unique(['home_collection_id', 'testid'], 'uq_home_collection_order_test');
+               table.index(['home_collection_id'], 'idx_home_collection_order_tests');
+          });
      }
 }
 

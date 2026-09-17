@@ -82,7 +82,7 @@ export const testpanel = {
 	},
 
 	hasquery: (tenantId: number, request: Request) => {
-		return Object.keys(request.query).length > 0;
+		return typeof request.query.id !== 'undefined' && request.query.id !== '';
 	},
 
 	updatequery: (tenantId: number, id: number, price: number, category: number) => {
