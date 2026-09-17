@@ -250,7 +250,7 @@ export async function handleReceivedIntefacingDataProcessor(req: Request<{}, {},
                case "BioeLab":
                     return await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload);
                default:
-                    return res.status(400).json({ error: "Unsupported device name" });
+                    return await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload);
           }
      } catch (err) {
           console.log("Error processing interfacing data:", err);
