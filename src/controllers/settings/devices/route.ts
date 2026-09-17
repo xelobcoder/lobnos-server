@@ -1,6 +1,6 @@
 import { handleOverLoad } from "../../../hooks/helper";
 import router from "../route";
-import { handleReceivedIntefacingData } from "./hl7SoftwareProcessing";
+import { handleReceivedIntefacingData, handleReceivedIntefacingDataProcessor } from "./hl7SoftwareProcessing";
 import { getAllDevicesHandler, getDeviceByIdHandler, createDeviceHandler, updateDeviceHandler, deleteDeviceHandler } from "./medicalInterfacingDevicesController";
 
 
@@ -11,7 +11,7 @@ router.put("/api/v1/devices/interfacing/verified/devices/:id", updateDeviceHandl
 router.delete("/api/v1/devices/interfacing/verified/devices/:id", deleteDeviceHandler);
 router.post(
      "/api/v1/devices/interfacing/verified/devices/receiving/data",
-     handleOverLoad(handleReceivedIntefacingData)
+     handleOverLoad(handleReceivedIntefacingDataProcessor)
 );
 
 export default router;
