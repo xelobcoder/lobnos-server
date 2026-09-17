@@ -252,6 +252,7 @@ export async function handleReceivedIntefacingDataProcessor(req: Request<{}, {},
                     return res.status(400).json({ error: "Unsupported device name" });
           }
      } catch (err) {
+          console.log("Error processing interfacing data:", err);
           res.status(500).json({ error: "Internal server error" });
      }
 }
