@@ -9,15 +9,19 @@ import {
      InventoryStatus,
      InventorySummary,
      LowStockAlert,
-     InventoryUnitInfo
+     InventoryUnitInfo,
+     StockUpInventoryItemRequest
 } from './types';
 import KnexConnection from '../../database/KnexConnections';
 import { UnitValidationService } from '../../services/UnitValidationService';
+import { enqueueGoodsReceipt } from '../../accountingModule/integrations/InventoryAccounting';
 
 export class InventoryItemModel {
      private connection: Promise<Knex<any, any[]>>;
+     private readonly tenantId: number;
 
      constructor(tenantId: number) {
+          this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
      }
 
@@ -36,6 +40,129 @@ export class InventoryItemModel {
           }
 
           return 'in_stock';
+     }
+
+     async stockUp(id: string, request: StockUpInventoryItemRequest): Promise<InventoryItem> {
+          const connection = await this.connection;
+          const quantity = Number(request.quantity);
+          const packSize = Number(request.units_per_purchase_unit || 1);
+          const packCost = Number(request.unit_price);
+          if (!Number.isInteger(quantity) || quantity <= 0) throw new Error('Stock quantity must be a whole number greater than zero');
+          if (!Number.isInteger(packSize) || packSize <= 0) throw new Error('Pack size must be a whole number greater than zero');
+          if (!Number.isFinite(packCost) || packCost < 0) throw new Error('Incoming cost must be zero or greater');
+          if (!Number.isInteger(Number(request.received_by)) || Number(request.received_by) <= 0) throw new Error('Receiving employee is required');
+
+          const supplierId = request.supplier_id || 'SUP-GENERAL';
+          const now = new Date();
+          const reference = randomUUID();
+          const orderId = `PO-STOCK-${reference}`;
+          const orderItemId = `POI-STOCK-${reference}`;
+          const receiptId = `REC-STOCK-${reference}`;
+          const batchNumber = request.batch_number?.trim() || `AUTO-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${reference.slice(0, 8).toUpperCase()}`;
+
+          await connection.transaction(async (trx) => {
+               const item = await trx('inv_inventory_items').where({ id, is_active: true }).forUpdate().first();
+               if (!item) throw new Error('Inventory item not found');
+               const supplier = await trx('inv_suppliers').where({ id: supplierId, is_active: true }).first();
+               if (!supplier) throw new Error('Supplier not found or inactive');
+
+               const stockAdded = quantity * packSize;
+               const previousStock = Number(item.current_stock || 0);
+               const newStock = previousStock + stockAdded;
+               const incomingUnitCost = packCost / packSize;
+               const previousCost = Number(item.cost_price || 0);
+               const weightedCost = newStock > 0
+                    ? ((previousStock * previousCost) + (stockAdded * incomingUnitCost)) / newStock
+                    : incomingUnitCost;
+               const totalCost = quantity * packCost;
+
+               await trx('inv_purchase_orders').insert({
+                    id: orderId,
+                    order_number: `STOCK-${now.getTime()}-${reference.slice(0, 6).toUpperCase()}`,
+                    supplier_id: supplierId,
+                    order_date: now,
+                    expected_delivery_date: now,
+                    status: 'received',
+                    total_amount: totalCost,
+                    notes: 'Direct stock up from inventory items',
+                    created_by: String(request.received_by),
+                    created_at: now,
+                    updated_at: now
+               });
+               await trx('inv_purchase_order_items').insert({
+                    id: orderItemId,
+                    order_id: orderId,
+                    inventory_item_id: id,
+                    quantity_ordered: quantity,
+                    quantity_received: quantity,
+                    unit_price: packCost,
+                    tax_rate: 0,
+                    discount_rate: 0,
+                    line_total: totalCost,
+                    status: 'received',
+                    notes: 'Direct stock up',
+                    created_at: now,
+                    updated_at: now
+               });
+               const receipt = {
+                    id: receiptId,
+                    order_id: orderId,
+                    order_item_id: orderItemId,
+                    receipt_number: receiptId,
+                    received_date: now,
+                    received_by: request.received_by,
+                    quantity_received: quantity,
+                    batch_number: batchNumber,
+                    expiry_date: request.expiry_date || null,
+                    unit_price: packCost,
+                    tax_rate: 0,
+                    discount_rate: 0,
+                    condition_status: 'good',
+                    quality_check_passed: true,
+                    notes: 'Direct stock up',
+                    purchase_unit: null,
+                    units_per_purchase_unit: packSize,
+                    price_policy: request.change_pricing ? request.price_policy || 'replace' : 'maintain',
+                    resulting_wholesale_price: request.change_pricing ? request.new_wholesale_price ?? null : null,
+                    resulting_sale_price: request.change_pricing ? request.new_sale_price ?? null : null,
+                    created_at: now
+               };
+               await trx('inv_purchase_order_receipts').insert(receipt);
+
+               await trx('inv_inventory_items').where({ id }).update({
+                    current_stock: newStock,
+                    cost_price: Number(weightedCost.toFixed(2)),
+                    wholesale_price: request.change_pricing ? request.new_wholesale_price ?? item.wholesale_price : item.wholesale_price,
+                    sale_price: request.change_pricing ? request.new_sale_price ?? item.sale_price : item.sale_price,
+                    units_per_purchase_unit: packSize,
+                    status: this.calculateItemStatus(newStock, Number(item.min_stock || 0)),
+                    last_updated: now,
+                    updated_at: now
+               });
+               await trx('inv_inventory_transactions').insert({
+                    id: `TXN-STOCK-${reference}`,
+                    item_id: id,
+                    transaction_type: 'addition',
+                    unit_type: packSize > 1 ? 'purchase' : 'consumption',
+                    quantity: stockAdded,
+                    purchase_unit: null,
+                    units_per_purchase_unit: packSize,
+                    previous_stock: previousStock,
+                    new_stock: newStock,
+                    batch_number: batchNumber,
+                    expiry_date: request.expiry_date || null,
+                    unit_cost: incomingUnitCost,
+                    total_cost: totalCost,
+                    reason: 'Direct inventory stock up',
+                    reference_id: receiptId,
+                    performed_by: request.received_by,
+                    transaction_date: now,
+                    created_at: now
+               });
+               await enqueueGoodsReceipt(this.tenantId, receipt, trx);
+          });
+
+          return await this.findById(id) as InventoryItem;
      }
 
      async create(request: CreateInventoryItemRequest): Promise<InventoryItem> {
@@ -82,11 +209,16 @@ export class InventoryItemModel {
                sku: request.sku,
                description: request.description || null,
                category_id: request.category_id || null,
+               inventory_domain: request.inventory_domain || (request.category_id === 'CAT-PHARMACY' ? 'pharmacy' : 'lab'),
                consumption_unit: request.consumption_unit || 'pieces',
                current_stock: currentStock,
                min_stock: minStock,
                max_stock: maxStock,
+               cost_price: request.cost_price || 0,
+               wholesale_price: request.wholesale_price || 0,
                sale_price: request.sale_price || 0,
+               preferred_purchase_unit: request.preferred_purchase_unit || null,
+               units_per_purchase_unit: request.units_per_purchase_unit || 1,
                location_id: request.location_id || null,
                status: status,
                is_active: true,
@@ -140,11 +272,16 @@ export class InventoryItemModel {
                sku: result.sku,
                description: result.description,
                category_id: result.category_id,
+               inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               cost_price: Number(result.cost_price || 0),
+               wholesale_price: Number(result.wholesale_price || 0),
                sale_price: Number(result.sale_price || 0),
+               preferred_purchase_unit: result.preferred_purchase_unit,
+               units_per_purchase_unit: Number(result.units_per_purchase_unit || 1),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -180,11 +317,16 @@ export class InventoryItemModel {
                sku: result.sku,
                description: result.description,
                category_id: result.category_id,
+               inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               cost_price: Number(result.cost_price || 0),
+               wholesale_price: Number(result.wholesale_price || 0),
                sale_price: Number(result.sale_price || 0),
+               preferred_purchase_unit: result.preferred_purchase_unit,
+               units_per_purchase_unit: Number(result.units_per_purchase_unit || 1),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -204,6 +346,7 @@ export class InventoryItemModel {
                count = 10,
                sortby = 'DESC',
                category_id,
+               inventory_domain,
                location_id,
                status,
                search,
@@ -228,6 +371,9 @@ export class InventoryItemModel {
           // Apply filters
           if (category_id) {
                query = query.where('inv_inventory_items.category_id', category_id);
+          }
+          if (inventory_domain) {
+               query = query.where('inv_inventory_items.inventory_domain', inventory_domain);
           }
           if (location_id) {
                query = query.where('inv_inventory_items.location_id', location_id);
@@ -266,11 +412,16 @@ export class InventoryItemModel {
                sku: result.sku,
                description: result.description,
                category_id: result.category_id,
+               inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
                min_stock: result.min_stock,
                max_stock: result.max_stock,
+               cost_price: Number(result.cost_price || 0),
+               wholesale_price: Number(result.wholesale_price || 0),
                sale_price: Number(result.sale_price || 0),
+               preferred_purchase_unit: result.preferred_purchase_unit,
+               units_per_purchase_unit: Number(result.units_per_purchase_unit || 1),
                location_id: result.location_id,
                status: result.status,
                is_active: result.is_active,
@@ -357,11 +508,16 @@ export class InventoryItemModel {
                if (updates.sku !== undefined) updateData.sku = updates.sku;
                if (updates.description !== undefined) updateData.description = updates.description;
                if (updates.category_id !== undefined) updateData.category_id = updates.category_id;
+               if (updates.inventory_domain !== undefined) updateData.inventory_domain = updates.inventory_domain;
                if (updates.consumption_unit !== undefined) updateData.consumption_unit = updates.consumption_unit;
                if (updates.current_stock !== undefined) updateData.current_stock = updates.current_stock;
                if (updates.min_stock !== undefined) updateData.min_stock = updates.min_stock;
                if (updates.max_stock !== undefined) updateData.max_stock = updates.max_stock;
+               if (updates.cost_price !== undefined) updateData.cost_price = updates.cost_price;
+               if (updates.wholesale_price !== undefined) updateData.wholesale_price = updates.wholesale_price;
                if (updates.sale_price !== undefined) updateData.sale_price = updates.sale_price;
+               if (updates.preferred_purchase_unit !== undefined) updateData.preferred_purchase_unit = updates.preferred_purchase_unit;
+               if (updates.units_per_purchase_unit !== undefined) updateData.units_per_purchase_unit = updates.units_per_purchase_unit;
                if (updates.location_id !== undefined) updateData.location_id = updates.location_id;
                if (updates.is_active !== undefined) updateData.is_active = updates.is_active;
 

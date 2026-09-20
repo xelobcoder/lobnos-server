@@ -10,6 +10,7 @@ export interface PharmacySellableItemRow {
      currentStock: number;
      minimumStock: number;
      salePrice: number;
+     costPrice: number;
 }
 
 export interface PharmacySaleRow {
@@ -21,6 +22,8 @@ export interface PharmacySaleRow {
      paymentMethod: string;
      paymentReference: string | null;
      totalAmount: number;
+     totalCost: number;
+     grossProfit: number;
      cashierId: number;
      status: string;
      completedAt: Date | null;
@@ -39,6 +42,20 @@ export interface PharmacySaleLineRow {
      quantity: number;
      unitPrice: number;
      lineTotal: number;
+     unitCost: number;
+     lineCost: number;
+     grossProfit: number;
+}
+
+export interface PharmacyHeldSaleRow {
+     id: string;
+     holdNumber: string;
+     customerName: string;
+     patientId: number | null;
+     totalAmount: number;
+     cashierId: number;
+     createdAt: Date;
+     updatedAt: Date;
 }
 
 export interface PharmacyStockMovement {
@@ -53,6 +70,8 @@ export interface PharmacyStockMovement {
      performedBy: number;
      receiptNumber: string;
      occurredAt: Date;
+     unitCost: number;
+     totalCost: number;
 }
 
 export interface PharmacySaleListFilters {
@@ -76,6 +95,11 @@ export interface IPharmacySaleRepository {
 
      insertSale(sale: PharmacySaleRow, unitOfWork: PharmacyUnitOfWork): Promise<void>;
      insertSaleLines(lines: PharmacySaleLineRow[], unitOfWork: PharmacyUnitOfWork): Promise<void>;
+     insertHeldSale(sale: PharmacyHeldSaleRow, lines: PharmacySaleLineRow[], unitOfWork: PharmacyUnitOfWork): Promise<void>;
+     lockHeldSale(heldSaleId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacyHeldSaleRow | null>;
+     findHeldSaleLines(heldSaleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleLineRow[]>;
+     listHeldSales(page: number, count: number, search?: string): Promise<{ sales: PharmacyHeldSaleRow[]; total: number }>;
+     deleteHeldSale(heldSaleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<void>;
      /** Writes the new stock level together with its recomputed status. */
      applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork): Promise<void>;
      recordStockMovement(movement: PharmacyStockMovement, unitOfWork: PharmacyUnitOfWork): Promise<void>;

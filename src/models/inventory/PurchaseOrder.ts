@@ -456,6 +456,12 @@ export class PurchaseOrderModel {
                     'inv_purchase_order_items.*',
                     'inv_inventory_items.name as item_name',
                     'inv_inventory_items.sku as item_sku',
+                    'inv_inventory_items.inventory_domain',
+                    'inv_inventory_items.cost_price',
+                    'inv_inventory_items.wholesale_price',
+                    'inv_inventory_items.sale_price',
+                    'inv_inventory_items.preferred_purchase_unit',
+                    'inv_inventory_items.units_per_purchase_unit',
                     'cu.name as consumption_unit_name'
                )
                .where('inv_purchase_order_items.order_id', orderId)
@@ -465,6 +471,7 @@ export class PurchaseOrderModel {
                id: result.id,
                order_id: result.order_id,
                inventory_item_id: result.inventory_item_id,
+               inventory_domain: result.inventory_domain,
                quantity_ordered: result.quantity_ordered,
                quantity_received: result.quantity_received,
                unit_price: parseFloat(result.unit_price),
@@ -477,6 +484,11 @@ export class PurchaseOrderModel {
                updated_at: result.updated_at,
                item_name: result.item_name,
                item_sku: result.item_sku,
+               cost_price: Number(result.cost_price || 0),
+               wholesale_price: Number(result.wholesale_price || 0),
+               sale_price: Number(result.sale_price || 0),
+               preferred_purchase_unit: result.preferred_purchase_unit,
+               units_per_purchase_unit: Number(result.units_per_purchase_unit || 1),
                consumption_unit: result.consumption_unit_name,
                unit: result.unit
           }));
@@ -540,6 +552,7 @@ export class PurchaseOrderModel {
                const order = await trx('inv_purchase_orders')
                     .where('id', orderId)
                     .whereNot('status', 'cancelled')
+                    .forUpdate()
                     .first();
 
                if (!order) {
@@ -550,9 +563,12 @@ export class PurchaseOrderModel {
                const transactions: InventoryTransaction[] = [];
 
                for (const receiptData of request.receipts) {
+                    if (!Number.isInteger(receiptData.quantity_received) || receiptData.quantity_received <= 0) throw new Error('Receipt quantity must be a whole number greater than zero');
+                    if (receiptData.units_per_purchase_unit !== undefined && (!Number.isInteger(receiptData.units_per_purchase_unit) || receiptData.units_per_purchase_unit <= 0)) throw new Error('Pack size must be a whole number greater than zero');
                     const orderItem = await trx('inv_purchase_order_items')
                          .where('id', receiptData.order_item_id)
                          .where('order_id', orderId)
+                         .forUpdate()
                          .first();
 
                     if (!orderItem) {
@@ -565,18 +581,22 @@ export class PurchaseOrderModel {
                     }
 
                     const receiptNumber = this.generateReceiptNumber();
+                    const batchNumber = receiptData.batch_number?.trim() || `AUTO-${receiptNumber}-${String(orderItem.inventory_item_id).slice(-8)}`;
+                    const unitsPerPurchaseUnit = Number(receiptData.units_per_purchase_unit || 1);
+                    const purchaseUnitPrice = Number(receiptData.unit_price ?? orderItem.unit_price);
+                    const consumptionUnitCost = purchaseUnitPrice / unitsPerPurchaseUnit;
 
                     const receipt = {
-                         id: `REC-${Date.now()}`,
+                         id: receiptNumber,
                          order_id: orderId,
                          order_item_id: receiptData.order_item_id,
                          receipt_number: receiptNumber,
                          received_date: receiptData.received_date || new Date(),
                          received_by: request.received_by,
                          quantity_received: receiptData.quantity_received,
-                         batch_number: receiptData.batch_number || null,
+                         batch_number: batchNumber,
                          expiry_date: receiptData.expiry_date || null,
-                         unit_price: receiptData.unit_price || orderItem.unit_price,
+                         unit_price: purchaseUnitPrice,
                          tax_rate: receiptData.tax_rate || orderItem.tax_rate,
                          discount_rate: receiptData.discount_rate || orderItem.discount_rate,
                          condition_status: receiptData.condition_status || 'good',
@@ -584,19 +604,21 @@ export class PurchaseOrderModel {
                          notes: receiptData.notes || null,
                          image_url: null,
                          purchase_unit: receiptData.purchase_unit || null,
-                         units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
+                         units_per_purchase_unit: unitsPerPurchaseUnit,
+                         price_policy: receiptData.price_policy || null,
+                         resulting_wholesale_price: receiptData.new_wholesale_price ?? null,
+                         resulting_sale_price: receiptData.new_sale_price ?? null,
                          created_at: new Date()
                     };
 
                     await trx('inv_purchase_order_receipts').insert(receipt);
                     receipts.push(receipt as unknown as PurchaseOrderReceipt);
 
-                    await enqueueGoodsReceipt(this.tenantId, receipt as any, trx);
-
                     if (receipt.condition_status === 'good' || receipt.condition_status === 'acceptable') {
                          if (orderItem.inventory_item_id) {
                               const inventoryItem = await trx('inv_inventory_items')
                                    .where('id', orderItem.inventory_item_id)
+                                   .forUpdate()
                                    .first();
 
                               if (!inventoryItem) {
@@ -604,15 +626,22 @@ export class PurchaseOrderModel {
                               }
 
                               const previousStock = inventoryItem.current_stock;
-                              const consumptionQuantity = receiptData.purchase_unit && receiptData.units_per_purchase_unit
-                                   ? receiptData.quantity_received * receiptData.units_per_purchase_unit
-                                   : receiptData.quantity_received;
+                              const consumptionQuantity = receiptData.quantity_received * unitsPerPurchaseUnit;
                               const newStock = previousStock + consumptionQuantity;
+                              const previousCost = Number(inventoryItem.cost_price || 0);
+                              const weightedAverageCost = newStock > 0
+                                   ? ((previousStock * previousCost) + (consumptionQuantity * consumptionUnitCost)) / newStock
+                                   : consumptionUnitCost;
 
                               await trx('inv_inventory_items')
                                    .where('id', orderItem.inventory_item_id)
                                    .update({
                                         current_stock: newStock,
+                                        cost_price: Number(weightedAverageCost.toFixed(2)),
+                                        wholesale_price: receiptData.new_wholesale_price ?? inventoryItem.wholesale_price,
+                                        sale_price: receiptData.new_sale_price ?? inventoryItem.sale_price,
+                                        preferred_purchase_unit: receiptData.purchase_unit || inventoryItem.preferred_purchase_unit,
+                                        units_per_purchase_unit: unitsPerPurchaseUnit,
                                         status: this.calculateStockStatus(newStock, inventoryItem.min_stock, inventoryItem.max_stock),
                                         last_updated: new Date(),
                                         updated_at: new Date()
@@ -622,16 +651,16 @@ export class PurchaseOrderModel {
                                    id: this.generateTransactionId(),
                                    item_id: orderItem.inventory_item_id,
                                    transaction_type: 'addition' as const,
-                                   unit_type: receiptData.purchase_unit ? 'purchase' : 'consumption',
+                                   unit_type: unitsPerPurchaseUnit > 1 ? 'purchase' : 'consumption',
                                    quantity: consumptionQuantity,
                                    purchase_unit: receiptData.purchase_unit || null,
-                                   units_per_purchase_unit: receiptData.units_per_purchase_unit || null,
+                                   units_per_purchase_unit: unitsPerPurchaseUnit,
                                    previous_stock: previousStock,
                                    new_stock: newStock,
-                                   batch_number: receiptData.batch_number || null,
+                                   batch_number: batchNumber,
                                    expiry_date: receiptData.expiry_date || null,
-                                   unit_cost: receiptData.unit_price || orderItem.unit_price,
-                                   total_cost: (receiptData.unit_price || orderItem.unit_price) * receiptData.quantity_received,
+                                   unit_cost: consumptionUnitCost,
+                                   total_cost: purchaseUnitPrice * receiptData.quantity_received,
                                    brand_name: null,
                                    reason: 'Purchase order receipt',
                                    reference_id: receipt.id,
@@ -645,6 +674,7 @@ export class PurchaseOrderModel {
 
                               await trx('inv_inventory_transactions').insert(transaction);
                               transactions.push(transaction as unknown as InventoryTransaction);
+                              await enqueueGoodsReceipt(this.tenantId, receipt as any, trx);
                          }
                     }
 

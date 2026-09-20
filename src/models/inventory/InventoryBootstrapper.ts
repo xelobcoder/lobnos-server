@@ -88,6 +88,7 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
                table.string('sku', 100).notNullable().unique('inv_inventory_items_sku_unique');
                table.text('description').nullable();
                table.string('category_id', 50).nullable();
+               table.enum('inventory_domain', ['lab', 'pharmacy']).notNullable().defaultTo('lab');
                table.integer('consumption_unit').unsigned().notNullable().defaultTo(1);
                table.integer('current_stock').unsigned().defaultTo(0);
                table.integer('min_stock').unsigned().defaultTo(0);
@@ -98,18 +99,47 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
                table.timestamp('last_updated').nullable().defaultTo(connection.fn.now());
                table.timestamp('created_at').nullable().defaultTo(connection.fn.now());
                table.timestamp('updated_at').nullable().defaultTo(connection.fn.now());
+               table.decimal('cost_price', 14, 2).notNullable().defaultTo(0);
+               table.decimal('wholesale_price', 14, 2).notNullable().defaultTo(0);
                table.decimal('sale_price', 14, 2).notNullable().defaultTo(0);
+               table.integer('preferred_purchase_unit').unsigned().nullable();
+               table.integer('units_per_purchase_unit').unsigned().notNullable().defaultTo(1);
                table.index(['sku'], 'idx_inv_item_sku');
                table.index(['name'], 'idx_inv_item_name');
                table.index(['category_id'], 'idx_inv_item_category');
+               table.index(['inventory_domain'], 'idx_inv_item_domain');
                table.index(['location_id'], 'idx_inv_item_location');
                table.index(['status'], 'idx_inv_item_status');
                table.index(['is_active'], 'idx_inv_item_active');
                table.index(['current_stock', 'min_stock', 'max_stock'], 'idx_inv_item_stock_levels');
                table.foreign('category_id', 'inv_inventory_items_category_id_foreign').references('id').inTable('inv_categories').onDelete('SET NULL');
                table.foreign('consumption_unit', 'inv_inventory_items_consumption_unit_foreign').references('id').inTable('inv_units');
+               table.foreign('preferred_purchase_unit', 'inv_inventory_items_purchase_unit_foreign').references('id').inTable('inv_units').onDelete('SET NULL');
                table.foreign('location_id', 'inv_inventory_items_location_id_foreign').references('id').inTable('inv_storage_locations').onDelete('SET NULL');
           });
+     }
+
+     if (!(await connection.schema.hasColumn('inv_inventory_items', 'inventory_domain'))) {
+          await connection.schema.alterTable('inv_inventory_items', (table) => {
+               table.enum('inventory_domain', ['lab', 'pharmacy']).notNullable().defaultTo('lab').index('idx_inv_item_domain');
+          });
+
+          await connection('inv_inventory_items')
+               .where('category_id', 'CAT-PHARMACY')
+               .update({ inventory_domain: 'pharmacy' });
+     }
+
+     if (!(await connection.schema.hasColumn('inv_inventory_items', 'cost_price'))) {
+          await connection.schema.alterTable('inv_inventory_items', (table) => table.decimal('cost_price', 14, 2).notNullable().defaultTo(0));
+     }
+     if (!(await connection.schema.hasColumn('inv_inventory_items', 'wholesale_price'))) {
+          await connection.schema.alterTable('inv_inventory_items', (table) => table.decimal('wholesale_price', 14, 2).notNullable().defaultTo(0));
+     }
+     if (!(await connection.schema.hasColumn('inv_inventory_items', 'preferred_purchase_unit'))) {
+          await connection.schema.alterTable('inv_inventory_items', (table) => table.integer('preferred_purchase_unit').unsigned().nullable());
+     }
+     if (!(await connection.schema.hasColumn('inv_inventory_items', 'units_per_purchase_unit'))) {
+          await connection.schema.alterTable('inv_inventory_items', (table) => table.integer('units_per_purchase_unit').unsigned().notNullable().defaultTo(1));
      }
 
      if (!(await connection.schema.hasTable('inv_inventory_templates'))) {
@@ -199,11 +229,21 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
                table.string('image_url', 255).nullable();
                table.integer('purchase_unit').unsigned().nullable();
                table.integer('units_per_purchase_unit').unsigned().nullable();
+               table.string('price_policy', 20).nullable();
+               table.decimal('resulting_wholesale_price', 14, 2).nullable();
+               table.decimal('resulting_sale_price', 14, 2).nullable();
                table.timestamp('created_at').nullable().defaultTo(connection.fn.now());
                table.foreign('order_id', 'inv_purchase_order_receipts_order_id_foreign').references('id').inTable('inv_purchase_orders');
                table.foreign('order_item_id', 'inv_purchase_order_receipts_order_item_id_foreign').references('id').inTable('inv_purchase_order_items');
                table.foreign('purchase_unit', 'inv_purchase_order_receipts_purchase_unit_foreign').references('id').inTable('inv_units');
                table.index(['order_id', 'order_item_id', 'received_date', 'batch_number'], 'idx_receipt_order_item_date_batch');
+          });
+     }
+     if (!(await connection.schema.hasColumn('inv_purchase_order_receipts', 'price_policy'))) {
+          await connection.schema.alterTable('inv_purchase_order_receipts', (table) => {
+               table.string('price_policy', 20).nullable();
+               table.decimal('resulting_wholesale_price', 14, 2).nullable();
+               table.decimal('resulting_sale_price', 14, 2).nullable();
           });
      }
      if (!(await connection.schema.hasTable('inv_inventory_transactions'))) {
@@ -377,9 +417,9 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
           if (!pharmacyCategory) await connection('inv_categories').insert({ id: 'CAT-PHARMACY', name: 'Pharmacy', description: 'Medicines and pharmacy retail products.', item_count: 0, created_at: new Date(), updated_at: new Date() });
      }
 
-     const supplierCount = await connection('inv_suppliers').count('* as count').first();
-     if (Number(supplierCount?.count || 0) === 0) {
+     const generalSupplier = await connection('inv_suppliers').where('id', 'SUP-GENERAL').first();
+     if (!generalSupplier) {
           const now = new Date();
-          await connection('inv_suppliers').insert({ id: 'SUP-SYSTEM-DEFAULT', name: 'System Default Supplier', contact: null, email: null, phone: null, address: null, is_active: true, created_at: now, updated_at: now });
+          await connection('inv_suppliers').insert({ id: 'SUP-GENERAL', name: 'General Supplier', contact: null, email: null, phone: null, address: null, is_active: true, created_at: now, updated_at: now });
      }
 }

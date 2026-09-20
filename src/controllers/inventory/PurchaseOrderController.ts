@@ -142,7 +142,7 @@ export class PurchaseOrderController {
                          });
                     }
 
-                    if (!receipt.quantity_received || typeof receipt.quantity_received !== 'number' || receipt.quantity_received <= 0) {
+                    if (!Number.isInteger(receipt.quantity_received) || receipt.quantity_received <= 0) {
                          errors.push({
                               field: `receipts[${index}].quantity_received`,
                               message: 'Quantity received must be a positive number',
@@ -164,6 +164,19 @@ export class PurchaseOrderController {
                               message: 'Quality check passed must be a boolean',
                               value: receipt.quality_check_passed
                          });
+                    }
+
+                    if (receipt.units_per_purchase_unit !== undefined && (!Number.isFinite(receipt.units_per_purchase_unit) || receipt.units_per_purchase_unit <= 0)) {
+                         errors.push({ field: `receipts[${index}].units_per_purchase_unit`, message: 'Units per purchase unit must be greater than zero', value: receipt.units_per_purchase_unit });
+                    }
+                    if (receipt.units_per_purchase_unit !== undefined && !Number.isInteger(receipt.units_per_purchase_unit)) {
+                         errors.push({ field: `receipts[${index}].units_per_purchase_unit`, message: 'Pack size must be a whole number', value: receipt.units_per_purchase_unit });
+                    }
+
+                    for (const field of ['unit_price', 'new_wholesale_price', 'new_sale_price']) {
+                         if (receipt[field] !== undefined && (!Number.isFinite(receipt[field]) || receipt[field] < 0)) {
+                              errors.push({ field: `receipts[${index}].${field}`, message: `${field} must be a non-negative number`, value: receipt[field] });
+                         }
                     }
                });
           }

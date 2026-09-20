@@ -6,7 +6,8 @@ import {
      InventoryItemListResponse,
      ApiResponse,
      ValidationError,
-     InventoryFilters
+     InventoryFilters,
+     StockUpInventoryItemRequest
 } from '../../models/inventory/types';
 
 export class InventoryItemController {
@@ -43,6 +44,10 @@ export class InventoryItemController {
                     message: 'Category ID must be a string if provided',
                     value: data.category_id
                });
+          }
+
+          if (data.inventory_domain && !['lab', 'pharmacy'].includes(data.inventory_domain)) {
+               errors.push({ field: 'inventory_domain', message: 'Inventory domain must be lab or pharmacy', value: data.inventory_domain });
           }
 
           if (data.sku && data.sku.length > 50) {
@@ -87,6 +92,12 @@ export class InventoryItemController {
           if (data.sale_price !== undefined && (typeof data.sale_price !== 'number' || data.sale_price < 0)) {
                errors.push({ field: 'sale_price', message: 'Sale price must be a non-negative number', value: data.sale_price });
           }
+          if (data.cost_price !== undefined && (typeof data.cost_price !== 'number' || data.cost_price < 0)) {
+               errors.push({ field: 'cost_price', message: 'Cost price must be a non-negative number', value: data.cost_price });
+          }
+          if (data.wholesale_price !== undefined && (typeof data.wholesale_price !== 'number' || data.wholesale_price < 0)) {
+               errors.push({ field: 'wholesale_price', message: 'Wholesale price must be a non-negative number', value: data.wholesale_price });
+          }
 
           return {
                isValid: errors.length === 0,
@@ -119,6 +130,10 @@ export class InventoryItemController {
                     message: 'Category ID must be a string',
                     value: data.category_id
                });
+          }
+
+          if (data.inventory_domain !== undefined && !['lab', 'pharmacy'].includes(data.inventory_domain)) {
+               errors.push({ field: 'inventory_domain', message: 'Inventory domain must be lab or pharmacy', value: data.inventory_domain });
           }
 
           if (data.sku !== undefined && data.sku.length > 50) {
@@ -162,6 +177,12 @@ export class InventoryItemController {
           }
           if (data.sale_price !== undefined && (typeof data.sale_price !== 'number' || data.sale_price < 0)) {
                errors.push({ field: 'sale_price', message: 'Sale price must be a non-negative number', value: data.sale_price });
+          }
+          if (data.cost_price !== undefined && (typeof data.cost_price !== 'number' || data.cost_price < 0)) {
+               errors.push({ field: 'cost_price', message: 'Cost price must be a non-negative number', value: data.cost_price });
+          }
+          if (data.wholesale_price !== undefined && (typeof data.wholesale_price !== 'number' || data.wholesale_price < 0)) {
+               errors.push({ field: 'wholesale_price', message: 'Wholesale price must be a non-negative number', value: data.wholesale_price });
           }
 
           return {
@@ -213,6 +234,32 @@ export class InventoryItemController {
           }
      }
 
+     async stockUpInventoryItem(req: Request, res: Response): Promise<void> {
+          try {
+               const tenantId = this.getTenantId(req);
+               const requestData: StockUpInventoryItemRequest = req.body;
+               const quantity = Number(requestData.quantity);
+               const packSize = Number(requestData.units_per_purchase_unit || 1);
+               const unitPrice = Number(requestData.unit_price);
+               if (!Number.isInteger(quantity) || quantity <= 0 || !Number.isInteger(packSize) || packSize <= 0 || !Number.isFinite(unitPrice) || unitPrice < 0 || !Number.isInteger(Number(requestData.received_by)) || Number(requestData.received_by) <= 0) {
+                    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Quantity and pack size must be whole numbers greater than zero, incoming cost cannot be negative, and receiving employee is required' } });
+                    return;
+               }
+               if (requestData.change_pricing) {
+                    if (!Number.isFinite(requestData.new_sale_price) || Number(requestData.new_sale_price) < 0 || !Number.isFinite(requestData.new_wholesale_price) || Number(requestData.new_wholesale_price) < 0) {
+                         res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Retail and wholesale prices must be zero or greater when pricing changes' } });
+                         return;
+                    }
+               }
+
+               const inventoryItem = await new InventoryItemModel(tenantId).stockUp(String(req.params.id), requestData);
+               res.status(201).json({ success: true, data: inventoryItem });
+          } catch (error: any) {
+               const status = /not found|inactive/i.test(error.message) ? 404 : 400;
+               res.status(status).json({ success: false, error: { code: 'STOCK_UP_REJECTED', message: error.message || 'Failed to stock up inventory item' } });
+          }
+     }
+
      async getInventoryItemById(req: Request, res: Response): Promise<void> {
           try {
                const tenantId = this.getTenantId(req);
@@ -261,6 +308,7 @@ export class InventoryItemController {
                     page,
                     count,
                     category_id,
+                    inventory_domain,
                     location_id,
                     status,
                     search,
@@ -271,6 +319,7 @@ export class InventoryItemController {
                     page: parseInt(page as string, 10),
                     count: parseInt(count as string, 10),
                     category_id: category_id as string,
+                    inventory_domain: inventory_domain as any,
                     location_id: location_id as string,
                     status: status as any,
                     search: search as string,

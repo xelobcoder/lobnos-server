@@ -14,6 +14,51 @@ const listParams = (request: Request) => ({
 });
 
 export class PharmacySaleController {
+     static async holdSale(request: Request, response: Response): Promise<void> {
+          try {
+               const heldSale = await saleService(request).holdSale(request.body, actorOf(request));
+               response.status(201).json({ success: true, data: heldSale });
+          } catch (error: any) {
+               response.status(400).json({ success: false, error: { code: 'HOLD_REJECTED', message: error.message } });
+          }
+     }
+
+     static async getHeldSales(request: Request, response: Response): Promise<void> {
+          try {
+               const params = listParams(request);
+               response.json({ success: true, data: await saleService(request).getHeldSales(params.page, params.count, params.search) });
+          } catch (error: any) {
+               response.status(500).json({ success: false, error: { code: 'HELD_SALES_UNAVAILABLE', message: error.message } });
+          }
+     }
+
+     static async getHeldSale(request: Request, response: Response): Promise<void> {
+          try {
+               response.json({ success: true, data: await saleService(request).getHeldSale(String(request.params.heldSaleId)) });
+          } catch (error: any) {
+               response.status(/not found/i.test(error.message) ? 404 : 500).json({ success: false, error: { code: 'HELD_SALE_UNAVAILABLE', message: error.message } });
+          }
+     }
+
+     static async completeHeldSale(request: Request, response: Response): Promise<void> {
+          try {
+               const receipt = await saleService(request).completeHeldSale(String(request.params.heldSaleId), request.body, actorOf(request));
+               response.status(201).json({ success: true, data: receipt });
+          } catch (error: any) {
+               const status = /not found/i.test(error.message) ? 404 : /unavailable|insufficient|positive|Duplicate/.test(error.message) ? 409 : 400;
+               response.status(status).json({ success: false, error: { code: 'HELD_SALE_COMPLETION_REJECTED', message: error.message } });
+          }
+     }
+
+     static async deleteHeldSale(request: Request, response: Response): Promise<void> {
+          try {
+               await saleService(request).deleteHeldSale(String(request.params.heldSaleId));
+               response.json({ success: true });
+          } catch (error: any) {
+               response.status(/not found/i.test(error.message) ? 404 : 400).json({ success: false, error: { code: 'HELD_SALE_DELETE_REJECTED', message: error.message } });
+          }
+     }
+
      static async getSalesHistory(request: Request, response: Response): Promise<void> {
           try {
                const history = await saleService(request).getSalesHistory(listParams(request));

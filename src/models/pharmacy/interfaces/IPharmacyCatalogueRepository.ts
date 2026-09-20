@@ -9,6 +9,7 @@ export interface PharmacyCatalogueItem {
      unit: string;
      availableStock: number;
      minimumStock: number;
+     wholesalePrice: number;
      salePrice: number;
      stockStatus: PharmacyStockStatus;
 }

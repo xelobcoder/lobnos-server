@@ -27,6 +27,7 @@ export interface InventoryUnitInfo {
 }
 
 export type InventoryStatus = 'in_stock' | 'low_stock' | 'out_of_stock' | 'expired';
+export type InventoryDomain = 'lab' | 'pharmacy';
 
 // Base entity interface
 export interface BaseEntity {
@@ -171,11 +172,16 @@ export interface InventoryItem extends BaseEntity {
      sku: string;
      description?: string;
      category_id?: string;
+     inventory_domain: InventoryDomain;
      consumption_unit: string; // Unit you use/consume in (pieces, tubes, ml, etc.)
      current_stock: number; // Always in consumption units
      min_stock: number; // Always in consumption units
      max_stock: number; // Always in consumption units
+     cost_price?: number;
+     wholesale_price?: number;
      sale_price?: number;
+     preferred_purchase_unit?: number;
+     units_per_purchase_unit?: number;
      location_id?: string;
      status: InventoryStatus;
      is_active: boolean;
@@ -192,11 +198,16 @@ export interface CreateInventoryItemRequest {
      sku: string;
      description?: string;
      category_id?: string;
+     inventory_domain?: InventoryDomain;
      consumption_unit: string; // Unit you use in
      current_stock?: number; // In consumption units
      min_stock?: number; // In consumption units
      max_stock?: number; // In consumption units
+     cost_price?: number;
+     wholesale_price?: number;
      sale_price?: number;
+     preferred_purchase_unit?: number;
+     units_per_purchase_unit?: number;
      location_id?: string;
 }
 
@@ -205,13 +216,32 @@ export interface UpdateInventoryItemRequest {
      sku?: string;
      description?: string;
      category_id?: string;
+     inventory_domain?: InventoryDomain;
      consumption_unit?: string;
      current_stock?: number;
      min_stock?: number;
      max_stock?: number;
+     cost_price?: number;
+     wholesale_price?: number;
      sale_price?: number;
+     preferred_purchase_unit?: number;
+     units_per_purchase_unit?: number;
      location_id?: string;
      is_active?: boolean;
+}
+
+export interface StockUpInventoryItemRequest {
+     supplier_id?: string;
+     quantity: number;
+     units_per_purchase_unit?: number;
+     unit_price: number;
+     received_by: number;
+     batch_number?: string;
+     expiry_date?: string;
+     change_pricing?: boolean;
+     new_wholesale_price?: number;
+     new_sale_price?: number;
+     price_policy?: 'maintain' | 'increase' | 'replace';
 }
 
 export interface InventoryItemListResponse {
@@ -234,6 +264,7 @@ export interface InventoryFilters {
      count?: number;
      sortby?: 'ASC' | 'DESC';
      category_id?: string;
+     inventory_domain?: InventoryDomain;
      location_id?: string;
      status?: InventoryStatus;
      search?: string;
@@ -419,6 +450,7 @@ export interface PurchaseOrderItem extends BaseEntity {
      id: string;
      order_id: string;
      inventory_item_id?: string;
+     inventory_domain?: InventoryDomain;
      quantity_ordered: number;
      quantity_received: number;
      unit_price: number;
@@ -427,6 +459,11 @@ export interface PurchaseOrderItem extends BaseEntity {
      line_total: number;
      status: PurchaseOrderItemStatus;
      notes?: string;
+     cost_price?: number;
+     wholesale_price?: number;
+     sale_price?: number;
+     preferred_purchase_unit?: number;
+     units_per_purchase_unit?: number;
 
      // Joined data
      item_name?: string;
@@ -477,8 +514,11 @@ export interface PurchaseOrderReceipt extends BaseEntity {
      quality_check_passed: boolean;
      notes?: string;
      image_url?: string;
-     purchase_unit?: string;
+     purchase_unit?: number;
      units_per_purchase_unit?: number;
+     new_wholesale_price?: number;
+     new_sale_price?: number;
+     price_policy?: 'maintain' | 'increase' | 'replace';
 }
 
 export interface CreatePurchaseOrderReceiptRequest {
@@ -493,8 +533,11 @@ export interface CreatePurchaseOrderReceiptRequest {
      condition_status?: ConditionStatus;
      quality_check_passed?: boolean;
      notes?: string;
-     purchase_unit?: string;
+     purchase_unit?: number;
      units_per_purchase_unit?: number;
+     new_wholesale_price?: number;
+     new_sale_price?: number;
+     price_policy?: 'maintain' | 'increase' | 'replace';
 }
 
 export interface PurchaseOrderReceiptListResponse {

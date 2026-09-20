@@ -6,6 +6,7 @@ const inventoryItemController = new InventoryItemController();
 
 // Inventory Item routes
 router.post('/items', (req, res) => inventoryItemController.createInventoryItem(req, res));
+router.post('/items/:id/stock-up', (req, res) => inventoryItemController.stockUpInventoryItem(req, res));
 router.get('/items/:id', (req, res) => inventoryItemController.getInventoryItemById(req, res));
 router.get('/items', (req, res) => inventoryItemController.getInventoryItems(req, res));
 router.put('/items/:id', (req, res) => inventoryItemController.updateInventoryItem(req, res));

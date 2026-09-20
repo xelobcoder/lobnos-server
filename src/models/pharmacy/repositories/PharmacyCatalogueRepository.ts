@@ -2,7 +2,6 @@ import { Knex } from 'knex';
 import KnexConnection from '../../../database/KnexConnections';
 import {
      LOW_STOCK_CONDITION,
-     PHARMACY_CATEGORY_NAME,
      PHARMACY_DEFAULT_PAGE_SIZE,
      PHARMACY_DEFAULT_SORT_DIRECTION,
      PHARMACY_DEFAULT_SORT_FIELD,
@@ -72,9 +71,8 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
 
      private buildQuery(connection: Knex, filters: PharmacyCatalogueFilters): Knex.QueryBuilder {
           let query = connection('inv_inventory_items as item')
-               .join('inv_categories as category', 'category.id', 'item.category_id')
                .where('item.is_active', true)
-               .where('category.name', PHARMACY_CATEGORY_NAME);
+               .where('item.inventory_domain', 'pharmacy');
 
           if (filters.sellableOnly) {
                query = query.where('item.current_stock', '>', 0).where('item.sale_price', '>', 0);
@@ -97,6 +95,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                'item.consumption_unit',
                'item.current_stock',
                'item.min_stock',
+               'item.wholesale_price',
                'item.sale_price'
           ];
      }
@@ -111,6 +110,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                unit: row.consumption_unit,
                availableStock,
                minimumStock,
+               wholesalePrice: Number(row.wholesale_price || 0),
                salePrice: Number(row.sale_price || 0),
                stockStatus: resolveStockStatus(availableStock, minimumStock)
           };

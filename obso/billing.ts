@@ -60,7 +60,7 @@ export class Billing {
 				billingid, testid, discountedValue, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, type, branchid, isOutsourced, outsourceid, taxList, amountIncurredDueTax, taxValue, taxIncluded, totalcost, 0, isPHIS, insuranceId, null
 			]);
 			return rowAffected(isServiced) ? isServiced.insertId : false;
-		} catch (err) {
+		} catch (err:any) {
 			console.log(err)
 			return false;
 		}
@@ -88,7 +88,7 @@ export class Billing {
 				stage = await new Services(serviceid).getServiceProgress(tenantId);
 			}
 			return stage;
-		} catch (err) {
+		} catch (err:any) {
 			console.log(err);
 			return null;
 		}
@@ -232,7 +232,7 @@ export class Billing {
 			} else {
 				throw new Error('Failed to generate billingid: Invalid billingid returned');
 			}
-		} catch (error) {
+		} catch (error: any) {
 			console.error('Error generating billingid:', error);
 			return undefined;
 		}
@@ -334,7 +334,7 @@ export class Billing {
 				ascensionId,
 				discount: parsedDiscount
 			};
-		} catch (error) {
+		} catch (error: any) {
 			throw error;
 		}
 	}
@@ -419,7 +419,7 @@ export class Billing {
 				return billingid
 			}
 			return billingid;
-		} catch (err) {
+		} catch (err:any) {
 			console.log(err)
 			await trx.rollback();
 			throw new Error(billErrors.error);
@@ -467,7 +467,7 @@ export class Billing {
 
 			const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
 			return loadAllServices;
-		} catch (err) {
+		} catch (err:any) {
 			console.log('Error Loading services ')
 			throw err;
 		}
@@ -680,7 +680,7 @@ export class Billing {
 		try {
 			const values: [number, number, number, number, string] = [billingid, paymentmode, amount, employeeid, type];
 			return await promisifyQuery(tenantId, insertbillHistoryQuery, values);
-		} catch (err) {
+		} catch (err:any) {
 			throw err;
 		}
 	}
@@ -696,7 +696,7 @@ export class Billing {
 			const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE ascensionid = ?`;
 			const values = [ascensionId];
 			return promisifyQuery(tenantId, query, values);
-		} catch (err) {
+		} catch (err:any) {
 			throw new Error(err);
 		}
 	}
@@ -740,7 +740,7 @@ export class Billing {
 			// await new Billing(null).updateApprovalStatus(ascensionId);
 			// await testAscensionClass.updateTestAscensionStatus("processingStartDate", new Date(), employeeid);
 			// await testAscensionClass.updateTestAscensionStatus("processingEndDate", new Date(), employeeid);
-		} catch (err) {
+		} catch (err:any) {
 			throw err;
 		}
 	}
@@ -870,7 +870,7 @@ export class Billing {
 
 				// this would have made the sample,processing states to be updated to collected
 				// this.updateAscensionStates(isItCompleteFlow, ascensionId, employeeid, verifiedTestPricing, trackId, discountedValue);
-			} catch (error) {
+			} catch (error: any) {
 				throw error
 			}
 		}
@@ -894,7 +894,7 @@ export class Billing {
 			}
 
 			verifiedTestPricing.push({ testid: trackId, price });
-		} catch (error) {
+		} catch (error: any) {
 			throw error
 		}
 	}
@@ -969,7 +969,7 @@ export class Billing {
 				price = filterTest[0]['discountedValue'];
 			}
 			return price;
-		} catch (error) {
+		} catch (error: any) {
 			throw error
 		}
 	}
@@ -1075,7 +1075,7 @@ export class Billing {
 			}
 
 		}
-		catch (err) {
+		catch (err:any) {
 			throw err;
 		}
 	}
@@ -1293,14 +1293,14 @@ export class Billing {
 						await trx.commit();
 						return rowAffected(hx[0]);
 					}
-				} catch (error) {
+				} catch (error: any) {
 					console.log(error)
 					await trx.rollback();
 					throw error;
 				}
 			}
 
-		} catch (error) {
+		} catch (error: any) {
 			console.error("Error in updatePreviousTransaction:", error);
 			throw error;
 		}
@@ -1477,11 +1477,11 @@ export class Billing {
 				if (serviceid && item[5] != 5 && item[1]) {
 					try {
 						await this.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
-					} catch (err) {
+					} catch (err:any) {
 						throw new Error(billErrors.unableToLoadTestAscension);
 					}
 				}
-			} catch (err) {
+			} catch (err:any) {
 				console.error("Error inserting service:", err);
 				insertionErrors.push(err);
 			}
@@ -1500,7 +1500,7 @@ export class Billing {
 				await applyTestAscensionAfterInsertApprovalSettings(queryRunner, ascensionid);
 			}
 			return ascensionid;
-		} catch (err) {
+		} catch (err:any) {
 			return false;
 		}
 	}

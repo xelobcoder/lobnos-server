@@ -9,6 +9,14 @@ export interface CreatePharmacySaleInput {
      lines: Array<{ inventoryItemId: string; quantity: number }>;
 }
 
+export interface HoldPharmacySaleInput {
+     customerName?: string;
+     patientId?: number | null;
+     lines: Array<{ inventoryItemId: string; quantity: number }>;
+}
+
+export interface CompleteHeldPharmacySaleInput extends CreatePharmacySaleInput { }
+
 export interface PharmacySaleReceipt {
      id: string;
      receiptNumber: string;
@@ -41,6 +49,8 @@ export interface PharmacySaleHistoryItem {
      customerName: string;
      paymentMethod: PharmacyPaymentMethod;
      total: number;
+     totalCost: number;
+     grossProfit: number;
      status: string;
      completedAt: Date | null;
      cashierId: number;
@@ -74,6 +84,20 @@ export interface PharmacySaleLine {
      quantity: number;
      unitPrice: number;
      lineTotal: number;
+     unitCost: number;
+     lineCost: number;
+     grossProfit: number;
+}
+
+export interface PharmacyHeldSale {
+     id: string;
+     holdNumber: string;
+     customerName: string;
+     patientId: number | null;
+     total: number;
+     cashierId: number;
+     createdAt: Date;
+     lines: PharmacySaleLine[];
 }
 
 export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
@@ -86,6 +110,11 @@ export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
 export interface IPharmacySaleService {
      /** Completes an idempotent sale and atomically records the resulting inventory issue. */
      completeSale(input: CreatePharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt>;
+     holdSale(input: HoldPharmacySaleInput, cashierId: number): Promise<PharmacyHeldSale>;
+     getHeldSales(page: number, count: number, search?: string): Promise<{ sales: PharmacyHeldSale[]; total: number; page: number; count: number; totalPages: number }>;
+     getHeldSale(heldSaleId: string): Promise<PharmacyHeldSale>;
+     completeHeldSale(heldSaleId: string, input: CompleteHeldPharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt>;
+     deleteHeldSale(heldSaleId: string): Promise<void>;
      /** Lists pharmacy sales, optionally narrowed to particular statuses. */
      getSalesHistory(request: PharmacySaleHistoryRequest): Promise<PharmacySaleHistory>;
      /** Returns one sale with the item lines captured at the time of sale. */

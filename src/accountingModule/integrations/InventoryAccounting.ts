@@ -55,11 +55,12 @@ export async function enqueueGoodsReceipt(
                     .select('o.supplier_id', 's.name as supplier_name')
                     .first()
                : null;
+          const numericSupplierId = Number(supplier?.supplier_id);
 
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AP',
                partyType: 'supplier',
-               partyId: supplier?.supplier_id ? Number(supplier.supplier_id) : null,
+               partyId: Number.isFinite(numericSupplierId) ? numericSupplierId : null,
                partyName: supplier?.supplier_name || null,
                documentType: 'bill',
                documentRef: String(receipt.id),
@@ -77,6 +78,7 @@ export async function enqueueGoodsReceipt(
                receiptId: receipt?.id,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
