@@ -39,6 +39,9 @@ import User from "../../LobnosAuth/user";
 import { ExpenseData } from "../../models/Expenses/interfaces/types";
 import { PayrollReversalService } from "../../services/payroll/PayrollReversalService";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import { getAuthUser } from "../../middleware/authority";
+import { ExpenseDecisionInput, ExpenseWorkflowService } from "../../models/Expenses/ExpenseWorkflowService";
+import { ExpensePaymentWorkflowService } from "../../models/Expenses/ExpensePaymentWorkflowService";
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -57,7 +60,9 @@ const initializeExpense = (requestQuery: ExpenseQueryType) => {
 
 export const createExpenses = async (req: Request, res: Response) => {
 	try {
-		const expensesInstance = initializeExpense(req.query as unknown as ExpenseQueryType);
+		const actor = getAuthUser(req);
+		if (!actor || actor.branch === null) return customError('Authenticated employee branch is required', 403, res);
+		const expensesInstance = initializeExpense({ employeeid: actor.employeeid, branchid: actor.branch, tenantId: actor.tenantId, expenseId: null });
 		const requestBody = req.body;
 
 		if (Array.isArray(requestBody)) {
@@ -69,10 +74,11 @@ export const createExpenses = async (req: Request, res: Response) => {
 				return customError("Maximum 50 expenses can be created at once", 400, res);
 			}
 
-			const result = await expensesInstance.generateBulkExpenses(requestBody);
+			const sanitized = requestBody.map((expense: any) => ({ ...expense, employeeid: actor.employeeid, branchid: actor.branch }));
+			const result = await expensesInstance.generateBulkExpenses(sanitized);
 			res.send(result);
 		} else if (typeof requestBody === 'object' && requestBody !== null) {
-			const expenseId = await expensesInstance.generateNewExpense(requestBody);
+			const expenseId = await expensesInstance.generateNewExpense({ ...requestBody, employeeid: actor.employeeid, branchid: actor.branch });
 			res.send({ status: expenseId });
 		} else {
 			return customError("Invalid request body. Expected expense object or array of expenses", 400, res);
@@ -151,7 +157,7 @@ export const getExpensesRecord = async (req: Request, res: Response) => {
 		const formatedDateTo = parseDateParam(to) || formatedDateFrom;
 
 
-		console.log({formatedDateFrom, formatedDateTo})
+		console.log({ formatedDateFrom, formatedDateTo })
 
 		const records = await expenses.getExpensesRecord(
 			parseInt(tenantId.toString()),
@@ -208,17 +214,19 @@ export const getExpenseLog = async (request: Request<{ expenseId: string | numbe
 
 export const updateExpenseRecord = async (request: Request<{}, {}, ExpenseData, { tenantId: string, expenseid: string }>, response: Response) => {
 	try {
-		const { expenseid, tenantId } = request.query;
-		const expenseData = request.body;
+		const { expenseid } = request.query;
+		const actor = getAuthUser(request);
+		if (!actor || actor.branch === null) return customError('Authenticated employee branch is required', 403, response);
+		const expenseData = { ...request.body, employeeid: actor.employeeid, branchid: actor.branch };
 
-		if (!expenseid || !expenseData.employeeid || !expenseData.branchid) {
+		if (!expenseid) {
 			return customError("Missing required identifiers", 404, response);
 		}
 
 		const expenses = initializeExpense({
 			employeeid: expenseData.employeeid,
 			branchid: expenseData.branchid,
-			tenantId: parseInt(tenantId.toString()),
+			tenantId: actor.tenantId,
 			expenseId: parseInt(expenseid.toString())
 		});
 
@@ -304,212 +312,54 @@ export const updateExpenseDecision = async (req: Request<{}, {}, {
 	branchid: number;
 }, { tenantId: string, employeeid?: string, branchid?: string }>, res: Response) => {
 	try {
-		const { expenseid, employeeid, status, information, branchid } = req.body;
-		const { tenantId } = req.query;
+		const actor = getAuthUser(req);
+		if (!actor) return customError('Authentication required', 401, res);
 
-		if (Array.isArray(req.body)) {
-			const decisions = req.body;
-
-			if (decisions.length === 0) {
-				return customError("Decisions array cannot be empty", 400, res);
-			}
-
-			if (decisions.length > 2000) {
-				return customError("Maximum 2000 decisions can be processed at once", 400, res);
-			}
-
-			for (const decision of decisions) {
-				if (!decision.expenseid || !decision.status) {
-					return customError("Each decision must have expenseid and status", 400, res);
-				}
-				if (!['pending', 'approved', 'rejected'].includes(decision.status)) {
-					return customError("Status must be 'pending', 'approved', or 'rejected'", 400, res);
-				}
-			}
-
-			const decisionsByStatus: Record<string, Array<{ expenseid: number, information: string, employeeid: number, status: string }>> = {};
-			for (const decision of decisions) {
-				if (!decisionsByStatus[decision.status]) {
-					decisionsByStatus[decision.status] = [];
-				}
-				decisionsByStatus[decision.status].push(decision);
-			}
-
-			const expenses = initializeExpense({
-				employeeid: parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0'),
-				branchid: parseInt(branchid?.toString() || req.query.branchid?.toString() || '0'),
-				tenantId: parseInt(tenantId?.toString() || '0'),
-				expenseId: null
-			});
-
-			let approverEmployeeId = parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0');
-			let approverBranchId = parseInt(branchid?.toString() || req.query.branchid?.toString() || '0');
-
-			if (approverEmployeeId === 0 && decisions.length > 0) {
-				const firstExpenseQuery = 'SELECT employeeid, branchid FROM expensesrecord WHERE id = ?';
-				const firstExpense = await promisifyQuery(parseInt(tenantId.toString()), firstExpenseQuery, [decisions[0].expenseid]);
-				if (firstExpense.length > 0) {
-					approverEmployeeId = firstExpense[0].employeeid;
-					approverBranchId = firstExpense[0].branchid;
-				}
-			}
-
-			const results = [];
-			for (const [status, statusDecisions] of Object.entries(decisionsByStatus)) {
-				const decisionsForService = statusDecisions.map(({ status: _, ...rest }) => rest);
-				const result = await expenses.updateExpenseDecision(parseInt(tenantId.toString()), status, decisionsForService);
-
-				if (status === 'approved' && result) {
-					try {
-						const invoiceRepo = new ExpenseInvoiceRepo(
-							approverEmployeeId,
-							approverBranchId,
-							parseInt(tenantId.toString())
-						);
-
-						const approvedExpenseIds = statusDecisions.map(d => d.expenseid);
-						const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
-
-						results.push({
-							status,
-							success: true,
-							count: statusDecisions.length,
-							invoices: invoiceResults,
-							message: "Expenses approved and invoices created"
-						});
-					} catch (invoiceError: any) {
-						results.push({
-							status,
-							success: true,
-							count: statusDecisions.length,
-							message: "Expenses approved, but invoice creation failed",
-							error: invoiceError.message
-						});
-					}
-				} else {
-					results.push({ status, success: result, count: statusDecisions.length });
-				}
-			}
-
-			res.send({ results });
-		} else if (!Array.isArray(req.body) && 'decisions' in req.body && Array.isArray(req.body.decisions)) {
-			const { status, decisions } = req.body as { status: string; decisions: Array<any> };
-
-			if (!status || !['pending', 'approved', 'rejected'].includes(status)) {
-				return customError("Valid status is required for bulk decisions", 400, res);
-			}
-
-			if (decisions.length === 0) {
-				return customError("Decisions array cannot be empty", 400, res);
-			}
-
-			if (decisions.length > 50) {
-				return customError("Maximum 50 decisions can be processed at once", 400, res);
-			}
-
-			for (const decision of decisions) {
-				if (!decision.expenseid || typeof decision.employeeid !== 'number') {
-					return customError("Each decision must have expenseid and employeeid", 400, res);
-				}
-			}
-
-			const expenses = initializeExpense({
-				employeeid: parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0'),
-				branchid: parseInt(branchid?.toString() || req.query.branchid?.toString() || '0'),
-				tenantId: parseInt(tenantId?.toString() || '0'),
-				expenseId: null
-			});
-
-			let approverEmployeeId = parseInt(employeeid?.toString() || req.query.employeeid?.toString() || '0');
-			let approverBranchId = parseInt(branchid?.toString() || req.query.branchid?.toString() || '0');
-
-			if (approverEmployeeId === 0 && decisions.length > 0) {
-				const firstExpenseQuery = 'SELECT employeeid, branchid FROM expensesrecord WHERE id = ?';
-				const firstExpense = await promisifyQuery(parseInt(tenantId.toString()), firstExpenseQuery, [decisions[0].expenseid]);
-				if (firstExpense.length > 0) {
-					approverEmployeeId = firstExpense[0].employeeid;
-					approverBranchId = firstExpense[0].branchid;
-				}
-			}
-
-			const result = await expenses.updateExpenseDecision(parseInt(tenantId.toString()), status, decisions);
-
-			if (status === 'approved' && result) {
-				try {
-					const invoiceRepo = new ExpenseInvoiceRepo(
-						approverEmployeeId,
-						approverBranchId,
-						parseInt(tenantId.toString())
-					);
-					const approvedExpenseIds = decisions.map((d: { expenseid: number }) => d.expenseid);
-
-					const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, approvedExpenseIds, true);
-
-					res.send({
-						success: true,
-						count: decisions.length,
-						invoices: invoiceResults,
-						message: "Expenses approved and invoices created"
-					});
-				} catch (invoiceError: any) {
-					res.send({
-						success: true,
-						count: decisions.length,
-						message: "Expenses approved, but invoice creation failed",
-						error: invoiceError.message
-					});
-				}
-			} else {
-				res.send({ success: result, count: decisions.length });
-			}
+		const body: any = req.body;
+		let decisions: ExpenseDecisionInput[];
+		let isSingle = false;
+		if (Array.isArray(body)) {
+			decisions = body.map((decision: any) => ({ expenseid: Number(decision.expenseid), status: decision.status, information: decision.information }));
+		} else if (Array.isArray(body?.decisions)) {
+			decisions = body.decisions.map((decision: any) => ({ expenseid: Number(decision.expenseid), status: body.status, information: decision.information }));
 		} else {
-			if (!employeeid || !branchid || !expenseid || !status) {
-				return customError("Missing required decision parameters", 400, res);
-			}
+			isSingle = true;
+			decisions = [{ expenseid: Number(body?.expenseid), status: body?.status, information: body?.information }];
+		}
 
-			const expenses = initializeExpense({
-				employeeid: parseInt(employeeid.toString()),
-				branchid: parseInt(branchid.toString()),
-				tenantId: parseInt(tenantId?.toString() || '0'),
-				expenseId: parseInt(expenseid.toString())
-			});
+		const decisionResults = await new ExpenseWorkflowService(actor.tenantId).decide(actor, decisions);
+		const approvedByBranch = new Map<number, number[]>();
+		for (const result of decisionResults.filter((result) => result.status === 'approved')) {
+			approvedByBranch.set(result.branchid, [...(approvedByBranch.get(result.branchid) || []), result.expenseid]);
+		}
 
-			const decisions = [{ expenseid: parseInt(expenseid.toString()), information: information || '', employeeid: parseInt(employeeid.toString()) }];
-			const result = await expenses.updateExpenseDecision(
-				parseInt(tenantId?.toString() || '0'),
-				status,
-				decisions
-			);
-
-			if (status === 'approved' && result) {
-				try {
-					const invoiceRepo = new ExpenseInvoiceRepo(
-						parseInt(employeeid.toString()),
-						parseInt(branchid.toString()),
-						parseInt(tenantId?.toString() || '0')
-					);
-
-					const invoiceResults = await createInvoicesForApprovedExpenses(invoiceRepo, [parseInt(expenseid.toString())], false);
-
-					res.send({
-						success: true,
-						invoices: invoiceResults,
-						message: "Expense approved and invoice created"
-					});
-				} catch (invoiceError: any) {
-					res.send({
-						success: true,
-						message: "Expense approved, but invoice creation failed",
-						error: invoiceError.message
-					});
-				}
-			} else {
-				res.send({ success: result });
+		const invoices: any[] = [];
+		const invoiceErrors: Array<{ branchid: number; message: string }> = [];
+		for (const [expenseBranchId, expenseIds] of approvedByBranch) {
+			try {
+				const invoiceRepo = new ExpenseInvoiceRepo(actor.employeeid, expenseBranchId, actor.tenantId);
+				invoices.push(...await createInvoicesForApprovedExpenses(invoiceRepo, expenseIds, !isSingle));
+			} catch (invoiceError: any) {
+				invoiceErrors.push({ branchid: expenseBranchId, message: invoiceError.message });
 			}
 		}
-	} catch (err) {
-		console.log(err);
-		responseError(res);
+
+		const response = {
+			success: true,
+			count: decisionResults.length,
+			decisions: decisionResults,
+			invoices,
+			...(invoiceErrors.length ? { invoiceErrors, message: 'Expense decisions succeeded, but some invoices require retry' } : {}),
+		};
+		return res.send(isSingle ? { ...response, decision: decisionResults[0] } : response);
+	} catch (err: any) {
+		logger.warn('Expense decision rejected', { error: err?.message || String(err) });
+		const message = err?.message || 'Expense decision failed';
+		const statusCode = /not found/i.test(message) ? 404
+			: /cannot|already|paid|rejected|approved/i.test(message) ? 409
+				: /authority|delegated|own expense|branch|capped|limit|duplicate active authority/i.test(message) ? 403
+					: 400;
+		return customError(message, statusCode, res);
 	}
 };
 
@@ -801,32 +651,29 @@ export const getInvoices = async (req: Request, res: Response) => {
 
 export const addPayment = async (req: Request, res: Response) => {
 	try {
-		const { tenantId, employeeid, branchid } = req.query;
-		const paymentData = req.body;
-
-		if (!tenantId || !employeeid || !branchid || !paymentData) {
-			return customError("Required parameters missing", 400, res);
-		}
-
-		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
-		const result = await invoiceRepo.addPayment(paymentData);
-		res.send({ status: result });
+		const actor = getAuthUser(req);
+		if (!actor) return customError('Authentication required', 401, res);
+		const paymentData: any = req.body || {};
+		const result = await new ExpensePaymentWorkflowService(actor.tenantId).record(actor, {
+			expenseId: Number(paymentData.expense_id ?? paymentData.expenseId),
+			invoiceId: paymentData.invoice_id ?? paymentData.invoiceId ?? null,
+			paymentAccountId: Number(paymentData.payment_account_id ?? paymentData.paymentAccountId),
+			amount: Number(paymentData.amount),
+			paymentDate: paymentData.payment_date ?? paymentData.paymentDate,
+			paymentMethod: paymentData.method ?? paymentData.payment_method ?? paymentData.paymentMethod,
+			paymentReference: paymentData.payment_reference ?? paymentData.paymentReference,
+			supportingDocument: paymentData.supporting_document ?? paymentData.supportingDocument,
+			idempotencyKey: paymentData.idempotency_key ?? paymentData.idempotencyKey,
+		});
+		return res.send({ success: true, status: result, data: result });
 	} catch (err: any) {
-		console.log('Payment creation error:', err.message);
-
-		// Handle specific error types gracefully
-		if (err.message.includes('not found in the system')) {
-			return customError(`Payment cannot be processed: ${err.message}`, 404, res);
-		} else if (err.message.includes('must be approved first')) {
-			return customError(`Payment cannot be processed: ${err.message}`, 400, res);
-		} else if (err.message.includes('Unauthorized')) {
-			return customError('You do not have permission to add payment for this expense', 403, res);
-		} else if (err.message.includes('Required fields are missing')) {
-			return customError('Payment data is incomplete. Please provide all required fields.', 400, res);
-		} else {
-			// For unexpected errors, return a generic message but don't crash the server
-			return customError('An error occurred while processing the payment. Please try again later.', 500, res);
-		}
+		logger.warn('Expense payment rejected', { error: err?.message || String(err) });
+		const message = err?.message || 'Payment could not be processed';
+		const statusCode = /not found/i.test(message) ? 404
+			: /not authorized|authority|approver cannot|branch/i.test(message) ? 403
+				: /already fully paid|exceeds|must be approved/i.test(message) ? 409
+					: 400;
+		return customError(message, statusCode, res);
 	}
 };
 

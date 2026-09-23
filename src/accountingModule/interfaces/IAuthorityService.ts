@@ -1,12 +1,29 @@
 export type AuthorityPermission =
+     | 'expense.create'
+     | 'expense.view'
+     | 'expense.edit'
+     | 'expense.submit'
      | 'expense.approve'
+     | 'expense.reject'
      | 'expense.pay'
+     | 'expense.cancel'
+     | 'expense.reverse'
+     | 'expense.override_approval'
+     | 'expense.override_sod'
+     | 'expense.view_audit'
+     | 'expense.configure'
+     | 'payment_account.manage'
      | 'purchase_order.approve'
      | 'purchase_order.pay'
      | 'inventory.adjust'
      | 'accounting.journal.approve'
      | 'accounting.journal.post'
      | 'accounting.period.close'
+     | 'accounting.daily_close.submit'
+     | 'accounting.daily_close.manager_approve'
+     | 'accounting.daily_close.finalize'
+     | 'accounting.daily_close.view_audit'
+     | 'accounting.financial_correction.execute'
      | 'billing.refund.approve';
 
 export interface AuthorityDelegation {
@@ -23,6 +40,7 @@ export interface AuthorityDelegation {
      revoked_at: Date | null;
      expires_at: Date | null;
      notes: string | null;
+     replaces_delegation_id?: number | null;
 }
 
 export interface AuthorityDecision {
@@ -56,10 +74,12 @@ export interface IAuthorityService {
       * An amount outside the band is denied even though the permission is held, so a delegate
       * cannot split a large payment past their ceiling by holding the permission alone.
       */
-     can(employeeid: number, permission: AuthorityPermission, amount?: number | null): Promise<AuthorityDecision>;
+     can(employeeid: number, permission: AuthorityPermission, amount?: number | null, branchid?: number | null): Promise<AuthorityDecision>;
 
      /** Replaces any existing grant of the same permission for that employee. */
      grant(input: GrantDelegationInput): Promise<AuthorityDelegation>;
+
+     revise(id: number, input: Pick<GrantDelegationInput, 'minAmount' | 'maxAmount' | 'branchid' | 'expiresAt' | 'notes' | 'grantedBy'>): Promise<AuthorityDelegation>;
 
      revoke(id: number, revokedBy: number): Promise<void>;
 

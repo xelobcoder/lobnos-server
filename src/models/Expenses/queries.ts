@@ -1,4 +1,4 @@
-export const generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, employeeid, branchid, description, merchant, category, date, groupId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+export const generateNewExpenseQuery = `INSERT INTO expensesrecord (name, amount, employeeid, branchid, description, merchant, category, date, groupId, workflow_status, submitted_by, submitted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
 export const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
 export const getExpensesRecordQuery = `
 SELECT 

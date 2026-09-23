@@ -93,6 +93,7 @@ export async function enqueueExpenseAccrual(tenantId: number, expenseId: number,
                expenseId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
@@ -141,15 +142,17 @@ export async function enqueueExpenseAccrualReversal(tenantId: number, expenseId:
                expenseId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
 export async function enqueueExpensePayment(tenantId: number, paymentId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
-          const payment = await db('expense_payments')
-               .select('id', 'expense_id', 'invoice_id', 'amount', 'method', 'payment_date', 'created_by')
-               .where({ id: paymentId })
+          const payment = await db('expense_payments as payment')
+               .leftJoin('payment_accounts as account', 'account.id', 'payment.payment_account_id')
+               .select('payment.id', 'payment.expense_id', 'payment.invoice_id', 'payment.amount', 'payment.method', 'payment.payment_date', 'payment.created_by', 'account.gl_account_code')
+               .where('payment.id', paymentId)
                .first();
 
           if (!payment || Number(payment.amount) <= 0) return;
@@ -182,7 +185,7 @@ export async function enqueueExpensePayment(tenantId: number, paymentId: number,
                     createdBy: payment.created_by ? Number(payment.created_by) : null,
                     lines: [
                          { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.DEBIT, ...shared },
-                         { accountCode: resolveCashAccountCode(payment.method), direction: NormalBalance.CREDIT, ...shared },
+                         { accountCode: payment.gl_account_code || resolveCashAccountCode(payment.method), direction: NormalBalance.CREDIT, ...shared },
                     ],
                },
                db
@@ -193,15 +196,17 @@ export async function enqueueExpensePayment(tenantId: number, paymentId: number,
                paymentId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
 export async function enqueueExpensePaymentReversal(tenantId: number, paymentId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
-          const payment = await db('expense_payments')
-               .select('id', 'expense_id', 'invoice_id', 'amount', 'method')
-               .where({ id: paymentId })
+          const payment = await db('expense_payments as payment')
+               .leftJoin('payment_accounts as account', 'account.id', 'payment.payment_account_id')
+               .select('payment.id', 'payment.expense_id', 'payment.invoice_id', 'payment.amount', 'payment.method', 'account.gl_account_code')
+               .where('payment.id', paymentId)
                .first();
 
           if (!payment || Number(payment.amount) <= 0) return;
@@ -232,7 +237,7 @@ export async function enqueueExpensePaymentReversal(tenantId: number, paymentId:
                     description: 'Expense payment reversed',
                     occurredAt: new Date(),
                     lines: [
-                         { accountCode: resolveCashAccountCode(payment.method), direction: NormalBalance.DEBIT, ...shared },
+                         { accountCode: payment.gl_account_code || resolveCashAccountCode(payment.method), direction: NormalBalance.DEBIT, ...shared },
                          { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.CREDIT, ...shared },
                     ],
                },
@@ -244,6 +249,7 @@ export async function enqueueExpensePaymentReversal(tenantId: number, paymentId:
                paymentId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 

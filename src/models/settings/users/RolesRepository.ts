@@ -4,7 +4,8 @@ export interface IEmployee {
 	username: string;
 	role: 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
 	password: string;
-	pin: number;
+	pin?: number | string | null;
+	pin_hash?: string | null;
 	date_created?: string | Date,
 	time?: string;
 	refresh_token?: string | null;
@@ -50,10 +51,11 @@ export default class RolesRepository {
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');
 			if (!roleData.email || typeof roleData.email !== 'string') throw new Error('Invalid email');
-			if (typeof roleData.pin !== 'number' || roleData.pin.toString().length !== 4) throw new Error('Invalid pin');
+			const pin = String(roleData.pin || '');
+			if (!/^\d{4}$/.test(pin)) throw new Error('Invalid pin');
 			if (!roleData.mobile || typeof roleData.mobile !== 'string' || roleData.mobile.length < 7) throw new Error('Invalid mobile');
 			const connection = await this.connection;
-			const result = await connection(this.tablename).insert(roleData).returning('employeeid');
+			const result = await connection(this.tablename).insert({ ...roleData, pin: null, pin_hash: await bcrypt.hash(pin, 10) }).returning('employeeid');
 			return result[0];
 		} catch (error: any) {
 			logger.log(error);
@@ -110,10 +112,13 @@ export default class RolesRepository {
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {
 		const employee = await this.getRoleById(employeeId);
-		if (!employee?.pin) return false;
-		const characters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z'];
-		if (typeof pin === 'string' && characters.some(char => pin.toLowerCase().includes(char))) return false;
-		return employee.pin.toString() === parseInt(pin).toString();
+		if (!employee || !/^\d{4}$/.test(String(pin))) return false;
+		if (employee.pin_hash) return bcrypt.compare(String(pin), employee.pin_hash);
+		if (employee.pin == null || String(employee.pin) !== String(pin)) return false;
+		const connection = await this.connection;
+		const pinHash = await bcrypt.hash(String(pin), 10);
+		await connection(this.tablename).where({ employeeid: employeeId, pin: employee.pin }).whereNull('pin_hash').update({ pin_hash: pinHash, pin: null });
+		return true;
 	}
 
 

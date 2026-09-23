@@ -190,7 +190,6 @@ export async function TransactionTestAscensionHandler(request: Request<{}, {}, {
         const parsedBillingid = parseInt(billingid.toString());
         const tenantIdP = parseInt(tenantId.toString());
         const transactions = await TestAscension.getTransactionAscentionTestDetails(tenantIdP, parsedBillingid);
-        console.log(transactions)
         response.send({ tenantId, message: 'success', statusCode: 200, result: transactions, status: 'success' });
     } catch (err) {
         responseError(response);
@@ -204,6 +203,10 @@ export async function phelobotomistAnalyticsSummary(request: Request<{}, {}, {},
     try {
         const { tenantId } = request.query
         const tenantIdP = parseInt(tenantId.toString());
+        if (!Number.isInteger(tenantIdP) || tenantIdP <= 0) {
+            response.status(400).send({ status: 'error', statusCode: 400, message: 'Valid tenant ID is required' });
+            return;
+        }
         const analytics = await AscensionAnalytics.phelobotomistAnalytics24Hours(tenantIdP);
         response.send(analytics);
     } catch (err) {
@@ -374,24 +377,31 @@ export async function getRejectedCollectedSampleListHandler(request: Request<{},
 export async function getAllPendingAscensionsHandler(request: Request<{}, {}, {}, {
     tenantId: string,
     count?: string,
-    page?: string
+    page?: string,
+    start_date?: string,
+    end_date?: string
 }>, response: Response) {
     try {
-        const { tenantId, count = 30, page = 1 } = request.query;
-        const parsedCount = parseInt(count.toString()) || 30;
-        const parsedPage = parseInt(page.toString()) || 1;
+        const { tenantId, count = 10, page = 1, start_date, end_date } = request.query;
+        const parsedCount = Math.min(100, Math.max(1, parseInt(count.toString()) || 10));
+        const parsedPage = Math.max(1, parseInt(page.toString()) || 1);
         const tenantIdP = parseInt(tenantId.toString());
-        const allPending = await TestAscension.getAllPendingAscensions(tenantIdP, parsedCount, parsedPage);
+        if (!Number.isInteger(tenantIdP) || tenantIdP <= 0) return customError('Valid tenant ID is required', 400, response);
+        if ((start_date && !end_date) || (!start_date && end_date)) return customError('Both start and end dates are required', 400, response);
+        const allPending = await TestAscension.getAllPendingAscensions(tenantIdP, parsedCount, parsedPage, start_date, end_date);
 
         response.send({
             tenantId,
             message: "success",
             statusCode: 200,
-            result: allPending,
+            result: allPending.items,
             status: "success",
-            count: allPending?.length || 0,
-            page: parsedPage,
-            pageSize: parsedCount
+            pagination: {
+                page: parsedPage,
+                count: parsedCount,
+                total: allPending.total,
+                totalPages: Math.ceil(allPending.total / parsedCount)
+            }
         });
     } catch (err) {
         responseError(response);

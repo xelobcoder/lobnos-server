@@ -237,19 +237,16 @@ export class AscensionAnalytics extends TestAscension {
               return promisifyQuery(tenantId, Queries.totalAllTimePendingCollections);
        }
 
-       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{ allTimePending: number, pending: [], rejected: [], orders: [], completed: [] }> {
-              let pending = await this.totalSamplePendingCollection24(tenantId);
-              let rejected = await this.totalSampleRejected24(tenantId);
-              let orders = await this.totalSampleRedrawOrders24(tenantId);
-              let completed = await this.totalSampleRedrawCompleted24(tenantId);
-              let allTimePending = await this.allTimePendingCollections(tenantId);
-              allTimePending = allTimePending[0]['total_pending_collections'];
-              rejected = rejected[0]['tests_rejected_in_24h'];
-              completed = completed[0]['redraw_orders_completed_in_24h']
-              orders = orders[0]['redraw_orders_in_24h']
-              pending = pending[0]['pending'];
-
-              return { pending, rejected, orders, completed, allTimePending };
+       public static async phelobotomistAnalytics24Hours(tenantId: number): Promise<{ allTimePending: number; pending: number; collected: number; rejected: number; orders: number; completed: number }> {
+              const [row = {}] = await promisifyQuery(tenantId, Queries.physicalSamplePhlebotomySummary);
+              return {
+                     pending: Number(row.pending || 0),
+                     collected: Number(row.collected || 0),
+                     rejected: Number(row.rejected || 0),
+                     orders: Number(row.orders || 0),
+                     completed: Number(row.completed || 0),
+                     allTimePending: Number(row.allTimePending || 0),
+              };
        }
 
 

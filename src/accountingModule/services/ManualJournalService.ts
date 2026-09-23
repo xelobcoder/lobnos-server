@@ -12,6 +12,7 @@ import {
      IManualJournalService,
      ManualJournalStatus,
 } from '../interfaces/IManualJournalService';
+import { FinancialFinalizationGuard } from './FinancialFinalizationGuard';
 
 const BALANCE_TOLERANCE = 0.01;
 
@@ -26,6 +27,7 @@ export class ManualJournalService implements IManualJournalService {
      async create(input: CreateManualJournalInput): Promise<IManualJournal> {
           const db = await this.connection();
           await this.validate(db, input);
+          for (const branchId of [...new Set<number>(input.lines.map((line) => Number(line.branchid)).filter((value): value is number => Number.isInteger(value) && value > 0))]) await new FinancialFinalizationGuard(this.tenantId, db).assertDateOpen(branchId, input.journalDate);
 
           const journalNo = await this.nextJournalNumber(db, input.journalDate);
 
@@ -48,7 +50,9 @@ export class ManualJournalService implements IManualJournalService {
      async update(id: number, input: CreateManualJournalInput): Promise<IManualJournal> {
           const db = await this.connection();
           const journal = await this.requireStatus(db, id, ['draft']);
+          await new FinancialFinalizationGuard(this.tenantId, db).assertRecordMutable('acc_manual_journals', id);
           await this.validate(db, input);
+          for (const branchId of [...new Set<number>(input.lines.map((line) => Number(line.branchid)).filter((value): value is number => Number.isInteger(value) && value > 0))]) await new FinancialFinalizationGuard(this.tenantId, db).assertDateOpen(branchId, input.journalDate);
 
           await db('acc_manual_journals')
                .where({ id: journal.id })
@@ -103,7 +107,9 @@ export class ManualJournalService implements IManualJournalService {
      async post(id: number, employeeId: number): Promise<IManualJournal> {
           const db = await this.connection();
           const journal = await this.requireStatus(db, id, ['approved']);
+          await new FinancialFinalizationGuard(this.tenantId, db).assertRecordMutable('acc_manual_journals', id);
           const lines = await db('acc_manual_journal_lines').where({ manual_journal_id: journal.id });
+          for (const branchId of [...new Set<number>(lines.map((line: any) => Number(line.branchid)).filter((value: number): value is number => Number.isInteger(value) && value > 0))]) await new FinancialFinalizationGuard(this.tenantId, db).assertDateOpen(branchId, journal.journal_date);
 
           const { entry } = await createAccountingService(this.tenantId).postTransaction({
                tenantId: this.tenantId,
@@ -131,6 +137,7 @@ export class ManualJournalService implements IManualJournalService {
      async reverse(id: number, employeeId: number, description?: string): Promise<IManualJournal> {
           const db = await this.connection();
           const journal = await this.requireStatus(db, id, ['posted']);
+          await new FinancialFinalizationGuard(this.tenantId, db).assertRecordMutable('acc_manual_journals', id);
 
           if (!journal.journal_entry_id) {
                throw new AccountingError('Journal has no posted entry to reverse', 'NOT_POSTED', 409);
@@ -174,6 +181,7 @@ export class ManualJournalService implements IManualJournalService {
      async void(id: number, employeeId: number, reason?: string): Promise<IManualJournal> {
           const db = await this.connection();
           const journal = await this.requireStatus(db, id, ['draft', 'submitted', 'approved']);
+          await new FinancialFinalizationGuard(this.tenantId, db).assertRecordMutable('acc_manual_journals', id);
 
           await db('acc_manual_journals').where({ id: journal.id }).update({
                status: 'void',

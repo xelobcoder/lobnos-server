@@ -18,6 +18,8 @@ export default class RolesAuditRepository {
 		const {
 			password,
 			refresh_token,
+			pin,
+			pin_hash,
 			...rest
 		} = row;
 		return rest;

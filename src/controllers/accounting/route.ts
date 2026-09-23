@@ -3,6 +3,7 @@ import { AccountingReportController } from './AccountingReportController';
 import { ManualJournalController } from './ManualJournalController';
 import { AuthorityController } from './AuthorityController';
 import { BankReconciliationController, parseBankExcelUpload } from './BankReconciliationController';
+import { FinancialDayCloseController } from './FinancialDayCloseController';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireAccountingRole, requireAuthority, requireOwnerRole } from '../../middleware/authority';
 
@@ -32,6 +33,12 @@ accountingRouter.get('/api/v1/accounting/periods', AccountingReportController.li
 accountingRouter.get('/api/v1/accounting/periods/:periodCode/totals', AccountingReportController.periodTotals);
 accountingRouter.put('/api/v1/accounting/periods/:periodCode/status', requireAuthority('accounting.period.close'), AccountingReportController.setPeriodStatus);
 
+accountingRouter.get('/api/v1/accounting/daily-closes', FinancialDayCloseController.list);
+accountingRouter.get('/api/v1/accounting/daily-closes/:id', FinancialDayCloseController.detail);
+accountingRouter.post('/api/v1/accounting/daily-closes/:financialDate/accountant-submit', FinancialDayCloseController.submit);
+accountingRouter.post('/api/v1/accounting/daily-closes/:id/manager-decision', FinancialDayCloseController.managerDecision);
+accountingRouter.post('/api/v1/accounting/daily-closes/:id/finalize', requireOwnerRole, FinancialDayCloseController.finalize);
+
 accountingRouter.get('/api/v1/accounting/manual-journals', ManualJournalController.list);
 accountingRouter.post('/api/v1/accounting/manual-journals', ManualJournalController.create);
 accountingRouter.get('/api/v1/accounting/manual-journals/:id', ManualJournalController.findById);
@@ -55,6 +62,7 @@ accountingRouter.get('/api/v1/accounting/authority/employees', requireOwnerRole,
 accountingRouter.get('/api/v1/accounting/authority/delegations', requireOwnerRole, AuthorityController.list);
 accountingRouter.get('/api/v1/accounting/authority/delegations/:employeeid', requireOwnerRole, AuthorityController.forEmployee);
 accountingRouter.post('/api/v1/accounting/authority/delegations', requireOwnerRole, AuthorityController.grant);
+accountingRouter.put('/api/v1/accounting/authority/delegations/:id', requireOwnerRole, AuthorityController.revise);
 accountingRouter.delete('/api/v1/accounting/authority/delegations/:id', requireOwnerRole, AuthorityController.revoke);
 
 accountingRouter.get('/api/v1/accounting/bank/accounts', BankReconciliationController.listAccounts);

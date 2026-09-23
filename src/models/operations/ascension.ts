@@ -2,6 +2,7 @@ import Operations from "./operations";
 import {
 	delete_test_ascension_billed,
 	q_ascension_find_id,
+	q_count_pending_sample_uncollected,
 	q_pending_sample_uncollected,
 	q_transaction_ascension_phelobotomy_details,
 	q_update_ascension_collection_state,
@@ -24,7 +25,7 @@ import KnexConnection from "../../database/KnexConnections";
 import ApplicationSettings from "../application/appsettings/appset";
 
 
-export class TestAscension  {
+export class TestAscension {
 	ascensionId: number;
 
 	constructor(ascensionId: number) {
@@ -125,7 +126,7 @@ export class TestAscension  {
 
 		if (start_date && end_date) {
 			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
-			params = [start_date, end_date];
+			params.push(start_date, end_date);
 		}
 		if (filter) {
 			const words = filter.trim().split(/\s+/).filter(w => w.length > 0);
@@ -148,17 +149,22 @@ export class TestAscension  {
 		return await promisifyQuery(tenantId, q_get_all_test_qualified_to_for_result_entry_on_test, [billingid, branchid]);
 	}
 
-	public static async getAllPendingAscensions(tenantId: number, count: number = 30, page: number = 1): Promise<any[]> {
+	public static async getAllPendingAscensions(tenantId: number, count: number = 10, page: number = 1, startDate?: string, endDate?: string): Promise<{ items: any[]; total: number }> {
 		let query = q_pending_sample_uncollected;
+		let countQuery = q_count_pending_sample_uncollected;
 		let params: any[] = [];
-		query += ` GROUP BY b.billingid ORDER BY b.billedon DESC`;
-		if (page && count) {
-			const offset = (page - 1) * count;
-			query += ` LIMIT ? OFFSET ?`;
-			params = [count, offset];
+		if (startDate && endDate) {
+			query += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+			countQuery += ` AND DATE(b.billedon) BETWEEN ? AND ?`;
+			params.push(startDate, endDate);
 		}
-
-		return await promisifyQuery(tenantId, query, params);
+		query += ` GROUP BY b.billingid ORDER BY b.billedon DESC`;
+		const offset = (page - 1) * count;
+		const [items, totals] = await Promise.all([
+			promisifyQuery(tenantId, `${query} LIMIT ? OFFSET ?`, [...params, count, offset]),
+			promisifyQuery(tenantId, countQuery, params),
+		]);
+		return { items, total: Number(totals[0]?.total || 0) };
 	}
 
 	public static async findAllBillingAssociatedTestAscensions(tenantId: number, billingid: number, onlyAscensionid: boolean = true): Promise<PrimeLimsTabletest_ascension[] | number[] | []> {

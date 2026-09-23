@@ -9,6 +9,8 @@ import { getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import RolesRepository from "../../models/settings/users/RolesRepository";
+import { getAuthUser } from "../../middleware/authority";
+import { FinancialPinVerificationService } from "../../accountingModule/services/FinancialPinVerificationService";
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
 export class AuthController {
@@ -155,24 +157,22 @@ export class AuthController {
 		}
 	}
 
-	async validateUserPinProvided(req: Request<{}, {}, {}, { employeeid: string | number, tenantId: number, pin: string | number }>, res: Response) {
+	async validateUserPinProvided(req: Request, res: Response) {
 		try {
-			const { employeeid, pin, tenantId } = req.query;
-			if (!employeeid || !pin) return customError('employeeid and pin are required', 400, res);
-			const pEmployeeid = parseInt(employeeid.toString());
-			const pPin = parseInt(pin.toString());
-			if (isNaN(pEmployeeid) || isNaN(pPin)) {
-				return customError('employeeid and pin must be numbers', 400, res);
-			}
-			const rolesRepo = await new RolesRepository(tenantId).validatePin(pEmployeeid, pPin as any);
-			if (rolesRepo) {
-				res.status(200).json({ status: true, message: 'Pin is valid' });
-			} else {
-				res.status(401).json({ status: false, message: 'Invalid pin' });
-			}
-		} catch (error) {
-			console.error(error);
-			res.status(500).json({ status: false, message: 'Internal server error' });
+			const actor = getAuthUser(req);
+			if (!actor) return customError('Authentication required', 401, res);
+			const result = await new FinancialPinVerificationService(actor.tenantId).verify(actor, String(req.body?.pin || ''), {
+				purpose: String(req.body?.purpose || 'identity_confirmation'),
+				resourceType: req.body?.resourceType ? String(req.body.resourceType) : null,
+				resourceId: req.body?.resourceId ? String(req.body.resourceId) : null,
+				ipAddress: req.ip || null,
+				userAgent: req.get('user-agent') || null,
+				requestId: req.get('x-request-id') || null,
+			});
+			res.status(200).json({ status: result.valid, message: result.valid ? 'Pin is valid' : 'Invalid pin' });
+		} catch (error: any) {
+			const status = error?.code === 'PIN_RATE_LIMITED' ? 429 : error?.code === 'INVALID_PIN' ? 401 : 500;
+			res.status(status).json({ status: false, message: error?.message || 'Unable to validate PIN' });
 		}
 	}
 }

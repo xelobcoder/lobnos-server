@@ -12,6 +12,7 @@ import { enqueueBillingPayment } from "../../accountingModule/integrations/Billi
 import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSettings } from "../../database/appLevelTriggers";
 import { OperationsFailures } from "../operations/types";
 import ResultDeliveryClass from "../../controllers/result/resultDelivery";
+import { FinancialFinalizationGuard } from "../../accountingModule/services/FinancialFinalizationGuard";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -161,6 +162,12 @@ export class BillingSharedRepo {
           }
           if (['voided', 'written-off', 'corrected'].includes(originalBilling.status)) {
                return { status: false, message: `Cannot adjust billing with status: ${originalBilling.status}` };
+          }
+          try {
+               await new FinancialFinalizationGuard(tenantId).assertRecordMutable('billing', billingid);
+               await new FinancialFinalizationGuard(tenantId).assertDateOpen(Number(originalBilling.branchid), originalBilling.billedon);
+          } catch (error: any) {
+               return { status: false, message: error.message };
           }
           return { status: true };
      }

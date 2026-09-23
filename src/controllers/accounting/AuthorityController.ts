@@ -7,14 +7,31 @@ import { parsePaging, parseSort, paginate } from '../../accountingModule/utils/p
 import { customError } from '../../hooks/helper';
 
 const PERMISSIONS: AuthorityPermission[] = [
+     'expense.create',
+     'expense.view',
+     'expense.edit',
+     'expense.submit',
      'expense.approve',
+     'expense.reject',
      'expense.pay',
+     'expense.cancel',
+     'expense.reverse',
+     'expense.override_approval',
+     'expense.override_sod',
+     'expense.view_audit',
+     'expense.configure',
+     'payment_account.manage',
      'purchase_order.approve',
      'purchase_order.pay',
      'inventory.adjust',
      'accounting.journal.approve',
      'accounting.journal.post',
      'accounting.period.close',
+     'accounting.daily_close.submit',
+     'accounting.daily_close.manager_approve',
+     'accounting.daily_close.finalize',
+     'accounting.daily_close.view_audit',
+     'accounting.financial_correction.execute',
      'billing.refund.approve',
 ];
 
@@ -148,6 +165,27 @@ export class AuthorityController {
                return ok(res, { revoked: Number(req.params.id) });
           } catch (error: any) {
                return customError(error?.message || 'Unable to revoke the delegation', 500, res);
+          }
+     }
+
+     static async revise(req: Request, res: Response) {
+          try {
+               const user = getAuthUser(req);
+               if (!user) return customError('Authentication required', 401, res);
+               const { minAmount, maxAmount, branchid, expiresAt, notes } = req.body || {};
+               const service = new AuthorityService(user.tenantId);
+               const delegation = await service.revise(Number(req.params.id), {
+                    minAmount: minAmount == null ? null : Number(minAmount),
+                    maxAmount: maxAmount == null ? null : Number(maxAmount),
+                    branchid: branchid == null ? null : Number(branchid),
+                    expiresAt: expiresAt || null,
+                    notes: notes || null,
+                    grantedBy: user.employeeid,
+               });
+               return ok(res, delegation);
+          } catch (error: any) {
+               const status = /not found/i.test(error.message) ? 404 : 400;
+               return customError(error?.message || 'Unable to revise the delegation', status, res);
           }
      }
 }

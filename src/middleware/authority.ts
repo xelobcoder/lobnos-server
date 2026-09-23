@@ -60,7 +60,7 @@ export const requireAuthority = (
 
           try {
                const amount = amountFrom ? amountFrom(request) : null;
-               const decision = await new AuthorityService(user.tenantId).can(user.employeeid, permission, amount);
+               const decision = await new AuthorityService(user.tenantId).can(user.employeeid, permission, amount, user.branch);
 
                if (!decision.allowed) return deny(response, decision.reason);
 

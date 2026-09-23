@@ -5,6 +5,7 @@ import { promisifyQuery, rowAffected } from '../../hooks/helper';
 import { OperationsFailures } from '../operations/types';
 import AutomatedExpenseLifecycle from '../Expenses/AutomatedExpenseLifecycle';
 import { enqueueBillingWriteOff, enqueueBillingRefund } from '../../accountingModule/integrations/BillingAccounting';
+import { FinancialFinalizationGuard } from '../../accountingModule/services/FinancialFinalizationGuard';
 
 export class WriteOff {
      static async writeOffTransaction(
@@ -20,6 +21,9 @@ export class WriteOff {
 
                if (!billingResult || billingResult.length === 0) return OperationsFailures.notFound;
                const { adjustmentType, isAdjustment, paid, payable, islocked, branchid } = billingResult[0];
+
+               await new FinancialFinalizationGuard(tenantId).assertRecordMutable('billing', billingid);
+               await new FinancialFinalizationGuard(tenantId).assertDateOpen(Number(branchid), billingResult[0].billedon);
 
                if (islocked == 1) return 'Transaction is locked. Cannot write off.';
                if (isAdjustment == 1 && adjustmentType === 'written-off') return 'Transaction already written off. No further adjustments allowed.';
@@ -121,6 +125,10 @@ export class WriteOff {
                     await trx.rollback();
                     return false;
                }
+               const billingRecord = await trx('billing').where({ billingid }).first();
+               const finalizationGuard = new FinancialFinalizationGuard(tenantId, trx);
+               await finalizationGuard.assertRecordMutable('billing', billingid);
+               await finalizationGuard.assertDateOpen(Number(billingRecord?.branchid), billingRecord?.billedon);
 
                for (const service of services) {
                     await trx('dboservices')

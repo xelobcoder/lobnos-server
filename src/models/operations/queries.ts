@@ -415,6 +415,18 @@ export const q_pending_sample_uncollected: string = `
     WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL) AND (c.department IS NOT NULL AND c.department <> 'Ultrasound')
     `;
 
+export const q_count_pending_sample_uncollected: string = `
+    SELECT COUNT(DISTINCT b.billingid) AS total
+    FROM new_patients AS p
+    INNER JOIN billing AS b ON p.patientid = b.patientid
+    INNER JOIN test_ascension AS ts ON ts.billingid = b.billingid
+    INNER JOIN test_panels AS tp ON tp.id = ts.testid
+    LEFT JOIN departments AS c ON c.id = tp.category
+    WHERE (ts.collectionEndDate IS NULL OR ts.collectionStartDate IS NULL)
+      AND c.department IS NOT NULL
+      AND c.department <> 'Ultrasound'
+    `;
+
 
 export const q_transaction_ascension_phelobotomy_details: string = `
   SELECT 

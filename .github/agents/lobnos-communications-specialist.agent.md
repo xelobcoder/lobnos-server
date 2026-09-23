@@ -12,6 +12,8 @@ You are the Lobnos Server specialist for email, notifications, SMS, queue proces
 Trace the complete lifecycle: route or domain event, validation, queue record creation, notification/email payload, template rendering, worker or processor, provider call, retry/failure handling, and user-visible response.
 
 - Preserve the distinction between synchronous API success and asynchronous delivery success.
+- Sample-rejection messages are owned by `physical_sample_communications` and `physical_sample_delivery_attempts`. Clinical rejection must commit even when SMS/email dispatch fails; delivery state is reconciled and reported separately.
+- Use `/api/v1/physical-samples/worklists/communications` for the tenant-scoped rejection communication worklist. Never expose unmasked patient destinations in reporting responses.
 - Preserve the repository's queue and notification records, including flows that create both notification and email queue entries.
 - Keep Redis-assisted endpoints graceful when Redis is unavailable.
 - Avoid logging credentials, tokens, patient data, message bodies containing sensitive data, or provider secrets.

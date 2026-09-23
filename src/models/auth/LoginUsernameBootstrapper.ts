@@ -1,6 +1,7 @@
 import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
+import bcrypt from 'bcrypt';
 
 type LoginEntityType = 'staff' | 'patient' | 'clinician';
 
@@ -82,6 +83,7 @@ async function ensureRoleColumnIsVarchar(connection: Knex): Promise<void> {
 async function ensureRolesColumns(connection: Knex): Promise<void> {
      const columnsToCheck: Array<{ name: string; add: (table: Knex.CreateTableBuilder) => void }> = [
           { name: 'pin', add: (t) => t.integer('pin').unsigned().nullable().defaultTo(0) },
+          { name: 'pin_hash', add: (t) => t.string('pin_hash', 60).nullable() },
           { name: 'date_created', add: (t) => t.datetime('date_created').nullable().defaultTo(connection.fn.now()) },
           { name: 'refresh_token', add: (t) => t.string('refresh_token', 255).nullable() },
           { name: 'activation', add: (t) => t.boolean('activation').notNullable().defaultTo(false) },
@@ -106,6 +108,25 @@ async function ensureRolesColumns(connection: Knex): Promise<void> {
                });
                logger.info(`[Bootstrap] Added missing column roles.${col.name}`);
           }
+     }
+
+     try {
+          await connection.raw('ALTER TABLE roles MODIFY COLUMN pin INT UNSIGNED NULL DEFAULT NULL');
+     } catch (error) {
+          logger.error('[Bootstrap] Failed to make roles.pin nullable:', error);
+          throw error;
+     }
+
+     const legacyPins = await connection('roles')
+          .select('employeeid', 'pin')
+          .whereNull('pin_hash')
+          .whereBetween('pin', [1000, 9999]);
+     for (const employee of legacyPins) {
+          const pinHash = await bcrypt.hash(String(employee.pin), 10);
+          await connection('roles')
+               .where({ employeeid: employee.employeeid, pin: employee.pin })
+               .whereNull('pin_hash')
+               .update({ pin_hash: pinHash, pin: null });
      }
 }
 

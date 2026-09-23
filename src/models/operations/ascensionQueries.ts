@@ -381,5 +381,56 @@ export const testsRejectedIn24Hours = `
     INNER JOIN dboservices AS ds ON ds.serviceid = ta.serviceid
     WHERE TIMESTAMPDIFF(HOUR,ds.serviceAddedOn, CURRENT_DATE) <= 24 AND ss.approvalstatus = 0`;
 
+export const physicalSamplePhlebotomySummary = `
+    SELECT
+        (
+            SELECT COUNT(DISTINCT billing.billingid)
+            FROM billing
+            INNER JOIN new_patients AS pending_patient ON pending_patient.patientid = billing.patientid
+            INNER JOIN test_ascension AS pending_ascension ON pending_ascension.billingid = billing.billingid
+            INNER JOIN test_panels AS pending_panel ON pending_panel.id = pending_ascension.testid
+            LEFT JOIN departments AS pending_department ON pending_department.id = pending_panel.category
+            WHERE (pending_ascension.collectionStartDate IS NULL OR pending_ascension.collectionEndDate IS NULL)
+              AND pending_department.department IS NOT NULL
+              AND pending_department.department <> 'Ultrasound'
+              AND billing.billedon BETWEEN DATE_SUB(NOW(), INTERVAL 24 HOUR) AND NOW()
+        ) AS pending,
+        COUNT(DISTINCT CASE
+            WHEN sample.collected_at BETWEEN DATE_SUB(NOW(), INTERVAL 24 HOUR) AND NOW()
+            THEN sample.id END) AS collected,
+        COUNT(DISTINCT CASE
+            WHEN sample.rejected_at BETWEEN DATE_SUB(NOW(), INTERVAL 24 HOUR) AND NOW()
+            THEN sample.id END) AS rejected,
+        COUNT(DISTINCT CASE
+            WHEN event.event_type = 'rejection_upheld'
+             AND event.created_at BETWEEN DATE_SUB(NOW(), INTERVAL 24 HOUR) AND NOW()
+            THEN sample.id END) AS orders,
+        COUNT(DISTINCT CASE
+            WHEN sample.replaces_sample_id IS NOT NULL
+             AND sample.collected_at BETWEEN DATE_SUB(NOW(), INTERVAL 24 HOUR) AND NOW()
+            THEN sample.id END) AS completed,
+                (
+                        SELECT COUNT(DISTINCT billing.billingid)
+                        FROM billing
+                        INNER JOIN new_patients AS pending_patient ON pending_patient.patientid = billing.patientid
+                        INNER JOIN test_ascension AS pending_ascension ON pending_ascension.billingid = billing.billingid
+                        INNER JOIN test_panels AS pending_panel ON pending_panel.id = pending_ascension.testid
+                        LEFT JOIN departments AS pending_department ON pending_department.id = pending_panel.category
+                        WHERE (pending_ascension.collectionStartDate IS NULL OR pending_ascension.collectionEndDate IS NULL)
+                            AND pending_department.department IS NOT NULL
+                            AND pending_department.department <> 'Ultrasound'
+                ) AS allTimePending
+    FROM physical_samples AS sample
+    LEFT JOIN physical_sample_events AS event ON event.sample_id = sample.id
+    WHERE NOT EXISTS (
+        SELECT 1
+        FROM test_ascension_samples AS legacy_link
+        INNER JOIN test_ascension_samples AS native_link ON native_link.ascension_id = legacy_link.ascension_id
+        INNER JOIN physical_samples AS native_sample ON native_sample.id = native_link.sample_id
+        WHERE legacy_link.sample_id = sample.id
+          AND sample.legacy_ascension_id IS NOT NULL
+          AND native_sample.legacy_ascension_id IS NULL
+    )`;
+
 
 export const q_get_AscensionEditCount: string = `SELECT counter FROM dbogeneraltesteditcount WHERE billingid = ? AND ascensionid  = ?`;

@@ -42,11 +42,9 @@ export class SmsJobsService {
 					targets
 						.filter((target: any) => target.phone && validPhone(target.phone))
 						.map(async (target: any) => {
-
-							const personalizedbody = await new SmsMessageParser(tenantId, dto.category, target.id).humanizeTemplate({
-								...target,
-								templateid: dto.templateId,
-							})
+							const personalizedbody = dto.customBody
+								? dto.customBody
+								: await new SmsMessageParser(tenantId, dto.category, target.id).humanizeTemplate({ ...target, templateid: dto.templateId });
 
 							return {
 								phonee164: target.phone,

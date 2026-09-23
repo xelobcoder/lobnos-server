@@ -34,6 +34,8 @@ import { ExpenseAnalyticsController } from "./ExpenseAnalyticsController";
 import { handleOverLoad } from "../../hooks/helper";
 import { checkTokenExists } from "../../middleware/validateTenancy";
 import { requireAuthority } from "../../middleware/authority";
+import { PaymentAccountController } from "./PaymentAccountController";
+import { ExpenseWorkflowController } from "./ExpenseWorkflowController";
 
 const router = express.Router();
 const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
@@ -52,13 +54,16 @@ router.post("/api/v1/expense/merchant", handleOverLoad(createExpenseMerchant));
 router.put("/api/v1/expense/merchant", handleOverLoad(updateExpenseMerchant));
 router.get("/api/v1/expense/merchants", handleOverLoad(getAllExpenseMerchants));
 
-router.post("/api/v1/expenses", handleOverLoad(createExpenses));
+router.post("/api/v1/expenses", checkTokenExists, requireAuthority('expense.create'), handleOverLoad(createExpenses));
 router.get("/api/v1/expenses/group/:groupId", handleOverLoad(getExpensesByGroup));
-router.put('/api/v1/expenses', handleOverLoad(updateExpenseRecord));
+router.put('/api/v1/expenses', checkTokenExists, requireAuthority('expense.edit'), handleOverLoad(updateExpenseRecord));
 router.get("/api/v1/expenses/records", getExpensesRecord);
 router.get('/api/v1/expenses/audit/:expenseId', handleOverLoad(getExpenseLog))
+router.get('/api/v1/expenses/:expenseId/workflow-history', checkTokenExists, ExpenseWorkflowController.history);
+router.get('/api/v1/expenses/workflow/controls', checkTokenExists, requireAuthority('expense.configure'), ExpenseWorkflowController.controls);
+router.put('/api/v1/expenses/workflow/controls', checkTokenExists, requireAuthority('expense.configure'), ExpenseWorkflowController.updateControls);
 router.get("/api/v1/expenses/record/single", getSingleExpense);
-router.put('/api/v1/expense/record/single', handleOverLoad(updateExpenseRecord));
+router.put('/api/v1/expense/record/single', checkTokenExists, requireAuthority('expense.edit'), handleOverLoad(updateExpenseRecord));
 router.post("/api/v1/expenses/receipt/upload", upload.array("images", 10), uploadReceipts);
 router.get("/api/v1/expenses/receipt/upload/images", getReceiptImage);
 router.get("/api/v1/expenses/receipt/uploaded/images/list", getExpenseImageList);
@@ -66,7 +71,6 @@ router.delete("/api/v1/expenses/receipt/uploaded/images", deleteReceiptsList);
 router.post(
   "/api/v1/expense/pending/decision",
   checkTokenExists,
-  requireAuthority('expense.approve'),
   updateExpenseDecision
 );
 router.post("/api/v1/expense/new/category", handleOverLoad(createExpenseCategory));
@@ -83,9 +87,13 @@ router.get('/api/v1/expenses/invoices', handleOverLoad(getInvoices));
 router.post(
   '/api/v1/expenses/payment',
   checkTokenExists,
-  requireAuthority('expense.pay', (req) => Number(req.body?.amount)),
   handleOverLoad(addPayment)
 );
+router.get('/api/v1/expenses/payment-accounts', checkTokenExists, PaymentAccountController.listAvailable);
+router.get('/api/v1/expenses/payment-accounts/options', checkTokenExists, requireAuthority('payment_account.manage'), PaymentAccountController.managementOptions);
+router.get('/api/v1/expenses/payment-accounts/manage', checkTokenExists, requireAuthority('payment_account.manage'), PaymentAccountController.listAll);
+router.post('/api/v1/expenses/payment-accounts', checkTokenExists, requireAuthority('payment_account.manage'), PaymentAccountController.create);
+router.put('/api/v1/expenses/payment-accounts/:id/access', checkTokenExists, requireAuthority('payment_account.manage'), PaymentAccountController.grantAccess);
 router.get('/api/v1/expenses/payments', handleOverLoad(getPayments));
 router.post('/api/v1/expenses/payment/reverse', handleOverLoad(reverseExpensePayment));
 router.get('/api/v1/expenses/payments/reversed', handleOverLoad(getReversedPayments));

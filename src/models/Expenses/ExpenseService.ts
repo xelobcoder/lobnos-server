@@ -80,6 +80,7 @@ export default class Expenses implements IExpenseRepository {
                }
 
                const finalGroupId = groupId || this.generateGroupId();
+               const saveAsDraft = Boolean((data as any).save_as_draft ?? (data as any).saveAsDraft);
 
                let insertData = {
                     name,
@@ -92,7 +93,10 @@ export default class Expenses implements IExpenseRepository {
                     serviceid,
                     isassociatedservice: isassociatedservice || 0,
                     date,
-                    groupId: finalGroupId
+                    groupId: finalGroupId,
+                    workflow_status: saveAsDraft ? 'draft' : 'pending_approval',
+                    submitted_by: saveAsDraft ? null : employeeid,
+                    submitted_at: saveAsDraft ? null : new Date(),
                };
 
                let result;
@@ -135,6 +139,7 @@ export default class Expenses implements IExpenseRepository {
                for (const expenseData of expensesData) {
                     try {
                          const { employeeid, branchid, name, date, merchant, amount, description, category } = expenseData;
+                         const saveAsDraft = Boolean((expenseData as any).save_as_draft ?? (expenseData as any).saveAsDraft);
 
                          if (!employeeid || !branchid || !name) {
                               throw new Error('name, employeeid, branchid required');
@@ -144,7 +149,7 @@ export default class Expenses implements IExpenseRepository {
                          }
 
                          const [result] = await connection.query(generateNewExpenseQuery,
-                              [name, amount, employeeid, branchid, description, merchant, category, date, results.groupId]);
+                              [name, amount, employeeid, branchid, description, merchant, category, date, results.groupId, saveAsDraft ? 'draft' : 'pending_approval', saveAsDraft ? null : employeeid, saveAsDraft ? null : new Date()]);
 
                          if ((result as any).insertId) {
                               results.success.push((result as any).insertId);
@@ -275,14 +280,13 @@ export default class Expenses implements IExpenseRepository {
                const isValidExpenseRecord = await this.isExpenseRecordAvailable();
 
                if (!isValidExpenseRecord) return OperationsFailures.unfoundID;
-               const approvalQuery = `SELECT approved FROM expensesrecord WHERE id = ?`;
+               const approvalQuery = `SELECT approved, workflow_status, employeeid, branchid FROM expensesrecord WHERE id = ?`;
                const approvalResult = await promisifyQuery(this.tenantId, approvalQuery, [this.expenseId]);
 
-               if (approvalResult && approvalResult.length > 0 && approvalResult[0].approved) {
-                    const hasPayments = await this.hasApprovedPayments();
-                    if (hasPayments) {
-                         return "Cannot edit approved expense that has payments already made. Please reverse the payment first.";
-                    }
+               if (approvalResult && approvalResult.length > 0) {
+                    const currentStatus = String(approvalResult[0].workflow_status || (Number(approvalResult[0].approved) === 1 ? 'approved' : Number(approvalResult[0].approved) === 2 ? 'rejected' : 'pending_approval'));
+                    if (!['draft', 'rejected', 'pending_approval'].includes(currentStatus)) return `Cannot edit an expense in ${currentStatus.replace(/_/g, ' ')} status.`;
+                    if (Number(approvalResult[0].employeeid) !== Number(this.employeeid) || Number(approvalResult[0].branchid) !== Number(this.branchid)) return 'You can only edit your own branch expense.';
                }
 
                const {
@@ -312,6 +316,10 @@ export default class Expenses implements IExpenseRepository {
                ];
 
                const insertionStatus = await promisifyQuery(this.tenantId, updateExpenseQuery, queryParams);
+               if (approvalResult?.[0]?.workflow_status === 'rejected' || Number(approvalResult?.[0]?.approved) === 2) {
+                    const connection = await KnexConnection(this.tenantId);
+                    await connection('expensesrecord').where({ id: this.expenseId }).update({ approved: 0, approvedby: null, approvedon: null, workflow_status: 'draft', workflow_version: connection.raw('workflow_version + 1') });
+               }
                return rowAffected(insertionStatus);
           } catch (error) {
                console.error('Error updating expense record:', error);

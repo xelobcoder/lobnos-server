@@ -59,6 +59,7 @@ import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfac
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
 import accountingRouter from './controllers/accounting/route';
 import staffFocRouter from './controllers/foc/routes';
+import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 import { runApplicationBootstrappers, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
 import { logApplicationStarted } from './bootstrap/startupLogger';
@@ -141,6 +142,7 @@ app.use(notificationsRouter);
 app.use(employeeSettingsRouter);
 app.use(accountingRouter);
 app.use(staffFocRouter);
+app.use('/api/v1/physical-samples', physicalSampleRouter);
 
 
 app.get("/", (req: Request, res: Response) => {

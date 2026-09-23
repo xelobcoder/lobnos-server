@@ -39,7 +39,13 @@ export const q_get_pending_collected_but_unvalidated_samples = `
         INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
         LEFT JOIN test_panels AS tt ON tt.id = ta.testid
         LEFT JOIN departments AS dd ON dd.id = tt.category
-        WHERE ss.approvalstatus IS NULL AND (ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL) 
+                WHERE ss.approvalstatus IS NULL
+                AND EXISTS (
+                    SELECT 1
+                    FROM test_ascension_samples AS tas
+                    INNER JOIN physical_samples AS ps ON ps.id = tas.sample_id
+                      WHERE tas.ascension_id = ta.id AND ps.status IN ('collected', 'received')
+                )
         AND dd.department <> 'ultrasound'
           
 `
@@ -53,12 +59,12 @@ export const q_get_rejected_collected_samples = `
           b.billedon AS date,
           CONCAT(np.firstname, ' ', np.lastname, ' ', np.middlename) AS fullname,
          CONCAT(np.age, ' ',np.ageType) AS age,
-         ss.rejectionmessage,
-         ss.samplevalidatedon,
+         COALESCE(ss.rejectionmessage, ps.rejection_reason) AS rejectionmessage,
+         COALESCE(ss.samplevalidatedon, ps.rejected_at) AS samplevalidatedon,
          ta.collectionEndDate,
          np.fullpatientid,
          ta.id AS ascensionid,
-         ss.validatedby AS validatorid,
+         COALESCE(ss.validatedby, ps.rejected_by) AS validatorid,
          rr.username AS validatedby,
          ts.name AS testname,
          np.mobile_number As mobilenumber
@@ -66,10 +72,14 @@ export const q_get_rejected_collected_samples = `
         INNER JOIN  new_patients as np ON np.patientid = b.patientid
         INNER JOIN test_ascension AS ta ON ta.billingid = b.billingid
         INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id
-        INNER JOIN roles AS rr ON rr.employeeid = ss.validatedby
+                LEFT JOIN test_ascension_samples AS tas ON tas.ascension_id = ta.id
+                LEFT JOIN physical_samples AS ps ON ps.id = tas.sample_id AND ps.status = 'rejected'
+                INNER JOIN roles AS rr ON rr.employeeid = COALESCE(ss.validatedby, ps.rejected_by)
         INNER JOIN test_panels AS ts ON ts.id = ta.testid
-        WHERE ss.approvalstatus = 0 AND ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
-          GROUP BY ta.serviceid ORDER BY ta.serviceid ASC  LIMIT ? OFFSET ?
+                WHERE ss.approvalstatus = 0
+                    AND (ss.validatedby IS NOT NULL OR ps.id IS NOT NULL)
+                    AND ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
+                    GROUP BY ta.id ORDER BY ta.id ASC LIMIT ? OFFSET ?
 `
 
 export const insert_critical_value_alert: string = `

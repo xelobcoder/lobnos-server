@@ -3,6 +3,7 @@ import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from '../
 import { bootstrapCommissionTables } from '../models/commissions/commission-configurations/services/CommissionBootstrapService';
 import { bootstrapBillingTables } from '../models/billing/BillingTableBootstrapper';
 import { bootstrapExpenseCategories } from '../models/Expenses/ExpenseCategoryBootstrapper';
+import { bootstrapExpenseWorkflow } from '../models/Expenses/ExpenseWorkflowBootstrapper';
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
@@ -17,6 +18,7 @@ import { bootstrapTestReportSettingsTable } from '../models/application/appsetti
 import { bootstrapRefundTableSanitization } from '../models/billing/RefundBootstrapper';
 import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
 import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
+import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -24,10 +26,12 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapPrescriptionTables(tenantId);
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
+	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapRefundTableSanitization(tenantId);
 	await bootstrapStaffFocTables(tenantId);
 	await bootstrapCommissionTables(tenantId);
 	await bootstrapExpenseCategories(tenantId);
+	await bootstrapExpenseWorkflow(tenantId);
 	await bootstrapPayrollTables(tenantId);
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
