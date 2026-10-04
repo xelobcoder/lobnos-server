@@ -200,7 +200,7 @@ This enhancement was requested separately from Issues 1-11. Suspended drafts are
 - [x] Backend: add authenticated create/list/get/update/cancel/finalize APIs; list and mutation scope is restricted to the actor's branch.
 - [x] Frontend: add a Suspend Transaction action for unfinished new billings and a Suspended Transactions list with resume/cancel actions.
 - [x] Frontend: persist selected test/service identifiers and relevant options, then reload prices from the server when resuming rather than trusting saved prices.
-- [x] Frontend: allow a patientless price-list quote to be suspended, resumed, and converted to sale after patient selection while preserving source/entity selection.
+- [x] Frontend: allow a patientless price-list quote to be suspended, resumed, and converted to sale after patient selection while preserving source/entity selection and the newly selected patient through draft loading.
 - [x] Backend/frontend: finalize the draft only after a real billing record is created and verify that patient (except patientless quote conversion) and branch match.
 - [x] Tests: focused service validation covers patientless quotes, patient-bound drafts, NHIS eligibility, required selections, and branch scope.
 - [ ] Tests: database-backed lifecycle coverage for branch isolation, cancel, resume, price changes, concurrent finalize, and mismatch rejection; browser test for quote-to-patient-to-sale flow.

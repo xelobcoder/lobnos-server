@@ -13,7 +13,7 @@ export interface SuspendedBillingDraftInput {
      useSpecialCode?: boolean;
      selectedTestIds: number[];
      selectedServiceIds: number[];
-     selectedTestOptions?: Array<{ testid: number; outsourceid?: number | null; userAdjustedValue?: number | null; userAdjustmentType?: string | null }>;
+     selectedTestOptions?: Array<{ testid: number; catalogIds?: number[]; name?: string | null; outsourceid?: number | null; userAdjustedValue?: number | null; userAdjustmentType?: string | null }>;
      isPackageUsed?: boolean;
      packageid?: number | null;
      includeServices?: boolean;
