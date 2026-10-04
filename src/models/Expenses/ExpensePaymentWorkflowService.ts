@@ -77,7 +77,7 @@ export class ExpensePaymentWorkflowService {
                const controls = await this.getControls(trx, Number(expense.branchid));
                if (controls.requireSeparatePayer && Number(expense.approvedby) === actor.employeeid) {
                     const override = await authority.can(actor.employeeid, 'expense.override_sod', amount, Number(expense.branchid));
-                    if (!override.allowed) throw new Error('The expense approver cannot also record its payment');
+                    if (!override.allowed) throw new Error('The expense approver cannot also record its payment because Require a separate payer is enabled for this branch. Disable it in Application Settings > Expense Controls, or have another authorized user pay.');
                }
 
                if (input.invoiceId) {

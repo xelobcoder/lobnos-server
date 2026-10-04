@@ -63,11 +63,11 @@ export class ReferralCodingRepo {
                          conn.raw('COALESCE(o.location, c.location) as location'),
                          conn.raw('COALESCE(o.email, c.email) as email')
                     )
-                    .leftJoin('organization as o', function () {
+                    .leftJoin('organization as o', function (this: any) {
                          this.on('r.entity_type', '=', conn.raw("'organization'"))
                               .andOn('r.entity_id', '=', 'o.id');
                     })
-                    .leftJoin('clinicianbasicinfo as c', function () {
+                    .leftJoin('clinicianbasicinfo as c', function (this: any) {
                          this.on('r.entity_type', '=', conn.raw("'clinician'"))
                               .andOn('r.entity_id', '=', 'c.id');
                     })
@@ -78,6 +78,63 @@ export class ReferralCodingRepo {
                console.error('ReferralCodingRepo.getReferralStrategyFullList error:', error);
                throw error;
           }
+     }
+
+     async getManagementPage(params: {
+          page: number;
+          count: number;
+          search?: string;
+          entityType?: 'organization' | 'clinician';
+     }): Promise<{ items: any[]; total: number; page: number; count: number }> {
+          const conn = await this.connection;
+          const buildQuery = () => {
+               let query = conn('referralcoding as r')
+                    .leftJoin('organization as o', function (this: any) {
+                         this.on('r.entity_type', '=', conn.raw("'organization'"))
+                              .andOn('r.entity_id', '=', 'o.id');
+                    })
+                    .leftJoin('clinicianbasicinfo as c', function (this: any) {
+                         this.on('r.entity_type', '=', conn.raw("'clinician'"))
+                              .andOn('r.entity_id', '=', 'c.id');
+                    })
+                    .whereIn('r.entity_type', ['organization', 'clinician']);
+
+               if (params.entityType) query = query.where('r.entity_type', params.entityType);
+               if (params.search) {
+                    const search = `%${params.search}%`;
+                    query = query.where((builder: any) => {
+                         builder
+                              .where('r.code', 'like', search)
+                              .orWhereRaw('COALESCE(o.name, c.name) LIKE ?', [search])
+                              .orWhereRaw('COALESCE(o.email, c.email) LIKE ?', [search]);
+                    });
+               }
+
+               return query;
+          };
+
+          const countResult = await buildQuery().countDistinct({ total: 'r.id' }).first();
+          const items = await buildQuery()
+               .select(
+                    'r.id as referral_id',
+                    'r.entity_id',
+                    'r.entity_type as referral_type',
+                    'r.code as referral_code',
+                    conn.raw('COALESCE(o.name, c.name) as name'),
+                    conn.raw('COALESCE(o.location, c.location) as location'),
+                    conn.raw('COALESCE(o.email, c.email) as email')
+               )
+               .orderBy('r.entity_type', 'asc')
+               .orderBy('name', 'asc')
+               .limit(params.count)
+               .offset((params.page - 1) * params.count);
+
+          return {
+               items,
+               total: Number(countResult?.total || 0),
+               page: params.page,
+               count: params.count,
+          };
      }
 
 

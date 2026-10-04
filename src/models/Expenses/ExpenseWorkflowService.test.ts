@@ -113,6 +113,13 @@ describe('ExpenseWorkflowService', () => {
           expect(test.store.accruals).toEqual([]);
      });
 
+     it('allows self-approval when the branch control enables it', async () => {
+          const test = service({ rows: [expense({ employeeid: 22 })], controls: { branchid: 4, allow_self_approval: 1 } });
+
+          await expect(test.workflow.decide(actor, [{ expenseid: 10, status: 'approved' }])).resolves.toHaveLength(1);
+          expect(test.store.rows[0]).toMatchObject({ approved: 1, approvedby: 22, workflow_status: 'approved' });
+     });
+
      it('allows an amount exactly at the delegated ceiling', async () => {
           const test = service({ can: (_employeeid, _permission, amount) => ({ allowed: Number(amount) <= 500, reason: 'Limit exceeded', delegationId: 2, source: Number(amount) <= 500 ? 'delegation' : 'denied' }) });
 

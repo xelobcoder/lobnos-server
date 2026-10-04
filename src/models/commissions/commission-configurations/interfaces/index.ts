@@ -12,6 +12,7 @@ export interface CommissionInput {
      service_category: string;
      organization_id: number;
      clinician_id?: number | null;
+     clinician_organization_id?: number | null;
      completion_date: Date;
 }
 

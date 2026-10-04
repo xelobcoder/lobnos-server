@@ -332,17 +332,12 @@ export class LeaveRepository {
           }
 
           const connection = await this.connection;
-
-          // Get existing record to validate complete data
           const existing = await connection('payroll_employee_leave_balance').where({ id }).first();
           if (!existing) {
                throw new Error('Leave balance record not found');
           }
 
-          // Merge with existing data for complete validation
           const completeBalance = { ...existing, ...balance };
-
-          // Validate complete data using Zod schema
           leaveBalanceSchema.parse(completeBalance);
 
           const affectedRows = await connection('payroll_employee_leave_balance')

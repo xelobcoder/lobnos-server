@@ -7,13 +7,18 @@ import {
      getOutsourcedCasesPaginated
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
-import { bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler, 
-     deleteOrganization,  getOrganizationCommission, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationsCommissionByDate, getOrganizationWithDetails, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture } from './handlers';
+import {
+     bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler,
+     deleteOrganization, getOrganizationCommission, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationsCommissionByDate, getOrganizationWithDetails, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture
+} from './handlers';
 import { handleOverLoad } from '../../hooks/helper';
-import { isAuthorizedRoleAdmin } from '../../middleware/validateTenancy';
+import { checkTokenExists, isAuthorizedRoleAdmin } from '../../middleware/validateTenancy';
+import { ReferralCodeController } from './ReferralCodeController';
 
 
 const router = express.Router();
+
+router.get('/api/v1/organization/referral-codes', checkTokenExists, ReferralCodeController.authorizeRead, handleOverLoad(ReferralCodeController.list));
 
 router.get("/api/v1/organization", handleOverLoad(getOrganizations));
 router.get("/api/v1/organization/basic", handleOverLoad(getOrganizationsBasic));

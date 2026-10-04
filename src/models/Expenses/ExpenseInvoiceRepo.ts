@@ -173,6 +173,8 @@ export default class ExpenseInvoiceRepo {
                from?: string;
                to?: string;
                search?: string;
+               invoiceId?: number;
+               expenseId?: number;
                sortby?: 'DESC' | 'ASC';
           } = {}
      ): Promise<any> {
@@ -220,6 +222,9 @@ export default class ExpenseInvoiceRepo {
                baseQuery.where('i.status', filters.status);
           }
 
+          if (filters.invoiceId) baseQuery.where('i.id', filters.invoiceId);
+          if (filters.expenseId) baseQuery.where('er.id', filters.expenseId);
+
           if (filters.from && filters.to) {
                baseQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);
           }
@@ -246,6 +251,9 @@ export default class ExpenseInvoiceRepo {
           if (filters.status) {
                countQuery.where('i.status', filters.status);
           }
+
+          if (filters.invoiceId) countQuery.where('i.id', filters.invoiceId);
+          if (filters.expenseId) countQuery.where('er.id', filters.expenseId);
 
           if (filters.from && filters.to) {
                countQuery.whereBetween('i.invoice_date', [filters.from, filters.to]);

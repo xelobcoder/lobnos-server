@@ -11,6 +11,8 @@ import { ICommissionAssignmentRepository } from '../interfaces/ICommissionAssign
 import { ICommissionTierRepository } from '../interfaces/ICommissionTierRepository';
 import { logger } from '../commissionConfigutationRepo';
 import { ICommissionConfigRepository } from '../interfaces/ICommissionConfigRepository';
+import ApplicationSettings from '../../../application/appsettings/appset';
+import { resolveCommissionRecipient } from './CommissionRecipientPolicy';
 
 
 export class CommissionEngineService {
@@ -62,11 +64,18 @@ export class CommissionEngineService {
       * Execute complete commission calculation for a service
       */
      async executeCommissionCalculation(input: CommissionInput): Promise<CommissionCalculationResult> {
-          const recipientType = input.clinician_id ? 'clinician' : 'organization';
-          const recipientId = input.clinician_id || input.organization_id;
+          const settings = await new ApplicationSettings().getAllAppSettings(this.getTenantId());
+          const configuredPolicy = settings?.commissionRecipientPolicy;
+          const policy: 'clinician' | 'organization' = configuredPolicy === 'organization' ? 'organization' : 'clinician';
+          const { recipientType, recipientId } = resolveCommissionRecipient(input, policy);
+          const resolvedInput: CommissionInput = {
+               ...input,
+               clinician_id: recipientType === 'clinician' ? input.clinician_id : null,
+               organization_id: recipientType === 'organization' ? recipientId : 0,
+          };
 
           try {
-               const assignment = await this.resolutionService.resolveAssignment(input);
+               const assignment = await this.resolutionService.resolveAssignment(resolvedInput);
 
                let config: any = null;
                let assignmentId: number | undefined = undefined;

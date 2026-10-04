@@ -170,6 +170,7 @@ export default class ApplicationSettings {
 			allowManagerToProcessPayroll,
 			allowManagerToProcessCommission,
 			isCommissionEarnedOnClinicianBilling,
+			commissionRecipientPolicy,
 			isCommissionEarnedOnOrganizationalBilling,
 			isCommissionEarnedOnNHISBilling,
 			isCommissionEarnedOnPHISBilling,
@@ -234,6 +235,7 @@ export default class ApplicationSettings {
 					isCommissionEarnedOnOrganizationalBilling: isCommissionEarnedOnOrganizationalBilling ?? 0,
 					isCommissionEarnedOnNHISBilling: isCommissionEarnedOnNHISBilling ?? 0,
 					isCommissionEarnedOnPHISBilling: isCommissionEarnedOnPHISBilling ?? 0,
+					commissionRecipientPolicy: commissionRecipientPolicy ?? existing?.commissionRecipientPolicy ?? 'clinician',
 					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null,
 					makepdfprintingcompulsory: makepdfprintingcompulsory ?? 0,
 				};

@@ -10,7 +10,7 @@ import {
 
 const OWNER_ROLES = ['admin', 'super_admin', 'super-admin'];
 const AMOUNT_BOUND_PERMISSIONS: AuthorityPermission[] = ['expense.approve', 'expense.pay', 'purchase_order.pay'];
-const EXPLICIT_DELEGATION_PERMISSIONS: AuthorityPermission[] = [
+export const EXPLICIT_BRANCH_SCOPED_PERMISSIONS: AuthorityPermission[] = [
      'expense.pay',
      'expense.override_approval',
      'expense.override_sod',
@@ -53,7 +53,7 @@ export class AuthorityService implements IAuthorityService {
 
           if (!delegation) {
                const role = await resolveRole(this.tenantId, employeeid);
-               if (OWNER_ROLES.includes(role) && !EXPLICIT_DELEGATION_PERMISSIONS.includes(permission)) {
+               if (OWNER_ROLES.includes(role) && !EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission)) {
                     return { allowed: true, reason: 'Granted by role', delegationId: null, source: 'role' };
                }
                return {
@@ -64,8 +64,12 @@ export class AuthorityService implements IAuthorityService {
                };
           }
 
-          if (EXPLICIT_DELEGATION_PERMISSIONS.includes(permission) && (branchid === null || branchid === undefined || delegation.branchid === null)) {
-               return { allowed: false, reason: 'This authority requires an explicit branch-scoped delegation', delegationId: delegation.id, source: 'denied' };
+          if (EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission) && (branchid === null || branchid === undefined)) {
+               return { allowed: false, reason: 'A branch is required to check this authority. Verify the expense is assigned to a branch.', delegationId: delegation.id, source: 'denied' };
+          }
+
+          if (EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission) && delegation.branchid === null) {
+               return { allowed: false, reason: 'This payment delegation has no branch assigned. Edit it, select the expense branch, and save it again.', delegationId: delegation.id, source: 'denied' };
           }
 
           if (delegation.branchid !== null && branchid !== null && branchid !== undefined && Number(delegation.branchid) !== Number(branchid)) {
@@ -108,6 +112,7 @@ export class AuthorityService implements IAuthorityService {
      }
 
      async grant(input: GrantDelegationInput): Promise<AuthorityDelegation> {
+          this.validateBranchScope(input.permission, input.branchid);
           const db = await this.connection();
           this.validateLimits(input.minAmount, input.maxAmount);
           return db.transaction(async (trx) => {
@@ -137,17 +142,18 @@ export class AuthorityService implements IAuthorityService {
           return db.transaction(async (trx) => {
                const current = await trx('authority_delegations').where({ id, is_active: true }).forUpdate().first();
                if (!current) throw new Error('Active authority delegation not found');
+               const branchid = input.branchid ?? current.branchid ?? null;
+               this.validateBranchScope(current.permission, branchid);
                await trx('authority_delegations').where({ id }).update({ is_active: false, revoked_by: input.grantedBy, revoked_at: new Date() });
                const [newId] = await trx('authority_delegations').insert({
                     employeeid: current.employeeid,
                     permission: current.permission,
                     min_amount: input.minAmount ?? null,
                     max_amount: input.maxAmount ?? null,
-                    branchid: input.branchid ?? current.branchid ?? null,
+                    branchid,
                     is_active: true,
                     granted_by: input.grantedBy,
                     granted_at: new Date(),
-                    expires_at: input.expiresAt ? new Date(input.expiresAt) : null,
                     notes: input.notes ?? null,
                     replaces_delegation_id: id,
                });
@@ -173,7 +179,6 @@ export class AuthorityService implements IAuthorityService {
                .leftJoin('roles as r', 'd.employeeid', 'r.employeeid')
                .select('d.*', 'r.username', 'r.role')
                .orderBy('d.id', 'desc');
-
           if (filters.permission) query.where('d.permission', filters.permission);
           if (filters.activeOnly !== false) query.where('d.is_active', true);
 
@@ -184,6 +189,15 @@ export class AuthorityService implements IAuthorityService {
           if (minAmount !== null && minAmount !== undefined && (!Number.isFinite(Number(minAmount)) || Number(minAmount) < 0)) throw new Error('Minimum amount must be a valid non-negative number');
           if (maxAmount !== null && maxAmount !== undefined && (!Number.isFinite(Number(maxAmount)) || Number(maxAmount) < 0)) throw new Error('Maximum amount must be a valid non-negative number');
           if (minAmount !== null && minAmount !== undefined && maxAmount !== null && maxAmount !== undefined && Number(minAmount) > Number(maxAmount)) throw new Error('The lower limit cannot exceed the upper limit');
+     }
+
+     private validateBranchScope(permission: AuthorityPermission, branchid?: number | null): void {
+          if (EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission) && (!Number.isSafeInteger(Number(branchid)) || Number(branchid) <= 0)) {
+               throw new Error(`The ${permission} authority requires an explicit branch. Select the branch this permission should cover.`);
+          }
+          if (branchid !== null && branchid !== undefined && (!Number.isSafeInteger(Number(branchid)) || Number(branchid) <= 0)) {
+               throw new Error('Branch must be a valid positive ID');
+          }
      }
 }
 

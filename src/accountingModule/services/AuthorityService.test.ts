@@ -36,6 +36,26 @@ const grant = (overrides: Record<string, unknown> = {}) => ({
 });
 
 describe('AuthorityService explicit delegation precedence', () => {
+     it('rejects a payment delegation without an explicit branch scope', async () => {
+          await expect(new AuthorityService(3).grant({
+               employeeid: 4,
+               permission: 'expense.pay',
+               branchid: null,
+               grantedBy: 3,
+          })).rejects.toThrow('requires an explicit branch');
+     });
+
+     it('identifies an existing branchless payment delegation as the authorization problem', async () => {
+          mocks.role = 'accountant';
+          mocks.delegations = [grant({ permission: 'expense.pay', branchid: null })];
+
+          await expect(new AuthorityService(3).can(4, 'expense.pay', 200, 8)).resolves.toMatchObject({
+               allowed: false,
+               reason: expect.stringContaining('has no branch assigned'),
+               delegationId: 7,
+          });
+     });
+
      it('enforces an explicit Admin approval ceiling before role fallback', async () => {
           mocks.role = 'admin';
           mocks.delegations = [grant()];

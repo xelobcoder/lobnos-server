@@ -182,11 +182,13 @@ export class CommissionTrackingRepo {
                     totalpayable: string | number;
                     clinicianId: number | null;
                     organizationId: number | null;
+                    clinicianOrganizationId: number | null;
                     serviceCategory?: string | null;
                     serviceAddedOn?: Date | string | null;
                }> = await conn('dboservices')
+                    .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id')
                     .whereIn('serviceid', servicesArray)
-                    .select('serviceid', 'totalpayable', 'clinicianId', 'organizationId', 'serviceCategory', 'serviceAddedOn');
+                    .select('dboservices.serviceid', 'totalpayable', 'clinicianId', 'organizationId', 'commission_clinician.organization as clinicianOrganizationId', 'serviceCategory', 'serviceAddedOn');
 
                if (services.length === 0) {
                     return 0;
@@ -209,6 +211,7 @@ export class CommissionTrackingRepo {
                          service_amount: parseFloat(String(service.totalpayable)) || 0,
                          service_category: service.serviceCategory || 'CLINICIAN_SPECIAL_BILLING',
                          clinician_id: service.clinicianId ?? undefined,
+                         clinician_organization_id: service.clinicianOrganizationId ?? undefined,
                          organization_id: service.organizationId ?? 0,
                          completion_date:
                               Number.isNaN(completionDate.getTime()) ? new Date() : completionDate,

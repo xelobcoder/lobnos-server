@@ -602,8 +602,9 @@ export class SubmitCustomerBilling {
             const connection = trx || await KnexConnection(tenantId);
 
             const services = await connection('dboservices')
+                .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id')
                 .where({ billingid: billingId })
-                .select('serviceid', 'paidamount', 'totalpayable', 'clinicianId', 'organizationId', 'categoryTrackId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'serviceAddedOn');
+                .select('dboservices.serviceid', 'paidamount', 'totalpayable', 'clinicianId', 'organizationId', 'commission_clinician.organization as clinicianOrganizationId', 'categoryTrackId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'serviceAddedOn');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;
@@ -648,7 +649,7 @@ export class SubmitCustomerBilling {
                         selectedClinicianId = clinicianId;
                     }
 
-                    // Source 4 (NHIS): clinician takes precedence when both exist; otherwise fallback to organization.
+                    // Source 4 (NHIS): preserve clinician-first behavior; linked clinician affiliation is passed separately.
                     if (source === 4) {
                         if (clinicianId) {
                             selectedClinicianId = clinicianId;
@@ -661,6 +662,7 @@ export class SubmitCustomerBilling {
                         service_id: service.serviceid,
                         service_amount: Number(service.paidamount ?? service.totalpayable ?? 0),
                         clinician_id: selectedClinicianId,
+                        clinician_organization_id: selectedClinicianId ? Number(service.clinicianOrganizationId) || null : null,
                         organization_id: selectedOrganizationId ?? 0,
                         service_category: service.serviceCategory || '',
                         completion_date: service.serviceAddedOn || new Date(),

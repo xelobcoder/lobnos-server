@@ -79,7 +79,7 @@ export const createExpenses = async (req: Request, res: Response) => {
 			res.send(result);
 		} else if (typeof requestBody === 'object' && requestBody !== null) {
 			const expenseId = await expensesInstance.generateNewExpense({ ...requestBody, employeeid: actor.employeeid, branchid: actor.branch });
-			res.send({ status: expenseId });
+			res.send({ status: expenseId, expenseId, workflowStatus: 'pending_approval' });
 		} else {
 			return customError("Invalid request body. Expected expense object or array of expenses", 400, res);
 		}
@@ -338,7 +338,13 @@ export const updateExpenseDecision = async (req: Request<{}, {}, {
 		for (const [expenseBranchId, expenseIds] of approvedByBranch) {
 			try {
 				const invoiceRepo = new ExpenseInvoiceRepo(actor.employeeid, expenseBranchId, actor.tenantId);
-				invoices.push(...await createInvoicesForApprovedExpenses(invoiceRepo, expenseIds, !isSingle));
+				const branchInvoices = await createInvoicesForApprovedExpenses(invoiceRepo, expenseIds, !isSingle);
+				invoices.push(...branchInvoices);
+				const invoicedExpenseIds = new Set(branchInvoices.flatMap((invoice) => invoice.expenseIds));
+				const missingInvoiceExpenseIds = expenseIds.filter((expenseId) => !invoicedExpenseIds.has(expenseId));
+				if (missingInvoiceExpenseIds.length) {
+					invoiceErrors.push({ branchid: expenseBranchId, message: `Invoice could not be created for approved expense(s): ${missingInvoiceExpenseIds.join(', ')}` });
+				}
 			} catch (invoiceError: any) {
 				invoiceErrors.push({ branchid: expenseBranchId, message: invoiceError.message });
 			}
@@ -620,7 +626,7 @@ export const createInvoice = async (req: Request, res: Response) => {
 
 export const getInvoices = async (req: Request, res: Response) => {
 	try {
-		const { tenantId, employeeid, branchid, page, count, status, from, to, sortby } = req.query;
+		const { tenantId, employeeid, branchid, page, count, status, from, to, sortby, invoiceId, expenseId } = req.query;
 
 		if (!tenantId || !employeeid || !branchid) {
 			return customError("Required parameters missing", 400, res);
@@ -636,6 +642,8 @@ export const getInvoices = async (req: Request, res: Response) => {
 			status: status ? status.toString() : undefined,
 			from: from ? from.toString() : undefined,
 			to: to ? to.toString() : undefined,
+			invoiceId: invoiceId ? parseInt(invoiceId.toString()) : undefined,
+			expenseId: expenseId ? parseInt(expenseId.toString()) : undefined,
 			sortby: validSortBy,
 		});
 		res.send(result);

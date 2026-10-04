@@ -1,4 +1,6 @@
 import express from 'express';
+import { checkTokenExists } from '../../middleware/validateTenancy';
+import { requireOwnerRole } from '../../middleware/authority';
 import {
   getApplicationSettings,
   getApplicationSettingsBilling,
@@ -32,7 +34,7 @@ router.get("/api/v1/applicationsettings", getApplicationSettings);
 router.put("/api/v1/applicationsettings/updates/billingsettings", updateApplicationBillSettingsHandler);
 router.get("/api/v1/applicationsettings/target/:target", getApplicationSettings);
 router.get("/api/v1/applicationsettings/billing", getApplicationSettingsBilling);
-router.post("/api/v1/applicationsettings", updateApplicationSettings);
+router.post("/api/v1/applicationsettings", checkTokenExists, requireOwnerRole, updateApplicationSettings as unknown as express.RequestHandler);
 router.get("/api/v1/application/sms/create/template/columns", getCategoryColumns);
 router.put("/api/v1/applicationsettings/smsupdate", updateSmsSettings);
 router.get("/api/v1/applicationsettings/smsupdate", getSmsSettings);

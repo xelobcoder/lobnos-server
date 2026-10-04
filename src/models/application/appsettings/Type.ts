@@ -87,6 +87,7 @@ export type ApplicationSettingsData = {
      allowManagerToProcessPayroll?: numberBoolean;
      allowManagerToProcessCommission?: numberBoolean;
      isCommissionEarnedOnClinicianBilling: numberBoolean;
+     commissionRecipientPolicy?: 'clinician' | 'organization';
      isCommissionEarnedOnOrganizationalBilling: numberBoolean;
      isCommissionEarnedOnNHISBilling: numberBoolean;
      isCommissionEarnedOnPHISBilling: numberBoolean;

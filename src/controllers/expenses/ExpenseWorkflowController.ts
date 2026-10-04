@@ -17,7 +17,8 @@ export class ExpenseWorkflowController {
      static async controls(request: Request, response: Response): Promise<void> {
           try {
                const actor = getAuthUser(request)!;
-               const branchid = request.query.branchid === undefined ? actor.branch : Number(request.query.branchid);
+               if (actor.branch === null) throw new Error('Authenticated employee branch is required');
+               const branchid = actor.branch;
                response.json({ success: true, data: await new ExpenseWorkflowService(actor.tenantId).controls(branchid) });
           } catch (error: any) {
                response.status(500).json({ success: false, message: error.message || 'Unable to load expense controls' });
@@ -27,7 +28,8 @@ export class ExpenseWorkflowController {
      static async updateControls(request: Request, response: Response): Promise<void> {
           try {
                const actor = getAuthUser(request)!;
-               const branchid = request.body?.branchid === undefined ? actor.branch : Number(request.body.branchid);
+               if (actor.branch === null) throw new Error('Authenticated employee branch is required');
+               const branchid = actor.branch;
                const result = await new ExpenseWorkflowService(actor.tenantId).updateControls(actor, branchid, {
                     allowSelfApproval: request.body?.allow_self_approval ?? request.body?.allowSelfApproval,
                     requireSeparatePayer: request.body?.require_separate_payer ?? request.body?.requireSeparatePayer,

@@ -8,12 +8,12 @@ import { ExpensePaymentWorkflowService } from './ExpensePaymentWorkflowService';
 
 const actor: AuthUser = { employeeid: 22, email: 'payer@example.com', role: 'accountant', branch: 4, tenantId: 3 };
 
-function createHarness(options: { approvedBy?: number; amount?: number; accountAccess?: boolean; existingPayments?: any[] } = {}) {
+function createHarness(options: { approvedBy?: number; amount?: number; accountAccess?: boolean; existingPayments?: any[]; requireSeparatePayer?: boolean } = {}) {
      const state: Record<string, any[]> = {
           expensesrecord: [{ id: 10, amount: options.amount ?? 500, employeeid: 11, branchid: 4, approved: 1, approvedby: options.approvedBy ?? 33, workflow_status: 'approved', workflow_version: 2 }],
           payment_accounts: [{ id: 5, name: 'Main Cash', account_type: 'cash', currency: 'GHS', branchid: 4, gl_account_code: 'acc-1000', is_active: true }],
           payment_account_users: options.accountAccess === false ? [] : [{ id: 1, payment_account_id: 5, employeeid: 22, can_pay: true, can_view: true, is_active: true }],
-          expense_control_settings: [{ id: 1, branchid: 4, require_separate_payer: true }],
+          expense_control_settings: [{ id: 1, branchid: 4, require_separate_payer: options.requireSeparatePayer ?? true }],
           expense_payments: structuredClone(options.existingPayments || []),
           expense_approval_actions: [],
           invoices: [],
@@ -125,7 +125,14 @@ describe('ExpensePaymentWorkflowService', () => {
      it('enforces approver-payer separation', async () => {
           const test = service({ approvedBy: 22, can: (_employeeid, permission) => permission === 'expense.override_sod' ? ({ allowed: false, reason: 'No override', delegationId: null, source: 'denied' }) : ({ allowed: true, reason: 'Granted', delegationId: 4, source: 'delegation' }) });
 
-          await expect(test.workflow.record(actor, paymentInput())).rejects.toThrow('approver cannot also');
+          await expect(test.workflow.record(actor, paymentInput())).rejects.toThrow('Require a separate payer is enabled');
+     });
+
+     it('allows the approver to pay when branch policy disables separate-payer enforcement', async () => {
+          const test = service({ approvedBy: 22, requireSeparatePayer: false });
+
+          await expect(test.workflow.record(actor, paymentInput())).resolves.toMatchObject({ status: 'payment_pending' });
+          expect(test.state.expense_payments).toHaveLength(1);
      });
 
      it('rejects overpayment and rolls back all writes', async () => {

@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { AuthorityService } from '../../accountingModule/services/AuthorityService';
+import { AuthorityService, EXPLICIT_BRANCH_SCOPED_PERMISSIONS } from '../../accountingModule/services/AuthorityService';
 import { AuthorityPermission } from '../../accountingModule/interfaces/IAuthorityService';
 import { getAuthUser } from '../../middleware/authority';
 import KnexConnection from '../../database/KnexConnections';
@@ -132,6 +132,9 @@ export class AuthorityController {
                const { employeeid, permission, minAmount, maxAmount, branchid, expiresAt, notes } = req.body || {};
                if (!employeeid || !permission) return customError('employeeid and permission are required', 400, res);
                if (!PERMISSIONS.includes(permission)) return customError(`Unknown permission ${permission}`, 400, res);
+               if (EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission) && (!Number.isSafeInteger(Number(branchid)) || Number(branchid) <= 0)) {
+                    return customError(`The ${permission} authority requires an explicit branch. Select the branch this permission should cover.`, 400, res);
+               }
 
                if (minAmount != null && maxAmount != null && Number(minAmount) > Number(maxAmount)) {
                     return customError('The lower limit cannot exceed the upper limit', 400, res);
@@ -148,7 +151,6 @@ export class AuthorityController {
                     notes: notes || null,
                     grantedBy: user.employeeid,
                });
-
                return ok(res, delegation, 201);
           } catch (error: any) {
                return customError(error?.message || 'Unable to grant the delegation', 500, res);

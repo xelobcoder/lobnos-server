@@ -39,7 +39,7 @@ export class ExpenseWorkflowService {
           if (decisions.some((decision) => !['approved', 'rejected'].includes(decision.status))) throw new Error('Decision status must be approved or rejected');
 
           const connection = await (this.dependencies.connectionFactory?.() || KnexConnection(this.tenantId));
-          return connection.transaction(async (trx:any) => {
+          return connection.transaction(async (trx: any) => {
                const rows = await trx('expensesrecord')
                     .whereIn('id', [...ids].sort((left, right) => left - right))
                     .orderBy('id')
@@ -70,7 +70,7 @@ export class ExpenseWorkflowService {
                          const override = settings.allowApprovalOverride
                               ? await authority.can(actor.employeeid, 'expense.override_approval', amount, branchid)
                               : { allowed: false };
-                         if (!override.allowed) throw new Error(`You cannot ${decision.status === 'approved' ? 'approve' : 'reject'} your own expense`);
+                         if (!override.allowed) throw new Error(`You cannot ${decision.status === 'approved' ? 'approve' : 'reject'} your own expense because self-approval is disabled for this branch. Ask an administrator to enable Allow self-approval in Application Settings > Expense Controls, or have another authorized user decide this expense.`);
                     }
 
                     const reason = String(decision.information || '').trim();
@@ -156,12 +156,15 @@ export class ExpenseWorkflowService {
      }
 
      async updateControls(actor: AuthUser, branchid: number | null, input: { allowSelfApproval: boolean; requireSeparatePayer: boolean; allowApprovalOverride: boolean }): Promise<any> {
+          if (typeof input.allowSelfApproval !== 'boolean' || typeof input.requireSeparatePayer !== 'boolean' || typeof input.allowApprovalOverride !== 'boolean') {
+               throw new Error('All expense control values must be booleans');
+          }
           const connection = await (this.dependencies.connectionFactory?.() || KnexConnection(this.tenantId));
           const existing = await connection('expense_control_settings').where({ branchid }).first();
           const values = {
-               allow_self_approval: Boolean(input.allowSelfApproval),
-               require_separate_payer: Boolean(input.requireSeparatePayer),
-               allow_approval_override: Boolean(input.allowApprovalOverride),
+               allow_self_approval: input.allowSelfApproval,
+               require_separate_payer: input.requireSeparatePayer,
+               allow_approval_override: input.allowApprovalOverride,
                updated_by: actor.employeeid,
                updated_at: new Date(),
           };
