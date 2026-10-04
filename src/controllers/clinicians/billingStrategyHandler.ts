@@ -480,3 +480,21 @@ export async function getEntityInfoUsingSpecialCode(req: Request, res: Response)
         });
     }
 }
+
+export async function getBillingModeCapability(request: Request<{}, {}, {}, { tenantId: string }>, response: Response) {
+    try {
+        const tenantId = Number(request.query.tenantId);
+        if (!Number.isSafeInteger(tenantId) || tenantId <= 0) {
+            return response.status(400).json({ status: 'error', message: 'A valid tenantId is required.' });
+        }
+
+        const hasActiveStrategies = await new BillingStrategy().hasActiveBillingStrategies(tenantId);
+        return response.json({
+            status: 'success',
+            mode: hasActiveStrategies ? 'advanced' : 'simple',
+            hasActiveStrategies,
+        });
+    } catch (error: any) {
+        return response.status(500).json({ status: 'error', message: 'Unable to determine billing mode.', error: error.message });
+    }
+}

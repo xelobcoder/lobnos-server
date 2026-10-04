@@ -14,6 +14,25 @@ import { OperationsFailures } from '../operations/types';
 import { error } from 'winston';
 
 export default class BillingStrategy {
+     async hasActiveBillingStrategies(tenantId: number): Promise<boolean> {
+          const connection = await KnexConnection(tenantId);
+          const mappedStrategy = await connection('billingstrategy_mapping as mapping')
+               .join('billingstrategy as strategy', 'strategy.strategyid', 'mapping.strategyid')
+               .whereRaw('COALESCE(strategy.is_expired, 0) = 0')
+               .whereRaw('(strategy.valid_from IS NULL OR strategy.valid_from <= CURRENT_TIMESTAMP)')
+               .whereRaw('(strategy.valid_until IS NULL OR strategy.valid_until >= CURRENT_TIMESTAMP)')
+               .first('strategy.strategyid');
+          if (mappedStrategy) return true;
+
+          const activeNhisStrategy = await connection('billingstrategy')
+               .where({ isNHIS: 1 })
+               .whereRaw('COALESCE(is_expired, 0) = 0')
+               .whereRaw('(valid_from IS NULL OR valid_from <= CURRENT_TIMESTAMP)')
+               .whereRaw('(valid_until IS NULL OR valid_until >= CURRENT_TIMESTAMP)')
+               .first('strategyid');
+          return Boolean(activeNhisStrategy);
+     }
+
      async entityExists(tenantId: number, entity_type: EntityType, entity_id: number): Promise<boolean> {
           const connection = await KnexConnection(tenantId);
           switch (entity_type) {
@@ -140,7 +159,7 @@ export default class BillingStrategy {
                     return mapped.length > 0 ? mapped : null;
                }
                return null;
-          } catch (error) {
+          } catch (error: any) {
                throw new Error('Error validating applicable tests: ' + error.message);
           }
      }
@@ -256,8 +275,8 @@ export default class BillingStrategy {
                          throw new Error('Failed to insert or update billing strategy.');
                     }
 
-                    if (data.allconcessionApplied === 0 && data.applicableTest?.length > 0) {
-                         const insertData = data.applicableTest.map(test => ({
+                    if (data.allconcessionApplied === 0 && data.applicableTest && data.applicableTest.length > 0) {
+                         const insertData = data.applicableTest.map((test: ApplicableTest) => ({
                               strategyid: insertedStrategyId,
                               testid: test.testid,
                               concessionValue: test.concessionValue,
@@ -281,7 +300,7 @@ export default class BillingStrategy {
                });
 
                return parseInt(strategyId.toString());
-          } catch (error) {
+          } catch (error: any) {
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
                     throw new Error(message);
@@ -326,7 +345,7 @@ export default class BillingStrategy {
                     );
                });
                return true;
-          } catch (error) {
+          } catch (error: any) {
                console.error(error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -373,7 +392,7 @@ export default class BillingStrategy {
                     entity_id: associatedid
                });
                return true;
-          } catch (error) {
+          } catch (error: any) {
                console.error(error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -495,8 +514,8 @@ export default class BillingStrategy {
                               updatedon: trx.fn.now(),
                          });
 
-                    if (data.allconcessionApplied === 0 && data.applicableTest?.length > 0) {
-                         const insertData = data.applicableTest.map(test => ({
+                    if (data.allconcessionApplied === 0 && data.applicableTest && data.applicableTest.length > 0) {
+                         const insertData = data.applicableTest.map((test: ApplicableTest) => ({
                               strategyid,
                               testid: test.testid,
                               concessionValue: test.concessionValue,
@@ -518,7 +537,7 @@ export default class BillingStrategy {
                });
 
                return result;
-          } catch (error) {
+          } catch (error: any) {
                console.error(error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -538,7 +557,7 @@ export default class BillingStrategy {
                     await trx('billingstrategy').where('strategyid', strategyid).del();
                });
                return true;
-          } catch (error) {
+          } catch (error: any) {
                console.error(error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -598,8 +617,8 @@ export default class BillingStrategy {
           return !!exists;
      }
 
-     private async loadAllTests(tenantId: number) {
-          return await new CustomTest(null, null).loadTestWithDetails(tenantId);
+     private async loadAllTests(tenantId: number): Promise<any[]> {
+          return await new CustomTest(0, '').loadTestWithDetails(tenantId) as any[];
      }
 
      private mapTestsWithDefaults(tests: any[]) {
@@ -649,7 +668,7 @@ export default class BillingStrategy {
                }
 
                if (entity_type === "nhis") {
-            
+
                }
 
                if (!strategyList.length && !fallbackToDefault) {
@@ -657,7 +676,7 @@ export default class BillingStrategy {
                }
 
                const allTest = await this.loadAllTests(tenantId);
-               const testMap = new Map(allTest.map(test => [test.testid, test]));
+               const testMap = new Map(allTest.map((test: any) => ([test.testid, test])));
 
                if (!strategyList.length && fallbackToDefault) {
                     return this.mapTestsWithDefaults(allTest);
@@ -749,7 +768,7 @@ export default class BillingStrategy {
                }
 
 
-          } catch (error) {
+          } catch (error: any) {
                console.error('Error in getProvidentialBillingHandler:', error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -772,7 +791,7 @@ export default class BillingStrategy {
 
                const { concessionMode, concessionValue, allconcessionApplied, applicableTest } = strategyList[0];
                const isTruthy = (value: number) => value === 1;
-               const allTest = await new CustomTest(null, null).loadTestWithDetails(tenantId);
+               const allTest: any[] = await new CustomTest(0, '').loadTestWithDetails(tenantId);
 
                if (isTruthy(allconcessionApplied) && allTest.length) {
                     const billingTestList = await Promise.all(
@@ -851,7 +870,7 @@ export default class BillingStrategy {
                }
 
                return [];
-          } catch (error) {
+          } catch (error: any) {
                console.error('Error in getStrategyBulkBillingData:', error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -914,7 +933,7 @@ export default class BillingStrategy {
                }
 
                return null;
-          } catch (error) {
+          } catch (error: any) {
                console.error('Error in getStrategySingleTestValue:', error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);
@@ -936,7 +955,7 @@ export default class BillingStrategy {
                const strategy = await connection('billingstrategy_mapping')
                     .where({ strategyid: strategyId, entity_id: entityId, entity_type: entityType }).del();
                return strategy > 0;
-          } catch (error) {
+          } catch (error: any) {
                console.error('Error in deleteStrategyApplicableEntities:', error);
                if (error.code) {
                     const { message } = getMySqlErrorMessage(error.code);

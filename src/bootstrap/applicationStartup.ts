@@ -19,6 +19,7 @@ import { bootstrapRefundTableSanitization } from '../models/billing/RefundBootst
 import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
 import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
+import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -26,6 +27,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapPrescriptionTables(tenantId);
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
+	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapRefundTableSanitization(tenantId);
 	await bootstrapStaffFocTables(tenantId);

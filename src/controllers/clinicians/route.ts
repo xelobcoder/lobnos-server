@@ -39,6 +39,7 @@ import {
   addCategoryToStrategy,
   removeCategoryFromStrategy,
   getAllBillingStrategiesMini,
+  getBillingModeCapability,
   getProvidentialBillingHandler,
   getEntityInfoUsingSpecialCode,
 } from './billingStrategyHandler';
@@ -48,6 +49,7 @@ import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', handleOverLoad(getProvidentialBillingHandler));
 router.post('/api/v1/billing/strategies', handleOverLoad(createBillingStrategy));
 router.get('/api/v1/billing/strategies/all', handleOverLoad(getAllBillingStrategies));
+router.get('/api/v1/billing/strategies/mode-capability', handleOverLoad(getBillingModeCapability));
 router.get('/api/v1/billing/strategies/all/mini', handleOverLoad(getAllBillingStrategiesMini));
 router.get('/api/v1/billing/strategies/check/:strategyid', handleOverLoad(checkStrategyExists));
 router.get('/api/v1/billing/strategies/:strategyid', handleOverLoad(getBillingStrategy));

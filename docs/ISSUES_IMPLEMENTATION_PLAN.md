@@ -21,11 +21,12 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 | 4. Historical sales permissions | **Not started** | Existing date queries need facility settings and server-side role enforcement. |
 | 5. Expense create/approve/pay | **Implemented; follow-up remains** | Prompts, payment handoff, self-approval setting, and server enforcement are implemented. Browser workflow coverage and creator-versus-payer policy confirmation remain. |
 | 6. Staff FOC accounting | **Not started** | Accounting treatment decision is still required. |
-| 7. Simple billing mode | **Not started** | Strategy detection and simple-mode fallback remain. |
+| 7. Simple billing mode | **Partial** | Server capability detection and automatic General/Cash catalog-price mode when no effective strategy exists are implemented. Category-specific prices without strategies are not represented in the current schema and need a product/schema decision. |
 | 8. Formula-based results | **Not started** | No configurable formula engine yet. |
 | 9. QC enforcement | **Not started** | Per-test daily QC gate and audited bypass remain. |
 | 10. Structured ultrasound reports | **Not started** | Structured workflow integration and generated report remain. |
 | 11. Pending-result TAT overview | **Not started** | Threshold cards and drill-down remain. |
+| Additional: suspend/resume billing and price quotes | **Implemented; browser test remains** | Separate branch-scoped draft storage, suspend/resume/cancel APIs, server-price reload on resume, patientless quote conversion, post-submit finalization, and focused validation tests are implemented. Browser end-to-end coverage and production bootstrap verification remain. |
 
 ## Decisions Required Before Build
 
@@ -125,15 +126,16 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 
 ### 7. Simple Billing When No Strategies Are Configured
 
-**Existing foundation:** billing strategy lookup and established billing submission contracts exist; a simple-mode fallback was not found.
+**Existing foundation:** billing strategy lookup and established billing submission contracts exist. The test catalog contains one base price per test; category-specific overrides are stored in active billing strategies.
 
-- [ ] Backend: provide a reliable strategy-capability response scoped to the facility and distinguish no active strategies from lookup failure.
-- [ ] Backend: validate simple-mode submissions against the existing billing contract and authoritative service price/payment category; never trust client-supplied prices without the current validation rules.
-- [ ] Frontend: select simple mode only when the capability response confirms no active strategy; preserve the advanced workflow when strategies exist.
-- [ ] Frontend: in simple mode, support patient → services/tests → payment category → price confirmation → bill, formatting the established backend payload internally.
+- [x] Backend: provide a tenant-scoped capability response based on mapped strategies not marked expired and within their effective dates, plus valid NHIS strategies; failures are distinct from no-strategy results.
+- [x] Backend: retain the existing server-owned catalog price and checkout recalculation as the simple-mode price authority.
+- [x] Frontend: select simple mode only when the capability response confirms no active strategy; preserve the advanced workflow when strategies exist, and do not downgrade if capability lookup fails.
+- [x] Frontend: automatically use General/Cash catalog pricing when no active strategies exist, then continue through the existing patient/services/billing flow; capability errors do not silently downgrade.
+- [ ] Product/schema decision: define how a payment/billing category receives its own price without a strategy; current `test_panels` schema has only one base `price`, so category-specific amounts cannot be safely inferred.
 - [ ] Tests: no strategy, one or more active strategies, inactive strategies only, capability API failure, payment-category pricing, and price tampering.
 
-**Acceptance criteria:** facilities without active strategies can bill through the reduced workflow; configured facilities retain the advanced workflow and both modes create equivalent valid billing records.
+**Acceptance criteria:** facilities without active strategies can use General/Cash catalog pricing through a reduced workflow; configured facilities retain the advanced workflow. Selecting NHIS/insurance category-specific rates in simple mode remains blocked on the pricing model decision above.
 
 ### 8. Formula-Based and Calculated Laboratory Parameters
 
@@ -189,6 +191,22 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 - [ ] Tests: exact threshold boundary, overdue pending cases, completed/excluded cases, time zones, pagination, and count/list consistency.
 
 **Acceptance criteria:** cards count only eligible pending work under the agreed clock rules, and selecting a card returns the corresponding affected tests.
+
+### Additional Enhancement: Suspend and Resume Billing / Price Quotes
+
+This enhancement was requested separately from Issues 1-11. Suspended drafts are not billing rows and do not create payment history, outstanding debt, or a `billingid` until the normal billing submit succeeds.
+
+- [x] Backend: create branch-scoped `suspended_billing_transactions` storage through the startup bootstrapper, with suspended/finalized/cancelled states.
+- [x] Backend: add authenticated create/list/get/update/cancel/finalize APIs; list and mutation scope is restricted to the actor's branch.
+- [x] Frontend: add a Suspend Transaction action for unfinished new billings and a Suspended Transactions list with resume/cancel actions.
+- [x] Frontend: persist selected test/service identifiers and relevant options, then reload prices from the server when resuming rather than trusting saved prices.
+- [x] Frontend: allow a patientless price-list quote to be suspended, resumed, and converted to sale after patient selection while preserving source/entity selection.
+- [x] Backend/frontend: finalize the draft only after a real billing record is created and verify that patient (except patientless quote conversion) and branch match.
+- [x] Tests: focused service validation covers patientless quotes, patient-bound drafts, NHIS eligibility, required selections, and branch scope.
+- [ ] Tests: database-backed lifecycle coverage for branch isolation, cancel, resume, price changes, concurrent finalize, and mismatch rejection; browser test for quote-to-patient-to-sale flow.
+- [ ] Deployment: verify startup bootstrap has run on every tenant before exposing the navigation link.
+
+**Acceptance criteria:** suspended work remains separate from billed debt; staff can resume it with current prices; only the standard billing submit finalizes it and creates the actual sale.
 
 ## Suggested Delivery Order
 

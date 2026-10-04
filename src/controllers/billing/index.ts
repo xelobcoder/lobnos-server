@@ -38,8 +38,17 @@ import { PrimeBillingCampaignController } from "./PrimeBillingCampaignController
 import { PrimeBillingPromoCodeController } from "./PrimePromoCode";
 import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, initializeBillingHandler, removePendingNonPaidServicesHandler, submitBillingHandler } from "../applicationsettings/handler";
 import { TransactionManagementController } from "../../models/billing/management/TransactionManagementController";
+import { SuspendedBillingController } from './SuspendedBillingController';
+import { checkTokenExists } from '../../middleware/validateTenancy';
 
 const router = Router();
+
+router.post('/api/v1/billing/suspended', checkTokenExists, SuspendedBillingController.create);
+router.get('/api/v1/billing/suspended', checkTokenExists, SuspendedBillingController.list);
+router.get('/api/v1/billing/suspended/:id', checkTokenExists, SuspendedBillingController.get);
+router.put('/api/v1/billing/suspended/:id', checkTokenExists, SuspendedBillingController.update);
+router.delete('/api/v1/billing/suspended/:id', checkTokenExists, SuspendedBillingController.cancel);
+router.post('/api/v1/billing/suspended/:id/finalize', checkTokenExists, SuspendedBillingController.finalize);
 
 // Billing Routes
 router.put('/api/v1/billing/pending/remove/service', handleOverLoad(removePendingNonPaidServicesHandler))
