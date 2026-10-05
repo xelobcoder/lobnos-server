@@ -12,7 +12,7 @@ export class TransactionManagementFactory {
      */
     static createService(tenantId: number): TransactionManagementService {
         const repository = new TransactionManagementRepository(tenantId);
-        return new TransactionManagementService(repository);
+        return new TransactionManagementService(repository, tenantId);
     }
 
     /**

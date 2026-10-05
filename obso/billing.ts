@@ -29,6 +29,7 @@ import {
 	updatebillHistoryQuery
 } from "../src/models/billing/queries";
 import { Refund } from "../src/models/billing/RefundClass";
+import { enqueueBillingRefund } from "../src/accountingModule/integrations/BillingAccounting";
 
 
 
@@ -60,7 +61,7 @@ export class Billing {
 				billingid, testid, discountedValue, employeeid, serviceCategory, categoryTrackId, clinicianId, organizationId, type, branchid, isOutsourced, outsourceid, taxList, amountIncurredDueTax, taxValue, taxIncluded, totalcost, 0, isPHIS, insuranceId, null
 			]);
 			return rowAffected(isServiced) ? isServiced.insertId : false;
-		} catch (err:any) {
+		} catch (err: any) {
 			console.log(err)
 			return false;
 		}
@@ -88,7 +89,7 @@ export class Billing {
 				stage = await new Services(serviceid).getServiceProgress(tenantId);
 			}
 			return stage;
-		} catch (err:any) {
+		} catch (err: any) {
 			console.log(err);
 			return null;
 		}
@@ -419,7 +420,7 @@ export class Billing {
 				return billingid
 			}
 			return billingid;
-		} catch (err:any) {
+		} catch (err: any) {
 			console.log(err)
 			await trx.rollback();
 			throw new Error(billErrors.error);
@@ -467,7 +468,7 @@ export class Billing {
 
 			const loadAllServices = await this.loadMultipleServices(servicesMap, billingid, tenantId, trx);
 			return loadAllServices;
-		} catch (err:any) {
+		} catch (err: any) {
 			console.log('Error Loading services ')
 			throw err;
 		}
@@ -680,7 +681,7 @@ export class Billing {
 		try {
 			const values: [number, number, number, number, string] = [billingid, paymentmode, amount, employeeid, type];
 			return await promisifyQuery(tenantId, insertbillHistoryQuery, values);
-		} catch (err:any) {
+		} catch (err: any) {
 			throw err;
 		}
 	}
@@ -696,7 +697,7 @@ export class Billing {
 			const query = `UPDATE samplestatus SET approvalstatus = 1 WHERE ascensionid = ?`;
 			const values = [ascensionId];
 			return promisifyQuery(tenantId, query, values);
-		} catch (err:any) {
+		} catch (err: any) {
 			throw new Error(err);
 		}
 	}
@@ -740,7 +741,7 @@ export class Billing {
 			// await new Billing(null).updateApprovalStatus(ascensionId);
 			// await testAscensionClass.updateTestAscensionStatus("processingStartDate", new Date(), employeeid);
 			// await testAscensionClass.updateTestAscensionStatus("processingEndDate", new Date(), employeeid);
-		} catch (err:any) {
+		} catch (err: any) {
 			throw err;
 		}
 	}
@@ -977,6 +978,7 @@ export class Billing {
 		tenantId: number,
 		records: updateRefundCashRequestBodyType
 	): Promise<boolean | void | undefined> {
+		let trx: any;
 		try {
 			const { billingid, refundAmount, serviceid, employeeid, selectedPaymentMode } = records;
 			const isBillingIdValid: boolean = await Billing.checkValidityOfBillingid(tenantId, billingid);
@@ -1021,7 +1023,7 @@ export class Billing {
 
 
 				const conenction = await KnexConnection(tenantId);
-				const trx = await conenction.transaction();
+				trx = await conenction.transaction();
 
 				await trx.raw(q_update_Billing_Information, [
 					currentPaid,
@@ -1067,7 +1069,21 @@ export class Billing {
 				});
 
 
-				await trx.raw(insertbillHistoryQuery, [billingid, selectedPaymentMode, refundAmount, employeeid, 'debit']);
+				const historyInsert = await trx.raw(insertbillHistoryQuery, [billingid, selectedPaymentMode, refundAmount, employeeid, 'debit']);
+				const historyResult = Array.isArray(historyInsert) ? historyInsert[0] : historyInsert;
+				const refundHistoryId = Number(historyResult?.insertId);
+				if (!refundHistoryId) throw new Error('Could not create refund history for accounting posting');
+
+				await enqueueBillingRefund(
+					tenantId,
+					billingid,
+					Number(refundAmount),
+					Number(refundAmount),
+					employeeid,
+					trx,
+					refundHistoryId,
+					Number(selectedPaymentMode)
+				);
 
 				await trx.commit();
 
@@ -1075,7 +1091,8 @@ export class Billing {
 			}
 
 		}
-		catch (err:any) {
+		catch (err: any) {
+			if (trx && !trx.isCompleted?.()) await trx.rollback().catch(() => undefined);
 			throw err;
 		}
 	}
@@ -1477,11 +1494,11 @@ export class Billing {
 				if (serviceid && item[5] != 5 && item[1]) {
 					try {
 						await this.AddtoTestAscenstion(tenantId, serviceid, billingid, item[1], queryRunner);
-					} catch (err:any) {
+					} catch (err: any) {
 						throw new Error(billErrors.unableToLoadTestAscension);
 					}
 				}
-			} catch (err:any) {
+			} catch (err: any) {
 				console.error("Error inserting service:", err);
 				insertionErrors.push(err);
 			}
@@ -1500,7 +1517,7 @@ export class Billing {
 				await applyTestAscensionAfterInsertApprovalSettings(queryRunner, ascensionid);
 			}
 			return ascensionid;
-		} catch (err:any) {
+		} catch (err: any) {
 			return false;
 		}
 	}

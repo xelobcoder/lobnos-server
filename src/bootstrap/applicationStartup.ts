@@ -66,10 +66,13 @@ export function startApplicationBackgroundWorkers(tenantId = 1, options: { accou
 	} catch (error) {
 		console.error('[Bootstrap] Accounting worker failed to start (isolated, non-fatal):', error);
 	}
+	processPendingOutbox(tenantId).catch((error) => {
+		console.error('[Accounting] Initial outbox sweep failed:', error);
+	});
 
 	setInterval(() => {
 		processPendingOutbox(tenantId).catch((error) => {
 			console.error('[Accounting] Periodic outbox sweep failed:', error);
 		});
-	}, 60_000);
+	}, 15_000);
 }

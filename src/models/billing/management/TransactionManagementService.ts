@@ -7,12 +7,15 @@ import {
     IFullTransactionHistory,
     IFullTransactionDetails
 } from "./TransactionManagementTypes";
+import { WriteOff } from "../WriteOff";
 
 export class TransactionManagementService {
     private repository: TransactionManagementRepository;
+    private tenantId: number;
 
-    constructor(repository: TransactionManagementRepository) {
+    constructor(repository: TransactionManagementRepository, tenantId: number) {
         this.repository = repository;
+        this.tenantId = tenantId;
     }
 
     /**
@@ -162,39 +165,14 @@ export class TransactionManagementService {
      * Void a transaction
      */
     async voidTransaction(billingId: number, employeeId: number): Promise<boolean> {
-        const trx = await this.repository.startTransaction();
-        try {
-            await this.repository.updateBilling(billingId, {
-                status: 'voided',
-                lastupdatedby: employeeId,
-                islocked: true,
-                payable: 0,
-                voidedby: employeeId,
-                paid: 0,
-                outstanding: 0,
-                voidedat: new Date()
-            }, trx);
-
-            const services = await this.repository.getServices(billingId);
-            for (const service of services) {
-                await this.repository.updateService(service.serviceid, {
-                    status: 'voided',
-                    employeeid: employeeId,
-                    isLocked: 1,
-                    paidamount: 0,
-                    voidedby: employeeId,
-                    totalpayable: 0,
-                    outstanding: 0,
-                    voidedat: new Date()
-                }, trx);
-            }          
-
-            await trx.commit();
-            return true;
-        } catch (error) {
-            await trx.rollback();
-            console.error("Error voiding transaction:", error);
-            throw error;
-        }
+        const paymentHistory = await this.repository.getPaymentHistoryByBillingId(billingId);
+        const paymentMode = paymentHistory.find((payment) => String(payment.type).toLowerCase() === 'credit')?.PaymentMode;
+        return WriteOff.refundCompletelyTransaction(
+            this.tenantId,
+            employeeId,
+            billingId,
+            Number(paymentMode) || 1,
+            'Transaction voided through transaction management.'
+        );
     }
 }

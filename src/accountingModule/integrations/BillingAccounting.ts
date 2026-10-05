@@ -8,6 +8,7 @@ import { recordSubledgerEntry } from '../services/SubledgerService';
 import logger from '../../hooks/logger';
 
 const CASH = 'acc-1000';
+const BANK = 'acc-1001';
 const ACCOUNTS_RECEIVABLE = 'acc-1002';
 const SERVICE_REVENUE = 'acc-4000';
 const OUTPUT_VAT_PAYABLE = 'acc-2002';
@@ -15,6 +16,14 @@ const BAD_DEBT_EXPENSE = 'acc-5007';
 
 async function resolveDb(tenantId: number, trx?: any): Promise<any> {
      return trx || (await KnexConnection(tenantId));
+}
+
+async function resolvePaymentAccountCode(db: any, paymentModeId?: number | null): Promise<string> {
+     if (!paymentModeId) return CASH;
+     const paymentMode = await db('paymentmodes').select('PaymentMode').where({ KeyID: paymentModeId }).first();
+     return paymentMode?.PaymentMode && /bank|transfer|cheque|check|card|momo|mobile|online|eft/i.test(paymentMode.PaymentMode)
+          ? BANK
+          : CASH;
 }
 
 export async function hasBillingReceivable(tenantId: number, billingId: number, trx?: any): Promise<boolean> {
@@ -113,6 +122,7 @@ export async function enqueueBillingReceivable(
                billingId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
@@ -128,13 +138,17 @@ export async function enqueueBillingPayment(
           if (!historyId || Number(paid) <= 0) return;
 
           const db = await resolveDb(tenantId, trx);
-          const bill = await db('billing')
-               .select('branchid', 'billedon', 'patientid')
-               .where({ billingid: billingId })
-               .first();
+          const [bill, history] = await Promise.all([
+               db('billing')
+                    .select('branchid', 'billedon', 'patientid')
+                    .where({ billingid: billingId })
+                    .first(),
+               db('billinghx').select('Date', 'paymentmode').where({ KeyID: historyId }).first(),
+          ]);
 
           const onReceivableBasis = await hasBillingReceivable(tenantId, billingId, db);
           const creditAccount = onReceivableBasis ? ACCOUNTS_RECEIVABLE : SERVICE_REVENUE;
+          const cashAccount = await resolvePaymentAccountCode(db, history?.paymentmode);
 
           const shared = {
                amount: Number(paid),
@@ -152,10 +166,10 @@ export async function enqueueBillingPayment(
                     sourceTable: 'billinghx',
                     sourcePk: Number(historyId),
                     description: 'Bill payment received',
-                    occurredAt: bill?.billedon || new Date(),
+                    occurredAt: history?.Date || new Date(),
                     createdBy: employeeId ? Number(employeeId) : null,
                     lines: [
-                         { accountCode: CASH, direction: NormalBalance.DEBIT, ...shared },
+                         { accountCode: cashAccount, direction: NormalBalance.DEBIT, ...shared },
                          { accountCode: creditAccount, direction: NormalBalance.CREDIT, ...shared },
                     ],
                },
@@ -184,6 +198,7 @@ export async function enqueueBillingPayment(
                historyId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
@@ -249,6 +264,7 @@ export async function enqueueBillingWriteOff(
                billingId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
@@ -258,7 +274,9 @@ export async function enqueueBillingRefund(
      payableVoided: number,
      cashRefunded: number,
      employeeId?: number | null,
-     trx?: any
+     trx?: any,
+     refundHistoryId?: number,
+     paymentModeId?: number
 ): Promise<void> {
      try {
           const voided = round2(Number(payableVoided) || 0);
@@ -267,7 +285,11 @@ export async function enqueueBillingRefund(
 
           const db = await resolveDb(tenantId, trx);
           const bill = await db('billing').select('branchid', 'patientid').where({ billingid: billingId }).first();
+          const refundHistory = refundHistoryId
+               ? await db('billinghx').select('Date', 'paymentmode').where({ KeyID: refundHistoryId }).first()
+               : null;
           const onReceivableBasis = await hasBillingReceivable(tenantId, billingId, db);
+          const cashAccount = await resolvePaymentAccountCode(db, paymentModeId || refundHistory?.paymentmode);
 
           const dimensions = {
                billingid: Number(billingId),
@@ -286,14 +308,14 @@ export async function enqueueBillingRefund(
                     ...(refunded > 0
                          ? [
                               { accountCode: ACCOUNTS_RECEIVABLE, direction: NormalBalance.DEBIT, amount: refunded, ...dimensions },
-                              { accountCode: CASH, direction: NormalBalance.CREDIT, amount: refunded, ...dimensions },
+                              { accountCode: cashAccount, direction: NormalBalance.CREDIT, amount: refunded, ...dimensions },
                          ]
                          : []),
                ]
                : refunded > 0
                     ? [
                          { accountCode: SERVICE_REVENUE, direction: NormalBalance.DEBIT, amount: refunded, ...dimensions },
-                         { accountCode: CASH, direction: NormalBalance.CREDIT, amount: refunded, ...dimensions },
+                         { accountCode: cashAccount, direction: NormalBalance.CREDIT, amount: refunded, ...dimensions },
                     ]
                     : [];
 
@@ -305,10 +327,11 @@ export async function enqueueBillingRefund(
                     tenantId,
                     transactionType: TransactionType.REFUND,
                     sourceModule: SourceModule.BILLING,
-                    sourceTable: 'billing_void',
-                    sourcePk: Number(billingId),
-                    description: 'Bill voided and refunded',
-                    occurredAt: new Date(),
+                    sourceTable: refundHistoryId ? 'billinghx' : 'billing_void',
+                    sourcePk: refundHistoryId ? Number(refundHistoryId) : Number(billingId),
+                    sourceRef: refundHistoryId ? String(refundHistoryId) : '',
+                    description: refundHistoryId ? 'Billing service refund paid' : 'Bill voided and refunded',
+                    occurredAt: refundHistory?.Date || new Date(),
                     createdBy: employeeId ? Number(employeeId) : null,
                     lines,
                },
@@ -330,12 +353,31 @@ export async function enqueueBillingRefund(
                     branchid: bill?.branchid ? Number(bill.branchid) : null,
                });
           }
+
+          if (onReceivableBasis && refunded > 0) {
+               const refundSourceTable = refundHistoryId ? 'billinghx' : 'billing_void';
+               const refundSourceRef = refundHistoryId ? String(refundHistoryId) : String(billingId);
+               await recordSubledgerEntry(tenantId, db, {
+                    ledger: 'AR',
+                    partyType: 'patient',
+                    partyId: bill?.patientid ? Number(bill.patientid) : null,
+                    documentType: 'refund',
+                    documentRef: `REFUND-${refundSourceRef}`,
+                    documentDate: refundHistory?.Date || new Date(),
+                    amount: refunded,
+                    sourceModule: SourceModule.BILLING,
+                    sourceTable: refundSourceTable,
+                    sourceRef: refundSourceRef,
+                    branchid: bill?.branchid ? Number(bill.branchid) : null,
+               });
+          }
      } catch (error: any) {
           logger.warn('Failed to enqueue billing refund posting', {
                tenantId,
                billingId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 

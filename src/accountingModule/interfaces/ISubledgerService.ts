@@ -38,6 +38,7 @@ export interface PartyBalance {
      partyType: string;
      partyId: number | null;
      partyName: string | null;
+     patientIdentifier?: string | null;
      documents: number;
      charged: number;
      settled: number;
@@ -49,6 +50,7 @@ export interface AgingRow {
      partyType: string;
      partyId: number | null;
      partyName: string | null;
+     patientIdentifier?: string | null;
      reference: string;
      documentDate: string;
      ageDays: number;
@@ -78,7 +80,16 @@ export interface ISubledgerService {
       * The bucket totals cover the whole report, not the current page, so they do not shift as you
       * page through.
       */
-     aging(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<any>;
+     aging(ledger: SubledgerName, asOf?: string, options?: {
+          page?: number;
+          count?: number;
+          sortby?: string;
+          search?: string;
+          patientId?: number | string;
+          ageBucket?: string;
+          from?: string;
+          to?: string;
+     }): Promise<any>;
 
      /**
       * Every entry for one party, oldest first, with a running balance. The balance is accumulated

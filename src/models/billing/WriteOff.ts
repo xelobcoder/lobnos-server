@@ -191,20 +191,26 @@ export class WriteOff {
                          adjustmentdate: new Date()
                     });
 
-               await trx.raw(
+               const refundHistoryInsert = await trx.raw(
                     'INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)',
                     [billingid, paymentmode, totalRefunded.paid, employeeid, 'debit']
                );
-
-               await trx.commit();
+               const refundHistoryResult = Array.isArray(refundHistoryInsert) ? refundHistoryInsert[0] : refundHistoryInsert;
+               const refundHistoryId = Number(refundHistoryResult?.insertId);
+               if (!refundHistoryId) throw new Error('Could not create refund history for accounting posting');
 
                await enqueueBillingRefund(
                     tenantId,
                     billingid,
                     Number(billBeforeVoid?.payable || 0),
                     Number(totalRefunded?.paid || 0),
-                    employeeid
+                    employeeid,
+                    trx,
+                    refundHistoryId,
+                    paymentmode
                );
+
+               await trx.commit();
 
                return true;
           } catch (err) {

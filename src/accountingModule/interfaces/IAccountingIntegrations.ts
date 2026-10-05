@@ -82,7 +82,9 @@ export interface IBillingAccounting {
           payableVoided: number,
           cashRefunded: number,
           employeeId?: number | null,
-          trx?: any
+          trx?: any,
+          refundHistoryId?: number,
+          paymentModeId?: number
      ): Promise<void>;
 }
 

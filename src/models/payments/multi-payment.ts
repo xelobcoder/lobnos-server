@@ -1,6 +1,7 @@
 import { PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
 import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";
+import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 
 
 
@@ -66,9 +67,9 @@ export default class MultiPayment {
                     .select('serviceid', 'outstanding')
                     .whereIn('serviceid', serviceIds);
 
-               const invalidServices = servicesCheck.filter((service:any) => service.outstanding <= 0);
+               const invalidServices = servicesCheck.filter((service: any) => service.outstanding <= 0);
                if (invalidServices.length > 0) {
-                    const invalidIds = invalidServices.map((s:any) => s.serviceid).join(', ');
+                    const invalidIds = invalidServices.map((s: any) => s.serviceid).join(', ');
                     throw new Error(`Cannot process payment for services with no outstanding balance: ${invalidIds}. These services are already fully paid.`);
                }
 
@@ -130,13 +131,23 @@ export default class MultiPayment {
                               });
 
                          if (servicePayment.amount > 0) {
-                              await trx(this.bhxTable).insert({
+                              const insertedHistory = await trx(this.bhxTable).insert({
                                    billingid: servicePayment.billing_id,
                                    paymentmode: servicePayment.payment_mode_id,
                                    amount: servicePayment.amount,
                                    employeeid: paymentData.employeeid,
                                    type: 'credit'
                               });
+                              const historyId = Number(Array.isArray(insertedHistory) ? insertedHistory[0] : insertedHistory);
+                              if (!historyId) throw new Error('Could not create payment history for accounting posting');
+                              await enqueueBillingPayment(
+                                   this.tenantId,
+                                   historyId,
+                                   servicePayment.billing_id,
+                                   servicePayment.amount,
+                                   paymentData.employeeid,
+                                   trx
+                              );
                          }
 
                          // If waive_off > 0, insert into expenses as bad debt with full lifecycle (Expense -> Approval -> Invoice -> Payment)
@@ -169,7 +180,7 @@ export default class MultiPayment {
                               )
                               .where({ 'dboservices.billingid': billingId });
 
-                         const totalPaid = billingServices.reduce((sum:number, service) => sum + (parseFloat(service.paidamount as string) || 0), 0);
+                         const totalPaid = billingServices.reduce((sum: number, service) => sum + (parseFloat(service.paidamount as string) || 0), 0);
                          const totalOutstanding = billingServices.reduce((sum, service) => sum + (parseFloat(service.outstanding as string) || 0), 0);
                          const totalPayable = billingServices.reduce((sum, service) => sum + (parseFloat(service.totalpayable as string) || 0), 0);
                          const totalRefunded = billingServices.reduce((sum, service) => sum + (parseFloat(service.amountRefunded as string) || 0), 0);

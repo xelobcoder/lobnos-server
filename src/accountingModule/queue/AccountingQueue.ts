@@ -1,5 +1,5 @@
-// BullMQ fast-path is disabled: the bundled Redis 3.x does not meet BullMQ's >= 5.0.0 requirement.
-// Delivery is guaranteed by the periodic processPendingOutbox() sweep, so this is a no-op for now.
+// BullMQ is disabled because the bundled Redis 3.x does not meet BullMQ's >= 5.0.0 requirement.
+// enqueuePosting wakes the processor after transaction commit; this remains as a compatibility no-op.
 // import { Queue } from 'bullmq';
 // import { redisConnection } from './redisConnection';
 // import logger from '../../hooks/logger';

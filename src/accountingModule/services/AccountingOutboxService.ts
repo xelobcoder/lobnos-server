@@ -5,6 +5,8 @@ import { parsePaging, parseSort } from '../utils/pagination';
 import logger from '../../hooks/logger';
 
 const MAX_ATTEMPTS = 5;
+const DEFAULT_BATCH_SIZE = 100;
+const MAX_BATCHES_PER_SWEEP = 50;
 const activeOutboxSweeps = new Set<number>();
 
 /**
@@ -28,6 +30,20 @@ export async function enqueuePosting(tenantId: number, input: PostTransactionDto
           })
           .onConflict(['source_module', 'source_table', 'source_pk', 'transaction_type', 'source_ref'])
           .ignore();
+
+     const transactionCompletion = trx?.executionPromise;
+     if (transactionCompletion && typeof transactionCompletion.then === 'function') {
+          void transactionCompletion.then(
+               () => processPendingOutbox(tenantId).catch((error) => {
+                    logger.warn('Immediate accounting outbox processing failed', { tenantId, error: error?.message || String(error) });
+               }),
+               () => undefined
+          );
+     } else if (!trx) {
+          void processPendingOutbox(tenantId).catch((error) => {
+               logger.warn('Immediate accounting outbox processing failed', { tenantId, error: error?.message || String(error) });
+          });
+     }
 }
 
 /**
@@ -35,46 +51,51 @@ export async function enqueuePosting(tenantId: number, input: PostTransactionDto
  * producer's transaction commits, and safe to call again later from a periodic sweep — failures
  * are recorded on the outbox row and retried up to MAX_ATTEMPTS, never thrown to the caller.
  */
-export async function processPendingOutbox(tenantId: number, limit = 25): Promise<void> {
+export async function processPendingOutbox(tenantId: number, limit = DEFAULT_BATCH_SIZE): Promise<void> {
      if (activeOutboxSweeps.has(tenantId)) return;
 
      activeOutboxSweeps.add(tenantId);
      try {
           const db = await KnexConnection(tenantId);
-
-          const rows = await db('acc_posting_outbox')
-               .whereIn('status', ['pending', 'failed'])
-               .andWhere('attempts', '<', MAX_ATTEMPTS)
-               .orderBy('id', 'asc')
-               .limit(limit);
-
-          if (rows.length === 0) return;
-
           const accountingService = createAccountingService(tenantId);
 
-          for (const row of rows) {
-               try {
-                    const input: PostTransactionDto = JSON.parse(row.payload);
-                    await accountingService.postTransaction({ ...input, trx: undefined });
-                    await db('acc_posting_outbox').where({ id: row.id }).update({
-                         status: 'posted',
-                         processed_at: new Date(),
-                    });
-               } catch (error: any) {
-                    logger.error('Failed to process accounting outbox row', {
-                         outboxId: row.id,
-                         sourceModule: row.source_module,
-                         sourceTable: row.source_table,
-                         sourcePk: row.source_pk,
-                         error: error?.message || String(error),
-                    });
-                    const attempts = row.attempts + 1;
-                    await db('acc_posting_outbox').where({ id: row.id }).update({
-                         status: attempts >= MAX_ATTEMPTS ? 'dead_letter' : 'failed',
-                         attempts,
-                         last_error: error?.message || String(error),
-                    });
+          let retryFailed = true;
+          for (let batch = 0; batch < MAX_BATCHES_PER_SWEEP; batch++) {
+               const rows = await db('acc_posting_outbox')
+                    .whereIn('status', retryFailed ? ['pending', 'failed'] : ['pending'])
+                    .andWhere('attempts', '<', MAX_ATTEMPTS)
+                    .orderBy('id', 'asc')
+                    .limit(limit);
+               retryFailed = false;
+
+               if (rows.length === 0) break;
+
+               for (const row of rows) {
+                    try {
+                         const input: PostTransactionDto = JSON.parse(row.payload);
+                         await accountingService.postTransaction({ ...input, trx: undefined });
+                         await db('acc_posting_outbox').where({ id: row.id }).update({
+                              status: 'posted',
+                              processed_at: new Date(),
+                         });
+                    } catch (error: any) {
+                         logger.error('Failed to process accounting outbox row', {
+                              outboxId: row.id,
+                              sourceModule: row.source_module,
+                              sourceTable: row.source_table,
+                              sourcePk: row.source_pk,
+                              error: error?.message || String(error),
+                         });
+                         const attempts = row.attempts + 1;
+                         await db('acc_posting_outbox').where({ id: row.id }).update({
+                              status: attempts >= MAX_ATTEMPTS ? 'dead_letter' : 'failed',
+                              attempts,
+                              last_error: error?.message || String(error),
+                         });
+                    }
                }
+
+               if (rows.length < limit) break;
           }
      } finally {
           activeOutboxSweeps.delete(tenantId);

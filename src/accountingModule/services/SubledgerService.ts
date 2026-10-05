@@ -70,11 +70,23 @@ export class SubledgerService implements ISubledgerService {
           if (asOf) query.andWhere('document_date', '<=', asOf);
 
           const rows = await query;
+          const patientIds = [...new Set(rows
+               .filter((row: any) => row.party_type === 'patient' && Number(row.party_id) > 0)
+               .map((row: any) => Number(row.party_id)))];
+          const patientRows = patientIds.length
+               ? await db('new_patients')
+                    .select('patientid', 'fullpatientid', 'firstname', 'middlename', 'lastname')
+                    .whereIn('patientid', patientIds)
+               : [];
+          const patientById = new Map<number, any>(patientRows.map((patient: any) => [Number(patient.patientid), patient]));
 
           const mapped: PartyBalance[] = rows.map((row: any) => ({
                partyType: row.party_type,
                partyId: row.party_id ? Number(row.party_id) : null,
-               partyName: row.party_name,
+               partyName: row.party_name || (row.party_type === 'patient'
+                    ? [patientById.get(Number(row.party_id))?.firstname, patientById.get(Number(row.party_id))?.middlename, patientById.get(Number(row.party_id))?.lastname].filter(Boolean).join(' ') || null
+                    : null),
+               patientIdentifier: patientById.get(Number(row.party_id))?.fullpatientid || null,
                documents: Number(row.documents || 0),
                charged: round2(Number(row.charged || 0)),
                settled: round2(Number(row.settled || 0)),
@@ -82,16 +94,26 @@ export class SubledgerService implements ISubledgerService {
                oldestDocumentDate: row.oldest_document_date ? toDateOnly(row.oldest_document_date) : null,
           }));
 
+          const nonzeroBalances = mapped.filter((row) => Math.abs(row.balance) > 0.001);
           const paging = parsePaging(options || {}, 50);
           const sort = parseSort(options || {}, ['partyName', 'documents', 'charged', 'settled', 'balance', 'oldestDocumentDate'], {
                column: 'balance',
                direction: 'desc',
           });
 
-          return paginate(mapped, paging, sort);
+          return paginate(nonzeroBalances, paging, sort);
      }
 
-     async aging(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }) {
+     async aging(ledger: SubledgerName, asOf?: string, options?: {
+          page?: number;
+          count?: number;
+          sortby?: string;
+          search?: string;
+          patientId?: number | string;
+          ageBucket?: string;
+          from?: string;
+          to?: string;
+     }) {
           const db = await this.connection();
           const cutoff = asOf || new Date().toISOString().split('T')[0];
 
@@ -101,6 +123,15 @@ export class SubledgerService implements ISubledgerService {
                .orderBy([{ column: 'document_date', order: 'asc' }, { column: 'id', order: 'asc' }]);
 
           const entries = await query;
+          const patientIds = [...new Set(entries
+               .filter((entry: any) => entry.party_type === 'patient' && Number(entry.party_id) > 0)
+               .map((entry: any) => Number(entry.party_id)))];
+          const patientRows = patientIds.length
+               ? await db('new_patients')
+                    .select('patientid', 'fullpatientid', 'firstname', 'middlename', 'lastname')
+                    .whereIn('patientid', patientIds)
+               : [];
+          const patientById = new Map<number, any>(patientRows.map((patient: any) => [Number(patient.patientid), patient]));
           const byParty = new Map<string, any[]>();
 
           for (const entry of entries) {
@@ -133,10 +164,17 @@ export class SubledgerService implements ISubledgerService {
                     if (document.remaining <= 0) continue;
 
                     const ageDays = daysBetween(document.entry.document_date, cutoff);
+                    const patient = document.entry.party_type === 'patient'
+                         ? patientById.get(Number(document.entry.party_id)) as any
+                         : undefined;
+                    const patientName = patient
+                         ? [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' ')
+                         : document.entry.party_name;
                     rows.push({
                          partyType: document.entry.party_type,
                          partyId: document.entry.party_id ? Number(document.entry.party_id) : null,
-                         partyName: document.entry.party_name,
+                         partyName: patientName || document.entry.party_name,
+                         patientIdentifier: patient?.fullpatientid || null,
                          reference: document.entry.document_ref,
                          documentDate: toDateOnly(document.entry.document_date),
                          ageDays,
@@ -150,24 +188,38 @@ export class SubledgerService implements ISubledgerService {
                }
           }
 
-          rows.sort((left, right) => right.total - left.total);
+          const search = String(options?.search || '').trim().toLocaleLowerCase();
+          const patientIdFilter = String(options?.patientId || '').trim();
+          const ageBucket = String(options?.ageBucket || '').trim();
+          const from = String(options?.from || '').trim();
+          const to = String(options?.to || '').trim();
+          const validBuckets = new Set(['current', 'days30', 'days60', 'days90', 'over90']);
+          const filteredRows = rows.filter((row: any) => {
+               if (from && row.documentDate < from) return false;
+               if (to && row.documentDate > to) return false;
+               if (patientIdFilter && String(row.partyId ?? '') !== patientIdFilter) return false;
+               if (validBuckets.has(ageBucket) && Number(row[ageBucket] || 0) <= 0) return false;
+               if (!search) return true;
+               return [row.partyName, row.partyId, row.patientIdentifier, row.reference]
+                    .some((value) => String(value ?? '').toLocaleLowerCase().includes(search));
+          });
 
           const totals = {
-               current: round2(rows.reduce((sum, row) => sum + row.current, 0)),
-               days30: round2(rows.reduce((sum, row) => sum + row.days30, 0)),
-               days60: round2(rows.reduce((sum, row) => sum + row.days60, 0)),
-               days90: round2(rows.reduce((sum, row) => sum + row.days90, 0)),
-               over90: round2(rows.reduce((sum, row) => sum + row.over90, 0)),
-               total: round2(rows.reduce((sum, row) => sum + row.total, 0)),
+               current: round2(filteredRows.reduce((sum, row) => sum + row.current, 0)),
+               days30: round2(filteredRows.reduce((sum, row) => sum + row.days30, 0)),
+               days60: round2(filteredRows.reduce((sum, row) => sum + row.days60, 0)),
+               days90: round2(filteredRows.reduce((sum, row) => sum + row.days90, 0)),
+               over90: round2(filteredRows.reduce((sum, row) => sum + row.over90, 0)),
+               total: round2(filteredRows.reduce((sum, row) => sum + row.total, 0)),
           };
 
           const paging = parsePaging(options || {}, 50);
           const sort = parseSort(
                options || {},
-               ['partyName', 'reference', 'documentDate', 'ageDays', 'current', 'days30', 'days60', 'days90', 'over90', 'total'],
-               { column: 'total', direction: 'desc' }
+               ['partyName', 'partyId', 'patientIdentifier', 'reference', 'documentDate', 'ageDays', 'current', 'days30', 'days60', 'days90', 'over90', 'total'],
+               { column: 'documentDate', direction: 'desc' }
           );
-          const page = paginate(rows, paging, sort);
+          const page = paginate(filteredRows, paging, sort);
 
           // totals stay whole-report figures so the aging buckets do not change as you page
           return { rows: page.data, total: page.total, page: page.page, count: page.count, totals };

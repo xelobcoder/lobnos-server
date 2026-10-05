@@ -17,7 +17,7 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 |---|---|---|
 | 1. Referral code visibility | **Partial** | Tenant-scoped listing API and shared Settings/CRM page with search/copy are implemented. Registration attribution UI, management lifecycle, and full automated coverage remain. |
 | 2. Commission recipient policy | **Implemented** | Facility setting, engine resolution, actual clinician organization lookup, and focused tests are implemented. |
-| 3. Collections/refunds accounting | **Not started** | Existing posting hooks need full path audit and reconciliation coverage. |
+| 3. Collections/refunds accounting | **Partial** | Outstanding collections, service refunds, full refunds, and transaction-management voids now write transactional, idempotent accounting outbox entries with cash/bank mapping. Billing-to-ledger reconciliation and frontend posting-error presentation remain. |
 | 4. Historical sales permissions | **Not started** | Existing date queries need facility settings and server-side role enforcement. |
 | 5. Expense create/approve/pay | **Implemented; follow-up remains** | Prompts, payment handoff, self-approval setting, and server enforcement are implemented. Browser workflow coverage and creator-versus-payer policy confirmation remain. |
 | 6. Staff FOC accounting | **Not started** | Accounting treatment decision is still required. |
@@ -74,15 +74,15 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 
 **Existing foundation:** accounting posting helpers exist, but the collection/refund paths must be inventoried to ensure every relevant operation reaches them.
 
-- [ ] Backend: map every cash collection path, including outstanding-balance payments, partial payments, bulk payments, service refunds, full refunds, and voids, to its billing transaction and accounting posting call.
-- [ ] Backend: use one transactional posting boundary where billing balances, payment history, refund history, and accounting outbox/journal records must stay consistent.
-- [ ] Backend: make posting idempotent using a stable source transaction identifier; prevent duplicate journals on retries.
-- [ ] Backend: post collection/refund events with payment mode/account, branch, tenant, employee, billing, and source identifiers needed for reconciliation.
-- [ ] Backend: reconcile billing paid/outstanding/refunded values against payment/refund history and expose actionable mismatches rather than silently diverging.
+- [x] Backend: map outstanding cash collections, partial service refunds, full refunds, and admin transaction voids to their billing history and accounting posting calls; normal initial-payment posting remains in the existing bill-history repository.
+- [x] Backend: enqueue collection, refund, and bill-receivable postings in the billing transaction; transactional outbox failures now abort the associated billing mutation.
+- [x] Backend: use payment/refund history IDs as idempotency sources so retries cannot duplicate postings.
+- [x] Backend: include branch, tenant, employee, billing, history, event-date, and cash/bank GL account dimensions on new collection/refund postings.
+- [ ] Backend: reconcile billing paid/outstanding/refunded values against payment/refund history and accounting entries, and expose actionable mismatches.
 - [ ] Frontend: show collection/refund completion and accounting-posting errors distinctly; do not report success where the financial transaction failed.
-- [ ] Tests: each payment/refund path, retries, partial amounts, rollback behavior, and billing-to-ledger reconciliation.
+- [x] Tests: cover outstanding collection enqueue, collection date and cash/bank mapping, refund history idempotency, and transactional posting failures. Remaining: database-backed refund/void lifecycle and reconciliation coverage.
 
-**Acceptance criteria:** every successful collection/refund is represented exactly once in accounting and the resulting billing balance agrees with its payment/refund history.
+**Acceptance criteria:** core collection/refund mutations now enqueue exactly-once accounting records atomically. Full acceptance remains open until billing-to-ledger reconciliation and frontend workflow coverage are implemented.
 
 ### 4. Historical Sales Access and Filtering
 

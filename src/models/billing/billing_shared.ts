@@ -186,14 +186,14 @@ export class BillingSharedRepo {
      }
      static async checkPatientIdExist(patientid: number, tenantId: number): Promise<boolean> {
           const db = await KnexConnection(tenantId);
-          const result = await db("new_patients").where("patientid", patientid).count<{ count: number }>("*");
-          return Number(result[0]['count(*)']) > 0;
+          const result = await db("new_patients").where("patientid", patientid).count("* as count").first();
+          return Number(result?.count) > 0;
      }
 
      static async validatePaymentModeId(paymentModeId: number, tenantId: number): Promise<boolean> {
           const db = await KnexConnection(tenantId);
-          const result = await db("paymentmodes").where("KeyID", paymentModeId).count<{ count: number }>("*");
-          return Number(result[0]['count(*)']) > 0;
+          const result = await db("paymentmodes").where("KeyID", paymentModeId).count("* as count").first();
+          return Number(result?.count) > 0;
      }
 
      static async generateBillingID(patientid: number, tenantId: number, branchid: number, employeeid: number, trx?: any): Promise<number> {
@@ -244,6 +244,7 @@ export class BillingSharedRepo {
                return inserted;
           } catch (error) {
                console.error("Error inserting billing history:", error);
+               if (trx) throw error;
                return false;
           }
      }
@@ -270,8 +271,8 @@ export class BillingSharedRepo {
 
      static async hasServiceWithBillingIdAndTrackId(billingid: number, categoryTrackId: number, trackId: number, tenantId: number): Promise<boolean> {
           const db = await KnexConnection(tenantId);
-          const result = await db("dboservices").where({ billingid, categorytrackid: categoryTrackId, trackid: trackId }).count<{ count: number }>("*");
-          return Number(result[0].count) > 0;
+          const result = await db("dboservices").where({ billingid, categorytrackid: categoryTrackId, trackid: trackId }).count("* as count").first();
+          return Number(result?.count) > 0;
      }
 
      // Applies night adjustment logic to a slice of servicesProvided.
@@ -310,7 +311,13 @@ export class BillingSharedRepo {
      }
      private async verificationAndReformatingOfServics(tenantId: number, item: servicesProvided) {
           const { keyid, discount } = item;
+          if (typeof keyid !== 'number' || !Number.isInteger(keyid) || keyid <= 0) {
+               throw new Error("A valid additional service keyid is required.");
+          }
           const serviceItem = await new TiifuWorkingClass('additionalservices').findOne(tenantId, "keyid", keyid);
+          if (!serviceItem) {
+               throw new Error(`Additional service ${keyid} was not found.`);
+          }
           const { servicePrice } = serviceItem
           return { discountedValue: servicePrice, discount: discount | 0 }
      }
