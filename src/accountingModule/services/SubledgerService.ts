@@ -123,6 +123,13 @@ export class SubledgerService implements ISubledgerService {
                .orderBy([{ column: 'document_date', order: 'asc' }, { column: 'id', order: 'asc' }]);
 
           const entries = await query;
+          const paymentHistoryIds = [...new Set(entries
+               .filter((entry: any) => entry.amount < 0 && entry.source_table === 'billinghx' && Number(entry.source_ref) > 0)
+               .map((entry: any) => Number(entry.source_ref)))];
+          const paymentHistory = paymentHistoryIds.length
+               ? await db('billinghx').select('KeyID', 'Billingid').whereIn('KeyID', paymentHistoryIds)
+               : [];
+          const billingIdByPaymentHistoryId = new Map<number, number>(paymentHistory.map((row: any) => [Number(row.KeyID), Number(row.Billingid)]));
           const patientIds = [...new Set(entries
                .filter((entry: any) => entry.party_type === 'patient' && Number(entry.party_id) > 0)
                .map((entry: any) => Number(entry.party_id)))];
@@ -140,18 +147,37 @@ export class SubledgerService implements ISubledgerService {
                byParty.get(key)!.push(entry);
           }
 
-          const rows: AgingRow[] = [];
+          const rows: Array<AgingRow & { documentId: number }> = [];
 
           for (const partyEntries of byParty.values()) {
                const open = partyEntries
                     .filter((entry) => Number(entry.amount) > 0)
                     .map((entry) => ({ entry, remaining: round2(Number(entry.amount)) }));
 
-               let credit = round2(
-                    partyEntries
-                         .filter((entry) => Number(entry.amount) < 0)
-                         .reduce((total, entry) => total + Math.abs(Number(entry.amount)), 0)
-               );
+               const paymentCredits = partyEntries.filter((entry) => Number(entry.amount) < 0);
+               let unlinkedCredits = 0;
+
+               // Cash Collection knows the billing ID, so apply those credits to their own invoice first.
+               for (const creditEntry of paymentCredits) {
+                    const historyId = creditEntry.source_table === 'billinghx' ? Number(creditEntry.source_ref) : 0;
+                    const billingId = billingIdByPaymentHistoryId.get(historyId);
+                    if (!billingId) {
+                         unlinkedCredits += Math.abs(Number(creditEntry.amount));
+                         continue;
+                    }
+
+                    let credit = round2(Math.abs(Number(creditEntry.amount)));
+                    const matchingInvoices = open.filter((document) => document.entry.document_ref === `BILL-${billingId}`);
+                    for (const document of matchingInvoices) {
+                         if (credit <= 0) break;
+                         const applied = Math.min(credit, document.remaining);
+                         document.remaining = round2(document.remaining - applied);
+                         credit = round2(credit - applied);
+                    }
+                    unlinkedCredits += credit;
+               }
+
+               let credit = round2(unlinkedCredits);
 
                for (const document of open) {
                     if (credit <= 0) break;
@@ -171,6 +197,7 @@ export class SubledgerService implements ISubledgerService {
                          ? [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' ')
                          : document.entry.party_name;
                     rows.push({
+                         documentId: Number(document.entry.id),
                          partyType: document.entry.party_type,
                          partyId: document.entry.party_id ? Number(document.entry.party_id) : null,
                          partyName: patientName || document.entry.party_name,
@@ -219,7 +246,12 @@ export class SubledgerService implements ISubledgerService {
                ['partyName', 'partyId', 'patientIdentifier', 'reference', 'documentDate', 'ageDays', 'current', 'days30', 'days60', 'days90', 'over90', 'total'],
                { column: 'documentDate', direction: 'desc' }
           );
-          const page = paginate(filteredRows, paging, sort);
+          const orderedRows = sort.column === 'documentDate'
+               ? [...filteredRows].sort((left, right) => sort.direction === 'desc'
+                    ? right.documentId - left.documentId
+                    : left.documentId - right.documentId)
+               : filteredRows;
+          const page = paginate(orderedRows, paging, sort);
 
           // totals stay whole-report figures so the aging buckets do not change as you page
           return { rows: page.data, total: page.total, page: page.page, count: page.count, totals };

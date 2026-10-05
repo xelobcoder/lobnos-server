@@ -17,6 +17,7 @@ accountingRouter.get('/api/v1/accounting/reports/financial-overview', Accounting
 accountingRouter.get('/api/v1/accounting/reports/general-ledger', AccountingReportController.generalLedger);
 accountingRouter.get('/api/v1/accounting/reports/income-statement', AccountingReportController.incomeStatement);
 accountingRouter.get('/api/v1/accounting/reports/balance-sheet', AccountingReportController.balanceSheet);
+accountingRouter.get('/api/v1/accounting/reports/receivables', AccountingReportController.outstandingReceivables);
 accountingRouter.get('/api/v1/accounting/reports/receivable-aging', AccountingReportController.receivableAging);
 accountingRouter.get('/api/v1/accounting/reports/payable-aging', AccountingReportController.payableAging);
 accountingRouter.get('/api/v1/accounting/accounts', AccountingReportController.accounts);

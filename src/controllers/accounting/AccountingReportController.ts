@@ -4,6 +4,7 @@ import { AccountingPeriodService } from '../../accountingModule/services/Account
 import { getOutboxHealth, listOutbox, replayOutboxRow } from '../../accountingModule/services/AccountingOutboxService';
 import { AccountingCloseService } from '../../accountingModule/services/AccountingCloseService';
 import { SubledgerService } from '../../accountingModule/services/SubledgerService';
+import { OutstandingReceivablesService } from '../../accountingModule/services/OutstandingReceivablesService';
 import KnexConnection from '../../database/KnexConnections';
 import { parsePaging, parseSort, paginate } from '../../accountingModule/utils/pagination';
 import { AccountingError } from '../../accountingModule/errors/AccountingErrors';
@@ -30,6 +31,27 @@ function ok(response: Response, result: any, statusCode = 200) {
 }
 
 export class AccountingReportController {
+     static async outstandingReceivables(req: Request, res: Response) {
+          const tenantId = Number(req.query.tenantId);
+          if (!Number.isSafeInteger(tenantId) || tenantId <= 0) return customError('A valid tenantId is required', 400, res);
+          const filters = {
+               from: req.query.from ? String(req.query.from) : undefined,
+               to: req.query.to ? String(req.query.to) : undefined,
+               search: req.query.search ? String(req.query.search) : undefined,
+               page: Number(req.query.page) || 1,
+               count: Number(req.query.count) || 25,
+               sortby: req.query.sortby ? String(req.query.sortby) : undefined,
+          };
+          try {
+               return ok(res, await new OutstandingReceivablesService(tenantId).list(filters));
+          } catch (error: any) {
+               if (error?.message === 'Dates must be valid YYYY-MM-DD values' || error?.message === 'From date must not exceed to date') {
+                    return customError(error.message, 400, res);
+               }
+               return handle(error, res);
+          }
+     }
+
      static async financialOverview(req: Request, res: Response) {
           try {
                const asOf = (req.query.asOf as string) || new Date().toISOString().split('T')[0];
