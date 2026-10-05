@@ -3,6 +3,12 @@
 import moment from "moment";
 import { paginationQuery, promisifyQuery } from "../../hooks/helper";
 import { q_get_ascension_ids_for_tat_archive, q_get_date_for_tat_analysis, q_get_tat_analysis_archive_by_date, q_upsert_tat_analysis_archive } from "./queries";
+import {
+	buildPendingResultTATCountQuery,
+	buildPendingResultTATPageQuery,
+	buildPendingResultTATSummaryQuery,
+	PENDING_RESULT_TAT_THRESHOLDS,
+} from './pendingResultTATQueries';
 
 class TestAscensionTurnAroundTime {
 	private ascensionid: number;
@@ -20,7 +26,7 @@ class TestAscensionTurnAroundTime {
 			try {
 				await TestAscensionTurnAroundTime.computeAndArchiveTATForAscension(row.id, tenantId);
 				archivedCount++;
-			} catch (e:any) {
+			} catch (e: any) {
 				throw new Error(`Failed to archive TAT for ascension ${row.id}: ${e.message}`);
 			}
 		}
@@ -122,6 +128,41 @@ class TestAscensionTurnAroundTime {
 			console.error("Error fetching TAT data:", error);
 			throw new Error("Database query failed");
 		}
+	}
+
+	static async getPendingResultTATSummary(tenantId: number): Promise<Array<{ hours: number; count: number }>> {
+		const { query, params } = buildPendingResultTATSummaryQuery();
+		const [row] = await promisifyQuery(tenantId, query, params);
+		return PENDING_RESULT_TAT_THRESHOLDS.map((hours) => ({
+			hours,
+			count: Number(row?.[`over_${hours}_hours`] || 0),
+		}));
+	}
+
+	static async getPendingResultTATPage(
+		tenantId: number,
+		page: number,
+		count: number,
+		thresholdHours: number
+	): Promise<{ data: any[]; total: number; page: number; count: number; totalPages: number }> {
+		const safePage = Math.max(1, Math.floor(page));
+		const safeCount = Math.min(100, Math.max(1, Math.floor(count)));
+		const safeThreshold = PENDING_RESULT_TAT_THRESHOLDS.includes(thresholdHours as never)
+			? thresholdHours
+			: PENDING_RESULT_TAT_THRESHOLDS[0];
+		const countQuery = buildPendingResultTATCountQuery(safeThreshold);
+		const [countRow] = await promisifyQuery(tenantId, countQuery.query, countQuery.params);
+		const total = Number(countRow?.total || 0);
+		const pageQuery = buildPendingResultTATPageQuery(safeThreshold, safeCount, (safePage - 1) * safeCount);
+		const data = await promisifyQuery(tenantId, pageQuery.query, pageQuery.params);
+
+		return {
+			data,
+			total,
+			page: safePage,
+			count: safeCount,
+			totalPages: Math.ceil(total / safeCount),
+		};
 	}
 
 	/** Static helper to analyze a single row for TAT */

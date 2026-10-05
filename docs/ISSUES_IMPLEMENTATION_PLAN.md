@@ -20,12 +20,12 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 | 3. Collections/refunds accounting | **Partial** | Outstanding collections, service refunds, full refunds, and transaction-management voids now write transactional, idempotent accounting outbox entries with cash/bank mapping. Billing-to-ledger reconciliation and frontend posting-error presentation remain. |
 | 4. Historical sales permissions | **Not started** | Existing date queries need facility settings and server-side role enforcement. |
 | 5. Expense create/approve/pay | **Implemented; follow-up remains** | Prompts, payment handoff, self-approval setting, and server enforcement are implemented. Browser workflow coverage and creator-versus-payer policy confirmation remain. |
-| 6. Staff FOC accounting | **Not started** | Accounting treatment decision is still required. |
+| 6. Staff FOC accounting | **Partial** | Treatment is implemented as Staff Benefits Expense (`acc-5010`): approved FOC posts against patient receivables, reversals post the inverse, and actual cash paid remains separate. Accounting report presentation and full lifecycle/database coverage remain. |
 | 7. Simple billing mode | **Partial** | Server capability detection and automatic General/Cash catalog-price mode when no effective strategy exists are implemented. Category-specific prices without strategies are not represented in the current schema and need a product/schema decision. |
-| 8. Formula-based results | **Not started** | No configurable formula engine yet. |
-| 9. QC enforcement | **Not started** | Per-test daily QC gate and audited bypass remain. |
-| 10. Structured ultrasound reports | **Not started** | Structured workflow integration and generated report remain. |
-| 11. Pending-result TAT overview | **Not started** | Threshold cards and drill-down remain. |
+| 8. Formula-based results | **Partial** | Versioned formula configuration, safe allowlisted evaluation, result-entry calculation, provenance audit, and frontend editor are implemented. Dependency recalculation, broader clinical/unit governance, clear calculated-result display on reports, and full acceptance coverage remain. |
+| 9. QC enforcement | **Partial** | Per-test QC setting, result-entry gate, same-day acceptance, audited admin bypass, and configuration/session UI are implemented. Result-entry status/link UI, facility time-zone and device/level scope decisions, and full workflow coverage remain. |
+| 10. Structured ultrasound reports | **Partial** | The original full-width markdown report remains unchanged and is the default. An opt-in structured form now covers early/first, second, and third trimester, postpartum, abdominal, abdominopelvic, renal, prostate, and other profiles; generated findings are editable in Markdown. Clinical-approved formulas/report wording and automated workflow coverage remain. |
+| 11. Pending-result TAT overview | **Partial** | Cumulative 6/12/24/32/64-hour summary and paginated overdue list are implemented using the existing registration-to-result clock. Business-hour/time-zone policy, branch scoping, database-backed boundary/performance coverage, and operational sign-off remain. |
 | Additional: suspend/resume billing and price quotes | **Implemented; browser test remains** | Separate branch-scoped draft storage, suspend/resume/cancel APIs, server-price reload on resume, patientless quote conversion, post-submit finalization, and focused validation tests are implemented. Browser end-to-end coverage and production bootstrap verification remain. |
 
 ## Decisions Required Before Build
@@ -112,17 +112,18 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 
 ### 6. Staff FOC Accounting and Reporting
 
-**Existing foundation:** Staff FOC records preserve gross amount, covered amount, payable amount, staff, patient, and billing identifiers. Accounting treatment remains undecided.
+**Existing foundation:** Staff FOC records preserve gross amount, covered amount, payable amount, staff, patient, and billing identifiers. Approved waived value is classified as Staff Benefits Expense (`acc-5010`), not bad debt.
 
-- [ ] Complete the FOC accounting decision in the table above before implementation.
-- [ ] Backend: define an accounting event for an approved FOC transaction that records service value, waived amount, zero/partial patient collection, staff-benefit recipient, and billing/service identifiers.
-- [ ] Backend: trigger posting only at the correct approved/committed point; reverse or adjust the posting on rejection, reversal, or billing correction.
-- [ ] Backend: prevent duplicate postings and preserve links between FOC transaction, billing services, and journals.
+- [x] Complete the FOC accounting decision: post approved waived value to Staff Benefits Expense (`acc-5010`), not bad debt.
+- [x] Backend: post approved FOC value with staff, patient, branch, billing, and transaction linkage; the Staff FOC transaction retains gross value and patient-payable amounts.
+- [x] Backend: trigger posting at approval, defer pending transactions, and post the inverse on reversal.
+- [x] Backend: use the FOC transaction as the idempotent posting source and preserve its links to billing and patient receivables.
 - [ ] Backend: add accounting/report queries that distinguish normal sales, waived FOC value, and collected value.
 - [ ] Frontend: show FOC designation, staff member, service value, waived amount, and collected amount in accounting detail/report views.
-- [ ] Tests: fully covered, partially covered, pending approval, rejection, reversal, retries, and zero-collected transactions.
+- [x] Tests: cover approved benefit posting, receivable subledger reduction, reversal, and reversal subledger restoration.
+- [ ] Tests: add database-backed coverage for fully/partially covered, pending approval, rejection, retries/idempotency, and zero-collected transactions.
 
-**Acceptance criteria:** FOC services remain visible as rendered services and the approved accounting treatment is traceable without inflating cash collected.
+**Acceptance criteria:** approved FOC value is posted separately from cash and reversed when the FOC transaction is reversed. Accounting report presentation and the remaining lifecycle test matrix are still open.
 
 ### 7. Simple Billing When No Strategies Are Configured
 
@@ -139,58 +140,62 @@ This document turns the requests in [`../issues.md`](../issues.md) into implemen
 
 ### 8. Formula-Based and Calculated Laboratory Parameters
 
-**Existing foundation:** result entry stores submitted fields; no generic formula registry/evaluator was found.
+**Existing foundation:** formula configuration is versioned by test and output field. A safe evaluator calculates configured outputs during result entry and records formula version/input provenance.
 
-- [ ] Backend: design a versioned formula configuration model with target test/field, expression, declared inputs, units, precision, conditions, effective dates, active state, and approval metadata.
-- [ ] Backend: implement a safe expression parser/evaluator using an allowlist of arithmetic/operators/functions; never use `eval`, dynamic code execution, or unrestricted scripting.
-- [ ] Backend: validate input availability, numeric/finite values, division-by-zero, units, and formula version before calculation.
-- [ ] Backend: calculate dependent fields before result persistence, distinguish measured from calculated values, and store formula/version/input provenance in an audit record.
+- [x] Backend: add versioned formula configuration for target test/field, expression, declared inputs, units, precision, numeric conditions, effective dates, and active state. Formula approval workflow/metadata remains open.
+- [x] Backend: implement a safe expression parser/evaluator with allowlisted arithmetic and functions; no `eval` or dynamic code execution.
+- [x] Backend: validate required numeric inputs, finite results, division by zero, basic configured-unit consistency, active version, and effective date. Unit conversion is not implemented.
+- [x] Backend: calculate configured fields before result persistence, mark them with calculated entry mode, and audit formula version plus input values.
 - [ ] Backend: define dependency handling and controlled recalculation when source results change; retain prior generated values and audit history.
-- [ ] Frontend: add authorized formula configuration/validation UI and visibly identify calculated result fields and their provenance.
-- [ ] Tests: arithmetic, allowlisted functions, missing/invalid inputs, units, malicious expressions, version changes, and recalculation/audit behavior.
+- [x] Frontend: add admin-protected formula configuration, editing as a new version, conditions, and formula history in the test editor.
+- [ ] Frontend: visibly identify calculated values and their formula provenance in result entry and printed reports.
+- [x] Tests: cover core arithmetic/functions, unsafe or unsupported expressions, missing inputs, division by zero, formula result replacement, and basic version/input provenance.
+- [ ] Tests: add unit conversion, database-backed effective-version selection, demographics, dependency recalculation, and end-to-end report coverage.
 
-**Acceptance criteria:** an authorized user can configure a safe formula without a code release; submitted results are reproducible from the stored formula version and inputs.
+**Acceptance criteria:** authorized users can configure safe formulas and result entry reproduces a value from its stored formula version and inputs. Recalculation, advanced clinical/unit governance, report labeling, and broader acceptance coverage remain.
 
 ### 9. Enforce Quality Control Before Result Entry
 
-**Existing foundation:** QC sessions/readings and result entry exist, but no test-level result-entry gate was found. See also `issues.md` Issue 9.
+**Existing foundation:** QC sessions are linked to test-specific control materials. A test-level requirement, central result-entry gate, review audit, and frontend session actions are implemented. The current working-day check uses database `CURRENT_DATE()`; facility timezone and device/level scope are not yet configurable.
 
-- [ ] Backend: inspect the actual QC schema and test/device/material relationships; define the authoritative accepted status and working-day boundary before changing schema.
-- [ ] Backend: add a test-level QC-required setting and any necessary mapping for device/material/level scope, using the repository's established schema/bootstrapper process.
-- [ ] Backend: add a QC eligibility service that finds valid accepted QC for each required test for the facility's current working day.
-- [ ] Backend: invoke the check in the shared result-entry service before any result writes; reject the full batch if any required QC is missing/failed/expired.
-- [ ] Backend: provide a permission-checked bypass requiring a reason, and persist an immutable audit record with actor, tests, date/time, and justification.
-- [ ] Frontend: expose the test setting, show QC status in result entry, explain blocked tests, and link to QC recording; only show bypass controls to authorized roles.
-- [ ] Tests: optional/required tests, accepted/missing/failed QC, date/time-zone boundary, device/material scope, mixed batches, and bypass permissions/audit.
+- [x] Backend: inspect the existing QC schema and use control-material-to-test linkage; acceptance currently requires same-day readings with `normal` status and active, unexpired material.
+- [x] Backend: add the test-level QC-required setting through the startup bootstrapper. Device/level-specific matching remains open.
+- [x] Backend: add a daily QC eligibility check and invoke it in shared result entry before result writes.
+- [x] Backend: add scientist/admin QC acceptance and admin-only reasoned bypass, recording actor, test, session, working date, and decision in an audit table.
+- [x] Frontend: expose the test setting and QC-session accept/bypass actions; bypass is admin-only and requires a reason.
+- [ ] Frontend: show per-test QC status/block reason in result entry and link directly to QC recording.
+- [x] Tests: cover missing-QC blocking, accepted-QC allowing, normal-reading acceptance, failed-reading rejection, and required bypass reason.
+- [ ] Tests: add database-backed coverage for optional/required tests, expired/failed QC, timezone boundaries, device/material/level scope, mixed batches, and bypass authorization/audit.
 
-**Acceptance criteria:** API result entry cannot save a QC-required test without valid QC or a valid audited override; optional tests continue normally.
+**Acceptance criteria:** API result entry is blocked for a QC-required test unless a same-database-day accepted QC review or audited admin bypass exists. Facility timezone/device-level scope, result-entry UX, and broad acceptance tests remain open.
 
 ### 10. Structured Ultrasound Reporting
 
-**Existing foundation:** ultrasound templates and result submission exist; a first-trimester form has some fixed calculations but is not a complete structured workflow integrated with generated editable reports.
+**Existing foundation:** ultrasound templates, configured test-field rules, markdown editing, result submission, and print routes already exist. The result-entry editor now maps configured dropdown, measurement/range, date/time, and text rules to appropriate controls; unspecified legacy field types remain markdown. Entered structured values can generate a neutral editable findings table. No clinical interpretation or formula is automatically invented.
 
-- [ ] Clinical stakeholders: approve scan types, required fields, units, formulas, and generated report text before development.
+- [ ] Clinical stakeholders: approve scan types, required fields, units, formulas, and generated report text before implementing scan-specific calculations or interpretations.
 - [ ] Backend: define versioned structured template data compatible with the existing ultrasound report/result API; do not create a parallel reporting system.
 - [ ] Backend: calculate approved derived values using validated clinical formulas and persist source measurements/calculation version.
-- [ ] Frontend: build scan-type selection and conditional structured fields for approved templates, with validation and appropriate units.
-- [ ] Frontend: generate conventional report text from structured values, permit edits, then submit through the existing report path.
+- [x] Frontend: preserve the existing full-width markdown report and template workflow as the default; add a separate Structured ultrasound form option with early/first, second, and third trimester, postpartum, abdominal, abdominopelvic, renal, prostate, and other forms.
+- [x] Frontend: provide number, select, and text inputs for the structured fields; generate the entered findings into the existing editable Markdown report and submit through the existing result/comment path.
 - [ ] Tests: template/version handling, field validation, calculation cases, free-text additions, report persistence, and legacy report compatibility.
 
-**Acceptance criteria:** a sonographer can enter structured measurements, see approved derived values, edit generated findings, and save a report through the existing backend flow.
+**Acceptance criteria:** users can enter configured structured measurements and edit/save a neutral generated draft through the existing backend flow. Approved scan-specific derived values and conventional clinical report text remain blocked on stakeholder approval and validation.
 
 ### 11. Pending-Result TAT Monitoring Overview
 
-**Existing foundation:** TAT analysis and paginated TAT data exist, but the requested live pending-result threshold summary was not found.
+**Existing foundation:** completed TAT uses `test_ascension.ascension_date` through `resultEntryEnd`. A pending-result summary and paginated drill-down now use the same start clock, cumulative wall-clock thresholds, and exclude deleted, voided, refunded, cancelled, or written-off services.
 
-- [ ] Product/operations: resolve clock start, business-hour rules, pauses, tenant time zone, and cumulative/exclusive threshold behavior.
-- [ ] Backend: create a tenant-scoped query/service for tests still pending result entry and calculate elapsed time from the approved clock rules.
-- [ ] Backend: return counts for 6, 12, 24, 32, and 64-hour thresholds and a paginated drill-down endpoint accepting the selected threshold and standard filters.
-- [ ] Backend: ensure cancelled, completed, refunded, or otherwise excluded work is handled consistently and query performance is indexed/verified.
-- [ ] Frontend: add the overview to Laboratory Operations with summary cards and click-through lists containing patient/lab number, test, sample/collection time, elapsed time, status, and responsible section/user where available.
-- [ ] Frontend: refresh counts and list data reliably; show loading, empty, and error states.
-- [ ] Tests: exact threshold boundary, overdue pending cases, completed/excluded cases, time zones, pagination, and count/list consistency.
+- [x] Backend: use the existing registration-to-result clock (`ascension_date` to `resultEntryEnd`) and database current time for elapsed wall-clock minutes; business-hour/pause/time-zone overrides remain undecided.
+- [x] Backend: add tenant-scoped summary counts for cumulative 6, 12, 24, 32, and 64-hour thresholds and a paginated selected-threshold drill-down.
+- [x] Backend: exclude completed results and deleted, voided, refunded, cancelled, and written-off services from the pending view.
+- [x] Frontend: add threshold cards and a paginated Laboratory Operations list with patient/lab number, test, section, registration/collection times, elapsed time, configured TAT, and pending status.
+- [x] Frontend: include loading, empty, and error states.
+- [x] Tests: cover threshold definitions, minute conversions, pending completion/status/deletion filters, and stable pagination query ordering.
+- [ ] Operations: confirm whether existing calendar-time semantics are acceptable across facility time zones and shift/calendar policies.
+- [ ] Tests: add database-backed threshold-boundary, timezone, and count/list consistency checks; verify query performance against tenant data.
 
-**Acceptance criteria:** cards count only eligible pending work under the agreed clock rules, and selecting a card returns the corresponding affected tests.
+**Acceptance criteria:** cards count and drill into eligible pending work using the existing wall-clock start point. Facility calendar/time-zone policy and database-backed boundary/performance verification remain open.
 
 ### Additional Enhancement: Suspend and Resume Billing / Price Quotes
 

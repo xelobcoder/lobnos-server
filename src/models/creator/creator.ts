@@ -34,6 +34,7 @@ import KnexConnection from "../../database/KnexConnections";
 import { encrypt_value } from "../../utils/encryptionModels";
 import { CalculationFormulaService } from './calculations/CalculationFormulaService';
 import { requireDailyQcAcceptance } from './calculations/QCEnforcementService';
+import { buildStaleDrugReactionDelete } from './resultDrugReactions';
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
@@ -389,11 +390,14 @@ export default class Creator {
 
 
 		async function drugProcessor() {
-			if (hasDrugs && drugs.length > 0) {
-				let refinedDrugsArray = drugs.map((item, index) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }; });
-				let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, refinedDrugsArray as DrugSqlInsertion[]);
+			if (hasDrugs) {
+				if (!Array.isArray(drugs)) throw new Error('Culture and sensitivity drug results are required');
+				let refinedDrugsArray = drugs.map((item) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }; });
+				let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, ascensionid, testid, refinedDrugsArray as DrugSqlInsertion[]);
 				if (isDrugsInserted) {
 					await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+				} else {
+					throw new Error('Unable to save culture and sensitivity drug results');
 				}
 			}
 
@@ -603,11 +607,11 @@ export default class Creator {
 			const record = await connection.raw(`SELECT * FROM resultentrydrugsreaction WHERE ascensionid = ? AND testid = ? AND drugid = ? `, [ascensionid, testid, drugid]);
 			const hasRecord = Array.isArray(record[0]) ? record[0].length > 0 : false;
 			if (hasRecord) {
-				const updateResult = await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [reaction, ascensionid, testid, drugid]);
-				return rowAffected(updateResult[0]);
+				await connection.raw(`UPDATE resultentrydrugsreaction SET reaction = ? WHERE ascensionid = ? AND testid = ? AND drugid = ?`, [reaction, ascensionid, testid, drugid]);
+				return true;
 			} else {
-				const insertResult = await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, reaction, ascensionid, testid]);
-				return rowAffected(insertResult[0]);
+				await connection.raw(`INSERT INTO resultentrydrugsreaction (drugid, reaction, ascensionid, testid) VALUES (?, ?, ?, ?)`, [drugid, reaction, ascensionid, testid]);
+				return true;
 			}
 		} catch (error) {
 			console.error('Error inserting drug reaction:', error);
@@ -617,17 +621,20 @@ export default class Creator {
 
 	private static async insertResultDrugReactionBulk(
 		tenantId: number,
+		ascensionId: number,
+		testId: number,
 		drugs: DrugSqlInsertion[]
 	): Promise<boolean> {
 		const insertPromises = drugs.map((item) =>
 			this.insertResultDrugReaction(tenantId, item)
 		);
 		const results = await Promise.allSettled(insertPromises);
-		const hasErrorOccurred = results.some((res) => res.status === 'rejected');
-		// delete are records of that ascension  that is not in the drugs array
-		const submittedDrugs = drugs.map(d => d.drugid).toString()
-		await promisifyQuery(tenantId, `DELETE FROM resultentrydrugsreaction WHERE drugid NOT IN (${submittedDrugs})`)
-		return !hasErrorOccurred;
+		const hasErrorOccurred = results.some((result) => result.status === 'rejected' || !result.value);
+		if (hasErrorOccurred) return false;
+
+		const deletion = buildStaleDrugReactionDelete(ascensionId, testId, drugs.map((drug) => drug.drugid));
+		await promisifyQuery(tenantId, deletion.query, deletion.params);
+		return true;
 	}
 
 
