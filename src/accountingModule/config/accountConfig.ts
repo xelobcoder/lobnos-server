@@ -166,6 +166,11 @@ export const ACCOUNT_CONFIG: AccountConfig = {
           name: 'Interest Expense',
           type: 'expense',
           normalBalance: 'debit'
+     },
+     'acc-5010': {
+          name: 'Staff Benefits Expense',
+          type: 'expense',
+          normalBalance: 'debit'
      }
 };
 

@@ -2,6 +2,7 @@ import KnexConnection from '../../../database/KnexConnections';
 import logger from '../../../hooks/logger';
 import { IFocValidationResult, IStaffFocAccount, IStaffFocService, IStaffFocTransaction } from '../interfaces/IStaffFocService';
 import { StaffFocRepository } from '../repositories/StaffFocRepository';
+import { enqueueStaffFocBenefit, enqueueStaffFocBenefitReversal } from '../../../accountingModule/integrations/BillingAccounting';
 
 export class StaffFocService implements IStaffFocService {
      private repo: StaffFocRepository;
@@ -206,6 +207,7 @@ export class StaffFocService implements IStaffFocService {
                     const newUsed = usedAmount + focCoverage;
                     const newRemaining = Math.max(0, currentLimit - newUsed);
                     await this.repo.updateAccountBalance(tenantId, lockedAccount.id, newUsed, newRemaining, trx);
+                    await enqueueStaffFocBenefit(tenantId, txId, trx);
                }
 
                if (isManagedTrx) {
@@ -248,6 +250,57 @@ export class StaffFocService implements IStaffFocService {
 
                await this.repo.updateAccountBalance(tenantId, lockedAccount.id, newUsed, newRemaining, trx);
                await this.repo.updateTransactionStatus(tenantId, transactionId, 'approved', approverEmployeeId, trx);
+               await enqueueStaffFocBenefit(tenantId, transactionId, trx);
+
+               const serviceRows = await trx('dboservices')
+                    .where({ billingid: tx.billingid })
+                    .orderBy('serviceid', 'asc');
+               const existingFoc = serviceRows
+                    .filter((row: any) => Number(row.foc_transaction_id) === transactionId)
+                    .reduce((total: number, row: any) => total + Number(row.foc_amount || 0), 0);
+               let remainingFoc = Math.max(0, focCoverage - existingFoc);
+               for (const serviceRow of serviceRows) {
+                    if (remainingFoc <= 0) break;
+                    const existingPaid = Number(serviceRow.paidamount || 0);
+                    const existingServiceFoc = Number(serviceRow.foc_amount || 0);
+                    const servicePayable = Math.max(0, Number(serviceRow.totalpayable || 0));
+                    const serviceRemaining = Math.max(0, servicePayable - existingPaid);
+                    const serviceFoc = Math.min(serviceRemaining, remainingFoc);
+                    const paidAfterFoc = existingPaid + serviceFoc;
+                    const outstandingAfterFoc = Math.max(0, servicePayable - paidAfterFoc);
+
+                    await trx('dboservices')
+                         .where({ serviceid: serviceRow.serviceid })
+                         .update({
+                              foc_amount: existingServiceFoc + serviceFoc,
+                              foc_transaction_id: transactionId,
+                              paidamount: paidAfterFoc,
+                              outstanding: outstandingAfterFoc,
+                              paymentstatus: outstandingAfterFoc === 0 ? 'Paid' : 'partial',
+                         });
+                    remainingFoc = Math.max(0, remainingFoc - serviceFoc);
+               }
+
+               const billingTotals = await trx('dboservices')
+                    .where({ billingid: tx.billingid })
+                    .sum({ totalpayable: 'totalpayable' })
+                    .sum({ settled: 'paidamount' })
+                    .sum({ foc: 'foc_amount' })
+                    .sum({ outstanding: 'outstanding' })
+                    .first();
+               const billingPayable = Number(billingTotals?.totalpayable || 0);
+               const billingFoc = Number(billingTotals?.foc || 0);
+               const cashPaid = Math.max(0, Number(billingTotals?.settled || 0) - billingFoc);
+               const billingOutstanding = Number(billingTotals?.outstanding || 0);
+               await trx('billing')
+                    .where({ billingid: tx.billingid })
+                    .update({
+                         paid: cashPaid,
+                         outstanding: billingOutstanding,
+                         balance: Math.max(0, cashPaid - Math.max(0, billingPayable - billingFoc)),
+                         status: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
+                         clientstatus: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
+                    });
 
                await trx.commit();
                return true;
@@ -312,11 +365,13 @@ export class StaffFocService implements IStaffFocService {
                const billingTotals = await trx('dboservices')
                     .where({ billingid: tx.billingid })
                     .sum({ totalpayable: 'totalpayable' })
-                    .sum({ paidamount: 'paidamount' })
+                    .sum({ settled: 'paidamount' })
+                    .sum({ foc: 'foc_amount' })
                     .sum({ outstanding: 'outstanding' })
                     .first();
                const billingPayable = Number(billingTotals?.totalpayable || 0);
-               const billingPaid = Number(billingTotals?.paidamount || 0);
+               const billingFoc = Number(billingTotals?.foc || 0);
+               const billingPaid = Math.max(0, Number(billingTotals?.settled || 0) - billingFoc);
                const billingOutstanding = Math.max(0, Number(billingTotals?.outstanding || billingPayable - billingPaid));
 
                await trx('billing')
@@ -324,12 +379,13 @@ export class StaffFocService implements IStaffFocService {
                     .update({
                          paid: billingPaid,
                          outstanding: billingOutstanding,
-                         balance: billingPaid > billingPayable ? billingPaid - billingPayable : 0,
-                         status: billingOutstanding === 0 ? 'paid' : billingPaid > 0 ? 'partial' : 'pending',
-                         clientstatus: billingOutstanding === 0 ? 'paid' : billingPaid > 0 ? 'partial' : 'pending',
+                         balance: Math.max(0, billingPaid - Math.max(0, billingPayable - billingFoc)),
+                         status: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
+                         clientstatus: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
                     });
 
                await this.repo.updateTransactionStatus(tenantId, transactionId, 'reversed', revokerEmployeeId, trx, reason);
+               await enqueueStaffFocBenefitReversal(tenantId, transactionId, reason, trx);
 
                await trx.commit();
                return true;

@@ -66,6 +66,11 @@ export const resultEntry = async (req: Request<{}, {}, { testid: number }, { ten
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
 		}
 	} catch (err) {
+		const statusCode = Number((err as any)?.statusCode);
+		if (statusCode >= 400 && statusCode < 500) {
+			response.status(statusCode).send({ status: 'error', statusCode, message: (err as any)?.message || 'Result entry was rejected' });
+			return;
+		}
 		responseError(response, err);
 	}
 };

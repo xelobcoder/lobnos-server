@@ -19,7 +19,7 @@ export default async function resultEncrptionReferer(resources: TestRefererNatur
      try {
           let refinedResources = resources.map((item, index) => {
                const { id, originalvalue, fieldid, field, value, entrymode } = item;
-               if (!fieldid || !originalvalue || !value) return null
+               if (!fieldid || originalvalue === null || originalvalue === undefined || value === null || value === undefined) return null
                return {
                     field,
                     value: value.toString(),

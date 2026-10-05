@@ -167,6 +167,47 @@ export class QCSessionsRepository {
         }
     }
 
+    async recordResultEntryReview(
+        sessionId: string,
+        employeeId: number,
+        decision: 'accepted' | 'bypassed',
+        reason?: string
+    ): Promise<number> {
+        const connection = await this.connection;
+        return connection.transaction(async (trx: any) => {
+            const session = await trx('qc_sessions as qs')
+                .innerJoin('control_materials as cm', 'cm.id', 'qs.controlMaterialId')
+                .select('qs.id', 'cm.testId')
+                .where('qs.id', sessionId)
+                .whereRaw('DATE(qs.createdAt) = CURRENT_DATE()')
+                .where('cm.status', 'active')
+                .whereRaw('DATE(cm.expiryDate) >= CURRENT_DATE()')
+                .first();
+            if (!session) throw new Error('QC session must be linked to an active, unexpired control material and recorded today.');
+
+            if (decision === 'bypassed' && !reason?.trim()) {
+                throw new Error('A reason is required to bypass QC enforcement.');
+            }
+
+            if (decision === 'accepted') {
+                const readings = await trx('qc_readings').select('status').where({ sessionId });
+                if (readings.length === 0 || readings.some((reading: any) => reading.status !== 'normal')) {
+                    throw new Error('QC cannot be accepted until readings are recorded and all are normal.');
+                }
+            }
+
+            await trx('qc_session_review_audit').insert({
+                session_id: sessionId,
+                testid: Number(session.testId),
+                working_date: trx.raw('CURRENT_DATE()'),
+                decision,
+                reason: reason?.trim() || null,
+                employeeid: employeeId,
+            });
+            return Number(session.testId);
+        });
+    }
+
     async delete(id: string): Promise<boolean> {
         try {
             const conn = await this.connection;

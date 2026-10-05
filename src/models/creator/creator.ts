@@ -32,6 +32,8 @@ import { CriticalValueEvaluator } from './CriticalValueEvaluator';
 import TestDetailCategory from "../operations/testFieldsCategoryClass";
 import KnexConnection from "../../database/KnexConnections";
 import { encrypt_value } from "../../utils/encryptionModels";
+import { CalculationFormulaService } from './calculations/CalculationFormulaService';
+import { requireDailyQcAcceptance } from './calculations/QCEnforcementService';
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
@@ -304,6 +306,8 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
+		await requireDailyQcAcceptance(tenantId, testid);
+
 		const isPaymentStatusValid = await this.canPrintResult(tenantId, ascensionid);
 
 		if (!isPaymentStatusValid) {
@@ -311,6 +315,9 @@ export default class Creator {
 		}
 
 		const connection = await KnexConnection(tenantId);
+		const calculationService = new CalculationFormulaService();
+		const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[]);
+		const entryFields = calculatedEntry.fields;
 		const shouldCreateRecord = async function (tenantId: number, fieldid: number, ascensionId: number, testid: number): Promise<boolean> {
 			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
 				ascensionId, testid, fieldid]);
@@ -398,12 +405,19 @@ export default class Creator {
 
 		try {
 			await connection.transaction(async (trx) => {
-				await insertUpdate(trx, tenantId, fields, testid);
+				await insertUpdate(trx, tenantId, entryFields, testid);
+				await calculationService.recordCalculatedResults(trx, calculatedEntry.auditRecords, {
+					testId: testid,
+					billingId: billingid,
+					patientId: patientid,
+					ascensionId: ascensionid,
+					employeeId: employeeid,
+				});
 				await drugProcessor();
 				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
 			});
 
-			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, fields, employeeid);
+			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, entryFields, employeeid);
 
 			// Fire-and-forget result value analytics processing
 			const { ResultValueAnalyticsService } = await import("../result-value-analytics/ResultValueAnalyticsService");
@@ -412,7 +426,7 @@ export default class Creator {
 				testid,
 				ascensionid,
 				patientid,
-				fields: fields as Array<{ fieldid: number; originalvalue: string | null; value: string | null }>,
+				fields: entryFields as Array<{ fieldid: number; originalvalue: string | null; value: string | null }>,
 			}).catch((error) => console.error("Result value analytics processing failed", error));
 
 			// Fire-and-forget test analytics pre-computation

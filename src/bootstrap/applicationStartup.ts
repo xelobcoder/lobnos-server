@@ -20,6 +20,7 @@ import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
 import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
+import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -27,6 +28,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapPrescriptionTables(tenantId);
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
+	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapRefundTableSanitization(tenantId);

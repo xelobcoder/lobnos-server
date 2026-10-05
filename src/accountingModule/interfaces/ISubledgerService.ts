@@ -7,6 +7,8 @@ export type SubledgerDocumentType =
      | 'credit_note'
      | 'write_off'
      | 'refund'
+     | 'staff_foc'
+     | 'staff_foc_reversal'
      | 'bill'
      | 'supplier_payment';
 

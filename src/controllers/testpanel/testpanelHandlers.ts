@@ -194,6 +194,28 @@ export const putTestPanelUpdate = (req: Request<{}, {}, {}, { tenantId: number }
      testpanel.putSingleTestPanel(tenantId, req as any, res);
 };
 
+export const putTestPanelQcRequirement = async (req: Request, res: Response) => {
+     try {
+          const tenantId = parseInt(String(req.query.tenantId), 10);
+          const body = req.body as { testid?: number; requiresQc?: boolean | number };
+          const testId = Number(body.testid);
+          const rawRequirement = body.requiresQc;
+          if (!Number.isInteger(testId) || testId <= 0 || rawRequirement === undefined || ![true, false, 0, 1].includes(rawRequirement)) {
+               return customError('testid and boolean requiresQc are required', 400, res);
+          }
+
+          const connection = await KnexConnection(tenantId);
+          const existingTest = await connection('test_panels').select('id').where({ id: testId }).first();
+          if (!existingTest) return customError('Test panel not found', 404, res);
+          const updated = await connection('test_panels')
+               .where({ id: testId })
+               .update({ requires_qc: rawRequirement ? 1 : 0 });
+          res.send({ status: 'success', testid: testId, requiresQc: Boolean(rawRequirement) });
+     } catch (error) {
+          responseError(res, error);
+     }
+};
+
 export const deleteTestPanel = async (req: Request<{}, {}, {}, { tenantId: string; testid: string }>, res: Response) => {
      try {
           const { testid, tenantId } = req.query;

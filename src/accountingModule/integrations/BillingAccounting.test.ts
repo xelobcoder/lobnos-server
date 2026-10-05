@@ -10,9 +10,9 @@ vi.mock('../services/SubledgerService', () => ({ recordSubledgerEntry: recordSub
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 vi.mock('../../hooks/logger', () => ({ default: { warn: vi.fn() } }));
 
-import { enqueueBillingPayment, enqueueBillingReceivable, enqueueBillingRefund } from './BillingAccounting';
+import { enqueueBillingPayment, enqueueBillingReceivable, enqueueBillingRefund, enqueueStaffFocBenefit, enqueueStaffFocBenefitReversal } from './BillingAccounting';
 
-function makeDatabase(options: { receivable?: boolean; paymentMode?: string } = {}) {
+function makeDatabase(options: { receivable?: boolean; paymentMode?: string; focStatus?: string } = {}) {
      const database = ((table: string) => {
           const query: any = {
                select: () => query,
@@ -22,6 +22,19 @@ function makeDatabase(options: { receivable?: boolean; paymentMode?: string } = 
                     if (table === 'billing') return { branchid: 4, billedon: new Date('2026-10-01T00:00:00Z'), patientid: 21, payable: 100, amountIncurredDueTax: 0 };
                     if (table === 'billinghx') return { Date: new Date('2026-10-04T00:00:00Z'), paymentmode: 8 };
                     if (table === 'paymentmodes') return { PaymentMode: options.paymentMode || 'Bank Transfer' };
+                    if (table === 'staff_foc_transaction') return {
+                         id: 14,
+                         billingid: 42,
+                         patientid: 21,
+                         employeeid: 9,
+                         foc_amount: 80,
+                         status: options.focStatus || 'approved',
+                         approved_by: 5,
+                         approved_on: new Date('2026-10-04T12:00:00Z'),
+                         reversed_by: 7,
+                         reversed_at: new Date('2026-10-05T12:00:00Z'),
+                    };
+                    if (table === 'roles') return { username: 'Staff Member' };
                     if (table === 'acc_posting_outbox') return options.receivable ? { id: 1 } : undefined;
                     if (table === 'acc_journal_entries') return undefined;
                     return undefined;
@@ -95,6 +108,47 @@ describe('billing accounting collection and refund postings', () => {
                sourceTable: 'billinghx',
                sourceRef: '91',
                amount: 15,
+          }));
+     });
+
+     it('posts approved Staff FOC as a staff benefit and reduces patient receivables', async () => {
+          const trx = makeDatabase();
+
+          await enqueueStaffFocBenefit(3, 14, trx);
+
+          const [, posting, usedTrx] = enqueuePostingMock.mock.calls[0];
+          expect(usedTrx).toBe(trx);
+          expect(posting.sourceTable).toBe('staff_foc_transaction');
+          expect(posting.sourcePk).toBe(14);
+          expect(posting.description).toContain('Staff Member');
+          expect(posting.lines).toEqual(expect.arrayContaining([
+               expect.objectContaining({ accountCode: 'acc-5010', direction: 'debit', amount: 80 }),
+               expect.objectContaining({ accountCode: 'acc-1002', direction: 'credit', amount: 80 }),
+          ]));
+          expect(recordSubledgerEntryMock).toHaveBeenCalledWith(3, trx, expect.objectContaining({
+               documentType: 'staff_foc',
+               sourceRef: '14',
+               amount: -80,
+          }));
+     });
+
+     it('reverses Staff FOC by restoring receivables and reversing the benefit expense', async () => {
+          const trx = makeDatabase({ focStatus: 'reversed' });
+
+          await enqueueStaffFocBenefitReversal(3, 14, 'Correction', trx);
+
+          const [, posting, usedTrx] = enqueuePostingMock.mock.calls[0];
+          expect(usedTrx).toBe(trx);
+          expect(posting.transactionType).toBe('reversal');
+          expect(posting.sourceRef).toBe('reversal:14');
+          expect(posting.lines).toEqual(expect.arrayContaining([
+               expect.objectContaining({ accountCode: 'acc-1002', direction: 'debit', amount: 80 }),
+               expect.objectContaining({ accountCode: 'acc-5010', direction: 'credit', amount: 80 }),
+          ]));
+          expect(recordSubledgerEntryMock).toHaveBeenCalledWith(3, trx, expect.objectContaining({
+               documentType: 'staff_foc_reversal',
+               sourceRef: 'reversal:14',
+               amount: 80,
           }));
      });
 

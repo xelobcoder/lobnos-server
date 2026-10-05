@@ -22,8 +22,10 @@ import {
 	putTestSetupLiterature,
 	getTestSetupResultLiterature,
 	putBulkTestPricingUpdate,
-	importMasterTestPanelToClientList
+	importMasterTestPanelToClientList,
+	putTestPanelQcRequirement
 } from "./testpanelHandlers";
+import { getCalculationFormulas, putCalculationFormula } from './CalculationFormulaController';
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
 import { getTestReportSettingsHandler, putTestReportSettingsHandler, deleteTestReportSettingsHandler } from "./testReportSettingsHandlers";
@@ -52,6 +54,9 @@ router.post("/api/v1/testpanel/bulkupdate", postBulkTestPanelUpdate);
 router.put("/api/v1/testpanel/bulkpricing", putBulkTestPricingUpdate);
 router.post("/api/v1/testpanel/list", postTestPanelCreate);
 router.put("/api/v1/testpanel/list", putTestPanelUpdate);
+router.put("/api/v1/testpanel/qc-requirement", isAuthorizedRoleAdmin, putTestPanelQcRequirement);
+router.get("/api/v1/testpanel/calculations", isAuthorizedRoleAdmin, getCalculationFormulas);
+router.put("/api/v1/testpanel/calculations", isAuthorizedRoleAdmin, putCalculationFormula);
 router.delete("/api/v1/testpanel/list", deleteTestPanel);
 router.get("/api/v1/testpanel/list/customtestrule", getTestPanelCreationRule);
 router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);

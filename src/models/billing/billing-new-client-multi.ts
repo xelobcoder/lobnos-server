@@ -508,7 +508,7 @@ export class SubmitCustomerBilling {
                         trx
                     );
 
-                    if (focTransaction?.id) {
+                    if (focTransaction?.id && focTransaction.status === 'approved') {
                         const serviceRows = await trx('dboservices')
                             .where({ billingid: finalBillingId })
                             .orderBy('serviceid', 'asc');
@@ -535,6 +535,25 @@ export class SubmitCustomerBilling {
                             remainingFoc = Math.max(0, remainingFoc - serviceFoc);
                             if (remainingFoc === 0) break;
                         }
+
+                        const billingTotals = await trx('dboservices')
+                            .where({ billingid: finalBillingId })
+                            .sum({ totalpayable: 'totalpayable' })
+                            .sum({ settled: 'paidamount' })
+                            .sum({ foc: 'foc_amount' })
+                            .sum({ outstanding: 'outstanding' })
+                            .first();
+                        const totalPayable = Number(billingTotals?.totalpayable || 0);
+                        const totalFoc = Number(billingTotals?.foc || 0);
+                        const cashPaid = Math.max(0, Number(billingTotals?.settled || 0) - totalFoc);
+                        const totalOutstanding = Number(billingTotals?.outstanding || 0);
+                        await trx('billing').where({ billingid: finalBillingId }).update({
+                            paid: cashPaid,
+                            outstanding: totalOutstanding,
+                            balance: Math.max(0, cashPaid - Math.max(0, totalPayable - totalFoc)),
+                            status: totalOutstanding === 0 ? 'paid' : cashPaid + totalFoc > 0 ? 'partial' : 'pending',
+                            clientstatus: totalOutstanding === 0 ? 'paid' : cashPaid + totalFoc > 0 ? 'partial' : 'pending',
+                        });
                     }
                 }
 

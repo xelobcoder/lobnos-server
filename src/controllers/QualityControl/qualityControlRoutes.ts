@@ -4,6 +4,7 @@ import { ControlMaterialController } from './ControlMaterialController';
 import { ControlParameterController } from './ControlParameterController';
 import { QCReadingsController } from './QCReadingsController';
 import { QCDashboardController, QCSessionsController } from './QCDashboard';
+import { isAuthorizedRoleAdmin, isAuthorizedRoleScientistPhelobotomist } from '../../middleware/validateTenancy';
 
 const router = express.Router();
 const deviceController = new DeviceController();
@@ -51,6 +52,8 @@ router.delete('/api/v1/controlparameters/:id', controlParameterController.delete
 router.post('/api/v1/qc-sessions', qcReadingsController.createSession.bind(qcReadingsController));
 router.get('/api/v1/qc-sessions/:id', qcReadingsController.getSessionById.bind(qcReadingsController));
 router.put('/api/v1/qc-sessions/:id', qcReadingsController.updateSession.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions/:id/accept-for-results', isAuthorizedRoleScientistPhelobotomist, qcReadingsController.acceptForResultEntry.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions/:id/bypass-for-results', isAuthorizedRoleAdmin, qcReadingsController.bypassForResultEntry.bind(qcReadingsController));
 router.delete('/api/v1/qc-sessions/:id', qcReadingsController.deleteSession.bind(qcReadingsController));
 router.get('/api/v1/qc-sessions', qcReadingsController.getSessionsPaginated.bind(qcReadingsController));
 

@@ -16,12 +16,38 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
             const sessionData = req.body;
-            
+
             const status = await repository.create(sessionData);
-            res.status(201).json({ status: typeof status == "number" && status > -1 ? true: false });
+            res.status(201).json({ status: typeof status == "number" && status > -1 ? true : false });
         } catch (error) {
             console.error('Failed to create QC session:', error);
             res.status(500).json({ error: 'Failed to create QC session' });
+        }
+    }
+
+    async acceptForResultEntry(req: Request, res: Response) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const employeeId = parseInt(req.query.employeeid as string, 10);
+            if (!employeeId) return res.status(400).json({ error: 'employeeid is required' });
+            const repository = new QCSessionsRepository(tenantId);
+            const testId = await repository.recordResultEntryReview(String(req.params.id), employeeId, 'accepted');
+            res.json({ status: true, decision: 'accepted', testId });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message || 'Failed to accept QC session' });
+        }
+    }
+
+    async bypassForResultEntry(req: Request, res: Response) {
+        try {
+            const tenantId = this.getTenantId(req);
+            const employeeId = parseInt(req.query.employeeid as string, 10);
+            if (!employeeId) return res.status(400).json({ error: 'employeeid is required' });
+            const repository = new QCSessionsRepository(tenantId);
+            const testId = await repository.recordResultEntryReview(String(req.params.id), employeeId, 'bypassed', req.body?.reason);
+            res.json({ status: true, decision: 'bypassed', testId });
+        } catch (error: any) {
+            res.status(400).json({ error: error.message || 'Failed to record QC bypass' });
         }
     }
 
@@ -30,7 +56,7 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
             const id = req.params.id as string;
-            
+
             const session = await repository.findById(id);
             if (!session) {
                 return res.status(404).json({ error: 'QC session not found' });
@@ -48,7 +74,7 @@ export class QCReadingsController {
             const repository = new QCSessionsRepository(tenantId);
             const id = req.params.id as string;
             const updates = req.body;
-            
+
             const result = await repository.update(id, updates);
             res.json({ status: result });
         } catch (error) {
@@ -63,13 +89,13 @@ export class QCReadingsController {
             const sessionRepo = new QCSessionsRepository(tenantId);
             const readingRepo = new QCReadingsRepository(tenantId);
             const id = req.params.id as string;
-            
+
             // Delete all readings first
             const readings = await readingRepo.findBySessionId(id);
-            await Promise.all(readings.map(reading => 
+            await Promise.all(readings.map(reading =>
                 readingRepo.delete(reading.id as string)
             ));
-            
+
             // Then delete the session
             const result = await sessionRepo.delete(id);
             res.json({ status: result });
@@ -85,7 +111,7 @@ export class QCReadingsController {
             const repository = new QCSessionsRepository(tenantId);
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
-            
+
             const result = await repository.findAllPaginated(page, limit);
             res.json(result);
         } catch (error) {
@@ -99,7 +125,7 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const readingData = req.body;
-            
+
             const status = await repository.create(readingData);
             res.status(201).json({ status });
         } catch (error) {
@@ -113,12 +139,12 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const sessionId = req.params.sessionId as string;
-            
+
             const readings = await repository.findBySessionId(sessionId);
-            const deletePromises = readings.map(reading => 
+            const deletePromises = readings.map(reading =>
                 repository.delete(reading.id as string)
             );
-            
+
             await Promise.all(deletePromises);
             res.status(200).json({ status: true });
         } catch (error) {
@@ -133,7 +159,7 @@ export class QCReadingsController {
             const repository = new QCReadingsRepository(tenantId);
             const id = req.params.id as string;
             const updates = req.body;
-            
+
             const result = await repository.update(id, updates);
             res.json({ status: result });
         } catch (error) {
@@ -147,7 +173,7 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const id = req.params.id as string;
-            
+
             const reading = await repository.findById(id);
             if (!reading) {
                 return res.status(404).json({ error: 'QC reading not found' });
@@ -164,7 +190,7 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const sessionId = req.params.sessionId as string;
-            
+
             const readings = await repository.findBySessionId(sessionId);
             res.json(readings);
         } catch (error) {
@@ -178,11 +204,11 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const sessionId = req.params.sessionId as string;
-            
+
             if (!sessionId) {
                 return res.status(400).json({ error: 'Session ID is required' });
             }
-            
+
             const batches = await repository.findBatchesBySessionId(sessionId);
             res.json(batches);
         } catch (error) {
@@ -198,12 +224,12 @@ export class QCReadingsController {
             const sessionId = req.params.sessionId as string;
             const controlId = req.params.controlId as string;
 
-            console.log({controlId,sessionId})
-            
+            console.log({ controlId, sessionId })
+
             if (!sessionId || !controlId) {
                 return res.status(400).json({ error: 'Both sessionId and controlId are required' });
             }
-            
+
             const readings = await repository.findBySessionAndControlId(sessionId, controlId as string);
             res.json(readings);
         } catch (error) {
@@ -217,11 +243,11 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCReadingsRepository(tenantId);
             const { status } = req.query;
-            
+
             if (!status || typeof status !== 'string') {
                 return res.status(400).json({ error: 'Status parameter is required' });
             }
-            
+
             const readings = await repository.findByStatus(status as any);
             res.json(readings);
         } catch (error) {
@@ -236,7 +262,7 @@ export class QCReadingsController {
             const repository = new QCReadingsRepository(tenantId);
             const page = parseInt(req.query.page as string) || 1;
             const limit = parseInt(req.query.limit as string) || 10;
-            
+
             const result = await repository.findAllPaginated(page, limit);
             res.json(result);
         } catch (error) {
@@ -279,7 +305,7 @@ export class QCReadingsController {
                         sessionId,
                         parameter: readingData.parameter,
                         value: readingData.value,
-                        parameterId:readingData.parameterId,
+                        parameterId: readingData.parameterId,
                         status: readingData.status,
                         createdby: readingData.createdby,
                         createdAt: readingData.updatedby,
@@ -290,7 +316,7 @@ export class QCReadingsController {
                 }
             });
 
-            res.status(201).json({ status:true});
+            res.status(201).json({ status: true });
         } catch (error) {
             console.error('Batch creation failed:', error);
             res.status(500).json({ error: 'Failed to add readings to session' });

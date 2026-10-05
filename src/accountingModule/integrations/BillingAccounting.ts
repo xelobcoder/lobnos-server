@@ -13,6 +13,7 @@ const ACCOUNTS_RECEIVABLE = 'acc-1002';
 const SERVICE_REVENUE = 'acc-4000';
 const OUTPUT_VAT_PAYABLE = 'acc-2002';
 const BAD_DEBT_EXPENSE = 'acc-5007';
+const STAFF_BENEFIT_EXPENSE = 'acc-5010';
 
 async function resolveDb(tenantId: number, trx?: any): Promise<any> {
      return trx || (await KnexConnection(tenantId));
@@ -262,6 +263,143 @@ export async function enqueueBillingWriteOff(
           logger.warn('Failed to enqueue billing write-off posting', {
                tenantId,
                billingId,
+               error: error?.message || String(error),
+          });
+          if (trx) throw error;
+     }
+}
+
+export async function enqueueStaffFocBenefit(
+     tenantId: number,
+     focTransactionId: number,
+     trx?: any
+): Promise<void> {
+     try {
+          const db = await resolveDb(tenantId, trx);
+          const foc = await db('staff_foc_transaction').where({ id: focTransactionId }).first();
+          if (!foc || foc.status !== 'approved') return;
+
+          const amount = round2(Number(foc.foc_amount || 0));
+          if (!Number.isFinite(amount) || amount <= 0) return;
+
+          const bill = await db('billing')
+               .select('branchid', 'patientid')
+               .where({ billingid: foc.billingid })
+               .first();
+          const staff = await db('roles').select('username').where({ employeeid: foc.employeeid }).first();
+          const shared = {
+               amount,
+               billingid: Number(foc.billingid),
+               employeeid: Number(foc.employeeid),
+               branchid: bill?.branchid ? Number(bill.branchid) : null,
+          };
+          const staffName = staff?.username || `employee ${foc.employeeid}`;
+
+          await enqueuePosting(
+               tenantId,
+               {
+                    tenantId,
+                    transactionType: TransactionType.ADJUSTMENT,
+                    sourceModule: SourceModule.BILLING,
+                    sourceTable: 'staff_foc_transaction',
+                    sourcePk: Number(foc.id),
+                    sourceRef: String(foc.id),
+                    description: `Staff FOC benefit for ${staffName}`,
+                    occurredAt: foc.approved_on || foc.created_at || new Date(),
+                    createdBy: foc.approved_by ? Number(foc.approved_by) : Number(foc.requested_by),
+                    lines: [
+                         { accountCode: STAFF_BENEFIT_EXPENSE, direction: NormalBalance.DEBIT, ...shared },
+                         { accountCode: ACCOUNTS_RECEIVABLE, direction: NormalBalance.CREDIT, ...shared },
+                    ],
+               },
+               db
+          );
+
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AR',
+               partyType: 'patient',
+               partyId: bill?.patientid ? Number(bill.patientid) : Number(foc.patientid),
+               documentType: 'staff_foc',
+               documentRef: `FOC-${foc.id}`,
+               documentDate: foc.approved_on || foc.created_at || new Date(),
+               amount: -amount,
+               sourceModule: SourceModule.BILLING,
+               sourceTable: 'staff_foc_transaction',
+               sourceRef: String(foc.id),
+               branchid: bill?.branchid ? Number(bill.branchid) : null,
+          });
+     } catch (error: any) {
+          logger.warn('Failed to enqueue Staff FOC accounting posting', {
+               tenantId,
+               focTransactionId,
+               error: error?.message || String(error),
+          });
+          if (trx) throw error;
+     }
+}
+
+export async function enqueueStaffFocBenefitReversal(
+     tenantId: number,
+     focTransactionId: number,
+     reversalReason: string,
+     trx?: any
+): Promise<void> {
+     try {
+          const db = await resolveDb(tenantId, trx);
+          const foc = await db('staff_foc_transaction').where({ id: focTransactionId }).first();
+          if (!foc || foc.status !== 'reversed') return;
+
+          const amount = round2(Number(foc.foc_amount || 0));
+          if (!Number.isFinite(amount) || amount <= 0) return;
+
+          const bill = await db('billing')
+               .select('branchid', 'patientid')
+               .where({ billingid: foc.billingid })
+               .first();
+          const shared = {
+               amount,
+               billingid: Number(foc.billingid),
+               employeeid: Number(foc.employeeid),
+               branchid: bill?.branchid ? Number(bill.branchid) : null,
+          };
+
+          await enqueuePosting(
+               tenantId,
+               {
+                    tenantId,
+                    transactionType: TransactionType.REVERSAL,
+                    sourceModule: SourceModule.BILLING,
+                    sourceTable: 'staff_foc_transaction',
+                    sourcePk: Number(foc.id),
+                    sourceRef: `reversal:${foc.id}`,
+                    description: `Reversed Staff FOC benefit: ${reversalReason}`,
+                    occurredAt: foc.reversed_at || new Date(),
+                    createdBy: foc.reversed_by ? Number(foc.reversed_by) : null,
+                    lines: [
+                         { accountCode: ACCOUNTS_RECEIVABLE, direction: NormalBalance.DEBIT, ...shared },
+                         { accountCode: STAFF_BENEFIT_EXPENSE, direction: NormalBalance.CREDIT, ...shared },
+                    ],
+               },
+               db
+          );
+
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AR',
+               partyType: 'patient',
+               partyId: bill?.patientid ? Number(bill.patientid) : Number(foc.patientid),
+               documentType: 'staff_foc_reversal',
+               documentRef: `FOC-REVERSAL-${foc.id}`,
+               documentDate: foc.reversed_at || new Date(),
+               amount,
+               sourceModule: SourceModule.BILLING,
+               sourceTable: 'staff_foc_transaction',
+               sourceRef: `reversal:${foc.id}`,
+               branchid: bill?.branchid ? Number(bill.branchid) : null,
+          });
+     } catch (error: any) {
+          logger.warn('Failed to enqueue Staff FOC reversal posting', {
+               tenantId,
+               focTransactionId,
                error: error?.message || String(error),
           });
           if (trx) throw error;
