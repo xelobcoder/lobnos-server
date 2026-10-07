@@ -72,6 +72,7 @@ export function startOptionalRedisCache(): void {
                error: error instanceof Error ? error.message : String(error),
           });
      });
+     console.log("INIT REDIS CLIENT")
 }
 
 export function stopOptionalRedisCache(): void {
