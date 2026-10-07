@@ -68,6 +68,69 @@ npm run dev
 
 Server runs on `http://localhost:5000`
 
+### Optional test-panel read cache
+
+Client test-panel catalogue reads use Redis when available, with MySQL remaining
+the source of truth. Master catalogue reads and patient result-entry data are not
+cached. Response formats and route authorization remain unchanged.
+
+Cached routes:
+
+- `/api/v1/testpanel/list` (full list and individual `id` variants).
+- `/api/v1/testpanel/list/bulk` (client grouping, including filters).
+- `/api/v1/testpanel/list/bulk/billing`.
+- `/api/v1/gettestpanel/edit` (both department variants).
+
+Create, custom-create, edit, rename, delete, bulk updates/pricing, successful master
+imports, QC requirement changes, department changes, sample-type changes, and
+outsourcing-list updates invalidate these views. Internal clinical/device metadata
+queries continue reading MySQL directly. Legacy multi-statement edits invalidate
+even when a later statement fails after an earlier statement committed.
+
+The cache starts independently of the accounting worker. Its dedicated Redis
+connection supports Redis 3.x and never queues commands while disconnected.
+Disconnected installations use MySQL immediately; a stalled cache command is
+bounded by `REDIS_CACHE_TIMEOUT_MS` (150 ms by default). A request can perform
+several sequential cache commands, each with this bound. Cache failures are logged
+and do not fail database reads or committed writes.
+
+Configuration (see [.env.example](.env.example)):
+
+- `REDIS_ENABLED=false` or `REDIS_CACHE_ENABLED=false`: disable the optional cache.
+- `REDIS_HOST`, `REDIS_PORT`, `REDIS_PASSWORD`, `REDIS_DB`: connection settings.
+- `TEST_PANEL_CACHE_TTL_SECONDS`: positive integer expiration, default 900 seconds.
+- `REDIS_CACHE_TIMEOUT_MS`: positive integer operation timeout, default 150 ms.
+- `REDIS_CACHE_NAMESPACE`: unique application/database deployment namespace.
+  The default is derived from the application's configured database connection.
+  Instances serving the same installation must share this namespace.
+
+Catalogue mutations invalidate a resource generation after database writes
+complete, retiring all list/filter/detail variants. Redis entries are rebuilt on
+the next read rather than patched independently. Old entries expire naturally;
+no key scan or database-wide Redis flush is used. Publication checks the original
+generation atomically, so an overlapping old database read cannot repopulate the
+current generation. Dates are preserved when data is serialized.
+
+Startup, reconnection, and recovery after a cache error rotate a shared namespace
+epoch before cached reads resume. This prevents a restarted or reconnected server
+from reusing entries left by offline writes. While multiple connected instances
+share invalidations, a network-isolated writer cannot instantly invalidate the
+cache of another still-connected instance: expiration or recovery bounds that
+case. Deployments requiring strict cross-instance consistency during asymmetric
+outages need a transactional database invalidation outbox before enabling caching.
+
+Direct SQL changes bypass application invalidation. After such maintenance,
+restart the application to rotate the namespace or temporarily disable caching.
+Do not share a namespace between unrelated installations. Internal cache metrics
+are available through `optionalRedisCache.metrics` for hits, misses, bypasses,
+errors, invalidations, and coalesced loads; no public diagnostic endpoint is added.
+
+Run the focused cache tests with:
+
+```bash
+npx vitest run src/services/cache src/testpanel/testpanelList.cache.test.ts src/controllers/testpanel/testPanelCacheMutations.test.ts
+```
+
 ### Production Distribution
 
 Create a complete, self-contained distribution package:

@@ -97,7 +97,6 @@ export class TaxReliefRepository {
           if (!id || typeof id !== 'number' || id <= 0) {
                throw new Error('Valid tax relief ID is required');
           }
-
           const connection = await this.connection;
           const affectedRows = await connection('payroll_tax_reliefs')
                .where({ id })

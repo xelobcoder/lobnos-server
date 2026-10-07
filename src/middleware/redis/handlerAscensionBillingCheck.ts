@@ -5,7 +5,7 @@ import { OperationsFailures } from '../../models/operations/types';
 
 export const billingIdChecker = (request: Request, response: Response, next: NextFunction) => {
      const { csvid, ptid, target, testid } = request.query;
-     const { billingid, patientid } = new Creator(parseInt(testid.toString())).sanitize_patientid_billingid_query(csvid as string, ptid as string, target as string);
+     const { billingid, patientid } = new Creator(parseInt(testid as string)).sanitize_patientid_billingid_query(csvid as string, ptid as string, target as string);
 
      if (!billingid || !patientid) {
           return response.status(400).json({ status: false, message: 'billingid or patientid not found' });

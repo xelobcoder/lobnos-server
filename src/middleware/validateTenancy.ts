@@ -18,19 +18,34 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 }
 
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
-     const bypassRoutes = ['/api/v1/prime/login', '/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/resetpassword', '/api/v1/logins/logout'];
+     const bypassRoutes = [
+          '/api/v1/prime/login',
+          '/api/v1/settings/companyprofile/images',
+          '/api/v1/prime/forgotpassword',
+          '/api/v1/prime/resetpassword',
+          '/api/v1/logins/logout'
+     ];
+
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
+
      if (request.method === 'GET' && request.path === '/api/v1/interfacing/devices') return next();
+
      const headers = request.headers;
+
      const cookies = parseCookies(headers['cookie'] as string);
+
      const primeUserHeader = headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'];
+
      const primesession = headers['pls-session'] || cookies['pls-session'];
      const loginsession = headers['loginsesionId'] || cookies['loginsesionId'];
+
      if (!primeUserHeader) return customError('Token not provided', 401, response);
+
      try {
           const tenantIdRaw = request.query.tenantId;
           const tenantId = tenantIdRaw ? parseInt(tenantIdRaw.toString(), 10) : NaN;
           if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
+
           const tokenValue = primeUserHeader.toString();
           const status = await new TokenValidator().validateAccessToken(tokenValue) as { expired: boolean | undefined };
           if (status.expired == null || status.expired == undefined) return customError("Invalid Token Provided", 500, response);
@@ -38,6 +53,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
 
           const decoded = await new TokenValidator().decodeAccessToken(tokenValue);
           const role = decoded?.role ? String(decoded.role).toLowerCase().trim() : '';
+
           if (role === 'clinician' || role === 'patient') {
                const portalId = role === 'clinician' ? decoded?.clinicianid || decoded?.employeeid : decoded?.patientid || decoded?.employeeid;
                if (!portalId) return customError('Invalid token', 401, response);
@@ -105,10 +121,18 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request<{}
           const parsedEmployeeid = parseInt(employeeid.toString())
           const userdata = await new RolesRepository(tenantIdP).getRoleById(parsedEmployeeid);
           const role = userdata ? userdata['role'].toLowerCase().trim() : ''
-          const allowedRoles = ["phelobotomist", 'admin', 'manager', 'scientist'];
+
+          const allowedRoles = [
+               "phelobotomist",
+               'admin',
+               'manager',
+               'scientist'
+          ];
+
           if (!allowedRoles.includes(role)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
+
           next();
      } catch (err) {
           responseError(response);
@@ -150,7 +174,12 @@ export const isAuthorizedRoleAdminOrAccountant = async (request: Request, respon
 
           const userdata = await new RolesRepository(tenantId).getRoleById(parseInt(String(employeeid), 10));
           const role = String(userdata?.role || '').toLowerCase().trim().replace(/_/g, '-');
-          const allowedRoles = ['admin', 'super-admin', 'superadmin', 'accountant'];
+          const allowedRoles = [
+               'admin',
+               'super-admin',
+               'superadmin',
+               'accountant'
+          ];
 
           if (!allowedRoles.includes(role)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 403, response);

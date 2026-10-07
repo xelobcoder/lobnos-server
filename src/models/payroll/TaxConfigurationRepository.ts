@@ -63,7 +63,8 @@ export class TaxConfigurationRepository {
                          String(config.updated_at)) :
                     undefined
           };
-     } async create(config: ITaxConfiguration): Promise<number> {
+     }
+     async create(config: ITaxConfiguration): Promise<number> {
           taxConfigurationSchema.parse(config);
           const connection = await this.connection;
           const dataToInsert = {

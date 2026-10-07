@@ -9,6 +9,7 @@ import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRep
 import KnexConnection from "../database/KnexConnections";
 import { applyTestPanelsAfterInsert } from "../database/appLevelTriggers";
 import { generateNextTestPanelId } from "./testPanelId";
+import { testPanelCache } from "../services/cache/testPanelCache";
 
 
 interface TestPanel {
@@ -102,10 +103,21 @@ export const testpanel = {
 		try {
 			if (testpanel.hasquery(tenantId, request)) {
 				const { id } = request.query as { id: string };
-				const result = await promisifyQuery(tenantId, testpanel.listqueryid(tenantId, "SELECT *", parseInt(id)));
+				const parsedId = parseInt(id);
+				const result = await testPanelCache.getOrLoad(
+					tenantId,
+					"client-list",
+					{ id: parsedId },
+					() => promisifyQuery(tenantId, testpanel.listqueryid(tenantId, "SELECT *", parsedId))
+				);
 				response.send({ statusCode: 200, status: "success", message: "success", data: result });
 			} else {
-				const result = await promisifyQuery(tenantId, testpanel.listquery);
+				const result = await testPanelCache.getOrLoad(
+					tenantId,
+					"client-list",
+					{},
+					() => promisifyQuery(tenantId, testpanel.listquery)
+				);
 				response.send({ statusCode: 200, status: "success", message: "success", data: result });
 			}
 		} catch (err) {
@@ -121,6 +133,7 @@ export const testpanel = {
 		if (hasFieldValues) {
 			const query = testpanel.updatequery(tenantId, parseInt(id), parseFloat(price), parseInt(category));
 			const result = await promisifyQuery(tenantId, query);
+			if (rowAffected(result)) await testPanelCache.invalidate(tenantId);
 			return rowAffected(result) ? response.send({ message: "Panel updated successfully" }) : response.send({ message: "Update failed" });
 		}
 		return response.send({ message: "All fields must have values" });
@@ -135,6 +148,7 @@ export const testpanel = {
 		if (isCustom === 0) return false;
 		const isDeleted = rowAffected(await promisifyQuery(tenantId, `DELETE FROM test_panels WHERE id = ? AND iscustom = 1`, [testid]));
 		if (isDeleted) {
+			await testPanelCache.invalidate(tenantId);
 			const testname = result[0]["name"].replace(/ /g, "_");
 			const dropTableQ = `DROP TABLE result${testname}`;
 			await promisifyQuery(tenantId, dropTableQ);
@@ -181,6 +195,7 @@ export const testpanel = {
 
 					await applyTestPanelsAfterInsert(trx, { testid: Number(id), price: Number(price ?? 0), iscustom: 0 });
 					await trx.commit();
+					await testPanelCache.invalidate(tenantId);
 					return response.send({ statusCode: 201, status: "success", message: "Panel created successfully" });
 				} catch (err) {
 					await trx.rollback();
@@ -200,6 +215,7 @@ export const testpanel = {
 		const query = "INSERT INTO sampletype (name) VALUE (?)";
 		const { name } = request.body;
 		const result = rowAffected(await promisifyQuery(tenantIdP, query, [name]));
+		if (result) await testPanelCache.invalidate(tenantIdP);
 		return result
 			? response.send({
 				message: "Added successfully",
@@ -231,7 +247,9 @@ export const testpanel = {
 
 			const deleteQuery = "DELETE FROM sampletype WHERE id = ?";
 			const result = await promisifyQuery(tenantIdP, deleteQuery, [parseInt(id)]);
-			return rowAffected(result)
+			const deleted = rowAffected(result);
+			if (deleted) await testPanelCache.invalidate(tenantIdP);
+			return deleted
 				? response.send({
 					message: "Deleted successfully",
 					statusCode: 200,
@@ -259,20 +277,24 @@ export const testpanel = {
 			const { tenantId } = request.query;
 			const tenantIdP = parseInt(tenantId.toString());
 
+			if (!Array.isArray(panel) || panel.length === 0) {
+				return customError("Panel must be a non-empty array", 400, response);
+			}
 			if (Array.isArray(panel) && panel.length > 0) {
+				let changed = false;
 				try {
-					panel.forEach(async (item: TestPanel, index: number) => {
+					for (const item of panel) {
 						const { id, name, price, sample, category, qty_required } = item;
 						const queryString = `UPDATE test_panels SET 
              name = ?, price = ?, sample = ?, category = ?, qty_required = ? WHERE id = ?`;
 						const result = await promisifyQuery(tenantIdP, queryString, [name, price, sample, category, qty_required, id]);
-						if (result.affectedRows > 0) {
-							if (index === panel.length - 1) {
-								response.send({ message: "Update successful", statusCode: "201", status: "success" });
-							}
-						}
-					});
+						changed = changed || rowAffected(result);
+					}
+					if (changed) await testPanelCache.invalidate(tenantIdP);
+					if (!changed) return customError("No test panels were updated", 404, response);
+					response.send({ message: "Update successful", statusCode: "201", status: "success" });
 				} catch (err) {
+					if (changed) await testPanelCache.invalidate(tenantIdP);
 					logger.error(err);
 					response.send({ message: (err as Error).message, statusCode: "500", status: "error" });
 				}
@@ -331,6 +353,7 @@ export const testpanel = {
 	},
 
 	putSingleTestPanel: async (tenantId: number, request: Request, response: Response) => {
+		let changed = false;
 		try {
 			const { id } = request.body;
 
@@ -412,6 +435,7 @@ export const testpanel = {
 
 				const outcome = rowAffected(updateMainPanel);
 				if (outcome) {
+					changed = true;
 					const updatePanel = `
 								UPDATE testdetails SET 
 									tat = ?,
@@ -466,11 +490,14 @@ export const testpanel = {
 					];
 
 					const updateTestDetails = await promisifyQuery(tenantId, updatePanel, values);
-
+					await testPanelCache.invalidate(tenantId);
+					changed = false;
 					response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" });
 				}
 			}
 		} catch (err) {
+			if (changed) await testPanelCache.invalidate(tenantId);
+			logger.error(err);
 			response.send(err);
 		}
 	},
@@ -488,21 +515,25 @@ export const testpanel = {
 				query += ` WHERE tp.name LIKE '%${searchstring}%'`;
 			}
 		}
-		try {
-			let result = grouping == "master" ? await new MasterTestPanelRepository().getMasterPanels() : await promisifyQuery(tenantId, query);
-			return result;
-		} catch (err) {
-			logger.error(err);
-			return false
-
-		}
+		if (grouping === "master") return new MasterTestPanelRepository().getMasterPanels();
+		return testPanelCache.getOrLoad(
+			tenantId,
+			"client-bulk-list",
+			{ filtercategory: filtercategory ?? null, searchstring: searchstring ?? null },
+			() => promisifyQuery(tenantId, query)
+		);
 	},
 
 	getPanelBulKLessInformation: async function (request: Request<{}, {}, {}, { tenantId: number }>, response: Response) {
 		const tenantIdP = parseInt(request.query.tenantId.toString())
 		try {
 			const query = `SELECT tp.name,tp.price AS discountedValue,tp.id,td.isoutsourced,td.testid from test_panels AS tp INNER JOIN testdetails AS td ON td.testid = tp.id `;
-			const result = await promisifyQuery(tenantIdP, query);
+			const result = await testPanelCache.getOrLoad(
+				tenantIdP,
+				"billing-selection",
+				{},
+				() => promisifyQuery(tenantIdP, query)
+			);
 			if (result.length > 0) {
 				const hasOutsourcedTestArray = result.filter((item: any, index: number) => item.isoutsourced == '1');
 			}
@@ -512,15 +543,20 @@ export const testpanel = {
 		}
 	},
 
-	getPanelEditSingle: async (tenantId: number, testid: number, getPanelInformationWithoutDepartment = false) => {
-		if (getPanelInformationWithoutDepartment) {
-			return await testpanel.getPanelInformationWithoutDepartment(tenantId, testid);
-		}
-		const query = `SELECT * FROM test_panels AS tp 
+	getPanelEditSingle: async (tenantId: number, testid: number, getPanelInformationWithoutDepartment = false, useCache = false) => {
+		const load = () => getPanelInformationWithoutDepartment
+			? testpanel.getPanelInformationWithoutDepartment(tenantId, testid)
+			: promisifyQuery(tenantId, `SELECT * FROM test_panels AS tp
 			INNER JOIN testdetails AS td ON td.testid = tp.id
 			INNER JOIN departments AS d ON d.id = tp.category
-			WHERE tp.id = ?`;
-		return await promisifyQuery(tenantId, query, [testid]);
+			WHERE tp.id = ?`, [testid]);
+		if (!useCache) return load();
+		return testPanelCache.getOrLoad(
+			tenantId,
+			"test-panel-edit",
+			{ testid, withDepartment: !getPanelInformationWithoutDepartment },
+			load
+		);
 	},
 
 	getPanelInformationWithoutDepartment: async (tenantId: number, testid: number) => {
@@ -641,6 +677,7 @@ export const testpanel = {
 					});
 				}
 				await trx.commit();
+				await testPanelCache.invalidate(tenantId);
 				return !!(primKey && Number(primKey) > 0);
 			} catch (err) {
 				await trx.rollback();
@@ -665,6 +702,7 @@ export const testpanel = {
 			if (doTestWithSuchNameExist) return OperationsFailures.TestExist;
 			const q_alterTestName = `UPDATE test_panels SET name =? WHERE id = ? `;
 			await promisifyQuery(tenantId, q_alterTestName, [newTestName, testid]);
+			await testPanelCache.invalidate(tenantId);
 			return true;
 		} catch (error) {
 			console.log(error);
@@ -692,6 +730,7 @@ export const testpanel = {
 
 				const deleteResult = await trx("test_panels").where({ id: testid }).del();
 				await trx.commit();
+				if (deleteResult > 0) await testPanelCache.invalidate(tenantId);
 				return deleteResult > 0;
 			} catch (transactionError) {
 				await trx.rollback();

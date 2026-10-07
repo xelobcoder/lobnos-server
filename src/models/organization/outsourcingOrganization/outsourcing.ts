@@ -3,6 +3,7 @@ import User from '../../../LobnosAuth/user';
 import { OperationsFailures } from "../../operations/types";
 import { CustomTest } from '../../resultentry/customTestEntry';
 import { FilterParams, IOutSourcing, organizationDataServiceData, OutSourcingOrganization, serviceProvidedSummary } from "./outsourcingTypes";
+import { testPanelCache } from "../../../services/cache/testPanelCache";
 import {
     q_check_an_outsource_organization_provided_test,
     q_create_an_outsource_organization,
@@ -163,7 +164,9 @@ export default class Outsourcing implements IOutSourcing {
         if (organization.length === 0 || !testid) return false;
         const stringedOrganizations = organization.join(",");
         const result = await promisifyQuery(tenantId, q_update_testdetails_outsourcing, [stringedOrganizations, testid]);
-        return rowAffected(result);
+        const updated = rowAffected(result);
+        if (updated) await testPanelCache.invalidate(tenantId);
+        return updated;
     }
 
     async getTestOutSourcingOrganizations(tenantId: number, testid: number): Promise<[]> {

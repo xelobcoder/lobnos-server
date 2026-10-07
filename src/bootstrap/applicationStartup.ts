@@ -21,6 +21,7 @@ import { bootstrapApplicationSettings } from '../models/application/appsettings/
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
+import { startOptionalRedisCache } from '../services/cache/testPanelCache';
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
 	await bootstrapInventoryDefaults(tenantId);
@@ -61,6 +62,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 }
 
 export function startApplicationBackgroundWorkers(tenantId = 1, options: { accountingReady: boolean }): void {
+	startOptionalRedisCache();
 	if (!options.accountingReady) return;
 
 	try {

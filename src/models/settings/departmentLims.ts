@@ -1,6 +1,7 @@
 import * as departmentQueries from "./departmentQueries";
 import ApplicationSettings from "../application/appsettings/appset";
 import { rowAffected, promisifyQuery } from "../../hooks/helper";
+import { testPanelCache } from "../../services/cache/testPanelCache";
 
 export type newDepartment = {
     department: string;
@@ -19,7 +20,9 @@ export class DepartmentLims extends ApplicationSettings {
     public async addNewDepartment(tenantId: number, requestBody: newDepartment): Promise<boolean> {
         const { department, departmentManager, employeeid } = requestBody;
         const values = [department, departmentManager, employeeid];
-        return rowAffected(await promisifyQuery(tenantId, departmentQueries.INSERT_DEPARTMENT, values));
+        const inserted = rowAffected(await promisifyQuery(tenantId, departmentQueries.INSERT_DEPARTMENT, values));
+        if (inserted) await testPanelCache.invalidate(tenantId);
+        return inserted;
     }
 
     public getDepartments(tenantId: number): Promise<newDepartment[]> {
@@ -29,14 +32,18 @@ export class DepartmentLims extends ApplicationSettings {
     public async updateDepartment(tenantId: number, requestBody: newDepartment): Promise<boolean> {
         const { department, departmentManager, id, employeeid } = requestBody;
         const values = [department, departmentManager, employeeid, parseInt(id!.toString())];
-        return rowAffected(await promisifyQuery(tenantId, departmentQueries.UPDATE_DEPARTMENT, values));
+        const updated = rowAffected(await promisifyQuery(tenantId, departmentQueries.UPDATE_DEPARTMENT, values));
+        if (updated) await testPanelCache.invalidate(tenantId);
+        return updated;
     }
 
     public async deleteDepartment(tenantId: number): Promise<boolean> {
         if (this.departmentId) {
             const values = [this.departmentId];
             const packet = await promisifyQuery(tenantId, departmentQueries.DELETE_DEPARTMENT, values);
-            return rowAffected(packet);
+            const deleted = rowAffected(packet);
+            if (deleted) await testPanelCache.invalidate(tenantId);
+            return deleted;
         }
         return false;
     }

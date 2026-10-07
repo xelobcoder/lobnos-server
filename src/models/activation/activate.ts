@@ -29,6 +29,9 @@ export async function changeActivationStatus(tenantId: number, data: Activation)
 
 export async function changeActivationRouter(request: Request, response: Response) {
 	const { tenantId } = request.query;
+	if (!tenantId) {
+		return response.send({ status: false, message: "tenantId is required" });
+	}
 	try {
 		const requestQuery = request.query as unknown as Activation;
 		const status = await changeActivationStatus(parseInt(tenantId.toString()), requestQuery);

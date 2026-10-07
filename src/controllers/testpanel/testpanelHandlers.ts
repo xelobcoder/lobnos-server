@@ -10,6 +10,7 @@ import MasterTestPanelRepository from "../../models/system-admin/MasterTestPanel
 import KnexConnection from "../../database/KnexConnections";
 import { applyTestPanelsAfterInsert } from "../../database/appLevelTriggers";
 import { generateNextTestPanelId } from "../../testpanel/testPanelId";
+import { testPanelCache } from "../../services/cache/testPanelCache";
 
 
 // Category Handlers
@@ -120,7 +121,7 @@ export const getTestPanelEdit = async (req: Request<{}, {}, {}, { tenantId: numb
           const tenantId = parseInt(req.query.tenantId.toString())
           if (!id) return customError("testid is required", 404, res);
           const isDepartment = withoutdepartment === "true" ? false : true;
-          const result = await testpanel.getPanelEditSingle(tenantId, parseInt(id.toString()), isDepartment);
+          const result = await testpanel.getPanelEditSingle(tenantId, parseInt(id.toString()), isDepartment, true);
           res.send(result.length > 0 ? result[0] : {});
      } catch (err) {
           console.log(err)
@@ -210,6 +211,7 @@ export const putTestPanelQcRequirement = async (req: Request, res: Response) => 
           const updated = await connection('test_panels')
                .where({ id: testId })
                .update({ requires_qc: rawRequirement ? 1 : 0 });
+          if (updated > 0) await testPanelCache.invalidate(tenantId);
           res.send({ status: 'success', testid: testId, requiresQc: Boolean(rawRequirement) });
      } catch (error) {
           responseError(res, error);
@@ -383,6 +385,7 @@ export const putBulkTestPricingUpdate = async (req: Request<{}, {}, { tests: { t
                }
 
                await trx.commit();
+               await testPanelCache.invalidate(tenantId);
                res.send({ message: "Test pricing updated successfully", statusCode: 200, status: "success" });
           } catch (err) {
                console.log(err)
@@ -698,6 +701,7 @@ export const importMasterTestPanelToClientList = async (
           for (const masterTestId of parsedMasterTestIds) {
                const result = await importOneMasterTest(masterTestId, connection, masterRepo);
                results.push(result);
+               if (result.success) await testPanelCache.invalidate(parsedTenantId);
           }
 
           const imported = results.filter((r) => r.success);

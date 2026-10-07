@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { generateNextTestPanelId } from '../../../../testpanel/testPanelId';
 
-exports.seed = async function (knex) {
+exports.seed = async function (knex:any) {
 
      await knex.raw('SET FOREIGN_KEY_CHECKS = 0;');
      await knex('testcreationrules').del();
