@@ -14,6 +14,7 @@ function positiveInteger(name: string, fallback: number): number {
 
 const timeoutMs = positiveInteger('REDIS_CACHE_TIMEOUT_MS', 150);
 const ttlSeconds = positiveInteger('TEST_PANEL_CACHE_TTL_SECONDS', 900);
+const referenceTtlSeconds = positiveInteger('REFERENCE_DATA_CACHE_TTL_SECONDS', 1800);
 const redisDb = Number(process.env.REDIS_DB || 0);
 if (!Number.isSafeInteger(redisDb) || redisDb < 0) throw new Error('REDIS_DB must be a non-negative integer');
 
@@ -72,7 +73,6 @@ export function startOptionalRedisCache(): void {
                error: error instanceof Error ? error.message : String(error),
           });
      });
-     console.log("INIT REDIS CLIENT")
 }
 
 export function stopOptionalRedisCache(): void {
@@ -86,11 +86,19 @@ function scope(tenantId: number): string {
      return configuration.isMultiTenant ? `tenant:${tenantId}` : 'single-tenant';
 }
 
-export const testPanelCache = {
-     getOrLoad<T>(tenantId: number, view: string, parameters: Record<string, unknown>, loader: () => Promise<T>): Promise<T> {
-          return optionalRedisCache.getOrLoad(scope(tenantId), 'test-panels', view, parameters, ttlSeconds, loader);
-     },
-     invalidate(tenantId: number): Promise<void> {
-          return optionalRedisCache.invalidate(scope(tenantId), 'test-panels');
-     },
-};
+function resourceCache(resource: string, expiration: number) {
+     return {
+          getOrLoad<T>(tenantId: number, view: string, parameters: Record<string, unknown>, loader: () => Promise<T>): Promise<T> {
+               return optionalRedisCache.getOrLoad(scope(tenantId), resource, view, parameters, expiration, loader);
+          },
+          invalidate(tenantId: number): Promise<void> {
+               return optionalRedisCache.invalidate(scope(tenantId), resource);
+          },
+     };
+}
+
+export const testPanelCache = resourceCache('test-panels', ttlSeconds);
+export const branchCache = resourceCache('branches', referenceTtlSeconds);
+// Department edits and master imports already invalidate the joined test-panel resource.
+export const departmentCache = resourceCache('test-panels', referenceTtlSeconds);
+export const companyInfoCache = resourceCache('company-info', referenceTtlSeconds);

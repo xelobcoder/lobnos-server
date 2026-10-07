@@ -82,6 +82,7 @@ describe('test-panel cache facade', () => {
           for (const [setting, value] of [
                ['REDIS_CACHE_TIMEOUT_MS', '0'],
                ['TEST_PANEL_CACHE_TTL_SECONDS', 'bad'],
+               ['REFERENCE_DATA_CACHE_TTL_SECONDS', '0'],
                ['REDIS_DB', '-1'],
           ]) {
                vi.resetModules();
@@ -89,5 +90,22 @@ describe('test-panel cache facade', () => {
                await expect(import('./testPanelCache')).rejects.toThrow(setting);
                vi.unstubAllEnvs();
           }
+     });
+
+     it('namespaces reference data and shares department generations with joined test panels', async () => {
+          vi.stubEnv('REFERENCE_DATA_CACHE_TTL_SECONDS', '600');
+          const { branchCache, departmentCache, companyInfoCache } = await import('./testPanelCache');
+          mocks.configuration.isMultiTenant = true;
+          const loader = async () => [];
+          await branchCache.getOrLoad(3, 'branch-list', { page: 2 }, loader);
+          await departmentCache.getOrLoad(3, 'department-list', {}, loader);
+          await companyInfoCache.getOrLoad(3, 'company-profile', {}, loader);
+          expect(mocks.getOrLoad).toHaveBeenNthCalledWith(1, 'tenant:3', 'branches', 'branch-list', { page: 2 }, 600, loader);
+          expect(mocks.getOrLoad).toHaveBeenNthCalledWith(2, 'tenant:3', 'test-panels', 'department-list', {}, 600, loader);
+          expect(mocks.getOrLoad).toHaveBeenNthCalledWith(3, 'tenant:3', 'company-info', 'company-profile', {}, 600, loader);
+          await branchCache.invalidate(3);
+          await companyInfoCache.invalidate(3);
+          expect(mocks.invalidate).toHaveBeenCalledWith('tenant:3', 'branches');
+          expect(mocks.invalidate).toHaveBeenCalledWith('tenant:3', 'company-info');
      });
 });

@@ -74,6 +74,18 @@ Client test-panel catalogue reads use Redis when available, with MySQL remaining
 the source of truth. Master catalogue reads and patient result-entry data are not
 cached. Response formats and route authorization remain unchanged.
 
+Branches (`/api/v1/branches`, including pagination and ID variants), departments
+(list and individual details), and company information
+(`/api/v1/settings/companyprofile`) also use the same optional Redis connection.
+Their default expiration is 30 minutes, configurable through the positive integer
+`REFERENCE_DATA_CACHE_TTL_SECONDS`. Successful branch creation, editing, deletion,
+activation/deactivation, department changes, company-profile replacement, and
+profile clearing invalidate affected entries before returning. Department views
+share the test-panel generation so master imports creating departments also
+invalidate them. Company replacement uses transactional deletion rather than
+MySQL `TRUNCATE`, which implicitly commits. Company image files remain served from
+disk; binary images and internal branch validation lookups are not cached.
+
 Cached routes:
 
 - `/api/v1/testpanel/list` (full list and individual `id` variants).
@@ -128,7 +140,7 @@ errors, invalidations, and coalesced loads; no public diagnostic endpoint is add
 Run the focused cache tests with:
 
 ```bash
-npx vitest run src/services/cache src/testpanel/testpanelList.cache.test.ts src/controllers/testpanel/testPanelCacheMutations.test.ts
+npx vitest run --exclude "dist/**" src/services/cache src/testpanel/testpanelList.cache.test.ts src/controllers/testpanel/testPanelCacheMutations.test.ts
 ```
 
 ### Production Distribution

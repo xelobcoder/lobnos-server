@@ -1,7 +1,7 @@
 import * as departmentQueries from "./departmentQueries";
 import ApplicationSettings from "../application/appsettings/appset";
 import { rowAffected, promisifyQuery } from "../../hooks/helper";
-import { testPanelCache } from "../../services/cache/testPanelCache";
+import { testPanelCache, departmentCache } from "../../services/cache/testPanelCache";
 
 export type newDepartment = {
     department: string;
@@ -26,7 +26,8 @@ export class DepartmentLims extends ApplicationSettings {
     }
 
     public getDepartments(tenantId: number): Promise<newDepartment[]> {
-        return promisifyQuery(tenantId, departmentQueries.SELECT_ALL_DEPARTMENTS);
+        return departmentCache.getOrLoad(tenantId, 'department-list', {},
+            () => promisifyQuery(tenantId, departmentQueries.SELECT_ALL_DEPARTMENTS));
     }
 
     public async updateDepartment(tenantId: number, requestBody: newDepartment): Promise<boolean> {
@@ -50,7 +51,8 @@ export class DepartmentLims extends ApplicationSettings {
 
     public async getSpecificDepartment(tenantId: number): Promise<newDepartment | null> {
         const values = [this.departmentId];
-        const dataPackets = await promisifyQuery(tenantId, departmentQueries.SELECT_DEPARTMENT_BY_ID, values);
+        const dataPackets = await departmentCache.getOrLoad(tenantId, 'department-by-id', { id: this.departmentId },
+            () => promisifyQuery(tenantId, departmentQueries.SELECT_DEPARTMENT_BY_ID, values));
         return dataPackets.length > 0 ? dataPackets[0] : null;
     }
 }

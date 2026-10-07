@@ -2,6 +2,7 @@ import { q_get_company_information, q_truncate_company_information } from "./com
 import logger from "../../hooks/logger";
 import { promisifyQuery } from "../../hooks/helper";
 import KnexConnection from "../../database/KnexConnections";
+import { companyInfoCache } from "../../services/cache/testPanelCache";
 
 export type companyInfo = {
     name: string;
@@ -17,14 +18,15 @@ export type companyInfo = {
 
 export const truncateCompanyProfile = async (tenantId: number): Promise<void> => {
     await promisifyQuery(tenantId, q_truncate_company_information);
+    await companyInfoCache.invalidate(tenantId);
 };
 
 export const insertCompanyProfile = async (tenantId: number, parameters: companyInfo): Promise<boolean> => {
     const connection = await KnexConnection(tenantId);
-    return connection.transaction(async (trx) => {
+    const inserted = await connection.transaction(async (trx) => {
         const exists = await trx('companyprofile').count('* as count').first();
-        if (parseInt(exists.count as string) > 0) {
-            await trx('companyprofile').truncate();
+        if (parseInt(exists?.count as string) > 0) {
+            await trx('companyprofile').del();
         }
         const { name, email, motto, phonenumber, additionalInfo, address, website, street, alternativenumber } = parameters;
         const result = await trx('companyprofile').insert({
@@ -40,9 +42,13 @@ export const insertCompanyProfile = async (tenantId: number, parameters: company
         });
         return result.length > 0;
     });
+    if (inserted) await companyInfoCache.invalidate(tenantId);
+    return inserted;
 };
 
 export const getAllCompanyProfiles = async (tenantId: number): Promise<companyInfo | null> => {
-    const packets = await promisifyQuery(tenantId, q_get_company_information);
-    return packets.length > 0 ? packets[0] : null;
+    return companyInfoCache.getOrLoad(tenantId, 'company-profile', {}, async () => {
+        const packets = await promisifyQuery(tenantId, q_get_company_information);
+        return packets.length > 0 ? packets[0] : null;
+    });
 };
