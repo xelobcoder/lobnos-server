@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
      recover: vi.fn(async () => undefined),
      configuration: { isMultiTenant: false },
      options: undefined as Record<string, unknown> | undefined,
+     loggerWarn: vi.fn(),
+     loggerInfo: vi.fn(),
 }));
 
 vi.mock('ioredis', () => ({
@@ -22,7 +24,7 @@ vi.mock('ioredis', () => ({
           }
      },
 }));
-vi.mock('../../hooks/logger', () => ({ default: { warn: vi.fn() } }));
+vi.mock('../../hooks/logger', () => ({ default: { warn: mocks.loggerWarn, info: mocks.loggerInfo } }));
 vi.mock('../../hooks/configuration', () => ({ configuration: mocks.configuration }));
 vi.mock('./OptionalRedisCache', () => ({
      OptionalRedisCache: class {
@@ -53,6 +55,32 @@ describe('test-panel cache facade', () => {
           expect(mocks.client.connect).toHaveBeenCalledTimes(1);
           cache.stopOptionalRedisCache();
           expect(mocks.client.disconnect).toHaveBeenCalledTimes(1);
+     });
+
+     it('keeps startup non-fatal when Redis connection initialization throws synchronously', async () => {
+          const cache = await import('./testPanelCache');
+          mocks.client.connect.mockImplementationOnce(() => {
+               throw new Error('Redis unavailable');
+          });
+
+          expect(() => cache.startOptionalRedisCache()).not.toThrow();
+          await vi.waitFor(() => expect(mocks.loggerWarn).toHaveBeenCalledWith(
+               'Optional Redis cache unavailable; using database',
+               { error: 'Redis unavailable' },
+          ));
+     });
+
+     it('warns once per outage and logs recovery', async () => {
+          const cache = await import('./testPanelCache');
+          const handler = (event: string) => mocks.client.on.mock.calls.find(([name]) => name === event)![1];
+          cache.startOptionalRedisCache();
+          handler('error')(new Error('ECONNREFUSED'));
+          handler('error')(new Error('ECONNREFUSED'));
+          expect(mocks.loggerWarn).toHaveBeenCalledTimes(1);
+          handler('ready')();
+          expect(mocks.loggerInfo).toHaveBeenCalledWith('Optional Redis cache connected');
+          handler('error')(new Error('ECONNREFUSED'));
+          expect(mocks.loggerWarn).toHaveBeenCalledTimes(2);
      });
 
      it.each(['REDIS_ENABLED', 'REDIS_CACHE_ENABLED'])('honors %s=false', async (setting) => {

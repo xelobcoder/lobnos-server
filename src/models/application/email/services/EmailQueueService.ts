@@ -20,10 +20,11 @@ export class EmailQueueService {
           private settingsRepo: EmailSettingsRepo,
           private providerFactory: ProviderFactory,
           private templateRenderer: TemplateRenderer,
+          private activationGuard: (tenantId: number) => Promise<void> = ensureEmailModuleActivated,
      ) { }
 
      private async ensureActivated() {
-          await ensureEmailModuleActivated(this.queueRepo.getTenantId());
+          await this.activationGuard(this.queueRepo.getTenantId());
      }
 
      async queueEmail(dto: CreateEmailJobDto) {

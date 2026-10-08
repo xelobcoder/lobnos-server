@@ -214,7 +214,6 @@ export class CommissionConfigController {
                } = req.body;
 
                const tierRepository = CommissionServiceFactory.createTierRepository(tenantId);
-               await tierRepository.deleteByConfigId(configId);
 
                const mergedConfig = {
                     name: name ?? existingConfig.name,
@@ -245,14 +244,9 @@ export class CommissionConfigController {
                     return;
                }
 
-               const updatedConfig = await repository.update(configId, mergedConfig as any);
-
+               // Validate tiers before any write so a rejected update never leaves the config without tiers.
                const configType = mergedConfig.commission_type;
                const isTierBased = ['tiered', 'volume', 'quota', 'accelerating'].includes(configType);
-
-               if (!isTierBased) {
-                    await tierRepository.deleteByConfigId(configId);
-               }
 
                if (isTierBased && Array.isArray(tiers)) {
                     try {
@@ -266,14 +260,20 @@ export class CommissionConfigController {
                          });
                          return;
                     }
+               }
 
+               const updatedConfig = await repository.update(configId, mergedConfig as any);
+
+               if (!isTierBased) {
+                    await tierRepository.deleteByConfigId(configId);
+               } else if (Array.isArray(tiers)) {
                     await tierRepository.deleteByConfigId(configId);
                     if (tiers.length > 0) {
                          await tierRepository.createMultiple(tiers, configId);
                     }
                }
 
-               res.json({
+               res.status(200).json({
                     status: 'success',
                     statusCode: 200,
                     message: 'Commission configuration updated successfully',

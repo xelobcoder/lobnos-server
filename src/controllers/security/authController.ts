@@ -1,10 +1,12 @@
 import { customError } from "../../hooks/helper";
-import { parseCookies } from "../../middleware/validateTenancy";
+import { hashDeviceFingerprint, parseCookies } from "../../middleware/validateTenancy";
 import ApplicationSettings from "../../models/application/appsettings/appset";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { SessionCreationError } from "../../models/security/errors/SecurityErrors";
-import Security from "../../models/security/securityClass";
 import { ApplicationLoginLoggingService } from "../../models/security/services/ApplicationLoginLoggging.services";
+import { TenantLoginDirectory } from "../../models/auth/TenantLoginDirectory";
+import { effectiveTenantId } from "../../hooks/configuration";
+import logger from "../../hooks/logger";
 import { getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
@@ -14,7 +16,6 @@ import { FinancialPinVerificationService } from "../../accountingModule/services
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
 export class AuthController {
-	private authRepo: AuthenticationRepository | null = null;
 	private tokenValidator: TokenValidator;
 
 	constructor() {
@@ -32,40 +33,54 @@ export class AuthController {
 	public async login(req: Request, res: Response): Promise<void> {
 		try {
 			const tenantId = this.getTenantId(req);
-			this.authRepo = new AuthenticationRepository(tenantId);
+			const authRepo = new AuthenticationRepository(tenantId);
 			const { email, username, identifier, password, browserInfo } = req.body;
 			const loginIdentifier = username || identifier || email;
-			const tokens = await this.authRepo.login(loginIdentifier, password);
-			if (!tokens) {
-				const message = 'Invalid username or password'
-				res.status(401).json({ status: false, error: message });
+			const user = await authRepo.validatePassword(loginIdentifier, password);
+			if (!user) {
+				res.status(401).json({ status: false, error: 'Invalid username or password', message: 'Invalid username or password' });
 				return;
 			}
-			const user = tokens.user;
 			const { role, username: displayUsername, employeeid, activation, email: userEmail, login_username } = user;
-			if (parseInt(activation.toString()) == 0) {
-				res.send({
+			if (activation !== undefined && activation !== null && parseInt(activation.toString(), 10) === 0) {
+				res.status(403).json({
 					status: false,
 					message: "User Deactivated For Service.Please Contact Facillity Admin For more Information"
-				})
+				});
+				return;
 			}
-			const security = new Security(parseInt(String(employeeid), 10), 6);
 
-			const applicationLoginLoggingService = new ApplicationLoginLoggingService(parseInt(String(employeeid), 10), tenantId);
+			const numericEmployeeId = parseInt(String(employeeid), 10);
+			const resolvedTenantId = effectiveTenantId(tenantId);
+			const deviceFingerprint = hashDeviceFingerprint(browserInfo?.deviceId ?? req.get('x-device-id'));
+			const sessionBrowserInfo = { ...(browserInfo ?? {}), userAgent: req.get('user-agent') || browserInfo?.userAgent, ip: req.ip };
 
-			const canInitiate = await applicationLoginLoggingService.initUserLoginSession(browserInfo ?? {});
+			const applicationLoginLoggingService = new ApplicationLoginLoggingService(numericEmployeeId, tenantId);
+			const session = await applicationLoginLoggingService.initUserLoginSession(sessionBrowserInfo, deviceFingerprint);
+			if (!session) throw new SessionCreationError(numericEmployeeId, tenantId);
 
-			if (!canInitiate) throw new SessionCreationError(Number(employeeid), tenantId);
+			const sessionExpiryTime = session.logoutTime;
+			const loginsessionId = session.loginSessionId;
+			const accessToken = await authRepo.generateAccessToken(userEmail, {
+				employeeid: numericEmployeeId,
+				tid: resolvedTenantId,
+				sid: loginsessionId,
+				...(deviceFingerprint ? { fph: deviceFingerprint } : {}),
+			});
 
-			const sessionExpiryTime = canInitiate?.logoutTime;
-			const loginsessionId = canInitiate?.loginSessionId;
+			if (login_username) {
+				new TenantLoginDirectory()
+					.recordLogin(resolvedTenantId, { loginUsername: login_username, email: userEmail, entityType: 'staff', entityId: numericEmployeeId })
+					.catch((error) => logger.error('[AuthController] Failed to record login in the global directory:', error));
+			}
 
 			const applicationSettings = new ApplicationSettings();
 			const settings = await applicationSettings.getAllAppSettings(tenantId);
 			res.status(200).json({
 				status: true,
-				accessToken: tokens.accessToken,
-				user: { role, employeeid, username: displayUsername, email: userEmail, loginUsername: login_username },
+				accessToken,
+				tenantId: resolvedTenantId,
+				user: { role, employeeid, username: displayUsername, email: userEmail, loginUsername: login_username, tenantId: resolvedTenantId },
 				sessionExpiryTime,
 				loginsessionId,
 				settings: {

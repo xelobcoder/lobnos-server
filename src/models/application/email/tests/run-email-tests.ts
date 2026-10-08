@@ -17,6 +17,7 @@ function createQueueService(overrides: Partial<{
      templateRenderer: any;
 }> = {}) {
      const queueRepo = overrides.queueRepo ?? {
+          getTenantId: () => 1,
           create: async () => 1,
           findById: async (id: number) => ({
                id,
@@ -78,6 +79,7 @@ function createQueueService(overrides: Partial<{
           settingsRepo,
           providerFactory,
           templateRenderer,
+          async () => undefined,
      );
 }
 
@@ -184,6 +186,7 @@ const tests: TestCase[] = [
 
                const service = createQueueService({
                     queueRepo: {
+                         getTenantId: () => 1,
                          findById: async () => queueRecord,
                          update: async (_id: number, payload: any) => {
                               updates.push(payload);

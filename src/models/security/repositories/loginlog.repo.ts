@@ -22,15 +22,30 @@ export class ApplicationLoginLog implements IApplicationLoginLog {
           return crypto.randomUUID();
      }
 
-     async createHistoryLog(employeeid: number, browserInformation: string, trx?: any): Promise<number> {
+     async createHistoryLog(employeeid: number, browserInformation: string, trx?: any, deviceFingerprint?: string | null): Promise<number> {
           const connection = trx ? await trx : await this.connection;
-          const insert = await connection(this.tableName).insert({
+          const row: Record<string, unknown> = {
                employeeid,
                loginSessionId: this.createLogOutTime(),
                browserInformation: typeof browserInformation === 'string' ? browserInformation : JSON.stringify(browserInformation),
                logoutTime: new Date(Date.now() + this.loginDuration * 60 * 60 * 1000),
-          }).returning('keyid');
+          };
+          if (deviceFingerprint && await this.hasDeviceFingerprintColumn()) {
+               row.deviceFingerprint = deviceFingerprint;
+          }
+          const insert = await connection(this.tableName).insert(row).returning('keyid');
           return insert[0];
+     }
+
+     private static fingerprintColumnCache = new Map<number, boolean>();
+
+     private async hasDeviceFingerprintColumn(): Promise<boolean> {
+          const cached = ApplicationLoginLog.fingerprintColumnCache.get(this.tenantId);
+          if (cached !== undefined) return cached;
+          const connection = await this.connection;
+          const exists = await connection.schema.hasColumn(this.tableName, 'deviceFingerprint');
+          if (exists) ApplicationLoginLog.fingerprintColumnCache.set(this.tenantId, true);
+          return exists;
      }
 
 

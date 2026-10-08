@@ -35,10 +35,10 @@ export default class AuthenticationRepository {
         return passwordMatched ? user : null;
     }
 
-    async generateAccessToken(email: string): Promise<string> {
+    async generateAccessToken(email: string, claims: Record<string, unknown> = {}): Promise<string> {
         const secretKey = process.env.ACCESS_TOKEN_SECRET ? process.env.ACCESS_TOKEN_SECRET : null;
         if (!secretKey) throw new Error("Environment Key Not Found");
-        return jwt.sign({ email }, secretKey as string, { expiresIn: '3h' });
+        return jwt.sign({ ...claims, email }, secretKey as string, { expiresIn: '3h' });
     }
 
     async generateRefreshToken(email: string): Promise<string> {

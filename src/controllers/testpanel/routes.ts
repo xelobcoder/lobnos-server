@@ -31,6 +31,7 @@ import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, get
 import { getTestReportSettingsHandler, putTestReportSettingsHandler, deleteTestReportSettingsHandler } from "./testReportSettingsHandlers";
 import { handleOverLoad } from "../../hooks/helper";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
+import { blockWhenMasterCatalogEnforced } from "../../testpanel/masterCatalog";
 
 const router = express.Router();
 
@@ -43,7 +44,7 @@ router.get("/api/v1/testpanel/list", getTestPanelList);
 router.get("/api/v1/testpanel/list/bulk", getBulkTestPanelList);
 router.get("/api/v1/testpanel/master/list/import", handleOverLoad(importMasterTestPanelToClientList));
 router.get("/api/v1/master/list/import", handleOverLoad(importMasterTestPanelToClientList));
-router.post("/api/v1/testpanel/list/createcustom", handleOverLoad(postCreateCustomTestPanel));
+router.post("/api/v1/testpanel/list/createcustom", blockWhenMasterCatalogEnforced, handleOverLoad(postCreateCustomTestPanel));
 router.put("/api/v1/testpanel/list/updateprocedureManual", handleOverLoad(putTestPanelUpdateProcedureManual));
 router.get("/api/v1/gettestpanel/edit", getTestPanelEdit);
 router.get("/api/v1/test/getProcedureManual", getProcedureManual);
@@ -52,7 +53,7 @@ router.put("/api/v1/test/getLiteraturereview", putTestLiteratureReview);
 router.get("/api/v1/test/isLiteraturereview/getLiterature", getLiteratureReviewResult);
 router.post("/api/v1/testpanel/bulkupdate", postBulkTestPanelUpdate);
 router.put("/api/v1/testpanel/bulkpricing", putBulkTestPricingUpdate);
-router.post("/api/v1/testpanel/list", postTestPanelCreate);
+router.post("/api/v1/testpanel/list", blockWhenMasterCatalogEnforced, handleOverLoad(postTestPanelCreate));
 router.put("/api/v1/testpanel/list", putTestPanelUpdate);
 router.put("/api/v1/testpanel/qc-requirement", isAuthorizedRoleAdmin, putTestPanelQcRequirement);
 router.get("/api/v1/testpanel/calculations", isAuthorizedRoleAdmin, getCalculationFormulas);

@@ -54,25 +54,36 @@ export const optionalRedisCache = new OptionalRedisCache(client, {
 });
 
 let started = false;
-let lastWarning = 0;
-client.on('ready', () => { void optionalRedisCache.recover(); });
+let outageLogged = false;
+
+// Warn once per outage; reconnect attempts while Redis stays down are silent.
+function warnUnavailable(error: unknown): void {
+     if (outageLogged) return;
+     outageLogged = true;
+     logger.warn('Optional Redis cache unavailable; using database', {
+          error: error instanceof Error ? error.message : String(error),
+     });
+}
+
+client.on('ready', () => {
+     if (outageLogged) logger.info('Optional Redis cache connected');
+     outageLogged = false;
+     void optionalRedisCache.recover();
+});
 client.on('close', () => optionalRedisCache.disconnect());
 client.on('error', (error) => {
      optionalRedisCache.disconnect();
-     if (Date.now() - lastWarning >= 30_000) {
-          lastWarning = Date.now();
-          logger.warn('Optional Redis cache connection unavailable; using database', { error: error.message });
-     }
+     warnUnavailable(error);
 });
 
 export function startOptionalRedisCache(): void {
      if (!enabled || started) return;
      started = true;
-     void client.connect().catch((error: unknown) => {
-          logger.warn('Optional Redis cache initial connection failed; using database', {
-               error: error instanceof Error ? error.message : String(error),
-          });
-     });
+     try {
+          void client.connect().catch(warnUnavailable);
+     } catch (error) {
+          warnUnavailable(error);
+     }
 }
 
 export function stopOptionalRedisCache(): void {

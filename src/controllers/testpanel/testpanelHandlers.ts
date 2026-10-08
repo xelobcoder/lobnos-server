@@ -11,6 +11,7 @@ import KnexConnection from "../../database/KnexConnections";
 import { applyTestPanelsAfterInsert } from "../../database/appLevelTriggers";
 import { generateNextTestPanelId } from "../../testpanel/testPanelId";
 import { testPanelCache } from "../../services/cache/testPanelCache";
+import { ensureMasterTestLinkColumn, MASTER_TEST_LINK_COLUMN } from "../../testpanel/masterCatalog";
 
 
 // Category Handlers
@@ -414,7 +415,8 @@ type ImportOneResult = {
 async function importOneMasterTest(
      masterTestId: number,
      connection: any,
-     masterRepo: MasterTestPanelRepository
+     masterRepo: MasterTestPanelRepository,
+     tracksMasterLink = false
 ): Promise<ImportOneResult> {
      const masterPanel = await masterRepo.getMasterPanelByTestId(masterTestId);
      if (!masterPanel) {
@@ -426,7 +428,10 @@ async function importOneMasterTest(
           const trx = await connection.transaction();
           try {
                const existingByName = await trx('test_panels')
-                    .whereRaw('LOWER(name) = LOWER(?)', [masterPanel.name])
+                    .where((builder: any) => {
+                         builder.whereRaw('LOWER(name) = LOWER(?)', [masterPanel.name]);
+                         if (tracksMasterLink) builder.orWhere(MASTER_TEST_LINK_COLUMN, masterTestId);
+                    })
                     .first();
 
                if (existingByName) {
@@ -513,6 +518,7 @@ async function importOneMasterTest(
                     qty_required: masterPanel.qty_required ?? null,
                     shorttext: masterPanel.shorttext ?? null,
                     iscustom: Number(masterPanel.iscustom ?? 0),
+                    ...(tracksMasterLink ? { [MASTER_TEST_LINK_COLUMN]: masterTestId } : {}),
                });
 
                const newPrimKey = Array.isArray(insertedPanel) ? insertedPanel[0] : insertedPanel;
@@ -696,10 +702,11 @@ export const importMasterTestPanelToClientList = async (
 
           const masterRepo = new MasterTestPanelRepository();
           const connection = await KnexConnection(parsedTenantId);
+          const tracksMasterLink = await ensureMasterTestLinkColumn(connection);
 
           const results: ImportOneResult[] = [];
           for (const masterTestId of parsedMasterTestIds) {
-               const result = await importOneMasterTest(masterTestId, connection, masterRepo);
+               const result = await importOneMasterTest(masterTestId, connection, masterRepo, tracksMasterLink);
                results.push(result);
                if (result.success) await testPanelCache.invalidate(parsedTenantId);
           }

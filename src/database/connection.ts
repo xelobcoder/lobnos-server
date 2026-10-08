@@ -1,7 +1,8 @@
 import mysql from "mysql2/promise";
 import knex from 'knex';
 
-const environment = process.env.NODE_ENV || "development";
+// Any NODE_ENV other than "production" (e.g. "test") uses the development database settings.
+const environment = process.env.NODE_ENV === "production" ? "production" : "development";
 
 interface DBConfig {
 	host: string;
@@ -58,11 +59,11 @@ const singleTenantKnexInstance = knex({
 const systemConfigConnection = knex({
 	client: "mysql2",
 	connection: {
-		host: process.env.SYSTEM_CONFIG_DB_HOST!,
-		user: process.env.SYSTEM_CONFIG_DB_USERNAME!,
-		password: process.env.SYSTEM_CONFIG_DB_PASSWORD!,
-		database: process.env.SYSTEM_CONFIG_DATABASE!,
-		port: Number(process.env.SYSTEM_CONFIG_DB_PORT!),
+		host: process.env.SYSTEM_CONFIG_DB_HOST || config[environment].host,
+		user: process.env.SYSTEM_CONFIG_DB_USERNAME || config[environment].user,
+		password: process.env.SYSTEM_CONFIG_DB_PASSWORD || config[environment].password,
+		database: process.env.SYSTEM_CONFIG_DATABASE || 'primelabmaster_control',
+		port: Number(process.env.SYSTEM_CONFIG_DB_PORT || config[environment].port),
 	}
 	,pool: {
 		min: 2,

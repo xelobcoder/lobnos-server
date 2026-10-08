@@ -1,4 +1,5 @@
 import { logger } from "../../commissions/commission-configurations";
+import KnexConnection from "../../../database/KnexConnections";
 import { ILoginLog } from "../entities/loginlogs.entities";
 import { ApplicationLoginLog } from "../repositories/loginlog.repo";
 
@@ -16,11 +17,17 @@ export class ApplicationLoginLoggingService {
           return this.ApplicationLoginLogRepo.getCurrentUserLoginActiveSessions(this.employeeid);
      }
 
-     async initUserLoginSession(browserInformation: string): Promise<ILoginLog | undefined> {
+     /**
+      * Starts the only valid session for this user: every other open session (other browsers/devices)
+      * is closed in the same transaction, so their tokens are rejected on the next request.
+      */
+     async initUserLoginSession(browserInformation: unknown, deviceFingerprint?: string | null): Promise<ILoginLog | undefined> {
           const service = this.ApplicationLoginLogRepo;
-          const canInitiateLogin = await service.getCanInitiateLogin(this.employeeid);
-          if (!canInitiateLogin) await service.destroyUserSessions(this.employeeid);
-          const logId = await service.createHistoryLog(this.employeeid, browserInformation);
+          const connection = await KnexConnection(this.tenantId);
+          const logId = await connection.transaction(async (trx) => {
+               await service.destroyUserSessions(this.employeeid, trx);
+               return service.createHistoryLog(this.employeeid, browserInformation as string, trx, deviceFingerprint);
+          });
           return service.findHistoryLogById(logId);
      }
 

@@ -10,6 +10,15 @@ import TokenValidator from "../../models/settings/users/TokenValidator";
 import bcrypt from "bcrypt";
 import KnexConnection from "../../database/KnexConnections";
 import crypto from "crypto";
+import { effectiveTenantId } from "../../hooks/configuration";
+import { LoginEntityType, TenantLoginDirectory } from "../../models/auth/TenantLoginDirectory";
+
+const recordPortalLogin = (tenantId: number, entityType: LoginEntityType, entityId: number, loginUsername?: string | null, email?: string | null) => {
+	if (!loginUsername) return;
+	new TenantLoginDirectory()
+		.recordLogin(effectiveTenantId(tenantId), { loginUsername, email, entityType, entityId: Number(entityId) })
+		.catch((error) => logger.error(`[PortalLogin] Failed to record ${entityType} login in the global directory:`, error));
+};
 
 const passwordMatches = async (password: string, storedPassword: string, isUpdated?: number): Promise<boolean> => {
 	if (!password || !storedPassword) return false;
@@ -71,12 +80,6 @@ export const updateBasicInfo = async (req: Request, res: Response) => {
 	}
 };
 
-export const authenticateUser = async (request: Request, response: Response) => {
-	const { email, password } = request.body;
-	if (!email || !password) return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
-	userLogin(request as UserRequest, response);
-};
-
 export const activateUser = async (req: Request, res: Response) => {
 	activateAUser(req as UserRequest, res);
 };
@@ -135,69 +138,22 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 	}
 };
 
-export const authenticateClinician = async (req: Request<{}, {}, { email: string, password: string }, { tenantId: number }>, res: Response) => {
-	try {
-		const tenantIdP = parseInt(req.query.tenantId.toString())
-		const { email, password } = req.body;
-
-		if (!email || !password) {
-			customError("email and password required", 404, res);
-			return;
-		}
-
-		const query = `SELECT * FROM clinicianscredentials WHERE email = ?`;
-		const getUserDetails = await promisifyQuery(tenantIdP, query, [email]);
-
-		if (getUserDetails.length === 0) {
-			customError("Invalid credentials seen", 404, res);
-			return;
-		}
-
-		const { ispasswordUpdated, clinicianid } = getUserDetails[0];
-		const data = { role: "clinician", email, employeeid: clinicianid };
-
-		if (ispasswordUpdated === 0 && getUserDetails[0]["password"] === password) {
-			const token = await new User(null, null, null, null, null).tokenizeData(data, "40m");
-			res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", token, result: data });
-			return;
-		}
-
-		if (ispasswordUpdated === 0 && getUserDetails[0]["password"] !== password) {
-			res.send({ message: "Invalid user credentials", statusCode: 200, status: "fail" });
-			return;
-		}
-
-		if (ispasswordUpdated === 1) {
-			const isMatched = await new User(null, null, null, null, null).isPasswordSame(password, getUserDetails[0]["password"]);
-			isMatched
-				? res.send({ message: "password authenticated", statusCode: 200, status: "success", result: getUserDetails[0] })
-				: res.send({ message: "Invalid user credentials", statusCode: 200, status: "error" });
-			return;
-		}
-	} catch (err) {
-		logger.error(err);
-		customError("Something wrong has occurred", 404, res);
-	}
-};
-
-export const authenticateClinicianPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, email?: string, password: string }, { tenantId: number }>, res: Response) => {
+export const authenticateClinicianPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, password: string }, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString());
-		const { username, identifier, email, password } = req.body;
-		const loginIdentifier = username || identifier || email;
+		const { username, identifier, password } = req.body;
+		const loginIdentifier = String(username || identifier || '').trim();
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
 		const connection = await KnexConnection(tenantId);
 		const hasLoginUsername = await connection.schema.hasColumn('clinicianscredentials', 'login_username');
-		const hasEmail = await connection.schema.hasColumn('clinicianscredentials', 'email');
 		const generatedClinicianIdMatch = loginIdentifier.match(/C(\d+)$/i);
 		const generatedClinicianId = generatedClinicianIdMatch ? parseInt(generatedClinicianIdMatch[1], 10) : null;
 		const query = connection('clinicianscredentials as cc')
 			.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid')
 			.select('cc.*', 'cbi.name', 'cbi.phone', 'cbi.email as clinician_email')
 			.where((builder) => {
-				builder.where('cc.identifier', loginIdentifier).orWhere('cbi.email', loginIdentifier);
-				if (hasEmail) builder.orWhere('cc.email', loginIdentifier);
+				builder.where('cc.identifier', loginIdentifier);
 				if (hasLoginUsername) builder.orWhere('cc.login_username', loginIdentifier);
 				if (generatedClinicianId && Number.isFinite(generatedClinicianId)) builder.orWhere('cc.clinicianid', generatedClinicianId);
 			});
@@ -216,19 +172,20 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 			email: clinician.email || clinician.clinician_email,
 			loginUsername: clinician.login_username,
 		};
-		const token = await new User(null, null, null, null, null).tokenizeData(user, "12h");
-		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user });
+		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
+		recordPortalLogin(tenantId, 'clinician', user.clinicianid, user.loginUsername, user.email);
+		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);
 		customError("Something wrong has occurred", 500, res);
 	}
 };
 
-export const authenticatePatientPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, email?: string, password: string }, { tenantId: number }>, res: Response) => {
+export const authenticatePatientPortal = async (req: Request<{}, {}, { username?: string, identifier?: string, password: string }, { tenantId: number }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId.toString());
-		const { username, identifier, email, password } = req.body;
-		const loginIdentifier = username || identifier || email;
+		const { username, identifier, password } = req.body;
+		const loginIdentifier = String(username || identifier || '').trim();
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
 		const connection = await KnexConnection(tenantId);
@@ -238,7 +195,6 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 			.select('pc.*', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
 			.where((builder) => {
 				builder.where('pc.username', loginIdentifier)
-					.orWhere('np.email', loginIdentifier)
 					.orWhere('np.fullpatientid', loginIdentifier);
 				if (hasLoginUsername) builder.orWhere('pc.login_username', loginIdentifier);
 			});
@@ -258,8 +214,9 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 			loginUsername: patient.login_username,
 			fullpatientid: patient.fullpatientid,
 		};
-		const token = await new User(null, null, null, null, null).tokenizeData(user, "12h");
-		res.send({ message: "Patient authenticated", statusCode: 200, status: "success", accessToken: token, token, user });
+		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
+		recordPortalLogin(tenantId, 'patient', user.patientid, user.loginUsername, user.email);
+		res.send({ message: "Patient authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);
 		customError("Something wrong has occurred", 500, res);
@@ -289,6 +246,21 @@ export const logoutUser = async (req: Request, res: Response) => {
 		}
 
 		const employeeid = parseInt(decoded.employeeid.toString());
+
+		// Tokens bound to a login session only end that session, so signing out a replaced
+		// device never signs out the device that is currently active.
+		if (decoded.sid) {
+			const connection = await KnexConnection(tenantId);
+			const closed = await connection('loginlogs')
+				.where({ employeeid, loginSessionId: String(decoded.sid) })
+				.andWhere('logoutTime', '>', new Date())
+				.update({ logoutTime: new Date(), actualLogout: new Date(), loggedout: true });
+			return res.send({
+				status: "success",
+				statusCode: 200,
+				message: closed > 0 ? "Logout successful." : "Logout completed. No active session found."
+			});
+		}
 
 		// Destroy all user sessions
 		const security = new Security(employeeid);

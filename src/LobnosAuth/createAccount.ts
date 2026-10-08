@@ -11,6 +11,8 @@ import KnexConnection from "../database/KnexConnections";
 import knex from "knex";
 import { NotificationDispatcher } from "../models/application/notifications/services/NotificationDispatcher";
 import { buildLoginUsername, getLabLoginPrefix } from "../models/auth/LoginUsernameBootstrapper";
+import { publishLoginToDirectory } from "../models/auth/TenantLoginDirectory";
+import { effectiveTenantId } from "../hooks/configuration";
 
 export interface UserRequest extends Request {
      body: {
@@ -131,6 +133,7 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
           await connection("roles")
                .where({ employeeid: insertResult })
                .update({ login_username: loginUsername });
+          publishLoginToDirectory(effectiveTenantId(tenantId), { loginUsername, email, entityType: 'staff', entityId: Number(insertResult) });
 
           const createdRow = await connection("roles")
                .select([

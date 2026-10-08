@@ -2,8 +2,8 @@ import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
 import bcrypt from 'bcrypt';
-
-type LoginEntityType = 'staff' | 'patient' | 'clinician';
+import { LoginEntityType, TenantLoginDirectory, TenantLoginDirectoryEntry } from './TenantLoginDirectory';
+import { effectiveTenantId } from '../../hooks/configuration';
 
 function normalizeCode(value: unknown, fallback: string): string {
      const normalized = String(value || '')
@@ -21,6 +21,11 @@ function initialsFromName(value: unknown): string {
           .join('');
 }
 
+/**
+ * Prefix for generated login usernames: lab code + region code + tenant segment, e.g. `PLSRG-T3-`.
+ * The tenant segment makes every generated username globally unique and lets the login screen
+ * route a user to their organization without asking for a tenant ID.
+ */
 export async function getLabLoginPrefix(tenantId: number, connectionOverride?: Knex | Knex.Transaction): Promise<string> {
      const connection = connectionOverride || await KnexConnection(tenantId);
      let labPrefix = 'PLS';
@@ -39,7 +44,7 @@ export async function getLabLoginPrefix(tenantId: number, connectionOverride?: K
           logger.error('[LoginUsernameBootstrapper] Failed to resolve lab login prefix:', error);
      }
 
-     return `${labPrefix}${regionPrefix}`;
+     return `${labPrefix}${regionPrefix}-T${effectiveTenantId(tenantId)}-`;
 }
 
 export function buildLoginUsername(prefix: string, entityType: LoginEntityType, id: number): string {
@@ -185,7 +190,117 @@ export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
                          .update({ login_username: buildLoginUsername(prefix, 'clinician', Number(row.clinicianid)) });
                }
           }
+
+          await ensureLoginSessionColumns(connection);
      } catch (error) {
           logger.error('[LoginUsernameBootstrapper] Failed to bootstrap login usernames:', error);
+     }
+
+     try {
+          await syncTenantLoginDirectory(tenantId);
+     } catch (error) {
+          logger.error('[LoginUsernameBootstrapper] Failed to sync the global login directory:', error);
+     }
+}
+
+async function ensureLoginSessionColumns(connection: Knex): Promise<void> {
+     if (!(await connection.schema.hasTable('loginlogs'))) return;
+     if (!(await connection.schema.hasColumn('loginlogs', 'deviceFingerprint'))) {
+          await connection.schema.alterTable('loginlogs', (table) => {
+               table.string('deviceFingerprint', 64).nullable();
+          });
+          logger.info('[Bootstrap] Added missing column loginlogs.deviceFingerprint');
+     }
+}
+
+type CredentialSource = {
+     entityType: LoginEntityType;
+     table: string;
+     load: (connection: Knex) => Promise<TenantLoginDirectoryEntry[]>;
+     update: (connection: Knex, entityId: number, loginUsername: string) => Promise<unknown>;
+};
+
+const CREDENTIAL_SOURCES: CredentialSource[] = [
+     {
+          entityType: 'staff',
+          table: 'roles',
+          load: async (connection) => {
+               const rows = await connection('roles').select('employeeid', 'email', 'login_username');
+               return rows.map((row: any) => ({
+                    entityType: 'staff' as const,
+                    entityId: Number(row.employeeid),
+                    loginUsername: row.login_username,
+                    email: row.email,
+               }));
+          },
+          update: (connection, entityId, loginUsername) => connection('roles').where({ employeeid: entityId }).update({ login_username: loginUsername }),
+     },
+     {
+          entityType: 'patient',
+          table: 'patients_credentials',
+          load: async (connection) => {
+               const hasPatients = await connection.schema.hasTable('new_patients');
+               const query = connection('patients_credentials as pc').select('pc.patientid', 'pc.login_username');
+               if (hasPatients) query.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid').select('np.email');
+               const rows = await query;
+               return rows.map((row: any) => ({
+                    entityType: 'patient' as const,
+                    entityId: Number(row.patientid),
+                    loginUsername: row.login_username,
+                    email: row.email || null,
+               }));
+          },
+          update: (connection, entityId, loginUsername) => connection('patients_credentials').where({ patientid: entityId }).update({ login_username: loginUsername }),
+     },
+     {
+          entityType: 'clinician',
+          table: 'clinicianscredentials',
+          load: async (connection) => {
+               const hasInfo = await connection.schema.hasTable('clinicianbasicinfo');
+               const query = connection('clinicianscredentials as cc').select('cc.clinicianid', 'cc.login_username', 'cc.email');
+               if (hasInfo) query.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid').select('cbi.email as clinician_email');
+               const rows = await query;
+               return rows.map((row: any) => ({
+                    entityType: 'clinician' as const,
+                    entityId: Number(row.clinicianid),
+                    loginUsername: row.login_username,
+                    email: row.email || row.clinician_email || null,
+               }));
+          },
+          update: (connection, entityId, loginUsername) => connection('clinicianscredentials').where({ clinicianid: entityId }).update({ login_username: loginUsername }),
+     },
+];
+
+/**
+ * Publishes every staff, patient and clinician login of the tenant to the global login directory.
+ * A legacy username that is already taken by another organization is regenerated in the
+ * tenant-qualified format (e.g. `PLSRG-T3-S0012`) so it stays globally unique.
+ */
+export async function syncTenantLoginDirectory(tenantId: number): Promise<void> {
+     const resolvedTenantId = effectiveTenantId(tenantId);
+     const connection = await KnexConnection(tenantId);
+     const directory = new TenantLoginDirectory();
+     const prefix = await getLabLoginPrefix(tenantId, connection);
+
+     for (const source of CREDENTIAL_SOURCES) {
+          if (!(await connection.schema.hasTable(source.table))) continue;
+          if (!(await connection.schema.hasColumn(source.table, 'login_username'))) continue;
+
+          const entries = await source.load(connection);
+          const { conflicts } = await directory.syncTenant(resolvedTenantId, entries);
+          if (conflicts.length === 0) continue;
+
+          const regenerated: TenantLoginDirectoryEntry[] = [];
+          for (const conflict of conflicts) {
+               const loginUsername = buildLoginUsername(prefix, source.entityType, conflict.entityId);
+               if (loginUsername === conflict.loginUsername) continue;
+               await source.update(connection, conflict.entityId, loginUsername);
+               regenerated.push({ ...conflict, loginUsername });
+               logger.warn(`[LoginDirectory] ${source.entityType} ${conflict.entityId}: username "${conflict.loginUsername}" is used by another organization; reassigned to "${loginUsername}"`);
+          }
+          const retry = await directory.syncTenant(resolvedTenantId, regenerated);
+          if (retry.conflicts.length > 0) {
+               logger.error(`[LoginDirectory] ${retry.conflicts.length} ${source.entityType} login(s) could not be published to the global directory`);
+          }
      }
 }

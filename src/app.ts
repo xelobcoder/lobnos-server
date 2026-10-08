@@ -82,6 +82,10 @@ app.use(express.static("public"));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(requestLogger);
+app.get('/api/v1/health', (_req: Request, res: Response) => {
+    res.statusCode = 200;
+    res.end('healthy');
+});
 app.use(ValidateTenancyAgreement)
 // app.use(checkTokenExists)
 app.use(InterfacingDevicesRouterT);
@@ -189,8 +193,9 @@ app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
 
 async function startApplication() {
     const { accountingReady } = await runApplicationBootstrappers(1);
+    const host = process.env.HOST || "0.0.0.0";
 
-    app.listen(Number(port), "0.0.0.0", () => {
+    app.listen(Number(port), host, () => {
         logApplicationStarted(port);
         startApplicationBackgroundWorkers(1, { accountingReady });
     });
@@ -200,6 +205,4 @@ startApplication().catch((error) => {
     console.error('[Bootstrap] Application startup failed:', error);
     process.exit(1);
 });
-
-
 

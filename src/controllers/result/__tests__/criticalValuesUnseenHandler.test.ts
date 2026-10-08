@@ -3,9 +3,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const findUnseenPaginated = vi.fn();
 
 vi.mock('../../../models/creator/Repo/loggingCriticalValueAlertRepository', () => ({
-     default: vi.fn().mockImplementation(() => ({
-          findUnseenPaginated
-     }))
+     default: vi.fn().mockImplementation(function () {
+          return { findUnseenPaginated };
+     })
 }));
 
 vi.mock('../../../models/application/appsettings/result-settings/resultSettings', () => ({
