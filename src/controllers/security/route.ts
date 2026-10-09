@@ -17,6 +17,7 @@ import { handleOverLoad } from "../../hooks/helper";
 import { PrimeWindowAccessController } from "../settings/PrimeWindowAccessController";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import { resolveLoginTenant } from "../../middleware/resolveLoginTenant";
+import { requestPasswordResetOtp, resetPasswordWithOtp, verifyPasswordResetOtp } from "../logins/authHandlers";
 
 
 const router: Router = express.Router();
@@ -39,6 +40,9 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
 
 
 router.post('/api/v1/prime/login', handleOverLoad(resolveLoginTenant('staff')), handleOverLoad(checkLicenseAccess), handleOverLoad((req: any, res: any) => authController.login(req, res)));
+router.post('/api/v1/prime/forgotpassword', handleOverLoad(requestPasswordResetOtp));
+router.post('/api/v1/prime/verify-reset-otp', handleOverLoad(verifyPasswordResetOtp));
+router.post('/api/v1/prime/resetpassword', handleOverLoad(resetPasswordWithOtp));
 router.get('/api/v1/prime/validate-token', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateToken(req, res));
 router.post('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateUserPinProvided(req, res));
 

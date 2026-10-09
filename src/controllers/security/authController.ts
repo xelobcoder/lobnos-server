@@ -4,9 +4,7 @@ import ApplicationSettings from "../../models/application/appsettings/appset";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { SessionCreationError } from "../../models/security/errors/SecurityErrors";
 import { ApplicationLoginLoggingService } from "../../models/security/services/ApplicationLoginLoggging.services";
-import { TenantLoginDirectory } from "../../models/auth/TenantLoginDirectory";
 import { effectiveTenantId } from "../../hooks/configuration";
-import logger from "../../hooks/logger";
 import { getAllCompanyProfiles } from "../../models/settings/companyProfile";
 import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
@@ -34,8 +32,8 @@ export class AuthController {
 		try {
 			const tenantId = this.getTenantId(req);
 			const authRepo = new AuthenticationRepository(tenantId);
-			const { email, username, identifier, password, browserInfo } = req.body;
-			const loginIdentifier = username || identifier || email;
+			const { username, identifier, password, browserInfo } = req.body;
+			const loginIdentifier = username || identifier;
 			const user = await authRepo.validatePassword(loginIdentifier, password);
 			if (!user) {
 				res.status(401).json({ status: false, error: 'Invalid username or password', message: 'Invalid username or password' });
@@ -68,19 +66,13 @@ export class AuthController {
 				...(deviceFingerprint ? { fph: deviceFingerprint } : {}),
 			});
 
-			if (login_username) {
-				new TenantLoginDirectory()
-					.recordLogin(resolvedTenantId, { loginUsername: login_username, email: userEmail, entityType: 'staff', entityId: numericEmployeeId })
-					.catch((error) => logger.error('[AuthController] Failed to record login in the global directory:', error));
-			}
-
 			const applicationSettings = new ApplicationSettings();
 			const settings = await applicationSettings.getAllAppSettings(tenantId);
 			res.status(200).json({
 				status: true,
 				accessToken,
 				tenantId: resolvedTenantId,
-				user: { role, employeeid, username: displayUsername, email: userEmail, loginUsername: login_username, tenantId: resolvedTenantId },
+				user: { role, employeeid, username: displayUsername, email: userEmail, tenantId: resolvedTenantId },
 				sessionExpiryTime,
 				loginsessionId,
 				settings: {

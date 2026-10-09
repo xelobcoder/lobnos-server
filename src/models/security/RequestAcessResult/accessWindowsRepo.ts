@@ -18,20 +18,20 @@ interface AccessWindow {
 export default class AccessWindowsRepo {
      private static readonly TABLE_NAME = 'access_windows';
 
-     static async create(window: Omit<AccessWindow, 'id'>): Promise<number> {
-          const connection = await KnexConnection(1);
+     static async create(tenantId: number, window: Omit<AccessWindow, 'id'>): Promise<number> {
+          const connection = await KnexConnection(tenantId);
 
           if (window.category === 'global') {
                window.employeeid = 0;
-               const existingGlobal = await this.findGlobalSettings();
+               const existingGlobal = await this.findGlobalSettings(tenantId);
                if (existingGlobal) {
-                    await this.update(existingGlobal.id!, window);
+                    await this.update(tenantId, existingGlobal.id!, window);
                     return existingGlobal.id!;
                }
           } else if (window.category === 'individual') {
-               const existingIndividual = await this.findByEmployeeId(window.employeeid);
+               const existingIndividual = await this.findByEmployeeId(tenantId, window.employeeid);
                if (existingIndividual) {
-                    await this.update(existingIndividual.id!, window);
+                    await this.update(tenantId, existingIndividual.id!, window);
                     return existingIndividual.id!;
                }
           }
@@ -50,8 +50,8 @@ export default class AccessWindowsRepo {
           }
      }
 
-     static async findById(id: number): Promise<AccessWindow | undefined> {
-          const connection = await KnexConnection(1);
+     static async findById(tenantId: number, id: number): Promise<AccessWindow | undefined> {
+          const connection = await KnexConnection(tenantId);
           return await connection(this.TABLE_NAME)
                .select([
                     `${this.TABLE_NAME}.*`,
@@ -64,8 +64,8 @@ export default class AccessWindowsRepo {
                .first();
      }
 
-     static async findByEmployeeId(employeeid: number): Promise<AccessWindow | undefined> {
-          const connection = await KnexConnection(1);
+     static async findByEmployeeId(tenantId: number, employeeid: number): Promise<AccessWindow | undefined> {
+          const connection = await KnexConnection(tenantId);
           return await connection(this.TABLE_NAME)
                .select([
                     `${this.TABLE_NAME}.*`,
@@ -94,26 +94,28 @@ export default class AccessWindowsRepo {
           }
 
           return await query;
-     } static async update(id: number, updates: Partial<AccessWindow>): Promise<boolean> {
-          const connection = await KnexConnection(1);
+     }
+
+     static async update(tenantId: number, id: number, updates: Partial<AccessWindow>): Promise<boolean> {
+          const connection = await KnexConnection(tenantId);
           const updated = await connection(this.TABLE_NAME).where({ id }).update(updates);
           return updated > 0;
      }
 
-     static async delete(id: number): Promise<boolean> {
-          const connection = await KnexConnection(1);
+     static async delete(tenantId: number, id: number): Promise<boolean> {
+          const connection = await KnexConnection(tenantId);
           const deleted = await connection(this.TABLE_NAME).where({ id }).del();
           return deleted > 0;
      }
 
-     static async deleteByEmployeeId(employeeid: number): Promise<boolean> {
-          const connection = await KnexConnection(1);
+     static async deleteByEmployeeId(tenantId: number, employeeid: number): Promise<boolean> {
+          const connection = await KnexConnection(tenantId);
           const deleted = await connection(this.TABLE_NAME).where({ employeeid, category: 'individual' }).del();
           return deleted > 0;
      }
 
-     static async findGlobalSettings(): Promise<AccessWindow | undefined> {
-          const connection = await KnexConnection(1);
+     static async findGlobalSettings(tenantId: number): Promise<AccessWindow | undefined> {
+          const connection = await KnexConnection(tenantId);
           return await connection(this.TABLE_NAME)
                .select([
                     `${this.TABLE_NAME}.*`,
@@ -126,12 +128,12 @@ export default class AccessWindowsRepo {
                .first();
      }
 
-     static async getEffectiveSettings(employeeid: number): Promise<AccessWindow | undefined> {
-          const employeeSettings = await this.findByEmployeeId(employeeid);
+     static async getEffectiveSettings(tenantId: number, employeeid: number): Promise<AccessWindow | undefined> {
+          const employeeSettings = await this.findByEmployeeId(tenantId, employeeid);
           if (employeeSettings) {
                return employeeSettings;
           }
           // Fall back to global settings
-          return await this.findGlobalSettings();
+          return await this.findGlobalSettings(tenantId);
      }
 }

@@ -73,6 +73,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           '/api/v1/prime/login',
           '/api/v1/settings/companyprofile/images',
           '/api/v1/prime/forgotpassword',
+          '/api/v1/prime/verify-reset-otp',
           '/api/v1/prime/resetpassword',
           '/api/v1/logins/logout'
      ];
@@ -144,23 +145,35 @@ export const checkTokenExists = async (request: Request, response: Response, nex
      }
 };
 
+/** Unauthenticated endpoints that may be called without a tenant; they are served for this installation's own tenant. */
+const TENANTLESS_ROUTES = ['/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/verify-reset-otp', '/api/v1/prime/resetpassword', '/api/v1/health'];
+
 export const ValidateTenancyAgreement = async (request: Request<{}, {}, {}, { tenantId: number }>, response: Response, next: NextFunction) => {
      try {
-          if (configuration.isMultiTenant) {
-               // Login requests carry no tenant; resolveLoginTenant derives it from the username.
-               if (request.method === 'POST' && LOGIN_ROUTES.includes(request.path)) return next();
-               const { tenantId } = request.query;
-               if (!tenantId) return customError(OperationsFailures.invalidResquestQuery + ' TenantId not found', 404, response);
-               const status = await new TenancyRepository().validateTenantStanding(tenantId);
-               if (!status) return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
-          } else {
-               if (!request.query.tenantId) {
-                    request.query.tenantId = configuration.defaultTenantId;
+          // Login requests carry no tenant; resolveLoginTenant derives it from the username.
+          if (request.method === 'POST' && LOGIN_ROUTES.includes(request.path)) return next();
+
+          if (!request.query.tenantId) {
+               const tenantless = request.path === '/' || TENANTLESS_ROUTES.some((route) => request.path.startsWith(route));
+               if (configuration.isMultiTenant && !tenantless) {
+                    return customError(OperationsFailures.invalidResquestQuery + ' TenantId not found', 400, response);
                }
+               request.query.tenantId = configuration.defaultTenantId;
           }
+
+          const tenantId = Number(request.query.tenantId);
+          if (!Number.isSafeInteger(tenantId) || tenantId <= 0) return customError('Invalid tenantId', 400, response);
+          if (!configuration.isMultiTenant && tenantId !== configuration.defaultTenantId) {
+               // On-premise installations serve exactly one organization.
+               request.query.tenantId = configuration.defaultTenantId;
+          }
+
+          const status = await new TenancyRepository().validateTenantStanding(Number(request.query.tenantId));
+          if (!status) return customError(OperationsFailures.dontHaveAccessPermission, 403, response);
           next();
      } catch (err) {
-          console.log(err);
+          console.error('[ValidateTenancyAgreement]', err);
+          return customError('Unable to verify the organization for this request', 503, response);
      }
 }
 
@@ -243,6 +256,5 @@ export const isAuthorizedRoleAdminOrAccountant = async (request: Request, respon
           responseError(response);
      }
 }
-
 
 

@@ -2,9 +2,7 @@ import { Knex } from "knex";
 import { CommissionDefaultRepository } from "../models/commissions/commission-configurations/repositories/CommissionDefaultRepository";
 import OutsourcedCases from "../models/organization/outsourcingOrganization/outsourcedCases";
 import ApplicationSettings from "../models/application/appsettings/appset";
-import { buildLoginUsername, getLabLoginPrefix } from "../models/auth/LoginUsernameBootstrapper";
-import { publishLoginToDirectory } from "../models/auth/TenantLoginDirectory";
-import { effectiveTenantId } from "../hooks/configuration";
+import { formatTenantLoginUsername } from "../models/auth/TenantLoginUsername";
 
 type DbRunner = Knex | Knex.Transaction;
 
@@ -25,17 +23,13 @@ export async function applyNewPatientAfterInsert(
 ) {
 	const username = `${payload.firstname}${payload.lastname}`;
 	const password = `${payload.firstname}${payload.lastname}${payload.patientid}`;
-	const loginPrefix = await getLabLoginPrefix(tenantId, db);
-	const loginUsername = buildLoginUsername(loginPrefix, 'patient', payload.patientid);
-
 	await db("patients_credentials").insert({
 		patientid: payload.patientid,
 		username,
-		login_username: loginUsername,
+		login_username: await formatTenantLoginUsername(tenantId, 'patient', payload.patientid),
 		password,
 		updated_on: new Date(),
 	});
-	publishLoginToDirectory(effectiveTenantId(tenantId), { loginUsername, entityType: 'patient', entityId: payload.patientid }, db);
 
 	await db("patientemmergencycontactinformation").insert({
 		patientid: payload.patientid,
@@ -279,16 +273,13 @@ export async function applyClinicianAfterInsert(tenantId: number, db: DbRunner, 
 	if (!credentials) {
 		const crypto = await import("crypto");
 		const randomPassword = crypto.randomBytes(10).toString("hex");
-		const loginPrefix = await getLabLoginPrefix(tenantId, db);
-		const loginUsername = buildLoginUsername(loginPrefix, 'clinician', payload.clinicianid);
 		await db("clinicianscredentials").insert({
 			clinicianid: payload.clinicianid,
 			identifier: payload.identifier,
-			login_username: loginUsername,
+			login_username: await formatTenantLoginUsername(tenantId, 'clinician', payload.clinicianid),
 			password: randomPassword,
 			authenticationMode: "SMS",
 		});
-		publishLoginToDirectory(effectiveTenantId(tenantId), { loginUsername, entityType: 'clinician', entityId: payload.clinicianid }, db);
 	}
 }
 

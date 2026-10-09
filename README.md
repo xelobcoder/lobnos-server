@@ -53,6 +53,62 @@ A comprehensive, enterprise-grade LIMS (Laboratory Information Management System
 
 ## Quick Start
 
+### Organization-scoped usernames and password recovery
+
+Sign-in accepts only `username` and `password` (plus optional browser metadata).
+The username is the public organization identifier (`prime_tenants.id`) +
+`S` (staff), `C` (clinician), or `P` (patient) + the positive local account ID,
+for example `PLS20154S004`. The server resolves `PLS20154` in the organization
+registry to its internal tenant ID (for example, `397773`), then queries that
+tenant's account table by local ID 4. Organization identifiers are 3-32
+letters/digits starting with a letter; account IDs are displayed with a minimum
+of three digits. Caller-provided tenant query parameters cannot override this mapping.
+New internal tenant IDs are random unique integers from 100000 to 999999:
+they are actual six-digit numbers, not short numbers padded with zeroes.
+No global patient, staff, clinician, or email directory is used.
+
+Existing accounts are migrated during tenant bootstrap to tenant-local
+`login_username` values. Their previous login is retained in
+`legacy_login_username`; display names, local IDs, passwords, and clinical
+identifiers are unchanged. New accounts receive the same format. To migrate
+existing deployments explicitly and list old/new usernames:
+
+```powershell
+pnpm tenants --migrate all
+# Or migrate a specific registered tenant:
+pnpm tenants --migrate 397773
+```
+
+Distribute the new usernames to users before deploying the new login screen.
+Old free-form usernames are no longer accepted for sign-in.
+
+Existing short internal IDs are automatically migrated to unique six-digit
+numbers during registry preparation, before tenant connections or login are
+available. The mapping is logged, and the running local default is updated.
+Tenant-local staff, patient, and clinician usernames are migrated first in
+each tenant's startup bootstrap. Repeated startup leaves already migrated
+tenant IDs and usernames unchanged. No manual migration command is required.
+Take deployment backups before upgrading; users with sessions containing old
+tenant IDs must sign in again. External integrations holding old numeric IDs
+must use the new IDs from the registry.
+Database names, account IDs, passwords, display names, and public organization
+identifiers are not changed. Local startup also resolves its registered default
+tenant by database name, preventing an old configured default from recreating
+the old registry mapping.
+
+Password recovery uses these unauthenticated POST endpoints:
+
+- `/api/v1/prime/forgotpassword`: `{ username, email }`; the supplied email
+  must match the account in the resolved tenant. The public response does not
+  disclose whether an account exists.
+- `/api/v1/prime/verify-reset-otp`: `{ username, otp }`.
+- `/api/v1/prime/resetpassword`: `{ username, otp, password }`; verification
+  must have succeeded and the new password must contain at least 8 characters.
+
+OTP expiry is 10 minutes, with five failed attempts and a 60-second resend delay.
+Successful reset consumes the OTP in the password-update transaction. Configure
+`ACCESS_TOKEN_SECRET` and an active default email provider for each tenant.
+
 ### Development Mode
 
 ```bash

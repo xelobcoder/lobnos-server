@@ -68,13 +68,14 @@ function createQueueService(overrides: Partial<{
      const templateRenderer = overrides.templateRenderer ?? new TemplateRenderer();
 
      return new EmailQueueService(
-          queueRepo,
+          { getTenantId: () => 1, ...queueRepo },
           logsRepo,
           templatesRepo,
           providersRepo,
           settingsRepo,
           providerFactory,
           templateRenderer,
+          async () => undefined,
      );
 }
 

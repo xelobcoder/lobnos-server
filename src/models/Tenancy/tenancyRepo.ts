@@ -1,98 +1,60 @@
 import { systemConfigConnection as tenancyConnection } from "../../database/connection";
+import { RegisteredTenant, TENANTS_TABLE, TenantRegistry } from "./TenantRegistry";
 
+function toLegacyTenant(tenant: RegisteredTenant): PrimeLimsTenant {
+     return {
+          tenantid: tenant.tenantId,
+          name: tenant.name,
+          createdon: tenant.createdAt as Date,
+          isActive: tenant.isActive ? 1 : 0,
+          updatedOn: tenant.updatedAt as Date,
+          referedid: tenant.platformId,
+          expirydate: (tenant.suspendedAt ?? tenant.archivedAt) as Date,
+     };
+}
+
+/** Tenant registry access backed by primelabmaster_control.prime_tenants (see TenantRegistry). */
 export class TenancyRepository {
-     async createTenant(tenantInformation: Partial<PrimeLimsTenant>): Promise<number> {
-          const [tenantid] = await tenancyConnection.raw(
-               `INSERT INTO registeredclients (name, type, createdon, isActive, updatedOn, referedid, expirydate) 
-       VALUES (?, ?, NOW(), ?, NOW(), ?, ?) RETURNING tenantid`,
-               [
-                    tenantInformation.name,
-                    tenantInformation.isActive || 1,
-                    tenantInformation.referedid,
-                    tenantInformation.expirydate,
-               ]
-          );
-          return tenantid;
-     }
+     private registry = new TenantRegistry();
 
      async getTenantDetails(tenantid: number): Promise<PrimeLimsTenant | null> {
-          const [tenant] = await tenancyConnection.raw(
-               `SELECT * FROM registeredclients WHERE tenantid = ?`,
-               [tenantid]
-          );
-          return Array.isArray(tenant) && tenant.length > 0 ? tenant[0] : null
+          if (!Number.isSafeInteger(Number(tenantid))) return null;
+          const tenant = await this.registry.getTenant(Number(tenantid));
+          return tenant ? toLegacyTenant(tenant) : null;
      }
 
      async getAllTenants(): Promise<PrimeLimsTenant[]> {
-          const [tenants] = await tenancyConnection.raw(`SELECT * FROM registeredclients`);
-          return tenants;
-     }
-
-     async updateTenant(tenantid: number, tenantInformation: Partial<PrimeLimsTenant>): Promise<boolean> {
-          const updated = await tenancyConnection.raw(
-               `UPDATE registeredclients SET name = ?, type = ?, updatedOn = NOW(), referedid = ?, expirydate = ? 
-       WHERE tenantid = ?`,
-               [
-                    tenantInformation.name,
-                    tenantInformation.referedid,
-                    tenantInformation.expirydate,
-                    tenantid,
-               ]
-          );
-          return updated.affectedRows > 0;
-     }
-
-     async deleteTenant(tenantid: number): Promise<boolean> {
-          const deleted = await tenancyConnection.raw(
-               `DELETE FROM registeredclients WHERE tenantid = ?`,
-               [tenantid]
-          );
-          return deleted.affectedRows > 0;
+          return (await this.registry.listActiveTenants()).map(toLegacyTenant);
      }
 
      async activateTenant(tenantid: number): Promise<boolean> {
-          const updated = await tenancyConnection.raw(
-               `UPDATE registeredclients SET isActive = 1, updatedOn = NOW() WHERE tenantid = ?`,
-               [tenantid]
-          );
-          return updated.affectedRows > 0;
+          const updated = await tenancyConnection(TENANTS_TABLE).where({ tenant_number: tenantid })
+               .update({ status: "active", suspended_at: null });
+          TenantRegistry.invalidate();
+          return updated > 0;
      }
 
      async deactivateTenant(tenantid: number): Promise<boolean> {
-          const updated = await tenancyConnection.raw(
-               `UPDATE registeredclients SET isActive = 0, updatedOn = NOW() WHERE tenantid = ?`,
-               [tenantid]
-          );
-          return updated.affectedRows > 0;
+          const updated = await tenancyConnection(TENANTS_TABLE).where({ tenant_number: tenantid })
+               .update({ status: "suspended", suspended_at: tenancyConnection.fn.now() });
+          TenantRegistry.invalidate();
+          return updated > 0;
      }
 
      async verifyTenantId(tenantid: number): Promise<boolean> {
-          const [tenant] = await tenancyConnection.raw(
-               `SELECT tenantid FROM registeredclients WHERE tenantid = ?`,
-               [tenantid]
-          );
-          return !!tenant;
+          return !!(await this.registry.getTenant(Number(tenantid)));
      }
 
      async createDatabase(dbName: string): Promise<void> {
           try {
-               const status = await tenancyConnection.raw(
-                    `CREATE DATABASE IF NOT EXISTS ??`, [dbName]);
-               return status
+               await tenancyConnection.raw(`CREATE DATABASE IF NOT EXISTS ??`, [dbName]);
           } catch (err) {
                console.error(`Error creating database ${dbName}:`, err);
           }
      }
 
-     async validateTenantReferedId(referedid: string): Promise<boolean> {
-          const tenant = tenancyConnection.raw(`SELECT referedid FROM registeredclients WHERE  referedid = ? `);
-          return tenant || !Array.isArray(tenant) || tenant.length == 0 ? false : tenant[0]['referedid'] == referedid.trim();
-     }
-
-
      async validateTenantStanding(tenantId: number): Promise<boolean> {
-          const tenant = await this.getTenantDetails(tenantId);
-          return tenant && tenant['isActive'] == 1;
+          const tenant = await this.registry.getTenant(Number(tenantId));
+          return !!tenant && tenant.isActive;
      }
-
 }

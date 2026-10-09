@@ -1,12 +1,13 @@
 import KnexConnection from "../../../database/KnexConnections";
 import { IPatientCredentials } from "../interfaces";
 import bcrypt from "bcrypt";
+import { formatTenantLoginUsername } from "../../auth/TenantLoginUsername";
 
 export default class CredentialsPatientRepository {
      private connection: any;
      private tableName: string
 
-     constructor(tenantId: number) {
+     constructor(private readonly tenantId: number) {
           this.connection = KnexConnection(tenantId);
           this.tableName = "patients_credentials";
      }
@@ -15,7 +16,10 @@ export default class CredentialsPatientRepository {
           try {
                const connection = await this.connection;
                const hashedPassword = await bcrypt.hash(credentials.password, 10);
-               await connection(this.tableName).insert({ ...credentials, password: hashedPassword });
+               await connection(this.tableName).insert({
+                    ...credentials, password: hashedPassword,
+                    login_username: await formatTenantLoginUsername(this.tenantId, 'patient', Number(credentials.patientid)),
+               });
           } catch (error) {
                console.error("Error creating patient credentials:", error);
                throw new Error("Error creating patient credentials");
@@ -32,7 +36,10 @@ export default class CredentialsPatientRepository {
                const hashedPassword = await bcrypt.hash(credentials.password, 10)
                const result = await connection(this.tableName)
                     .where({ patientid })
-                    .update({ ...credentials, updated_on: new Date(), password: hashedPassword });
+                    .update({
+                         ...credentials, updated_on: new Date(), password: hashedPassword,
+                         login_username: await formatTenantLoginUsername(this.tenantId, 'patient', patientid),
+                    });
                return result > 0;
           } catch (error) {
                console.error("Error updating patient credentials:", error);
@@ -46,7 +53,10 @@ export default class CredentialsPatientRepository {
                const result = await connection(this.tableName)
                     .where({ patientid })
                     .first();
-               return result || null;
+               return result ? {
+                    ...result,
+                    username: await formatTenantLoginUsername(this.tenantId, 'patient', patientid),
+               } : null;
           } catch (error) {
                console.error("Error fetching patient credentials:", error);
                throw new Error("Error fetching patient credentials");

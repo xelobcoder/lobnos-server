@@ -10,9 +10,7 @@ import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import KnexConnection from "../database/KnexConnections";
 import knex from "knex";
 import { NotificationDispatcher } from "../models/application/notifications/services/NotificationDispatcher";
-import { buildLoginUsername, getLabLoginPrefix } from "../models/auth/LoginUsernameBootstrapper";
-import { publishLoginToDirectory } from "../models/auth/TenantLoginDirectory";
-import { effectiveTenantId } from "../hooks/configuration";
+import { formatTenantLoginUsername } from "../models/auth/TenantLoginUsername";
 
 export interface UserRequest extends Request {
      body: {
@@ -128,12 +126,8 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                pin: req.body.pin ? parseInt(req.body.pin) : 0,
           });
 
-          const loginPrefix = await getLabLoginPrefix(tenantId, connection);
-          const loginUsername = buildLoginUsername(loginPrefix, 'staff', Number(insertResult));
-          await connection("roles")
-               .where({ employeeid: insertResult })
-               .update({ login_username: loginUsername });
-          publishLoginToDirectory(effectiveTenantId(tenantId), { loginUsername, email, entityType: 'staff', entityId: Number(insertResult) });
+          const loginUsername = await formatTenantLoginUsername(tenantId, 'staff', Number(insertResult));
+          await connection('roles').where({ employeeid: insertResult }).update({ login_username: loginUsername });
 
           const createdRow = await connection("roles")
                .select([
@@ -154,8 +148,7 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
                     "firstname",
                     "middlename",
                     "lastname",
-                    "staff_designation",
-                    "login_username"
+                    "staff_designation"
                ])
                .where({ employeeid: insertResult })
                .first();
@@ -184,57 +177,6 @@ const createNewAccount = async (req: NewAccountRequest): Promise<{ userId: numbe
      }
 };
 
-const userLogin = async (req: Request, res: Response) => {
-     try {
-          const { name, password, email, browserInformation } = req.body;
-          const user = new User(name, password, null, null, null);
-          const tenantId = Number(req.query.tenantId);
-          const userExist = await user.checkLogins(email as string, password, tenantId);
-
-          if (!userExist) return customError("Invalid Login credentials", 400, res);
-
-          const userInformation = await user.getUserDataUsingEmail(email, tenantId);
-          const employeeId = userInformation["employeeid"];
-          const security = new Security(employeeId);
-
-          const isLoggedMultipleDevices = await security.getCanInitiateLogin(tenantId);
-          if (!isLoggedMultipleDevices) {
-               return res.send({ status: "multipleLogins" });
-          }
-
-          if (userInformation) {
-               const userNeededData = await user.processUserData(userInformation, tenantId);
-               if (typeof userNeededData === "string") {
-                    return customError(userNeededData, 404, res);
-               }
-
-               const token = await user.createAccessTokenCredentials(
-                    process.env.ACCESS_TOKEN_SECRET!,
-                    email,
-                    userNeededData,
-                    `${security.loginDuration}h`
-               );
-
-               const { sessionExpiryTime } = await security.insertLoginHistory(tenantId, browserInformation);
-
-               res.send({
-                    status: "success",
-                    statusCode: 200,
-                    message: "Login successful",
-                    user: userNeededData,
-                    token,
-                    sessionExpiryTime,
-                    vitalsInformation: await new User().loggedInAccessoryInformation(employeeId, tenantId)
-               });
-          } else {
-               customError(`user not found`, 404, res);
-          }
-     } catch (err) {
-          console.log(err)
-          responseError(res);
-     }
-};
-
 const getAllLogins = async (tenantId: number, records: {
      name: string,
      email: string,
@@ -249,8 +191,7 @@ const getAllLogins = async (tenantId: number, records: {
       SELECT
         rl.employeeid,
         rl.username,
-     rl.login_username AS loginUsername,
-        rl.role,
+     rl.role,
         rl.email,
         rl.branch,
         b.name AS branchname,
@@ -291,7 +232,10 @@ const getAllLogins = async (tenantId: number, records: {
 
           result = count && page ? await paginationQuery({ count, page }, query, vals, tenantId) : await promisifyQuery(tenantId, query, vals)
 
-          return result;
+          return await Promise.all(result.map(async (row: any) => ({
+               ...row,
+               loginUsername: await formatTenantLoginUsername(tenantId, 'staff', Number(row.employeeid)),
+          })));
      } catch (err) {
           console.log(err)
           return customError("something wrong occurred", 301, response);
@@ -359,10 +303,16 @@ const getAUser = async (req: UserRequest, res: Response): Promise<void> => {
           const { id, tenantId } = req.query;
           const tenantIdP = parseInt(tenantId.toString())
           if (!id) return customError("employeeid required", 404, res);
-          const queryString = `SELECT employeeid, username, login_username AS loginUsername, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin, firstname, middlename, lastname, staff_designation AS designation FROM roles WHERE employeeid = ?`;
+          const queryString = `SELECT employeeid, username, role, email, branch, emailAuthenticated, activation, mobile, alternativeMobile, dob, updated_on, date_created, pin, firstname, middlename, lastname, staff_designation AS designation FROM roles WHERE employeeid = ?`;
 
           const result = await promisifyQuery(tenantIdP, queryString, [parseInt(id)]);
-          res.send({ result, message: "success", statusCode: 200 });
+          const formatted = Array.isArray(result)
+               ? await Promise.all(result.map(async (row: any) => ({
+                    ...row,
+                    loginUsername: await formatTenantLoginUsername(tenantIdP, 'staff', Number(row.employeeid)),
+               })))
+               : result;
+          res.send({ result: formatted, message: "success", statusCode: 200 });
      } catch (err) {
           logger.error(err);
           responseError(res);
@@ -672,7 +622,6 @@ const updateUserPermission = async (req: UserRequest, res: Response): Promise<vo
 export {
      createNewAccount,
      getAllLogins,
-     userLogin,
      getAUser,
      updateUserBasicInfo,
      deleteAccount,
@@ -680,5 +629,3 @@ export {
      getPermissions,
      updateUserPermission,
 };
-
-

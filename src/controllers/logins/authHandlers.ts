@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
 import logger from "../../hooks/logger";
-import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, userLogin, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
+import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
 import { OperationsFailures } from "../../models/operations/types";
 import { parseCookies } from "../../middleware/validateTenancy";
@@ -10,14 +10,69 @@ import TokenValidator from "../../models/settings/users/TokenValidator";
 import bcrypt from "bcrypt";
 import KnexConnection from "../../database/KnexConnections";
 import crypto from "crypto";
-import { effectiveTenantId } from "../../hooks/configuration";
-import { LoginEntityType, TenantLoginDirectory } from "../../models/auth/TenantLoginDirectory";
+import { configuration, effectiveTenantId } from "../../hooks/configuration";
+import { LoginEntityType, parseLoginUsername } from "../../models/auth/TenantLoginDirectory";
+import { TenantRegistry } from "../../models/Tenancy/TenantRegistry";
+import { PasswordRecoveryService } from "../../models/auth/PasswordRecoveryService";
 
-const recordPortalLogin = (tenantId: number, entityType: LoginEntityType, entityId: number, loginUsername?: string | null, email?: string | null) => {
-	if (!loginUsername) return;
-	new TenantLoginDirectory()
-		.recordLogin(effectiveTenantId(tenantId), { loginUsername, email, entityType, entityId: Number(entityId) })
-		.catch((error) => logger.error(`[PortalLogin] Failed to record ${entityType} login in the global directory:`, error));
+const recoveryResponse = "If the account and email address are registered, password recovery instructions will be sent.";
+
+const getRecoveryAccount = async (req: Request) => {
+	const identifier = String(req.body?.username || req.body?.identifier || "");
+	const parsed = parseLoginUsername(identifier);
+	if (!parsed) return null;
+	const tenant = await new TenantRegistry().getByOrganizationIdentifier(parsed.organizationIdentifier);
+	if (!tenant || !tenant.isActive ||
+		(!configuration.isMultiTenant && tenant.tenantId !== configuration.defaultTenantId)) return null;
+	return { ...parsed, tenantId: effectiveTenantId(tenant.tenantId) };
+};
+
+export const requestPasswordResetOtp = async (req: Request, res: Response) => {
+	try {
+		const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
+		if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+			return customError("A valid registered email address is required", 400, res);
+		}
+		const account = await getRecoveryAccount(req);
+		if (!account) {
+			return res.status(200).send({ status: "success", statusCode: 200, message: recoveryResponse });
+		}
+		await new PasswordRecoveryService(account.tenantId).sendOtp(account.entityType, account.entityId, email);
+		return res.status(200).send({ status: "success", statusCode: 200, message: recoveryResponse });
+	} catch (error) {
+		logger.error("[PasswordRecovery] OTP request failed:", error);
+		return customError("Password recovery email is temporarily unavailable. Please try again later.", 503, res);
+	}
+};
+
+export const verifyPasswordResetOtp = async (req: Request, res: Response) => {
+	try {
+		const account = await getRecoveryAccount(req);
+		const otp = String(req.body?.otp || "");
+		if (!account || !(await new PasswordRecoveryService(account.tenantId).verifyOtp(account.entityType, account.entityId, otp))) {
+			return customError("Invalid or expired verification code", 400, res);
+		}
+		return res.status(200).send({ status: "success", statusCode: 200, verified: true });
+	} catch (error) {
+		logger.error("[PasswordRecovery] OTP verification failed:", error);
+		return responseError(res);
+	}
+};
+
+export const resetPasswordWithOtp = async (req: Request, res: Response) => {
+	try {
+		const account = await getRecoveryAccount(req);
+		const otp = String(req.body?.otp || "");
+		const password = String(req.body?.password || "");
+		if (!account) return customError("Invalid or expired verification code", 400, res);
+		const reset = await new PasswordRecoveryService(account.tenantId)
+			.resetPassword(account.entityType, account.entityId, otp, password);
+		if (!reset) return customError("Invalid or expired verification code", 400, res);
+		return res.status(200).send({ status: "success", statusCode: 200, message: "Password reset successfully" });
+	} catch (error: any) {
+		logger.error("[PasswordRecovery] Password reset failed:", error);
+		return customError(error?.message || "Password reset failed", 400, res);
+	}
 };
 
 const passwordMatches = async (password: string, storedPassword: string, isUpdated?: number): Promise<boolean> => {
@@ -146,17 +201,12 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
 		const connection = await KnexConnection(tenantId);
-		const hasLoginUsername = await connection.schema.hasColumn('clinicianscredentials', 'login_username');
-		const generatedClinicianIdMatch = loginIdentifier.match(/C(\d+)$/i);
+		const generatedClinicianIdMatch = loginIdentifier.match(/^C(\d+)$/i);
 		const generatedClinicianId = generatedClinicianIdMatch ? parseInt(generatedClinicianIdMatch[1], 10) : null;
 		const query = connection('clinicianscredentials as cc')
 			.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid')
 			.select('cc.*', 'cbi.name', 'cbi.phone', 'cbi.email as clinician_email')
-			.where((builder) => {
-				builder.where('cc.identifier', loginIdentifier);
-				if (hasLoginUsername) builder.orWhere('cc.login_username', loginIdentifier);
-				if (generatedClinicianId && Number.isFinite(generatedClinicianId)) builder.orWhere('cc.clinicianid', generatedClinicianId);
-			});
+			.where('cc.clinicianid', generatedClinicianId || -1);
 
 		const clinician = await query.first();
 		if (!clinician) return customError("Invalid credentials", 401, res);
@@ -170,10 +220,8 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 			clinicianid: clinician.clinicianid,
 			username: clinician.name || clinician.identifier || clinician.login_username,
 			email: clinician.email || clinician.clinician_email,
-			loginUsername: clinician.login_username,
 		};
 		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
-		recordPortalLogin(tenantId, 'clinician', user.clinicianid, user.loginUsername, user.email);
 		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);
@@ -189,15 +237,12 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
 		const connection = await KnexConnection(tenantId);
-		const hasLoginUsername = await connection.schema.hasColumn('patients_credentials', 'login_username');
+		const patientIdMatch = loginIdentifier.match(/^P(\d+)$/i);
+		const patientId = patientIdMatch ? parseInt(patientIdMatch[1], 10) : null;
 		const query = connection('patients_credentials as pc')
 			.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')
 			.select('pc.*', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
-			.where((builder) => {
-				builder.where('pc.username', loginIdentifier)
-					.orWhere('np.fullpatientid', loginIdentifier);
-				if (hasLoginUsername) builder.orWhere('pc.login_username', loginIdentifier);
-			});
+			.where('pc.patientid', patientId || -1);
 
 		const patient = await query.first();
 		if (!patient) return customError("Invalid credentials", 401, res);
@@ -211,11 +256,9 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 			patientid: patient.patientid,
 			username: `${patient.firstname || ''} ${patient.lastname || ''}`.trim() || patient.username,
 			email: patient.email,
-			loginUsername: patient.login_username,
 			fullpatientid: patient.fullpatientid,
 		};
 		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
-		recordPortalLogin(tenantId, 'patient', user.patientid, user.loginUsername, user.email);
 		res.send({ message: "Patient authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);

@@ -1,12 +1,9 @@
-import { configuration } from '../hooks/configuration';
 import TestAscensionTurnAroundTime from '../models/operations/TurnAroundTime';
-import { TenancyRepository } from '../models/Tenancy/tenancyRepo';
+import { listServedTenants } from '../models/Tenancy/TenantRegistry';
 
 export async function runTATArchiveJob() {
-     const isMultiTenant = configuration.isMultiTenant;
-     if (!isMultiTenant) await TestAscensionTurnAroundTime.computeAndArchiveAllTATs(3);
      let totalArchived = 0;
-     const tenants = await new TenancyRepository().getAllTenants();
+     const tenants = (await listServedTenants()).map((tenant) => ({ tenantid: tenant.tenantId }));
      if (!tenants || tenants.length === 0) return console.log("[TAT Archive] No tenants found to archive ascensions.");
      for (const tenant of tenants) {
           try {

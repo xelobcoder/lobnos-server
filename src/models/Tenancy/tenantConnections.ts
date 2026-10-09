@@ -1,62 +1,40 @@
 import knex, { Knex } from "knex";
 import mysql, { Pool } from "mysql2/promise";
-import { configuration } from "../../hooks/configuration";
+import { TenantRegistry } from "./TenantRegistry";
 
-interface TenantDBConfig {
-     host: string;
-     user: string;
-     password: string;
-     database: string;
-     port: number;
-     connectionLimit: number;
-     waitForConnections: boolean;
-     idleTimeout: number;
-     enableKeepAlive?: boolean;
-     keepAliveInitialDelay?: number;
-}
-
-const tenantConnections: Record<string, {
+interface TenantConnection {
+     databaseName: string;
      mysqlPool: Pool;
      knex: Knex;
-     lastUsed: number;
-}> = {};
+}
 
-const CONNECTION_TIMEOUT = 2000;
+const tenantConnections = new Map<number, Promise<TenantConnection>>();
 
-async function initializeTenantConnection(tenantId: number) {
-     const tenantKey = String(tenantId);
-
-     if (tenantConnections[tenantKey] &&
-          Date.now() - tenantConnections[tenantKey].lastUsed < CONNECTION_TIMEOUT) {
-          return tenantConnections[tenantKey];
-     }
-
-     const config: TenantDBConfig = {
-          host: process.env.DB_HOST!,
+async function createTenantConnection(tenantId: number): Promise<TenantConnection> {
+     const tenant = await new TenantRegistry().requireTenant(tenantId);
+     const connectionConfig = {
+          host: tenant.host || process.env.DB_HOST!,
+          port: tenant.port || Number(process.env.DB_PORT!),
           user: process.env.DB_USERNAME!,
           password: process.env.DB_PASSWORD!,
-          database: configuration.tenancyNaming(tenantId.toString()),
-          port: Number(process.env.DB_PORT!),
-          connectionLimit: 10,
-          waitForConnections: true,
-          idleTimeout: 3000,
+          database: tenant.databaseName,
      };
 
-     const pool = mysql.createPool({
-          ...config,
-          idleTimeout: 1000,
+     const mysqlPool = mysql.createPool({
+          ...connectionConfig,
+          connectionLimit: 10,
+          waitForConnections: true,
           enableKeepAlive: true,
           keepAliveInitialDelay: 10000,
      });
 
      const knexInstance = knex({
           client: "mysql2",
-          connection: config,
+          connection: connectionConfig,
           pool: {
-               min: 2,
+               min: 0,
                max: 20,
-               idleTimeoutMillis: 1000,
-               reapIntervalMillis: 1000,
+               idleTimeoutMillis: 30000,
                afterCreate: (conn: any, done: Function) => {
                     conn.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))", (err: any) => {
                          done(err, conn);
@@ -65,30 +43,37 @@ async function initializeTenantConnection(tenantId: number) {
           },
      });
 
-     if (tenantConnections[tenantKey]) {
-          await tenantConnections[tenantKey].mysqlPool.end();
-          await tenantConnections[tenantKey].knex.destroy();
+     return { databaseName: tenant.databaseName, mysqlPool, knex: knexInstance };
+}
+
+/** One long-lived pool per tenant, resolved from the master tenant registry. */
+function getTenantConnection(tenantId: number): Promise<TenantConnection> {
+     const id = Number(tenantId);
+     let connection = tenantConnections.get(id);
+     if (!connection) {
+          connection = createTenantConnection(id);
+          tenantConnections.set(id, connection);
+          connection.catch(() => tenantConnections.delete(id));
      }
-
-     tenantConnections[tenantKey] = {
-          mysqlPool: pool,
-          knex: knexInstance,
-          lastUsed: Date.now()
-     };
-
-     return tenantConnections[tenantKey];
+     return connection;
 }
 
 async function primeTenancyConnector(tenantId: number): Promise<Pool> {
-     const connection = await initializeTenantConnection(tenantId);
-     connection.lastUsed = Date.now();
-     return connection.mysqlPool;
+     return (await getTenantConnection(tenantId)).mysqlPool;
 }
 
 async function KnexConnectionTenant(tenantId: number): Promise<Knex> {
-     const connection = await initializeTenantConnection(tenantId);
-     connection.lastUsed = Date.now();
-     return connection.knex;
+     return (await getTenantConnection(tenantId)).knex;
 }
 
-export { KnexConnectionTenant, primeTenancyConnector };
+/** Closes a tenant's pools, e.g. after its database registration changed. */
+async function releaseTenantConnection(tenantId: number): Promise<void> {
+     const pending = tenantConnections.get(Number(tenantId));
+     tenantConnections.delete(Number(tenantId));
+     if (!pending) return;
+     const connection = await pending.catch(() => null);
+     if (!connection) return;
+     await Promise.allSettled([connection.mysqlPool.end(), connection.knex.destroy()]);
+}
+
+export { KnexConnectionTenant, primeTenancyConnector, releaseTenantConnection };

@@ -7,7 +7,7 @@ import { bootstrapExpenseWorkflow } from '../models/Expenses/ExpenseWorkflowBoot
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
-import { bootstrapLoginUsernames } from '../models/auth/LoginUsernameBootstrapper';
+import { bootstrapLoginAccountSchema } from '../models/auth/LoginUsernameBootstrapper';
 import { bootstrapPharmacyTables } from '../models/pharmacy/PharmacyBootstrapper';
 import { bootstrapInventoryDefaults } from '../models/inventory/InventoryBootstrapper';
 import { bootstrapPrescriptionTables } from '../models/prescriptions/PrescriptionBootstrapper';
@@ -22,8 +22,49 @@ import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleB
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
 import { startOptionalRedisCache } from '../services/cache/testPanelCache';
+import { listServedTenants } from '../models/Tenancy/TenantRegistry';
+
+export { listServedTenants };
+import { configuration } from '../hooks/configuration';
+import { systemConfigConnection } from '../database/connection';
+import logger from '../hooks/logger';
+
+/** Master test catalog every tenant imports tests from (lives in the master control database). */
+const MASTER_CATALOG_TABLES = ['test_panels', 'testdetails', 'testdetailcategory', 'testconditions', 'testcreationrules', 'sampletype', 'samplecontainer', 'departments'];
+
+export async function verifyMasterCatalog(): Promise<string[]> {
+	const missing: string[] = [];
+	for (const table of MASTER_CATALOG_TABLES) {
+		if (!(await systemConfigConnection.schema.hasTable(table))) missing.push(table);
+	}
+	if (missing.length > 0) {
+		logger.error(`[Bootstrap] Master catalog ${configuration.masterControlDatabase} is missing: ${missing.join(', ')}. Run npm run master:merge.`);
+	} else {
+		logger.info(`[Bootstrap] Master catalog ${configuration.masterControlDatabase} ready (${MASTER_CATALOG_TABLES.length} tables)`);
+	}
+	return missing;
+}
+
+/** Prepares every served tenant database. A tenant that cannot be reached is logged and skipped. */
+export async function bootstrapTenants(): Promise<{ readyTenants: number[]; accountingTenants: number[] }> {
+	await verifyMasterCatalog();
+	const readyTenants: number[] = [];
+	const accountingTenants: number[] = [];
+	for (const tenant of await listServedTenants()) {
+		try {
+			const { accountingReady } = await runApplicationBootstrappers(tenant.tenantId);
+			readyTenants.push(tenant.tenantId);
+			if (accountingReady) accountingTenants.push(tenant.tenantId);
+			logger.info(`[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode} - ${tenant.name}) ready on ${tenant.databaseName}`);
+		} catch (error: any) {
+			logger.error(`[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode}) skipped, database ${tenant.databaseName} unavailable: ${error?.message || error}`);
+		}
+	}
+	return { readyTenants, accountingTenants };
+}
 
 export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
+	await bootstrapLoginAccountSchema(tenantId);
 	await bootstrapInventoryDefaults(tenantId);
 	await bootstrapPharmacyTables(tenantId);
 	await bootstrapPrescriptionTables(tenantId);
@@ -40,7 +81,6 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapPayrollTables(tenantId);
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
-	await bootstrapLoginUsernames(tenantId);
 	await bootstrapEmailTables(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId);
 	await bootstrapTestReportSettingsTable(tenantId);
@@ -61,22 +101,23 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	return { accountingReady };
 }
 
-export function startApplicationBackgroundWorkers(tenantId = 1, options: { accountingReady: boolean }): void {
+export function startApplicationBackgroundWorkers(tenantIds: number[], options: { accountingReady: boolean }): void {
 	startOptionalRedisCache();
-	if (!options.accountingReady) return;
+	if (!options.accountingReady || tenantIds.length === 0) return;
 
 	try {
 		startAccountingWorker();
 	} catch (error) {
 		console.error('[Bootstrap] Accounting worker failed to start (isolated, non-fatal):', error);
 	}
-	processPendingOutbox(tenantId).catch((error) => {
-		console.error('[Accounting] Initial outbox sweep failed:', error);
-	});
 
-	setInterval(() => {
-		processPendingOutbox(tenantId).catch((error) => {
-			console.error('[Accounting] Periodic outbox sweep failed:', error);
-		});
-	}, 15_000);
+	const sweep = (label: string) => {
+		for (const tenantId of tenantIds) {
+			processPendingOutbox(tenantId).catch((error) => {
+				console.error(`[Accounting] ${label} outbox sweep failed for tenant ${tenantId}:`, error);
+			});
+		}
+	};
+	sweep('Initial');
+	setInterval(() => sweep('Periodic'), 15_000);
 }

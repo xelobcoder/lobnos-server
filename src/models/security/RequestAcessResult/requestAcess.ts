@@ -35,7 +35,7 @@ export default class RequestAccess {
           if (!Array.isArray(records) || records.length === 0 || !records[0]) return false;
           const record = records[0];
           const timestamp = new Date(record.updated_on || record.created_on || new Date())
-          const window = staffid ? await AccessWindowsRepo.getEffectiveSettings(staffid) : await AccessWindowsRepo.findGlobalSettings();
+          const window = staffid ? await AccessWindowsRepo.getEffectiveSettings(tenantId, staffid) : await AccessWindowsRepo.findGlobalSettings(tenantId);
           const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
           const requireApproval = window ? window.require_approval : false;
           return { windowPeriod, timestamp, record, requireApproval };
@@ -44,7 +44,7 @@ export default class RequestAccess {
      static async verifyWindowPeriod(tenantId: number, ascensionid: number, staffid: number, requestType: 'access' | 'edit'): Promise<boolean> {
           const existingRequests = await ResultAccessTableRepo.findLatestByAscensionAndStaff(tenantId, ascensionid, staffid);
           if (existingRequests && existingRequests.status === 'granted') {
-               const window = await AccessWindowsRepo.getEffectiveSettings(staffid) || await AccessWindowsRepo.findGlobalSettings();
+               const window = await AccessWindowsRepo.getEffectiveSettings(tenantId, staffid) || await AccessWindowsRepo.findGlobalSettings(tenantId);
                const windowPeriod = window ? (requestType === 'access' ? window['access_window'] : window["edit_window"]) : DEFAULT_WINDOW_PERIODS[requestType];
                if (!existingRequests.grantedAt && existingRequests.id) {
                     await ResultAccessTableRepo.expireAccess(tenantId, existingRequests.id);

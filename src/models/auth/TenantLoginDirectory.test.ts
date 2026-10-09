@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ findSessionById: vi.fn() }));
 
-vi.mock('../../database/connection', () => ({ systemConfigConnection: {} }));
+vi.mock('../../database/connection', () => ({ systemConfigConnection: {}, singleTenantKnexInstance: {} }));
 vi.mock('../../hooks/logger', () => ({ default: { error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
 vi.mock('../../models/settings/users/RolesRepository', () => ({ default: class {} }));
 vi.mock('../../models/Tenancy/tenancyRepo', () => ({ TenancyRepository: class {} }));
@@ -12,20 +12,49 @@ vi.mock('../../models/security/repositories/loginlog.repo', () => ({
      },
 }));
 
-import { parseTenantLoginUsername } from './TenantLoginDirectory';
+import { formatLoginUsername, parseLoginUsername } from './TenantLoginDirectory';
+import { facilityCodeBase, facilityCodeCandidates, isValidFacilityCode } from '../Tenancy/TenantRegistry';
 import { hashDeviceFingerprint, verifyStaffSession } from '../../middleware/validateTenancy';
 
-describe('parseTenantLoginUsername', () => {
-     it('extracts tenant, entity type and id from tenant-qualified usernames', () => {
-          expect(parseTenantLoginUsername('PLSRG-T3-S0012')).toEqual({ tenantId: 3, entityType: 'staff', entityId: 12 });
-          expect(parseTenantLoginUsername('abcgr-t27-p0450')).toEqual({ tenantId: 27, entityType: 'patient', entityId: 450 });
-          expect(parseTenantLoginUsername('LABX-T5-C0001')).toEqual({ tenantId: 5, entityType: 'clinician', entityId: 1 });
+describe('login usernames', () => {
+     it('formats the public organization identifier + tenant-local account number', () => {
+          expect(formatLoginUsername('PLS20154', 'staff', 4)).toBe('PLS20154S004');
+          expect(formatLoginUsername('PLS20154', 'patient', 450)).toBe('PLS20154P450');
+          expect(formatLoginUsername('pls20154', 'clinician', 12345)).toBe('PLS20154C12345');
      });
 
-     it('ignores legacy usernames and emails', () => {
-          expect(parseTenantLoginUsername('PLSRGS0012')).toBeNull();
-          expect(parseTenantLoginUsername('user@lab.com')).toBeNull();
-          expect(parseTenantLoginUsername('PLSRG-T0-S0012')).toBeNull();
+     it('parses the organization prefix, account type, and local ID without confusing the S in PLS', () => {
+          expect(parseLoginUsername('pls20154s004')).toMatchObject({ organizationIdentifier: 'PLS20154', entityType: 'staff', entityId: 4 });
+          expect(parseLoginUsername('PLS20154P450')).toEqual({
+               organizationIdentifier: 'PLS20154', entityType: 'patient', entityId: 450, loginUsername: 'PLS20154P450',
+          });
+          expect(parseLoginUsername('PLS20154C0002')).toMatchObject({ organizationIdentifier: 'PLS20154', entityType: 'clinician', entityId: 2 });
+     });
+
+     it.each(['S3', '12345S3', '1234567S3', '000000S3', 'PLS20154S0', 'PLS20154X3',
+          'PLS20154S', 'PLS20154S1000000000', 'PLS20154-S3', 'PLS 20154S3', 'user@lab.com'])('rejects invalid username %s', (value) => {
+          expect(parseLoginUsername(value)).toBeNull();
+     });
+
+     it('rejects invalid organization prefixes and account IDs outside the supported range', () => {
+          expect(() => formatLoginUsername('123456', 'staff', 1)).toThrow(RangeError);
+          expect(() => formatLoginUsername('', 'staff', 1)).toThrow(RangeError);
+          expect(() => formatLoginUsername('PLS20154', 'staff', 1000000000)).toThrow(RangeError);
+     });
+});
+
+describe('facility codes', () => {
+     it('derives a readable six-character code from the organization name', () => {
+          expect(facilityCodeBase('Abdi Medical Laboratory')).toBe('ABDIML');
+          expect(facilityCodeBase('Vitalscan')).toBe('VITALS');
+          expect(isValidFacilityCode(facilityCodeBase('123 Lab'))).toBe(true);
+     });
+
+     it('offers unique fallbacks when the preferred code is taken', () => {
+          const candidates = facilityCodeCandidates('Abdi Medical Laboratory');
+          expect(candidates[0]).toBe('ABDIML');
+          expect(new Set(candidates).size).toBe(candidates.length);
+          expect(candidates.every(isValidFacilityCode)).toBe(true);
      });
 });
 

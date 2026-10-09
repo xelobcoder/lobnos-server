@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Request, Response, Router } from 'express';
 
 import { SmsJobsController } from './SmsJobsController';
 import { SmsTemplatesController } from './SmsTemplatesController';
@@ -24,80 +24,84 @@ import { PrimeSmsEventsRepo } from '../../../models/application/sms/repositories
 import { PrimeSmsEventTemplatesRepo } from '../../../models/application/sms/repositories/PrimeSmsEventTemplatesRepo';
 
 
-// Static tenantId for now; replace with dynamic value or middleware if needed
-const tenantId = 1;
+const buildControllers = (tenantId: number) => ({
+	smsJobsController: new SmsJobsController(new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId))),
+	smsTemplatesController: new SmsTemplatesController(new SmsTemplatesService(new PrimeSmsTemplatesRepo(tenantId))),
+	smsJobRecipientsController: new SmsJobRecipientsController(new SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo(tenantId))),
+	smsCategoryMappingsController: new SmsCategoryMappingsController(new SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo(tenantId))),
+	smsPlaceholderRulesController: new SmsPlaceholderRulesController(new SmsPlaceholderRulesService(new PrimeSmsPlaceholderRulesRepo(tenantId))),
+	smsEventsController: new SmsEventsController(new SmsEventsService(new PrimeSmsEventsRepo(tenantId))),
+	smsEventTemplatesController: new SmsEventTemplatesController(new SmsEventTemplatesService(new PrimeSmsEventTemplatesRepo(tenantId))),
+});
+type SmsControllers = ReturnType<typeof buildControllers>;
 
-const smsJobsService = new SmsJobsService(
-	new PrimeSmsJobsRepo(tenantId),
-	new PrimeSmsJobRecipientsRepo(tenantId)
-);
-const smsTemplatesService = new SmsTemplatesService(new PrimeSmsTemplatesRepo(tenantId));
-const smsJobRecipientsService = new SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo(tenantId));
-const smsCategoryMappingsService = new SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo(tenantId));
-const smsPlaceholderRulesService = new SmsPlaceholderRulesService(new PrimeSmsPlaceholderRulesRepo(tenantId));
-const smsEventsService = new SmsEventsService(new PrimeSmsEventsRepo(tenantId));
-const smsEventTemplatesService = new SmsEventTemplatesService(new PrimeSmsEventTemplatesRepo(tenantId));
+const controllersByTenant = new Map<number, SmsControllers>();
 
-const smsJobsController = new SmsJobsController(smsJobsService);
-const smsTemplatesController = new SmsTemplatesController(smsTemplatesService);
-const smsJobRecipientsController = new SmsJobRecipientsController(smsJobRecipientsService);
-const smsCategoryMappingsController = new SmsCategoryMappingsController(smsCategoryMappingsService);
-const smsPlaceholderRulesController = new SmsPlaceholderRulesController(smsPlaceholderRulesService);
-const smsEventsController = new SmsEventsController(smsEventsService);
-const smsEventTemplatesController = new SmsEventTemplatesController(smsEventTemplatesService);
+/** Dispatches to the controller of the tenant named in `?tenantId` (validated upstream by ValidateTenancyAgreement). */
+const tenantHandler = <K extends keyof SmsControllers>(controller: K, method: keyof SmsControllers[K]) =>
+	(req: Request, res: Response) => {
+		const tenantId = Number(req.query.tenantId);
+		let controllers = controllersByTenant.get(tenantId);
+		if (!controllers) {
+			controllers = buildControllers(tenantId);
+			controllersByTenant.set(tenantId, controllers);
+		}
+		const instance: any = controllers[controller];
+		return instance[method](req, res);
+	};
 
 const router = Router();
 
 // Jobs
-router.post('/api/v1/prime/sms-jobs', handleOverLoad(smsJobsController.create.bind(smsJobsController)));
-router.get('/api/v1/prime/sms-jobs/:id', handleOverLoad(smsJobsController.getById.bind(smsJobsController)));
-router.put('/api/v1/prime/sms-jobs/:id', handleOverLoad(smsJobsController.update.bind(smsJobsController)));
-router.delete('/api/v1/prime/sms-jobs/:id', handleOverLoad(smsJobsController.delete.bind(smsJobsController)));
-router.get('/api/v1/prime/sms-jobs-paginated', handleOverLoad(smsJobsController.getAllPaginated.bind(smsJobsController)));
+router.post('/api/v1/prime/sms-jobs', handleOverLoad(tenantHandler('smsJobsController', 'create')));
+router.get('/api/v1/prime/sms-jobs/:id', handleOverLoad(tenantHandler('smsJobsController', 'getById')));
+router.put('/api/v1/prime/sms-jobs/:id', handleOverLoad(tenantHandler('smsJobsController', 'update')));
+router.delete('/api/v1/prime/sms-jobs/:id', handleOverLoad(tenantHandler('smsJobsController', 'delete')));
+router.get('/api/v1/prime/sms-jobs-paginated', handleOverLoad(tenantHandler('smsJobsController', 'getAllPaginated')));
 
 // Templates
-router.post('/api/v1/prime/sms-templates', handleOverLoad(smsTemplatesController.create.bind(smsTemplatesController)));
-router.get('/api/v1/prime/sms-templates/:id', handleOverLoad(smsTemplatesController.getById.bind(smsTemplatesController)));
-router.put('/api/v1/prime/sms-templates/:id', handleOverLoad(smsTemplatesController.update.bind(smsTemplatesController)));
-router.delete('/api/v1/prime/sms-templates/:id', handleOverLoad(smsTemplatesController.delete.bind(smsTemplatesController)));
-router.get('/api/v1/prime/sms-templates', handleOverLoad(smsTemplatesController.getAll.bind(smsTemplatesController)));
-router.get('/api/v1/prime/sms-templates-paginated', handleOverLoad(smsTemplatesController.getAllPaginated.bind(smsTemplatesController)));
+router.post('/api/v1/prime/sms-templates', handleOverLoad(tenantHandler('smsTemplatesController', 'create')));
+router.get('/api/v1/prime/sms-templates/:id', handleOverLoad(tenantHandler('smsTemplatesController', 'getById')));
+router.put('/api/v1/prime/sms-templates/:id', handleOverLoad(tenantHandler('smsTemplatesController', 'update')));
+router.delete('/api/v1/prime/sms-templates/:id', handleOverLoad(tenantHandler('smsTemplatesController', 'delete')));
+router.get('/api/v1/prime/sms-templates', handleOverLoad(tenantHandler('smsTemplatesController', 'getAll')));
+router.get('/api/v1/prime/sms-templates-paginated', handleOverLoad(tenantHandler('smsTemplatesController', 'getAllPaginated')));
 
 // Job Recipients
-router.post('/api/v1/prime/sms-job-recipients', handleOverLoad(smsJobRecipientsController.create.bind(smsJobRecipientsController)));
-router.get('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(smsJobRecipientsController.getById.bind(smsJobRecipientsController)));
-router.put('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(smsJobRecipientsController.update.bind(smsJobRecipientsController)));
-router.delete('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(smsJobRecipientsController.delete.bind(smsJobRecipientsController)));
-router.get('/api/v1/prime/sms-job-recipients/by-job/:jobId', handleOverLoad(smsJobRecipientsController.getAllByJob.bind(smsJobRecipientsController)));
+router.post('/api/v1/prime/sms-job-recipients', handleOverLoad(tenantHandler('smsJobRecipientsController', 'create')));
+router.get('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(tenantHandler('smsJobRecipientsController', 'getById')));
+router.put('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(tenantHandler('smsJobRecipientsController', 'update')));
+router.delete('/api/v1/prime/sms-job-recipients/:id', handleOverLoad(tenantHandler('smsJobRecipientsController', 'delete')));
+router.get('/api/v1/prime/sms-job-recipients/by-job/:jobId', handleOverLoad(tenantHandler('smsJobRecipientsController', 'getAllByJob')));
 
 // Category Mappings
-router.post('/api/v1/prime/sms-category-mappings', handleOverLoad(smsCategoryMappingsController.create.bind(smsCategoryMappingsController)));
-router.get('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(smsCategoryMappingsController.getById.bind(smsCategoryMappingsController)));
-router.put('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(smsCategoryMappingsController.update.bind(smsCategoryMappingsController)));
-router.delete('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(smsCategoryMappingsController.delete.bind(smsCategoryMappingsController)));
-router.get('/api/v1/prime/sms-category-mappings', handleOverLoad(smsCategoryMappingsController.getAll.bind(smsCategoryMappingsController)));
-router.get('/api/v1/prime/sms-category-mappings-with-placeholders', handleOverLoad(smsCategoryMappingsController.getCategoriesWithPlaceholders.bind(smsCategoryMappingsController)));
+router.post('/api/v1/prime/sms-category-mappings', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'create')));
+router.get('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'getById')));
+router.put('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'update')));
+router.delete('/api/v1/prime/sms-category-mappings/:id', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'delete')));
+router.get('/api/v1/prime/sms-category-mappings', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'getAll')));
+router.get('/api/v1/prime/sms-category-mappings-with-placeholders', handleOverLoad(tenantHandler('smsCategoryMappingsController', 'getCategoriesWithPlaceholders')));
 
 // Placeholder Rules
-router.post('/api/v1/prime/sms-placeholder-rules', handleOverLoad(smsPlaceholderRulesController.create.bind(smsPlaceholderRulesController)));
-router.get('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(smsPlaceholderRulesController.getById.bind(smsPlaceholderRulesController)));
-router.put('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(smsPlaceholderRulesController.update.bind(smsPlaceholderRulesController)));
-router.delete('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(smsPlaceholderRulesController.delete.bind(smsPlaceholderRulesController)));
-router.get('/api/v1/prime/sms-placeholder-rules', handleOverLoad(smsPlaceholderRulesController.getAll.bind(smsPlaceholderRulesController)));
+router.post('/api/v1/prime/sms-placeholder-rules', handleOverLoad(tenantHandler('smsPlaceholderRulesController', 'create')));
+router.get('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(tenantHandler('smsPlaceholderRulesController', 'getById')));
+router.put('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(tenantHandler('smsPlaceholderRulesController', 'update')));
+router.delete('/api/v1/prime/sms-placeholder-rules/:id', handleOverLoad(tenantHandler('smsPlaceholderRulesController', 'delete')));
+router.get('/api/v1/prime/sms-placeholder-rules', handleOverLoad(tenantHandler('smsPlaceholderRulesController', 'getAll')));
 
 // Events
-router.post('/api/v1/prime/sms-events', handleOverLoad(smsEventsController.create.bind(smsEventsController)));
-router.get('/api/v1/prime/sms-events/:id', handleOverLoad(smsEventsController.getById.bind(smsEventsController)));
-router.put('/api/v1/prime/sms-events/:id', handleOverLoad(smsEventsController.update.bind(smsEventsController)));
-router.delete('/api/v1/prime/sms-events/:id', handleOverLoad(smsEventsController.delete.bind(smsEventsController)));
-router.get('/api/v1/prime/sms-events', handleOverLoad(smsEventsController.getAll.bind(smsEventsController)));
+router.post('/api/v1/prime/sms-events', handleOverLoad(tenantHandler('smsEventsController', 'create')));
+router.get('/api/v1/prime/sms-events/:id', handleOverLoad(tenantHandler('smsEventsController', 'getById')));
+router.put('/api/v1/prime/sms-events/:id', handleOverLoad(tenantHandler('smsEventsController', 'update')));
+router.delete('/api/v1/prime/sms-events/:id', handleOverLoad(tenantHandler('smsEventsController', 'delete')));
+router.get('/api/v1/prime/sms-events', handleOverLoad(tenantHandler('smsEventsController', 'getAll')));
 
 // Event Templates
-router.post('/api/v1/prime/sms-event-templates', handleOverLoad(smsEventTemplatesController.create.bind(smsEventTemplatesController)));
-router.get('/api/v1/prime/sms-event-templates/:id', handleOverLoad(smsEventTemplatesController.getById.bind(smsEventTemplatesController)));
-router.put('/api/v1/prime/sms-event-templates/:id', handleOverLoad(smsEventTemplatesController.update.bind(smsEventTemplatesController)));
-router.delete('/api/v1/prime/sms-event-templates/:id', handleOverLoad(smsEventTemplatesController.delete.bind(smsEventTemplatesController)));
-router.get('/api/v1/prime/sms-event-templates/by-event/:eventId', handleOverLoad(smsEventTemplatesController.getAllByEvent.bind(smsEventTemplatesController)));
-router.get('/api/v1/prime/sms-event-templates/by-template/:templateId', handleOverLoad(smsEventTemplatesController.getAllByTemplate.bind(smsEventTemplatesController)));
+router.post('/api/v1/prime/sms-event-templates', handleOverLoad(tenantHandler('smsEventTemplatesController', 'create')));
+router.get('/api/v1/prime/sms-event-templates/:id', handleOverLoad(tenantHandler('smsEventTemplatesController', 'getById')));
+router.put('/api/v1/prime/sms-event-templates/:id', handleOverLoad(tenantHandler('smsEventTemplatesController', 'update')));
+router.delete('/api/v1/prime/sms-event-templates/:id', handleOverLoad(tenantHandler('smsEventTemplatesController', 'delete')));
+router.get('/api/v1/prime/sms-event-templates/by-event/:eventId', handleOverLoad(tenantHandler('smsEventTemplatesController', 'getAllByEvent')));
+router.get('/api/v1/prime/sms-event-templates/by-template/:templateId', handleOverLoad(tenantHandler('smsEventTemplatesController', 'getAllByTemplate')));
 
 export default router;

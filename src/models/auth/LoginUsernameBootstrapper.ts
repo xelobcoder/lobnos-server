@@ -2,305 +2,113 @@ import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
 import bcrypt from 'bcrypt';
-import { LoginEntityType, TenantLoginDirectory, TenantLoginDirectoryEntry } from './TenantLoginDirectory';
 import { effectiveTenantId } from '../../hooks/configuration';
+import { formatLoginUsername, LoginEntityType } from './TenantLoginDirectory';
+import { TenantRegistry } from '../Tenancy/TenantRegistry';
 
-function normalizeCode(value: unknown, fallback: string): string {
-     const normalized = String(value || '')
-          .toUpperCase()
-          .replace(/[^A-Z0-9]/g, '')
-          .slice(0, 8);
-     return normalized || fallback;
-}
-
-function initialsFromName(value: unknown): string {
-     return String(value || '')
-          .split(/\s+/)
-          .filter(Boolean)
-          .map((part) => part.charAt(0))
-          .join('');
-}
-
-/**
- * Prefix for generated login usernames: lab code + region code + tenant segment, e.g. `PLSRG-T3-`.
- * The tenant segment makes every generated username globally unique and lets the login screen
- * route a user to their organization without asking for a tenant ID.
- */
-export async function getLabLoginPrefix(tenantId: number, connectionOverride?: Knex | Knex.Transaction): Promise<string> {
-     const connection = connectionOverride || await KnexConnection(tenantId);
-     let labPrefix = 'PLS';
-     let regionPrefix = 'RG';
-
-     try {
-          const settings = await connection('applicationsettings').where({ keyid: 1 }).first();
-          const company = await connection('companyprofile').first();
-          labPrefix = normalizeCode(settings?.patientIdPrefix || initialsFromName(company?.NAME || company?.name), 'PLS');
-
-          if (settings?.regioncode && await connection.schema.hasTable('regions')) {
-               const region = await connection('regions').select('regioncode').where({ id: settings.regioncode }).first();
-               regionPrefix = normalizeCode(region?.regioncode, 'RG');
-          }
-     } catch (error) {
-          logger.error('[LoginUsernameBootstrapper] Failed to resolve lab login prefix:', error);
-     }
-
-     return `${labPrefix}${regionPrefix}-T${effectiveTenantId(tenantId)}-`;
-}
-
-export function buildLoginUsername(prefix: string, entityType: LoginEntityType, id: number): string {
-     const typeCode = entityType === 'staff' ? 'S' : entityType === 'patient' ? 'P' : 'C';
-     return `${prefix}${typeCode}${String(id).padStart(4, '0')}`;
-}
-
-async function ensureLoginUsernameColumn(connection: Knex, tableName: string, indexName: string): Promise<void> {
-     if (!(await connection.schema.hasColumn(tableName, 'login_username'))) {
-          await connection.schema.alterTable(tableName, (table) => {
-               table.string('login_username', 64).nullable().index(indexName);
-          });
-     }
-}
-
-/**
- * The legacy `roles.role` column was created as a restrictive ENUM that predates
- * newer roles (clinician, pharmacy_*, customer service representative, super_admin, ...).
- * MySQL truncates any value not in the enum ("Data truncated for column 'role'").
- * Widen it once to a VARCHAR so all current and future roles are accepted.
- * Idempotent: only runs when the column is not already a native varchar.
- */
-async function ensureRoleColumnIsVarchar(connection: Knex): Promise<void> {
-     try {
-          const [rows]: any = await connection.raw(
-               `SELECT DATA_TYPE AS data_type FROM information_schema.COLUMNS
-                WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'roles' AND COLUMN_NAME = 'role'`
-          );
-          const dataType = String(rows?.[0]?.data_type || '').toLowerCase();
-          if (dataType && dataType !== 'varchar') {
-               await connection.raw(
-                    `ALTER TABLE roles MODIFY COLUMN role VARCHAR(50) NOT NULL DEFAULT 'scientist'`
-               );
-               logger.info(`[Bootstrap] Widened roles.role column from ${dataType} to VARCHAR(50)`);
-          }
-     } catch (error) {
-          logger.error('[Bootstrap] Failed to widen roles.role column:', error);
-     }
-}
-
-async function ensureRolesColumns(connection: Knex): Promise<void> {
-     const columnsToCheck: Array<{ name: string; add: (table: Knex.CreateTableBuilder) => void }> = [
-          { name: 'pin', add: (t) => t.integer('pin').unsigned().nullable().defaultTo(0) },
-          { name: 'pin_hash', add: (t) => t.string('pin_hash', 60).nullable() },
-          { name: 'date_created', add: (t) => t.datetime('date_created').nullable().defaultTo(connection.fn.now()) },
-          { name: 'refresh_token', add: (t) => t.string('refresh_token', 255).nullable() },
-          { name: 'activation', add: (t) => t.boolean('activation').notNullable().defaultTo(false) },
-          { name: 'updated_on', add: (t) => t.datetime('updated_on', { precision: 6 }).nullable() },
-          { name: 'emailAuthenticated', add: (t) => t.string('emailAuthenticated', 6).notNullable().defaultTo('false') },
-          { name: 'branch', add: (t) => t.integer('branch').unsigned().nullable() },
-          { name: 'mobile', add: (t) => t.string('mobile', 10).nullable() },
-          { name: 'alternativeMobile', add: (t) => t.string('alternativeMobile', 10).nullable() },
-          { name: 'dob', add: (t) => t.date('dob').nullable() },
-          { name: 'time', add: (t) => t.datetime('time', { precision: 6 }).nullable() },
-          { name: 'firstname', add: (t) => t.string('firstname', 100).nullable() },
-          { name: 'middlename', add: (t) => t.string('middlename', 100).nullable() },
-          { name: 'lastname', add: (t) => t.string('lastname', 100).nullable() },
-          { name: 'designation', add: (t) => t.integer('designation').nullable() },
-          { name: 'staff_designation', add: (t) => t.string('staff_designation', 100).nullable() }
-     ];
-
-     for (const col of columnsToCheck) {
-          if (!(await connection.schema.hasColumn('roles', col.name))) {
-               await connection.schema.alterTable('roles', (table) => {
-                    col.add(table);
-               });
-               logger.info(`[Bootstrap] Added missing column roles.${col.name}`);
-          }
-     }
-
-     try {
-          await connection.raw('ALTER TABLE roles MODIFY COLUMN pin INT UNSIGNED NULL DEFAULT NULL');
-     } catch (error) {
-          logger.error('[Bootstrap] Failed to make roles.pin nullable:', error);
-          throw error;
-     }
-
-     const legacyPins = await connection('roles')
-          .select('employeeid', 'pin')
-          .whereNull('pin_hash')
-          .whereBetween('pin', [1000, 9999]);
-     for (const employee of legacyPins) {
-          const pinHash = await bcrypt.hash(String(employee.pin), 10);
-          await connection('roles')
-               .where({ employeeid: employee.employeeid, pin: employee.pin })
-               .whereNull('pin_hash')
-               .update({ pin_hash: pinHash, pin: null });
-     }
-}
-
-export async function bootstrapLoginUsernames(tenantId = 1): Promise<void> {
-     try {
-          const connection = await KnexConnection(tenantId);
-          const prefix = await getLabLoginPrefix(tenantId, connection);
-
-          if (await connection.schema.hasTable('roles')) {
-               await ensureRoleColumnIsVarchar(connection);
-               await ensureRolesColumns(connection);
-               await ensureLoginUsernameColumn(connection, 'roles', 'idx_roles_login_username');
-               const rows = await connection('roles')
-                    .select('employeeid')
-                    .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));
-
-               for (const row of rows) {
-                    await connection('roles')
-                         .where({ employeeid: row.employeeid })
-                         .update({ login_username: buildLoginUsername(prefix, 'staff', Number(row.employeeid)) });
-               }
-          }
-
-          if (await connection.schema.hasTable('patients_credentials')) {
-               await ensureLoginUsernameColumn(connection, 'patients_credentials', 'idx_patient_credentials_login_username');
-               const rows = await connection('patients_credentials')
-                    .select('patientid')
-                    .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));
-
-               for (const row of rows) {
-                    await connection('patients_credentials')
-                         .where({ patientid: row.patientid })
-                         .update({ login_username: buildLoginUsername(prefix, 'patient', Number(row.patientid)) });
-               }
-          }
-
-          if (await connection.schema.hasTable('clinicianscredentials')) {
-               await ensureLoginUsernameColumn(connection, 'clinicianscredentials', 'idx_clinicians_credentials_login_username');
-               if (!(await connection.schema.hasColumn('clinicianscredentials', 'email'))) {
-                    await connection.schema.alterTable('clinicianscredentials', (table) => {
-                         table.string('email', 255).nullable();
-                    });
-               }
-               if (!(await connection.schema.hasColumn('clinicianscredentials', 'ispasswordUpdated'))) {
-                    await connection.schema.alterTable('clinicianscredentials', (table) => {
-                         table.tinyint('ispasswordUpdated').notNullable().defaultTo(0);
-                    });
-               }
-               const rows = await connection('clinicianscredentials')
-                    .select('clinicianid')
-                    .where((builder) => builder.whereNull('login_username').orWhere('login_username', ''));
-
-               for (const row of rows) {
-                    await connection('clinicianscredentials')
-                         .where({ clinicianid: row.clinicianid })
-                         .update({ login_username: buildLoginUsername(prefix, 'clinician', Number(row.clinicianid)) });
-               }
-          }
-
-          await ensureLoginSessionColumns(connection);
-     } catch (error) {
-          logger.error('[LoginUsernameBootstrapper] Failed to bootstrap login usernames:', error);
-     }
-
-     try {
-          await syncTenantLoginDirectory(tenantId);
-     } catch (error) {
-          logger.error('[LoginUsernameBootstrapper] Failed to sync the global login directory:', error);
-     }
-}
-
-async function ensureLoginSessionColumns(connection: Knex): Promise<void> {
-     if (!(await connection.schema.hasTable('loginlogs'))) return;
-     if (!(await connection.schema.hasColumn('loginlogs', 'deviceFingerprint'))) {
-          await connection.schema.alterTable('loginlogs', (table) => {
-               table.string('deviceFingerprint', 64).nullable();
-          });
-          logger.info('[Bootstrap] Added missing column loginlogs.deviceFingerprint');
-     }
-}
-
-type CredentialSource = {
-     entityType: LoginEntityType;
-     table: string;
-     load: (connection: Knex) => Promise<TenantLoginDirectoryEntry[]>;
-     update: (connection: Knex, entityId: number, loginUsername: string) => Promise<unknown>;
-};
-
-const CREDENTIAL_SOURCES: CredentialSource[] = [
-     {
-          entityType: 'staff',
-          table: 'roles',
-          load: async (connection) => {
-               const rows = await connection('roles').select('employeeid', 'email', 'login_username');
-               return rows.map((row: any) => ({
-                    entityType: 'staff' as const,
-                    entityId: Number(row.employeeid),
-                    loginUsername: row.login_username,
-                    email: row.email,
-               }));
-          },
-          update: (connection, entityId, loginUsername) => connection('roles').where({ employeeid: entityId }).update({ login_username: loginUsername }),
-     },
-     {
-          entityType: 'patient',
-          table: 'patients_credentials',
-          load: async (connection) => {
-               const hasPatients = await connection.schema.hasTable('new_patients');
-               const query = connection('patients_credentials as pc').select('pc.patientid', 'pc.login_username');
-               if (hasPatients) query.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid').select('np.email');
-               const rows = await query;
-               return rows.map((row: any) => ({
-                    entityType: 'patient' as const,
-                    entityId: Number(row.patientid),
-                    loginUsername: row.login_username,
-                    email: row.email || null,
-               }));
-          },
-          update: (connection, entityId, loginUsername) => connection('patients_credentials').where({ patientid: entityId }).update({ login_username: loginUsername }),
-     },
-     {
-          entityType: 'clinician',
-          table: 'clinicianscredentials',
-          load: async (connection) => {
-               const hasInfo = await connection.schema.hasTable('clinicianbasicinfo');
-               const query = connection('clinicianscredentials as cc').select('cc.clinicianid', 'cc.login_username', 'cc.email');
-               if (hasInfo) query.leftJoin('clinicianbasicinfo as cbi', 'cbi.id', 'cc.clinicianid').select('cbi.email as clinician_email');
-               const rows = await query;
-               return rows.map((row: any) => ({
-                    entityType: 'clinician' as const,
-                    entityId: Number(row.clinicianid),
-                    loginUsername: row.login_username,
-                    email: row.email || row.clinician_email || null,
-               }));
-          },
-          update: (connection, entityId, loginUsername) => connection('clinicianscredentials').where({ clinicianid: entityId }).update({ login_username: loginUsername }),
-     },
+const LOGIN_ACCOUNTS: Array<{ table: string; id: string; previous: string; type: LoginEntityType }> = [
+     { table: 'roles', id: 'employeeid', previous: 'username', type: 'staff' },
+     { table: 'patients_credentials', id: 'patientid', previous: 'username', type: 'patient' },
+     { table: 'clinicianscredentials', id: 'clinicianid', previous: 'identifier', type: 'clinician' },
 ];
 
-/**
- * Publishes every staff, patient and clinician login of the tenant to the global login directory.
- * A legacy username that is already taken by another organization is regenerated in the
- * tenant-qualified format (e.g. `PLSRG-T3-S0012`) so it stays globally unique.
- */
-export async function syncTenantLoginDirectory(tenantId: number): Promise<void> {
-     const resolvedTenantId = effectiveTenantId(tenantId);
+/** Migrates tenant-local login IDs, preserving historical usernames and all display/clinical fields. */
+export async function bootstrapLoginUsernames(tenantId: number): Promise<void> {
+     const organizationId = effectiveTenantId(tenantId);
+     const tenant = await new TenantRegistry().requireTenant(organizationId);
+     formatLoginUsername(tenant.platformId, 'staff', 1);
      const connection = await KnexConnection(tenantId);
-     const directory = new TenantLoginDirectory();
-     const prefix = await getLabLoginPrefix(tenantId, connection);
-
-     for (const source of CREDENTIAL_SOURCES) {
-          if (!(await connection.schema.hasTable(source.table))) continue;
-          if (!(await connection.schema.hasColumn(source.table, 'login_username'))) continue;
-
-          const entries = await source.load(connection);
-          const { conflicts } = await directory.syncTenant(resolvedTenantId, entries);
-          if (conflicts.length === 0) continue;
-
-          const regenerated: TenantLoginDirectoryEntry[] = [];
-          for (const conflict of conflicts) {
-               const loginUsername = buildLoginUsername(prefix, source.entityType, conflict.entityId);
-               if (loginUsername === conflict.loginUsername) continue;
-               await source.update(connection, conflict.entityId, loginUsername);
-               regenerated.push({ ...conflict, loginUsername });
-               logger.warn(`[LoginDirectory] ${source.entityType} ${conflict.entityId}: username "${conflict.loginUsername}" is used by another organization; reassigned to "${loginUsername}"`);
+     for (const account of LOGIN_ACCOUNTS) {
+          if (!(await connection.schema.hasTable(account.table))) continue;
+          for (const column of ['login_username', 'legacy_login_username']) {
+               if (!(await connection.schema.hasColumn(account.table, column))) {
+                    await connection.schema.alterTable(account.table, (table) => table.string(column, 255).nullable());
+               }
           }
-          const retry = await directory.syncTenant(resolvedTenantId, regenerated);
-          if (retry.conflicts.length > 0) {
-               logger.error(`[LoginDirectory] ${retry.conflicts.length} ${source.entityType} login(s) could not be published to the global directory`);
+          const hasPrevious = await connection.schema.hasColumn(account.table, account.previous);
+          const prefix = `${tenant.platformId.toUpperCase()}${account.type === 'staff' ? 'S' : account.type === 'patient' ? 'P' : 'C'}`;
+          const generatedLogin = "CONCAT(?, LPAD(CAST(?? AS CHAR), GREATEST(3, CHAR_LENGTH(CAST(?? AS CHAR))), '0'))";
+          await connection.transaction(async (trx) => {
+               const invalid = await trx(account.table).whereNull(account.id)
+                    .orWhere(account.id, '<=', 0).orWhere(account.id, '>', 999999999).first();
+               if (invalid) throw new Error(`Cannot migrate ${account.table}: invalid ${account.id}`);
+               const needsMigration = await trx(account.table)
+                    .whereRaw(`login_username IS NULL OR login_username <> ${generatedLogin}`, [prefix, account.id, account.id])
+                    .first(account.id);
+               if (!needsMigration) return;
+               await trx(account.table).whereNull('legacy_login_username').update({
+                    legacy_login_username: hasPrevious
+                         ? trx.raw('COALESCE(??, ??)', ['login_username', account.previous])
+                         : trx.ref('login_username'),
+               });
+               // Clear old unique login values before assigning the deterministic new IDs.
+               await trx(account.table).update({ login_username: null });
+               await trx(account.table).update({
+                    login_username: trx.raw(generatedLogin,
+                         [prefix, account.id, account.id]),
+               });
+          });
+          logger.info(`[Bootstrap] Checked ${account.table} login usernames for organization ${tenant.platformId} (tenant ${organizationId})`);
+     }
+}
+
+async function ensureRoleColumns(connection: Knex): Promise<void> {
+     const columns: Array<{ name: string; add: (table: Knex.CreateTableBuilder) => void }> = [
+          { name: 'pin', add: (table) => table.integer('pin').unsigned().nullable().defaultTo(0) },
+          { name: 'pin_hash', add: (table) => table.string('pin_hash', 60).nullable() },
+          { name: 'date_created', add: (table) => table.datetime('date_created').nullable().defaultTo(connection.fn.now()) },
+          { name: 'refresh_token', add: (table) => table.string('refresh_token', 255).nullable() },
+          { name: 'activation', add: (table) => table.boolean('activation').notNullable().defaultTo(false) },
+          { name: 'updated_on', add: (table) => table.datetime('updated_on', { precision: 6 }).nullable() },
+          { name: 'emailAuthenticated', add: (table) => table.string('emailAuthenticated', 6).notNullable().defaultTo('false') },
+          { name: 'branch', add: (table) => table.integer('branch').unsigned().nullable() },
+          { name: 'mobile', add: (table) => table.string('mobile', 10).nullable() },
+          { name: 'alternativeMobile', add: (table) => table.string('alternativeMobile', 10).nullable() },
+          { name: 'dob', add: (table) => table.date('dob').nullable() },
+          { name: 'time', add: (table) => table.datetime('time', { precision: 6 }).nullable() },
+          { name: 'firstname', add: (table) => table.string('firstname', 100).nullable() },
+          { name: 'middlename', add: (table) => table.string('middlename', 100).nullable() },
+          { name: 'lastname', add: (table) => table.string('lastname', 100).nullable() },
+          { name: 'designation', add: (table) => table.integer('designation').nullable() },
+          { name: 'staff_designation', add: (table) => table.string('staff_designation', 100).nullable() },
+     ];
+
+     for (const column of columns) {
+          if (!(await connection.schema.hasColumn('roles', column.name))) {
+               await connection.schema.alterTable('roles', (table) => column.add(table));
+               logger.info(`[Bootstrap] Added missing column roles.${column.name}`);
           }
      }
+
+     await connection.raw('ALTER TABLE roles MODIFY COLUMN pin INT UNSIGNED NULL DEFAULT NULL');
+     const legacyPins = await connection('roles').select('employeeid', 'pin')
+          .whereNull('pin_hash').whereBetween('pin', [1000, 9999]);
+     for (const employee of legacyPins) {
+          const pinHash = await bcrypt.hash(String(employee.pin), 10);
+          await connection('roles').where({ employeeid: employee.employeeid, pin: employee.pin })
+               .whereNull('pin_hash').update({ pin_hash: pinHash, pin: null });
+     }
+}
+
+async function ensureSessionColumns(connection: Knex): Promise<void> {
+     if (!(await connection.schema.hasTable('loginlogs'))) return;
+     if (await connection.schema.hasColumn('loginlogs', 'deviceFingerprint')) return;
+     await connection.schema.alterTable('loginlogs', (table) => table.string('deviceFingerprint', 64).nullable());
+     logger.info('[Bootstrap] Added missing column loginlogs.deviceFingerprint');
+}
+
+/** Keeps the staff schema compatible; logins use organization and account IDs, not stored usernames. */
+export async function bootstrapLoginAccountSchema(tenantId = 1): Promise<void> {
+     const connection = await KnexConnection(tenantId);
+     if (await connection.schema.hasTable('roles')) await ensureRoleColumns(connection);
+     if (await connection.schema.hasTable('clinicianscredentials')) {
+          if (!(await connection.schema.hasColumn('clinicianscredentials', 'email'))) {
+               await connection.schema.alterTable('clinicianscredentials', (table) => table.string('email', 255).nullable());
+          }
+          if (!(await connection.schema.hasColumn('clinicianscredentials', 'ispasswordUpdated'))) {
+               await connection.schema.alterTable('clinicianscredentials', (table) => table.tinyint('ispasswordUpdated').notNullable().defaultTo(0));
+          }
+     }
+     await ensureSessionColumns(connection);
+     await bootstrapLoginUsernames(tenantId);
 }

@@ -39,7 +39,7 @@ export class AccessWindowsController {
                     require_approval
                };
 
-               const id = await AccessWindowsRepo.create(windowData);
+               const id = await AccessWindowsRepo.create(Number(req.query.tenantId), windowData);
                const message = category === 'global'
                     ? 'Global access window created/updated successfully'
                     : 'Individual access window created/updated successfully';
@@ -67,7 +67,7 @@ export class AccessWindowsController {
      } static async getAccessWindow(req: Request, res: Response) {
           try {
                const id  = req.params.id;
-               const window = await AccessWindowsRepo.findById(parseInt(id.toString()));
+               const window = await AccessWindowsRepo.findById(Number(req.query.tenantId), parseInt(id.toString()));
 
                if (!window) {
                     return res.status(404).json({
@@ -91,7 +91,7 @@ export class AccessWindowsController {
      static async getAccessWindowByEmployee(req: Request, res: Response) {
           try {
                const employeeid = req.params.employeeid;
-               const window = await AccessWindowsRepo.findByEmployeeId(parseInt(employeeid.toString()));
+               const window = await AccessWindowsRepo.findByEmployeeId(Number(req.query.tenantId), parseInt(employeeid.toString()));
 
                if (!window) {
                     return res.status(404).json({
@@ -114,7 +114,7 @@ export class AccessWindowsController {
 
      static async getAllAccessWindows(req: Request, res: Response) {
           try {
-               const tenantId = parseInt(req.query.tenantId as string) || 1;
+               const tenantId = Number(req.query.tenantId);
                const { page, count } = req.query;
                const windows = await AccessWindowsRepo.findAll({
                     page: page ? parseInt(page as string) : undefined,
@@ -138,7 +138,7 @@ export class AccessWindowsController {
                const  id  = req.params.id;
                const updates = req.body;
 
-               const success = await AccessWindowsRepo.update(parseInt(id.toString()), updates);
+               const success = await AccessWindowsRepo.update(Number(req.query.tenantId), parseInt(id.toString()), updates);
 
                if (success) {
                     res.json({
@@ -162,7 +162,7 @@ export class AccessWindowsController {
      static async deleteAccessWindow(req: Request, res: Response) {
           try {
                const id = req.params.id;
-               const success = await AccessWindowsRepo.delete(parseInt(id.toString()));
+               const success = await AccessWindowsRepo.delete(Number(req.query.tenantId), parseInt(id.toString()));
 
                if (success) {
                     res.json({
@@ -186,7 +186,7 @@ export class AccessWindowsController {
      static async deleteAccessWindowByEmployee(req: Request, res: Response) {
           try {
                const employeeid = req.params.employeeid;
-               const success = await AccessWindowsRepo.deleteByEmployeeId(parseInt(employeeid.toString()));
+               const success = await AccessWindowsRepo.deleteByEmployeeId(Number(req.query.tenantId), parseInt(employeeid.toString()));
 
                if (success) {
                     res.json({
@@ -210,7 +210,7 @@ export class AccessWindowsController {
      static async getEffectiveSettings(req: Request, res: Response) {
           try {
                const employeeid = req.params.employeeid
-               const settings = await AccessWindowsRepo.getEffectiveSettings(parseInt(employeeid.toString()));
+               const settings = await AccessWindowsRepo.getEffectiveSettings(Number(req.query.tenantId), parseInt(employeeid.toString()));
 
                if (!settings) {
                     return res.status(404).json({

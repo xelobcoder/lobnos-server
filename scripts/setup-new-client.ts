@@ -12,7 +12,7 @@
  *   --target <db>           New client database name to create (required)
  *   --host / --port / --user / --password   Override DB connection (defaults to .env DB_* values)
  *   --skip-seed             Do not run the default reference-data seeds
- *   --register-tenant       Also insert a row into the system registeredclients table
+ *   --register-tenant       Also verify the target is registered in master prime_tenants
  *   --tenant-name <name>    Client/company name used when --register-tenant is set
  *   --force                 Allow running against a target DB that already has tables
  *
@@ -192,11 +192,17 @@ async function registerTenant(options: Options): Promise<void> {
      });
 
      try {
-          const [result]: any = await systemConn.query(
-               `INSERT INTO registeredclients (name, isActive, createdon, updatedOn) VALUES (?, 1, NOW(), NOW())`,
-               [options.tenantName || options.target]
+          // Tenants are provisioned by the master platform (prime_tenants needs country/state/district codes),
+          // so this step only confirms the target database is registered there.
+          const [rows]: any = await systemConn.query(
+               `SELECT id, company_name, status FROM prime_tenants WHERE database_name = ? AND deleted_at IS NULL LIMIT 1`,
+               [options.target]
           );
-          console.log(`Registered tenant "${options.tenantName || options.target}" with tenantid ${result.insertId}.`);
+          if (rows.length === 0) {
+               console.warn(`Database "${options.target}" is not registered in prime_tenants. Provision the tenant from the master platform.`);
+          } else {
+               console.log(`Tenant "${rows[0].company_name}" (${rows[0].id}) is registered with status "${rows[0].status}".`);
+          }
      } finally {
           await systemConn.end();
      }

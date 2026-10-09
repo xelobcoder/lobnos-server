@@ -1,58 +1,46 @@
 import { NextFunction, Request, Response } from "express";
 import { configuration } from "../hooks/configuration";
 import logger from "../hooks/logger";
-import { LoginEntityType, parseTenantLoginUsername, TenantLoginDirectory } from "../models/auth/TenantLoginDirectory";
+import { LoginEntityType, parseLoginUsername } from "../models/auth/TenantLoginDirectory";
+import { RegisteredTenant, TenantRegistry } from "../models/Tenancy/TenantRegistry";
 
 export const LOGIN_ROUTES = ['/api/v1/prime/login', '/api/v1/login/clinician', '/api/v1/login/patient'];
 
-const positiveInt = (value: unknown): number | null => {
-     const parsed = Number.parseInt(String(value ?? ''), 10);
-     return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : null;
-};
+const deny = (res: Response, statusCode: number, message: string, code?: string) =>
+     res.status(statusCode).json({ status: false, statusCode, message, ...(code ? { code } : {}) });
 
-/**
- * Works out which organization (tenant) a login belongs to from the username alone, so the login
- * screen only needs a username and password. The resolved id is written to `req.query.tenantId`
- * for the downstream license check and login handler.
- */
+const INVALID_CREDENTIALS = 'Invalid username or password';
+const servesTenant = (tenant: RegisteredTenant) =>
+     configuration.isMultiTenant || tenant.tenantId === configuration.defaultTenantId;
+
+/** Resolves the public organization prefix without querying a master user directory. */
 export const resolveLoginTenant = (entityType: LoginEntityType) =>
      async (req: Request, res: Response, next: NextFunction) => {
-          const body = req.body || {};
-          const identifier = String(body.username || body.identifier || body.email || '').trim();
-          if (!identifier || !body.password) {
-               return res.status(400).json({ status: false, statusCode: 400, message: 'username and password required' });
+          const identifier = String(req.body?.username || req.body?.identifier || '').trim();
+          if (!identifier || !req.body?.password) return deny(res, 400, 'username and password required');
+          if (identifier.includes('@')) {
+               return deny(res, 400, 'Email addresses cannot be used to sign in. Please use your organization and account ID.', 'EMAIL_LOGIN_NOT_ALLOWED');
           }
 
-          if (!configuration.isMultiTenant) {
-               (req.query as any).tenantId = String(configuration.defaultTenantId);
-               return next();
+          const parsed = parseLoginUsername(identifier);
+          if (!parsed || parsed.entityType !== entityType) {
+               return deny(res, 401, INVALID_CREDENTIALS);
           }
-
-          const explicitTenantId = positiveInt(body.tenantId) ?? positiveInt(req.query.tenantId);
-          let tenantId: number | null = null;
 
           try {
-               const resolution = await new TenantLoginDirectory().resolveTenant(identifier, entityType);
-               if (resolution.status === 'ambiguous') {
-                    return res.status(409).json({
-                         status: false,
-                         statusCode: 409,
-                         code: 'AMBIGUOUS_LOGIN',
-                         message: 'This email is registered with more than one organization. Please sign in with your username.',
-                    });
+               const registry = new TenantRegistry();
+               const tenant = await registry.getByOrganizationIdentifier(parsed.organizationIdentifier);
+               if (!tenant || !servesTenant(tenant)) return deny(res, 401, INVALID_CREDENTIALS);
+               if (!tenant.isActive) {
+                    return deny(res, 403, 'This organization\'s subscription is not active. Please contact your administrator.', 'TENANT_INACTIVE');
                }
-               if (resolution.status === 'resolved') tenantId = resolution.tenantId;
+
+               req.body.username = `${entityType === 'staff' ? 'S' : entityType === 'patient' ? 'P' : 'C'}${parsed.entityId}`;
+               req.body.entityId = parsed.entityId;
+               req.query.tenantId = String(tenant.tenantId);
+               return next();
           } catch (error) {
-               logger.error('[resolveLoginTenant] Global login directory unavailable:', error);
-               const parsed = parseTenantLoginUsername(identifier);
-               if (parsed && parsed.entityType === entityType) tenantId = parsed.tenantId;
+               logger.error('[resolveLoginTenant] Tenant registry unavailable:', error);
+               return deny(res, 503, 'Sign-in is temporarily unavailable. Please try again shortly.');
           }
-
-          tenantId = tenantId ?? explicitTenantId;
-          if (!tenantId) {
-               return res.status(401).json({ status: false, statusCode: 401, message: 'Invalid username or password' });
-          }
-
-          (req.query as any).tenantId = String(tenantId);
-          next();
      };

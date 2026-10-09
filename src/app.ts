@@ -61,7 +61,7 @@ import accountingRouter from './controllers/accounting/route';
 import staffFocRouter from './controllers/foc/routes';
 import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
-import { runApplicationBootstrappers, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
+import { bootstrapTenants, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
 import { logApplicationStarted } from './bootstrap/startupLogger';
 
 
@@ -192,12 +192,15 @@ app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
 
 
 async function startApplication() {
-    const { accountingReady } = await runApplicationBootstrappers(1);
+    const { readyTenants, accountingTenants } = await bootstrapTenants();
+    if (readyTenants.length === 0) {
+        console.error('[Bootstrap] No tenant database could be prepared; logins will fail until a tenant is reachable.');
+    }
     const host = process.env.HOST || "0.0.0.0";
 
     app.listen(Number(port), host, () => {
         logApplicationStarted(port);
-        startApplicationBackgroundWorkers(1, { accountingReady });
+        startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
     });
 }
 

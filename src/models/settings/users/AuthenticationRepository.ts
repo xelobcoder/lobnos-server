@@ -17,15 +17,9 @@ export default class AuthenticationRepository {
 
     async getUserByLoginIdentifier(identifier: string): Promise<any | null> {
         const connection = await this.connection;
-        const loginIdentifier = String(identifier || '').trim();
-        if (!loginIdentifier) return null;
-        const hasLoginUsername = await connection.schema.hasColumn(this.tablename, 'login_username');
-        const query = connection(this.tablename).where({ email: loginIdentifier });
-        if (hasLoginUsername) {
-            query.orWhere({ login_username: loginIdentifier });
-        }
-        query.orWhere({ username: loginIdentifier });
-        return await query.first() || null;
+        const match = String(identifier || '').trim().match(/^S(\d+)$/i);
+        if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) <= 0) return null;
+        return await connection(this.tablename).where({ employeeid: Number(match[1]) }).first() || null;
     }
 
     async validatePassword(identifier: string, password: string): Promise<any | null> {
