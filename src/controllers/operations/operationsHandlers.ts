@@ -217,14 +217,15 @@ export const getAllEnterResult = async (req: Request, res: Response) => {
 
 export const getAscensionOverViewModelHandler = async (req: Request, res: Response) => {
 	try {
-		const { tenantid, _dateFrom, _dateEnd, patientid, billingid, testname, patientname } = req.query;
+		const { tenantId, _dateFrom, _dateEnd, patientid, billingid, testname, patientname } = req.query;
+		const tId = typeof tenantId === 'string' && /^\d+$/.test(tenantId) ? Number(tenantId) : NaN;
+		if (!Number.isSafeInteger(tId) || tId <= 0) return customError("Invalid tenantId", 400, res);
 
 		// Date is required unless we are filtering by patientid or billingid
 		if (!_dateFrom && !_dateEnd && !patientid && !billingid) {
 			return customError("date, patientid or billingid must be included in request query", 400, res);
 		}
 
-		const tId = parseInt(tenantid as string, 10);
 		const result = await Operations.getAscensionOverViewModel(
 			tId,
 			{
@@ -246,9 +247,10 @@ export const getAscensionOverViewModelHandler = async (req: Request, res: Respon
 
 export const getAscensionOverViewModelTransactionHandler = async (req: Request, res: Response) => {
 	try {
-		const { tenantid, billingid } = req.query;
+		const { tenantId, billingid } = req.query;
+		const tId = typeof tenantId === 'string' && /^\d+$/.test(tenantId) ? Number(tenantId) : NaN;
+		if (!Number.isSafeInteger(tId) || tId <= 0) return customError("Invalid tenantId", 400, res);
 		if (!billingid) return customError("billingid not included in request query", 400, res);
-		const tId = parseInt(tenantid as string, 10);
 		const result = await Operations.getAscensionOverViewModelTransaction(tId, parseInt(billingid.toString()));
 		res.send({ statusCode: 200, message: "success", result });
 	} catch (err) {
@@ -326,4 +328,3 @@ export const searchLaboratoryOperations = async (req: Request, res: Response) =>
 		return customError("Failed to retrieve laboratory operations data. Please try again later.", 500, res);
 	}
 };
-
