@@ -191,6 +191,7 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request<{}
           const allowedRoles = [
                "phelobotomist",
                'admin',
+               'super-admin',
                'manager',
                'scientist'
           ];
@@ -256,5 +257,4 @@ export const isAuthorizedRoleAdminOrAccountant = async (request: Request, respon
           responseError(response);
      }
 }
-
 

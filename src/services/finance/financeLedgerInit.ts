@@ -1,4 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
+import { ensureIndexes } from '../../database/ensureIndexes';
 
 export async function ensureFinanceLedgerTables(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
@@ -53,22 +54,14 @@ export async function ensureFinanceLedgerTables(tenantId: number): Promise<void>
           }
      }
 
-     const indexStatements = [
-          'CREATE INDEX idx_fin_ledger_occurred_at ON finance_ledger (occurred_at)',
-          'CREATE INDEX idx_fin_ledger_direction_date ON finance_ledger (direction, occurred_at)',
-          'CREATE INDEX idx_fin_ledger_billingid ON finance_ledger (billingid)',
-          'CREATE INDEX idx_fin_ledger_expense_id ON finance_ledger (expense_id)',
-          'CREATE INDEX idx_fin_ledger_invoice_id ON finance_ledger (invoice_id)',
-          'CREATE INDEX idx_fin_ledger_branchid ON finance_ledger (branchid)',
-          'ALTER TABLE finance_ledger DROP INDEX uq_fin_ledger_source_direction',
-          'CREATE UNIQUE INDEX uq_fin_ledger_source_dir_ref ON finance_ledger (source_module, source_table, source_pk, direction, source_ref)',
-     ];
-
-     for (const statement of indexStatements) {
-          try {
-               await knex.raw(statement);
-          } catch {
-          }
-     }
+     await ensureIndexes(knex, 'finance_ledger', [
+          { name: 'idx_fin_ledger_occurred_at', columns: ['occurred_at'] },
+          { name: 'idx_fin_ledger_direction_date', columns: ['direction', 'occurred_at'] },
+          { name: 'idx_fin_ledger_billingid', columns: ['billingid'] },
+          { name: 'idx_fin_ledger_expense_id', columns: ['expense_id'] },
+          { name: 'idx_fin_ledger_invoice_id', columns: ['invoice_id'] },
+          { name: 'idx_fin_ledger_branchid', columns: ['branchid'] },
+          { name: 'uq_fin_ledger_source_dir_ref', unique: true,
+               columns: ['source_module', 'source_table', 'source_pk', 'direction', 'source_ref'] },
+     ], ['uq_fin_ledger_source_direction']);
 }
-

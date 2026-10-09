@@ -1,7 +1,7 @@
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
 
-export async function bootstrapRefundTableSanitization(tenantId = 1): Promise<void> {
+export async function bootstrapRefundTableSanitization(tenantId = 1, strict = false): Promise<void> {
      try {
           const connection = await KnexConnection(tenantId);
           if (await connection.schema.hasTable('dbobillingrefundtable')) {
@@ -41,6 +41,7 @@ export async function bootstrapRefundTableSanitization(tenantId = 1): Promise<vo
                }
           }
      } catch (error) {
+          if (strict) throw error;
           logger.error('[Bootstrap] Failed to sanitize and drop redundant witness columns from dbobillingrefundtable:', error);
      }
 }

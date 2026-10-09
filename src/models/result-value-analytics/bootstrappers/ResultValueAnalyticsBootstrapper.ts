@@ -35,7 +35,7 @@ async function runResultValueAnalyticsBackgroundBackfill(tenantId: number): Prom
 	}
 }
 
-export async function bootstrapResultValueAnalyticsTables(tenantId = 1): Promise<void> {
+export async function bootstrapResultValueAnalyticsTables(tenantId = 1, strict = false): Promise<void> {
 	try {
 		const connection = await KnexConnection(tenantId);
 
@@ -165,6 +165,7 @@ export async function bootstrapResultValueAnalyticsTables(tenantId = 1): Promise
 		}
 
 	} catch (error) {
+		if (strict) throw error;
 		logger.error('[ResultValueAnalyticsBootstrapper] Failed to bootstrap result value analytics tables:', error);
 	}
 }

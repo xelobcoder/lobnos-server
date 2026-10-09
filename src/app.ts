@@ -42,6 +42,7 @@ import homeCollectionRouter from './controllers/operations/homeCollection/routes
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
+import platformFacilitiesRouter from "./controllers/platform/facilities";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
@@ -86,6 +87,9 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
     res.statusCode = 200;
     res.end('healthy');
 });
+// Platform authority derives its tenant from the verified session, not a caller-supplied tenantId.
+// The router enforces active control-tenant standing and live super-admin/session validation.
+app.use(platformFacilitiesRouter);
 app.use(ValidateTenancyAgreement)
 // app.use(checkTokenExists)
 app.use(InterfacingDevicesRouterT);
@@ -208,4 +212,3 @@ startApplication().catch((error) => {
     console.error('[Bootstrap] Application startup failed:', error);
     process.exit(1);
 });
-

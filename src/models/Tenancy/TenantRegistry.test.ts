@@ -102,3 +102,37 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           expect(await registry.migrateLegacyTenantNumbers()).toEqual([]);
      });
 });
+
+describe('registry cache invalidation during status changes', () => {
+     it('does not cache a refresh that started before invalidate (e.g. a concurrent suspension)', async () => {
+          vi.spyOn(TenantRegistry, 'ensureReady').mockResolvedValue(undefined);
+          TenantRegistry.invalidate();
+          let release!: () => void;
+          let status = 'active';
+          const row = () => ({ id: 'NRAM11', tenant_number: 654321, status, company_name: 'Lab', database_name: 'PLS654321' });
+          let calls = 0;
+          const db = ((_table: string) => {
+               let missingNumbers = false;
+               const query: any = {
+                    whereNull: () => { missingNumbers = true; return query; }, orderBy: () => query, whereNotNull: () => query,
+                    select: async () => {
+                         if (missingNumbers) return [];
+                         calls++;
+                         const snapshot = [row()]; // read before the status change commits
+                         if (calls === 1) await new Promise<void>((resolve) => { release = resolve; });
+                         return snapshot;
+                    },
+               };
+               return query;
+          }) as unknown as Knex;
+          const registry = new TenantRegistry(db);
+          const stale = registry.listTenants();
+          await vi.waitFor(() => expect(calls).toBe(1));
+          status = 'suspended';
+          TenantRegistry.invalidate();
+          release();
+          expect((await stale)[0].isActive).toBe(true); // the in-flight caller still sees its own snapshot
+          const fresh = await registry.listTenants();
+          expect(fresh[0]).toMatchObject({ status: 'suspended', isActive: false });
+     });
+});

@@ -1,5 +1,6 @@
 import KnexConnection from "../../../database/KnexConnections";
 import crypto from 'crypto';
+import { Knex } from 'knex';
 
 export interface PrimeWindowAccess {
      id: number;
@@ -14,8 +15,8 @@ export default class PrimeWindowAccessRepository {
      private connection;
      private tableName: string = 'prime_window_access';
 
-     constructor(tenantId: number) {
-          this.connection = KnexConnection(tenantId);
+     constructor(tenantId: number, connection?: Knex | Knex.Transaction) {
+          this.connection = connection ? Promise.resolve(connection) : KnexConnection(tenantId);
      }
 
      private hashDate(date: Date): string {

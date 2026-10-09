@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
 
-export async function bootstrapStaffFocTables(tenantId = 1): Promise<void> {
+export async function bootstrapStaffFocTables(tenantId = 1, strict = false): Promise<void> {
      try {
           const connection = await KnexConnection(tenantId);
 
@@ -125,6 +125,7 @@ export async function bootstrapStaffFocTables(tenantId = 1): Promise<void> {
                }
           }
      } catch (error) {
+          if (strict) throw error;
           logger.error('[Bootstrap] Failed to bootstrap staff FOC tables:', error);
      }
 }

@@ -106,6 +106,8 @@ function toRegisteredTenant(row: any): RegisteredTenant | null {
 export class TenantRegistry {
      private static ready: Promise<void> | null = null;
      private static cache: { loadedAt: number; tenants: RegisteredTenant[] } | null = null;
+     /** Bumped by invalidate(); a refresh that started before a status change must not repopulate the cache. */
+     private static generation = 0;
 
      constructor(private connection: Knex = systemConfigConnection) { }
 
@@ -122,17 +124,21 @@ export class TenantRegistry {
 
      static invalidate(): void {
           TenantRegistry.cache = null;
+          TenantRegistry.generation++;
      }
 
      async listTenants(): Promise<RegisteredTenant[]> {
           await TenantRegistry.ensureReady();
           const cached = TenantRegistry.cache;
           if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) return cached.tenants;
+          const generation = TenantRegistry.generation;
           try {
                await this.assignMissingTenantNumbers();
                const rows = await this.connection(TENANTS_TABLE).whereNotNull('tenant_number').select('*');
                const tenants = rows.map(toRegisteredTenant).filter((tenant: RegisteredTenant | null): tenant is RegisteredTenant => tenant !== null);
-               TenantRegistry.cache = { loadedAt: Date.now(), tenants };
+               // Only cache a snapshot read entirely after the latest invalidation (e.g. a suspension);
+               // otherwise a concurrent pre-suspension read could keep serving the tenant as active.
+               if (generation === TenantRegistry.generation) TenantRegistry.cache = { loadedAt: Date.now(), tenants };
                return tenants;
           } catch (error) {
                if (cached) {

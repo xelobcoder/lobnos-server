@@ -28,6 +28,7 @@ export { listServedTenants };
 import { configuration } from '../hooks/configuration';
 import { systemConfigConnection } from '../database/connection';
 import logger from '../hooks/logger';
+import { bootstrapResultSettings } from '../models/application/appsettings/result-settings/ResultSettingsBootstrapper';
 
 /** Master test catalog every tenant imports tests from (lives in the master control database). */
 const MASTER_CATALOG_TABLES = ['test_panels', 'testdetails', 'testdetailcategory', 'testconditions', 'testcreationrules', 'sampletype', 'samplecontainer', 'departments'];
@@ -63,7 +64,7 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
 	return { readyTenants, accountingTenants };
 }
 
-export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accountingReady: boolean }> {
+export async function runApplicationBootstrappers(tenantId = 1, strict = false): Promise<{ accountingReady: boolean }> {
 	await bootstrapLoginAccountSchema(tenantId);
 	await bootstrapInventoryDefaults(tenantId);
 	await bootstrapPharmacyTables(tenantId);
@@ -73,8 +74,8 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
-	await bootstrapRefundTableSanitization(tenantId);
-	await bootstrapStaffFocTables(tenantId);
+	await bootstrapRefundTableSanitization(tenantId, strict);
+	await bootstrapStaffFocTables(tenantId, strict);
 	await bootstrapCommissionTables(tenantId);
 	await bootstrapExpenseCategories(tenantId);
 	await bootstrapExpenseWorkflow(tenantId);
@@ -82,11 +83,14 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
 	await bootstrapEmailTables(tenantId);
-	await bootstrapResultValueAnalyticsTables(tenantId);
+	await bootstrapResultValueAnalyticsTables(tenantId, strict);
 	await bootstrapTestReportSettingsTable(tenantId);
+	await bootstrapResultSettings(tenantId);
 	await bootstrapApplicationSettings(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
-	await bootstrapHomeCollectionSeeds(tenantId);
+	// Legacy seeds create checklist rows for demo order 1, not reference data.
+	// A new facility must start with no home-collection transactions.
+	if (!strict) await bootstrapHomeCollectionSeeds(tenantId);
 
 
 	let accountingReady = false;
@@ -95,6 +99,7 @@ export async function runApplicationBootstrappers(tenantId = 1): Promise<{ accou
 		await bootstrapAccountingTables(tenantId);
 		accountingReady = true;
 	} catch (error) {
+		if (strict) throw error;
 		console.error('[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):', error);
 	}
 

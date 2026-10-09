@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
+import { ensureIndexes } from '../../database/ensureIndexes';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      if (ensuredAccountingTenants.has(tenantId)) return;
@@ -444,20 +445,15 @@ async function ensureStringSourceRefSupport(tenantId: number): Promise<void> {
           }
      }
 
-     const statements = [
-          'ALTER TABLE acc_posting_outbox DROP INDEX uq_acc_outbox_source',
-          'CREATE UNIQUE INDEX uq_acc_outbox_source_ref ON acc_posting_outbox (source_module, source_table, source_pk, transaction_type, source_ref)',
-          'ALTER TABLE acc_journal_entries DROP INDEX uq_acc_journal_source',
-          'CREATE UNIQUE INDEX uq_acc_journal_source_ref ON acc_journal_entries (source_module, source_table, source_pk, transaction_type, source_ref)',
-          "ALTER TABLE acc_posting_outbox MODIFY COLUMN status ENUM('pending','posted','failed','dead_letter') NOT NULL DEFAULT 'pending'",
-     ];
-
-     for (const statement of statements) {
-          try {
-               await knex.raw(statement);
-          } catch {
-          }
-     }
+     await ensureIndexes(knex, 'acc_posting_outbox', [{
+          name: 'uq_acc_outbox_source_ref', unique: true,
+          columns: ['source_module', 'source_table', 'source_pk', 'transaction_type', 'source_ref'],
+     }], ['uq_acc_outbox_source']);
+     await ensureIndexes(knex, 'acc_journal_entries', [{
+          name: 'uq_acc_journal_source_ref', unique: true,
+          columns: ['source_module', 'source_table', 'source_pk', 'transaction_type', 'source_ref'],
+     }], ['uq_acc_journal_source']);
+     await knex.raw("ALTER TABLE acc_posting_outbox MODIFY COLUMN status ENUM('pending','posted','failed','dead_letter') NOT NULL DEFAULT 'pending'");
 }
 
 async function seedAccountsFromConfig(tenantId: number): Promise<void> {
