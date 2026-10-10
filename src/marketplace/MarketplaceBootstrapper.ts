@@ -6,9 +6,8 @@ import { systemConfigConnection as db } from '../database/connection';
  * public-request-driven provisioning.
  */
 export async function bootstrapMarketplace(): Promise<void> {
-     const schema = db.schema;
-     if (!(await schema.hasTable('marketplace_facilities'))) {
-          await schema.createTable('marketplace_facilities', table => {
+     if (!(await db.schema.hasTable('marketplace_facilities'))) {
+          await db.schema.createTable('marketplace_facilities', table => {
                table.bigIncrements('id').primary();
                table.string('slug', 80).notNullable().unique();
                table.string('name', 160).notNullable();
@@ -29,8 +28,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['status', 'slug']);
           });
      }
-     if (!(await schema.hasTable('marketplace_staff'))) {
-          await schema.createTable('marketplace_staff', table => {
+     if (!(await db.schema.hasTable('marketplace_staff'))) {
+          await db.schema.createTable('marketplace_staff', table => {
                table.bigIncrements('id').primary();
                table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
                table.string('email', 254).notNullable();
@@ -41,8 +40,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.unique(['facility_id', 'email']);
           });
      }
-     if (!(await schema.hasTable('marketplace_sessions'))) {
-          await schema.createTable('marketplace_sessions', table => {
+     if (!(await db.schema.hasTable('marketplace_sessions'))) {
+          await db.schema.createTable('marketplace_sessions', table => {
                table.bigIncrements('id').primary();
                table.bigInteger('staff_id').unsigned().notNullable().references('id').inTable('marketplace_staff').onDelete('CASCADE');
                table.string('token_hash', 64).notNullable().unique();
@@ -52,8 +51,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['staff_id', 'expires_at']);
           });
      }
-     if (!(await schema.hasTable('marketplace_catalog_items'))) {
-          await schema.createTable('marketplace_catalog_items', table => {
+     if (!(await db.schema.hasTable('marketplace_catalog_items'))) {
+          await db.schema.createTable('marketplace_catalog_items', table => {
                table.bigIncrements('id').primary();
                table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
                table.string('item_type', 12).notNullable();
@@ -70,8 +69,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['facility_id', 'active', 'name']);
           });
      }
-     if (!(await schema.hasTable('marketplace_catalog_mappings'))) {
-          await schema.createTable('marketplace_catalog_mappings', table => {
+     if (!(await db.schema.hasTable('marketplace_catalog_mappings'))) {
+          await db.schema.createTable('marketplace_catalog_mappings', table => {
                table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
                table.bigInteger('marketplace_item_id').unsigned().notNullable().references('id').inTable('marketplace_catalog_items').onDelete('CASCADE');
                table.integer('core_item_id').unsigned().notNullable();
@@ -80,8 +79,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.unique(['facility_id', 'core_item_type', 'core_item_id']);
           });
      }
-     if (!(await schema.hasTable('marketplace_catalog_price_history'))) {
-          await schema.createTable('marketplace_catalog_price_history', table => {
+     if (!(await db.schema.hasTable('marketplace_catalog_price_history'))) {
+          await db.schema.createTable('marketplace_catalog_price_history', table => {
                table.bigIncrements('id').primary();
                table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
                table.bigInteger('catalog_item_id').unsigned().notNullable().references('id').inTable('marketplace_catalog_items').onDelete('CASCADE');
@@ -93,8 +92,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['facility_id', 'catalog_item_id', 'created_at']);
           });
      }
-     if (!(await schema.hasTable('marketplace_bookings'))) {
-          await schema.createTable('marketplace_bookings', table => {
+     if (!(await db.schema.hasTable('marketplace_bookings'))) {
+          await db.schema.createTable('marketplace_bookings', table => {
                table.string('id', 36).primary();
                table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities');
                table.string('tracking_token_hash', 64).notNullable().unique();
@@ -114,8 +113,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['facility_id', 'status', 'created_at']);
           });
      }
-     if (!(await schema.hasTable('marketplace_booking_items'))) {
-          await schema.createTable('marketplace_booking_items', table => {
+     if (!(await db.schema.hasTable('marketplace_booking_items'))) {
+          await db.schema.createTable('marketplace_booking_items', table => {
                table.bigIncrements('id').primary();
                table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings').onDelete('CASCADE');
                table.bigInteger('catalog_item_id').unsigned().nullable();
@@ -126,8 +125,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.string('currency', 3).notNullable();
           });
      }
-     if (!(await schema.hasTable('marketplace_payment_claims'))) {
-          await schema.createTable('marketplace_payment_claims', table => {
+     if (!(await db.schema.hasTable('marketplace_payment_claims'))) {
+          await db.schema.createTable('marketplace_payment_claims', table => {
                table.bigIncrements('id').primary();
                table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings');
                table.text('reference').notNullable();
@@ -142,8 +141,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['booking_id', 'status']);
           });
      }
-     if (!(await schema.hasTable('marketplace_refunds'))) {
-          await schema.createTable('marketplace_refunds', table => {
+     if (!(await db.schema.hasTable('marketplace_refunds'))) {
+          await db.schema.createTable('marketplace_refunds', table => {
                table.bigIncrements('id').primary();
                table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings');
                table.text('external_reference').notNullable();
@@ -153,8 +152,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
           });
      }
-     if (!(await schema.hasTable('marketplace_audit'))) {
-          await schema.createTable('marketplace_audit', table => {
+     if (!(await db.schema.hasTable('marketplace_audit'))) {
+          await db.schema.createTable('marketplace_audit', table => {
                table.bigIncrements('id').primary();
                table.bigInteger('facility_id').unsigned().notNullable();
                table.string('booking_id', 36).nullable();
@@ -166,8 +165,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['facility_id', 'booking_id', 'created_at']);
           });
      }
-     if (!(await schema.hasTable('marketplace_core_booking_links'))) {
-          await schema.createTable('marketplace_core_booking_links', table => {
+     if (!(await db.schema.hasTable('marketplace_core_booking_links'))) {
+          await db.schema.createTable('marketplace_core_booking_links', table => {
                table.string('booking_id', 36).primary().references('id').inTable('marketplace_bookings');
                table.integer('tenant_id').unsigned().notNullable();
                table.integer('patient_id').unsigned().notNullable();
@@ -183,24 +182,24 @@ export async function bootstrapMarketplace(): Promise<void> {
 
      // Idempotent upgrades for installations that bootstrapped before these public
      // profile fields were introduced.
-     if (!(await schema.hasColumn('marketplace_facilities', 'opening_hours'))) {
-          await schema.alterTable('marketplace_facilities', table => {
+     if (!(await db.schema.hasColumn('marketplace_facilities', 'opening_hours'))) {
+          await db.schema.alterTable('marketplace_facilities', table => {
                table.text('opening_hours').nullable();
           });
           await db('marketplace_facilities').whereNull('opening_hours').update({ opening_hours: '{}' });
      }
-     if (!(await schema.hasColumn('marketplace_facilities', 'payment_instructions'))) {
-          await schema.alterTable('marketplace_facilities', table => {
+     if (!(await db.schema.hasColumn('marketplace_facilities', 'payment_instructions'))) {
+          await db.schema.alterTable('marketplace_facilities', table => {
                table.text('payment_instructions').nullable();
           });
      }
-     if (!(await schema.hasColumn('marketplace_bookings', 'branch_id'))) {
-          await schema.alterTable('marketplace_bookings', table => table.integer('branch_id').unsigned().nullable());
+     if (!(await db.schema.hasColumn('marketplace_bookings', 'branch_id'))) {
+          await db.schema.alterTable('marketplace_bookings', table => table.integer('branch_id').unsigned().nullable());
      }
-     if (!(await schema.hasColumn('marketplace_bookings', 'scheduled_at'))) {
-          await schema.alterTable('marketplace_bookings', table => table.timestamp('scheduled_at').nullable());
+     if (!(await db.schema.hasColumn('marketplace_bookings', 'scheduled_at'))) {
+          await db.schema.alterTable('marketplace_bookings', table => table.timestamp('scheduled_at').nullable());
      }
-     if (!(await schema.hasColumn('marketplace_bookings', 'schedule_instructions'))) {
-          await schema.alterTable('marketplace_bookings', table => table.text('schedule_instructions').nullable());
+     if (!(await db.schema.hasColumn('marketplace_bookings', 'schedule_instructions'))) {
+          await db.schema.alterTable('marketplace_bookings', table => table.text('schedule_instructions').nullable());
      }
 }

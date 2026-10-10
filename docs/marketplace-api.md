@@ -4,6 +4,20 @@ Base path: `/api/v1/marketplace`. Marketplace data is stored in the shared
 `SYSTEM_CONFIG_DATABASE`, bootstrapped idempotently at application startup. A
 public request never creates or alters marketplace schema.
 
+The bootstrap uses a fresh Knex schema builder for each operation. Reusing one
+builder accumulates previous queries and can skip table creation or check columns
+on a missing table. Fresh-install, repeat-run and legacy-column upgrades are
+covered by `src/marketplace/MarketplaceBootstrapper.test.ts`.
+
+For the sibling website on the same machine, configure its server-only
+`CORE_PLATFORM_API_URL` and `CORE_PLATFORM_ALLOWED_ORIGIN` to
+`http://127.0.0.1:2300` (the current local backend port). Set
+`CORE_PLATFORM_ALLOW_LOOPBACK_HTTP=true` for a locally hosted production website
+build; this permits only loopback HTTP, not remote HTTP. Deployments on different
+machines must use the approved HTTPS origin. Verify the backend `/facilities`
+endpoint and the website `/api/marketplace/facilities` proxy both return HTTP 200
+with the success envelope. An empty approved directory is not a service error.
+
 All marketplace responses use `Cache-Control: no-store, private, max-age=0` and
 `Pragma: no-cache`. Errors use `{ "status":"error", "message":"..." }`; success
 responses use `{ "status":"success", "result": ... }`. No marketplace endpoint
