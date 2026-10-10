@@ -3,6 +3,7 @@ import express from 'express';
 import type { AddressInfo } from 'node:net';
 
 const mocks = vi.hoisted(() => ({
+     platformAuthorized: true,
      service: {
           listFacilities: vi.fn(),
           publicCatalog: vi.fn(),
@@ -10,6 +11,7 @@ const mocks = vi.hoisted(() => ({
           createBooking: vi.fn(),
           trackBooking: vi.fn(),
           submitPlatformEnquiry: vi.fn(),
+          listPlatformEnquiries: vi.fn(),
           submitPatientPaymentClaim: vi.fn(),
           login: vi.fn(),
           authenticateStaff: vi.fn(),
@@ -49,6 +51,7 @@ vi.mock('../middleware/validateTenancy', () => ({
 }));
 vi.mock('../middleware/platformFacilityAuthority', () => ({
      requirePlatformFacilityAuthority: (_req: any, res: any, next: any) => {
+          if (!mocks.platformAuthorized) return res.status(403).json({ status: 'error', message: 'Platform authority required' });
           res.locals.facilityActor = { tenantId: 1, employeeId: 9 };
           next();
      },
@@ -81,6 +84,7 @@ describe('marketplace HTTP contract', () => {
      });
 
      beforeEach(() => {
+          mocks.platformAuthorized = true;
           vi.stubEnv('WEBSITE_LEAD_WEBHOOK_TOKEN', 'test-enquiry-token');
           for (const method of Object.values(mocks.service)) method.mockReset().mockResolvedValue({});
      });
@@ -107,6 +111,25 @@ describe('marketplace HTTP contract', () => {
           });
           expect(accepted.status).toBe(202);
           expect(mocks.service.submitPlatformEnquiry).toHaveBeenCalledWith(body);
+     });
+
+     it('lists enquiries only through platform authority and rejects tenant query injection', async () => {
+          mocks.service.listPlatformEnquiries.mockResolvedValue({ enquiries: [], page: 2, hasMore: false });
+          const response = await fetch(`${baseUrl}/platform/enquiries?formType=demo&page=2`);
+          expect(response.status).toBe(200);
+          expect(response.headers.get('cache-control')).toContain('no-store');
+          expect(mocks.service.listPlatformEnquiries).toHaveBeenCalledWith('demo', '2');
+          expect((await response.json()).result).toEqual({ enquiries: [], page: 2, hasMore: false });
+          mocks.service.listPlatformEnquiries.mockClear();
+          const invalid = await fetch(`${baseUrl}/platform/enquiries?tenantId=1`);
+          expect(invalid.status).toBe(400);
+          expect(mocks.service.listPlatformEnquiries).not.toHaveBeenCalled();
+          mocks.platformAuthorized = false;
+          const unauthorized = await fetch(`${baseUrl}/platform/enquiries`, {
+               headers: { authorization: 'Bearer test-enquiry-token' },
+          });
+          expect(unauthorized.status).toBe(403);
+          expect(mocks.service.listPlatformEnquiries).not.toHaveBeenCalled();
      });
 
      it('forwards provisioning only with the authenticated platform actor and rejects tenant injection', async () => {

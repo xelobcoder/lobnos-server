@@ -40,6 +40,20 @@ and returns HTTP 202. Configure the website with the endpoint URL and the same
 token through `LEAD_WEBHOOK_URL` and `LEAD_WEBHOOK_TOKEN`. Tokens and enquiry
 contents are never written to request logs.
 
+`GET /platform/enquiries?formType=all|demo|contact&page=1` lists stored enquiries
+for an authenticated platform super-admin of the active control tenant, using
+the same authority checks as facility management. The webhook bearer token does
+not grant read access. The response is `{enquiries:[...],page,hasMore}` with up to
+50 enquiries per page, ordered by received time and ID descending. Invalid
+filters/pages and tenant query parameters are rejected.
+
+In the main PLS application, **Manage facility > Website applications** displays
+**Demo requests & contact enquiries** separately from laboratory registration
+applications. Operators can filter demo/contact requests, refresh, paginate and
+view all submitted contact, organization, interest and message details. Receiving
+a demo request does not register, approve or provision a laboratory. Previously
+stored enquiries appear without resubmission.
+
 ## Public discovery and registration
 
 ### `GET /facilities`

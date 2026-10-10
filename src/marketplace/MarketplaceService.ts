@@ -100,6 +100,44 @@ function validateSlug(slug: unknown): string {
 }
 
 export class MarketplaceService {
+     async listPlatformEnquiries(formTypeInput?: unknown, pageInput?: unknown) {
+          const formType = formTypeInput === undefined ? 'all' : formTypeInput;
+          if (!['all', 'demo', 'contact'].includes(String(formType)) || typeof formType !== 'string') {
+               throw new MarketplaceError('Invalid enquiry type filter', 400);
+          }
+          if (pageInput !== undefined && (typeof pageInput !== 'string' || !/^[1-9]\d*$/.test(pageInput))) {
+               throw new MarketplaceError('Invalid enquiry page', 400);
+          }
+          const page = pageInput === undefined ? 1 : Number(pageInput);
+          if (!Number.isSafeInteger(page) || page > 100_000) throw new MarketplaceError('Invalid enquiry page', 400);
+          const pageSize = 50;
+          const query = db('platform_enquiries').select(
+               'id', 'form_type', 'full_name', 'work_email', 'phone', 'organization', 'country',
+               'facility_type', 'facilities_count', 'interests_json', 'subject', 'message',
+               'status', 'submitted_at', 'received_at',
+          );
+          if (formType !== 'all') query.where({ form_type: formType });
+          const rows = await query.orderBy('received_at', 'desc').orderBy('id', 'desc')
+               .offset((page - 1) * pageSize).limit(pageSize + 1);
+          return {
+               page,
+               hasMore: rows.length > pageSize,
+               enquiries: rows.slice(0, pageSize).map(row => {
+                    const interests: unknown = JSON.parse(row.interests_json);
+                    if (!Array.isArray(interests) || interests.some(item => typeof item !== 'string')) {
+                         throw new Error('Invalid stored enquiry interests');
+                    }
+                    return {
+                         id: Number(row.id), formType: row.form_type, fullName: row.full_name,
+                         workEmail: row.work_email, phone: row.phone, organization: row.organization,
+                         country: row.country, facilityType: row.facility_type, facilitiesCount: row.facilities_count,
+                         interests, subject: row.subject, message: row.message, status: row.status,
+                         submittedAt: row.submitted_at, receivedAt: row.received_at,
+                    };
+               }),
+          };
+     }
+
      async submitPlatformEnquiry(input: unknown) {
           if (!isRecord(input)) throw new MarketplaceError('Invalid enquiry', 400);
           const formType = input.formType;

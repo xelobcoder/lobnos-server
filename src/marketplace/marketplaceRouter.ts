@@ -169,6 +169,8 @@ router.post(`${base}/core/facilities/:slug/bookings/:bookingId/core-link`,
      requireCoreFacilityStaff, requireCoreRole(['admin', 'manager', 'super-admin', 'super_admin']),
      handle((req, res) => service.linkExistingCoreRecords(res.locals.marketplaceCoreStaff, req.params.bookingId, req.body)));
 
+router.get(`${base}/platform/enquiries`, requirePlatformFacilityAuthority,
+     handle(req => service.listPlatformEnquiries(req.query.formType, req.query.page), ['formType', 'page']));
 router.get(`${base}/platform/facilities`, requirePlatformFacilityAuthority,
      handle(req => service.listPlatformFacilities(req.query.status), ['status']));
 router.post(`${base}/platform/facilities/:facilityId/approve`, requirePlatformFacilityAuthority,
