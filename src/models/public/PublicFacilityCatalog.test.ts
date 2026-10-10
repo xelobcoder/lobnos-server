@@ -6,6 +6,12 @@ const mocks = vi.hoisted(() => ({
      standing: vi.fn(), connection: vi.fn(), log: vi.fn(),
 }));
 vi.mock('../../database/KnexConnections', () => ({ default: mocks.connection }));
+vi.mock('./PublicFacilityRegistry', () => ({
+     PublicFacilityRegistry: class {
+          all = async () => parsePublicFacilities();
+          publicationAllowed = async () => true;
+     },
+}));
 vi.mock('../Tenancy/tenancyRepo', () => ({
      TenancyRepository: class { validateTenantStanding = mocks.standing; },
 }));
@@ -60,6 +66,17 @@ describe('public facility opt-in registry', () => {
           vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', '');
           expect(parsePublicFacilities()).toEqual([]);
      });
+     it('allows local portal HTTP only with explicit loopback permission, never remote HTTP', () => {
+          const local = { ...facility, facilityLoginUrl: 'http://localhost:2377/authentications/login' };
+          vi.stubEnv('PUBLIC_FACILITY_ALLOW_LOOPBACK_HTTP', 'false');
+          expect(() => parsePublicFacilities(JSON.stringify([local]))).toThrow();
+          vi.stubEnv('PUBLIC_FACILITY_ALLOW_LOOPBACK_HTTP', 'true');
+          expect(parsePublicFacilities(JSON.stringify([local]))[0].facilityLoginUrl).toBe(local.facilityLoginUrl);
+          for (const facilityLoginUrl of ['http://remote.example/login', 'http://localhost.example/login',
+               'http://localhost:2377/login?token=private', 'http://localhost:2377/login#private']) {
+               expect(() => parsePublicFacilities(JSON.stringify([{ ...facility, facilityLoginUrl }]))).toThrow();
+          }
+     });
      it.each([
           { tenantId: '../3' }, { tenantId: 0 }, { published: undefined },
           { catalogPublished: undefined }, { currency: 'ghs' }, { slug: '../private' },
@@ -93,6 +110,17 @@ describe('public facility opt-in registry', () => {
 });
 
 describe('public cash tariff catalog', () => {
+     it('splits explicitly classified panels using the same unique live tariff IDs and prices', async () => {
+          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, panelIds: [12] }]));
+          database([
+               { id: 10, name: 'Synthetic test', description: null, price: '5.00' },
+               { id: 12, name: 'Synthetic panel', description: 'Public panel explanation', price: '22.50' },
+          ]);
+          const result = await new PublicFacilityCatalog().catalog(facility.slug);
+          expect(result.tests.map(item => item.id)).toEqual([10]);
+          expect(result.panels).toEqual([{ id: 12, name: 'Synthetic panel', description: 'Public panel explanation', price: 22.5, currency: 'GHS' }]);
+          expect(result.facility).not.toHaveProperty('panelIds');
+     });
      it('reads approved tenant cash tariffs and descriptions, omitting internal fields and missing descriptions', async () => {
           const { db, testQuery } = database();
           const result = await new PublicFacilityCatalog().catalog(facility.slug);

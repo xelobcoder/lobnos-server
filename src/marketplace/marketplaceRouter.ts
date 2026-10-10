@@ -3,6 +3,7 @@ import { parseCookies } from '../middleware/validateTenancy';
 import { requirePlatformFacilityAuthority } from '../middleware/platformFacilityAuthority';
 import { requireCoreFacilityStaff, requireCoreRole } from './coreStaffAuth';
 import { MarketplaceError, MarketplaceService } from './MarketplaceService';
+import { PublicCatalogError } from '../models/public/PublicFacilityCatalog';
 
 const router = Router();
 const service = new MarketplaceService();
@@ -40,7 +41,7 @@ function handle(operation: (req: Request, res: Response) => Promise<unknown>, al
                const result = await operation(req, res);
                return res.status(successStatus).json({ status: 'success', result });
           } catch (error: any) {
-               if (error instanceof MarketplaceError) {
+               if (error instanceof MarketplaceError || error instanceof PublicCatalogError) {
                     return res.status(error.statusCode).json({ status: 'error', message: error.message });
                }
                // Do not log request bodies, patient data, payment references, session tokens, SQL, or driver details.
@@ -156,6 +157,8 @@ router.get(`${base}/platform/facilities`, requirePlatformFacilityAuthority,
      handle(req => service.listPlatformFacilities(req.query.status), ['status']));
 router.post(`${base}/platform/facilities/:facilityId/approve`, requirePlatformFacilityAuthority,
      handle((req, res) => service.approveFacility(req.params.facilityId, res.locals.facilityActor)));
+router.post(`${base}/platform/facilities/:facilityId/provision`, requirePlatformFacilityAuthority,
+     handle((req, res) => service.provisionFacility(req.params.facilityId, req.body, res.locals.facilityActor)));
 router.post(`${base}/platform/facilities/:facilityId/suspend`, requirePlatformFacilityAuthority,
      handle((req, res) => service.suspendFacility(req.params.facilityId, req.body?.reason, res.locals.facilityActor)));
 router.post(`${base}/platform/facilities/:facilityId/link-tenant`, requirePlatformFacilityAuthority,

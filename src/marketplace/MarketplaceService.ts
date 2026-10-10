@@ -2,7 +2,10 @@ import bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
 import { systemConfigConnection as db } from '../database/connection';
-import { PublicFacilityCatalog } from '../models/public/PublicFacilityCatalog';
+import { PublicCatalogError, PublicFacilityCatalog } from '../models/public/PublicFacilityCatalog';
+import { PublicFacilityRegistry } from '../models/public/PublicFacilityRegistry';
+import { FacilityError, validateFacilityInput } from '../models/Tenancy/FacilityInput';
+import type { FacilityActor } from '../models/Tenancy/FacilityProvisioningService';
 
 const SESSION_TTL_HOURS = 12;
 const STAFF_TOKEN_BYTES = 32;
@@ -128,10 +131,10 @@ export class MarketplaceService {
                          if (alreadyIncluded.has(row.slug)) return null;
                          try {
                               const catalog = await new PublicFacilityCatalog().catalog(row.slug);
-                              return catalog.tests.some((item: any) =>
+                              return [...catalog.tests, ...(catalog.panels || [])].some((item: any) =>
                                    `${item.name} ${item.description || ''}`.toLowerCase().includes(needle.toLowerCase())) ? row : null;
                          } catch (error) {
-                              if (error instanceof MarketplaceError && error.statusCode < 500) return null;
+                              if ((error instanceof MarketplaceError || error instanceof PublicCatalogError) && error.statusCode < 500) return null;
                               throw error;
                          }
                     }));
@@ -139,29 +142,69 @@ export class MarketplaceService {
                }
                rows = [...rows, ...matchingLinked].slice(0, 200);
           }
+          const publicProfiles = (await new PublicFacilityCatalog().list()).facilities;
+          const bySlug = new Map(publicProfiles.map(profile => [profile.slug, profile]));
+          const registeredSlugs = new Set(rows.map((row: any) => row.slug));
+          const coreProfiles = [];
+          for (const profile of publicProfiles) {
+               if (registeredSlugs.has(profile.slug)) continue;
+               const searchText = `${profile.name} ${profile.region} ${profile.locality} ${profile.description}`.toLowerCase();
+               if (needle && !searchText.includes(needle.toLowerCase())) {
+                    try {
+                         const catalog = await new PublicFacilityCatalog().catalog(profile.slug);
+                         if (![...catalog.tests, ...catalog.panels].some(item =>
+                              `${item.name} ${item.description || ''}`.toLowerCase().includes(needle.toLowerCase()))) continue;
+                    } catch (error) {
+                         if (error instanceof PublicCatalogError && error.statusCode === 404) continue;
+                         throw error;
+                    }
+               }
+               coreProfiles.push({
+                    ...profile, address: '', phone: '', contactEmail: '', openingHours: {},
+                    paymentInstructions: null, currency: profile.currency,
+                    facilityType: 'pls-integrated', bookingSupported: false,
+               });
+          }
           return {
-               facilities: rows.map((row: any) => ({
+               facilities: [...rows.filter((row: any) => row.integration_state === 'independent' ||
+                    row.integration_state === 'linked' && bySlug.has(row.slug)).map((row: any) => ({
                     slug: row.slug, name: row.name, region: row.region, locality: row.locality,
                     address: row.address, phone: row.phone, contactEmail: row.contact_email,
                     description: row.description, openingHours: JSON.parse(row.opening_hours || '{}'),
                     paymentInstructions: row.payment_instructions, currency: row.currency,
                     facilityType: row.integration_state === 'linked' ? 'pls-integrated' : 'independent',
-               })),
+                    ...(row.integration_state === 'linked' ? bySlug.get(row.slug) : {}),
+                    bookingSupported: true,
+               })), ...coreProfiles].sort((left, right) => left.name.localeCompare(right.name)).slice(0, 200),
           };
      }
 
      async publicCatalog(slugInput: unknown) {
           const slug = validateSlug(slugInput);
           const facility = await db('marketplace_facilities').where({ slug, status: 'approved' }).first();
-          if (!facility) throw new MarketplaceError('Laboratory not found', 404);
+          if (!facility) {
+               const live = await new PublicFacilityCatalog().catalog(slug);
+               return {
+                    facility: { ...live.facility, address: '', phone: '', contactEmail: '', openingHours: {},
+                         paymentInstructions: null, currency: live.currency, facilityType: 'pls-integrated', bookingSupported: false },
+                    currency: live.currency,
+                    tests: [
+                         ...live.tests.map(item => ({ ...item, type: 'test', sampleRequirements: [], collectionMethods: ['in_facility'], available: true, turnaroundHours: null })),
+                         ...live.panels.map(item => ({ ...item, type: 'panel', sampleRequirements: [], collectionMethods: ['in_facility'], available: true, turnaroundHours: null })),
+                    ],
+                    source: 'pls-live',
+               };
+          }
+          if (!['independent', 'linked'].includes(facility.integration_state)) throw new MarketplaceError('Laboratory is not available', 409);
           if (facility.integration_state === 'linked') {
                // Catalog comes from the core PLS source; marketplace never shadows its prices.
                const live = await new PublicFacilityCatalog().catalog(slug);
                return {
-                    facility: { ...this.publicFacility(facility), currency: live.currency },
+                    facility: { ...this.publicFacility(facility), ...live.facility, currency: live.currency },
                     currency: live.currency,
                     tests: [
                          ...live.tests.map((item: any) => ({ id: item.id, type: 'test', name: item.name, description: item.description, price: item.price, sampleRequirements: [], collectionMethods: ['in_facility'], available: true, turnaroundHours: null })),
+                         ...(live.panels || []).map((item: any) => ({ id: item.id, type: 'panel', name: item.name, description: item.description, price: item.price, sampleRequirements: [], collectionMethods: ['in_facility'], available: true, turnaroundHours: null })),
                     ],
                     source: 'pls-live',
                };
@@ -252,6 +295,7 @@ export class MarketplaceService {
           }
           const facility = await db('marketplace_facilities').where({ slug, status: 'approved' }).first();
           if (!facility) throw new MarketplaceError('Laboratory not found', 404);
+          if (!['independent', 'linked'].includes(facility.integration_state)) throw new MarketplaceError('Laboratory is not available', 409);
 
           let items: Array<{ id: number; type: string; name: string; price: number; currency: string; catalogItemId: number | null; coreItemId: number | null }>;
           let currency = facility.currency;
@@ -260,6 +304,7 @@ export class MarketplaceService {
                currency = live.currency;
                const indexed = new Map<number, any>();
                for (const row of live.tests) indexed.set(Number(row.id), { ...row, type: 'test' });
+               for (const row of live.panels || []) indexed.set(Number(row.id), { ...row, type: 'panel' });
                items = itemIds.map(id => {
                     const item = indexed.get(id);
                     if (!item) throw new MarketplaceError('A selected catalog item is no longer available', 409);
@@ -284,6 +329,11 @@ export class MarketplaceService {
           const id = randomUUID();
           try {
                await db.transaction(async trx => {
+               const current = await trx('marketplace_facilities').where({ id: facility.id }).forUpdate().first('status', 'integration_state', 'linked_tenant_id');
+               if (!current || current.status !== 'approved' || current.integration_state !== facility.integration_state ||
+                    current.linked_tenant_id !== facility.linked_tenant_id) {
+                    throw new MarketplaceError('Facility availability changed; reload the catalog and retry', 409);
+               }
                await trx('marketplace_bookings').insert({
                     id, facility_id: facility.id, tracking_token_hash: trackingTokenHash,
                     patient_name: patientName, patient_phone: patientPhone, patient_email: patientEmail,
@@ -866,9 +916,79 @@ export class MarketplaceService {
                facilities: rows.map((row: any) => ({
                     id: Number(row.id), ...this.publicFacility(row), status,
                     contactEmail: row.contact_email, linkedTenantId: row.linked_tenant_id === null ? null : Number(row.linked_tenant_id),
+                    integrationState: row.integration_state,
+                    contact_email: row.contact_email, integration_state: row.integration_state,
+                    linked_tenant_id: row.linked_tenant_id === null ? null : Number(row.linked_tenant_id),
+                    created_at: row.created_at, opening_hours: row.opening_hours, payment_instructions: row.payment_instructions,
                     createdAt: row.created_at,
                })),
           };
+     }
+
+     async provisionFacility(facilityIdInput: unknown, input: unknown, actor: FacilityActor) {
+          const facilityId = positiveId(facilityIdInput, 'facility id');
+          if (!isRecord(input) || input.identityConfirmed !== true) {
+               throw new MarketplaceError('Explicit facility identity confirmation is required', 400);
+          }
+          let validated;
+          try { validated = validateFacilityInput(input); }
+          catch (error) {
+               if (error instanceof FacilityError) throw new MarketplaceError(error.message, error.statusCode);
+               throw error;
+          }
+          // A durable claim prevents simultaneous provision/link requests. Never retry failed DDL automatically.
+          const application = await db.transaction(async trx => {
+               const facility = await trx('marketplace_facilities').where({ id: facilityId }).forUpdate().first();
+               if (!facility) throw new MarketplaceError('Facility not found', 404);
+               if (facility.status !== 'approved' || facility.integration_state !== 'independent' || facility.linked_tenant_id !== null) {
+                    throw new MarketplaceError('Only an approved, unlinked independent application may be provisioned', 409);
+               }
+               const catalog = await trx('marketplace_catalog_items').where({ facility_id: facilityId }).first('id');
+               const history = await trx('marketplace_bookings').where({ facility_id: facilityId }).first('id');
+               if (catalog || history) throw new MarketplaceError('Existing catalog or booking history requires reviewed mappings through the existing tenant/link workflow', 409);
+               const profiles = await new PublicFacilityRegistry().all(trx);
+               if (profiles.some(profile => profile.slug === facility.slug)) {
+                    throw new MarketplaceError('This application slug already has a public tenant profile; review and link the existing tenant instead', 409);
+               }
+               await trx('marketplace_facilities').where({ id: facilityId }).update({ integration_state: 'provisioning', updated_at: new Date() });
+               await trx('marketplace_audit').insert({
+                    facility_id: facilityId, event_type: 'facility_provisioning_started', actor_type: 'platform',
+                    actor_id: String(actor.employeeId), details_json: JSON.stringify({ identityConfirmed: true }),
+               });
+               return facility;
+          });
+          try {
+               const { FacilityProvisioningService } = await import('../models/Tenancy/FacilityProvisioningService');
+               const provisioned = await new FacilityProvisioningService().provision(validated, actor, async (trx, tenant) => {
+                    const current = await trx('marketplace_facilities').where({ id: facilityId }).forUpdate().first();
+                    if (!current || current.status !== 'approved' || current.integration_state !== 'provisioning' ||
+                         await trx('marketplace_catalog_items').where({ facility_id: facilityId }).first('id') ||
+                         await trx('marketplace_bookings').where({ facility_id: facilityId }).first('id')) {
+                         throw new MarketplaceError('Application changed during provisioning', 409);
+                    }
+                    await trx('marketplace_facilities').where({ id: facilityId }).update({
+                         integration_state: 'linked', linked_tenant_id: tenant.tenantId, updated_at: new Date(),
+                    });
+                    await trx('marketplace_audit').insert({
+                         facility_id: facilityId, event_type: 'facility_provisioned_and_linked', actor_type: 'platform',
+                         actor_id: String(actor.employeeId), details_json: JSON.stringify({ tenantId: tenant.tenantId, identityConfirmed: true }),
+                    });
+               });
+               return { facilityId, slug: application.slug, integrationState: 'linked', ...provisioned };
+          } catch (error) {
+               await db.transaction(async trx => {
+                    await trx('marketplace_facilities').where({ id: facilityId, integration_state: 'provisioning' })
+                         .update({ integration_state: 'provision_failed', updated_at: new Date() });
+                    await trx('marketplace_audit').insert({
+                         facility_id: facilityId, event_type: 'facility_provisioning_failed', actor_type: 'platform',
+                         actor_id: String(actor.employeeId), details_json: JSON.stringify({ operatorReviewRequired: true }),
+                    });
+               }).catch(() => {
+                    console.error('[marketplace] Failed to record provisioning failure; operator review required');
+               });
+               if (error instanceof FacilityError) throw new MarketplaceError(error.message, error.statusCode);
+               throw error;
+          }
      }
 
      async suspendFacility(facilityIdInput: unknown, reasonInput: unknown, actor: { employeeId: number }) {
@@ -897,12 +1017,12 @@ export class MarketplaceService {
           const registry = new TenantRegistry();
           const tenant = await registry.requireTenant(tenantId);
           if (!tenant.isActive) throw new MarketplaceError('PLS tenant is not active', 409);
-          const { parsePublicFacilities } = await import('../models/public/PublicFacilityCatalog');
-          const configured = parsePublicFacilities().find(item => item.slug === facility.slug && item.tenantId === tenantId && item.published && item.catalogPublished);
+          const configured = (await new PublicFacilityRegistry().all()).find(item => item.slug === facility.slug && item.tenantId === tenantId && item.published && item.catalogPublished);
           if (!configured) throw new MarketplaceError('A matching published PLS public catalog must be configured before linking', 409);
           const live = await new PublicFacilityCatalog().catalog(facility.slug);
           const coreItems = new Map<number, string>();
           for (const item of live.tests) coreItems.set(Number(item.id), 'test');
+          for (const item of live.panels || []) coreItems.set(Number(item.id), 'panel');
           // Map every independent catalog row, including retired entries referenced
           // by older bookings, so historical snapshots remain reconcilable.
           const oldItems = await db('marketplace_catalog_items').where({ facility_id: facilityId }).select('id', 'item_type');
@@ -916,7 +1036,7 @@ export class MarketplaceService {
                const marketplaceItemId = positiveId(candidate.marketplaceItemId, 'marketplace item id');
                const coreItemId = positiveId(candidate.coreItemId, 'PLS catalog item id');
                const coreItemType = candidate.coreItemType;
-               if (coreItemType !== 'test' || coreItems.get(coreItemId) !== coreItemType ||
+               if (!['test', 'panel'].includes(coreItemType) || coreItems.get(coreItemId) !== coreItemType ||
                     mappings.has(marketplaceItemId)) throw new MarketplaceError('Invalid or duplicate PLS catalog mapping', 400);
                mappings.set(marketplaceItemId, { coreItemId, coreItemType });
           }

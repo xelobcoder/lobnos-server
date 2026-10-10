@@ -76,6 +76,33 @@ function schemaConnection() {
 }
 
 describe('complete facility provisioning lifecycle', () => {
+     it('executes external linkage in the master activation transaction after license validation', async () => {
+          const { db, writes } = databaseHarness();
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          const activate = vi.fn(async (trx: any, facility: any) => {
+               expect(trx).toBe(db);
+               expect(mocks.validateLicense).toHaveBeenCalled();
+               expect(writes.filter(write => write.table === 'prime_tenants').map(write => write.value.status))
+                    .toEqual(['provisioning', 'active']);
+               expect(facility).toMatchObject({ tenantId: expect.any(Number), adminUsername: 'NRAM1S001' });
+          });
+          await new FacilityProvisioningService(db).provision(input, actor, activate);
+          expect(activate).toHaveBeenCalledTimes(1);
+     });
+
+     it('marks the tenant failed and releases its connection if final linkage fails', async () => {
+          const { db, writes } = databaseHarness();
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          await expect(new FacilityProvisioningService(db).provision(input, actor, async () => {
+               throw new Error('Synthetic linkage failed');
+          })).rejects.toMatchObject({ statusCode: 500 });
+          expect(writes.filter(write => write.table === 'prime_tenants').map(write => write.value.status))
+               .toEqual(['provisioning', 'active', 'failed']);
+          expect(mocks.release).toHaveBeenCalled();
+     });
+
      beforeEach(() => {
           vi.clearAllMocks();
           vi.stubEnv('PRIME_WINDOWS_KEY', 'test-only-key');
@@ -102,6 +129,7 @@ describe('complete facility provisioning lifecycle', () => {
                organizationIdentifier: 'NRAM1', tenantId: expect.any(Number),
                databaseName: expect.stringMatching(/^pls_nram1_\d{6}$/), adminUsername: 'NRAM1S001',
           });
+
           expect(result.tenantId).toBeGreaterThanOrEqual(100000);
           expect(result.tenantId).toBeLessThanOrEqual(999999);
           expect(result.databaseName).toBe(`pls_${result.organizationIdentifier.toLowerCase()}_${result.tenantId}`);

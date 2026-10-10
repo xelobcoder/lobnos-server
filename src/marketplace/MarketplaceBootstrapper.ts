@@ -1,4 +1,5 @@
 import { systemConfigConnection as db } from '../database/connection';
+import { bootstrapPublicFacilityRegistry } from '../models/public/PublicFacilityRegistry';
 
 /**
  * The marketplace is shared across tenants, so its registry and bookings live in
@@ -6,6 +7,7 @@ import { systemConfigConnection as db } from '../database/connection';
  * public-request-driven provisioning.
  */
 export async function bootstrapMarketplace(): Promise<void> {
+     await bootstrapPublicFacilityRegistry(db);
      if (!(await db.schema.hasTable('marketplace_facilities'))) {
           await db.schema.createTable('marketplace_facilities', table => {
                table.bigIncrements('id').primary();

@@ -99,6 +99,47 @@ Administrator/staff passwords must be at least 12 characters and no more than
 `{facility:{slug,status:"pending_approval"}}`. Passwords are bcrypt hashes;
 the plaintext is never returned.
 
+## Platform review, provisioning and publication
+
+All platform operations require a verified platform super-admin session.
+Marketplace routes derive tenancy from that session and reject query `tenantId`.
+
+- `GET /platform/facilities?status=pending|approved|suspended` returns
+  `{facilities:[...]}` with public application details, integration state,
+  linked tenant ID and submission time; no password hashes or sessions.
+- `POST /platform/facilities/:facilityId/approve` enables independent marketplace
+  access without provisioning a PLS tenant.
+- `POST /platform/facilities/:facilityId/provision` accepts the existing core
+  provisioning payload plus `identityConfirmed:true`. Only an approved,
+  unlinked application with no independent catalog or booking history is eligible.
+  It returns `{facilityId,slug,integrationState,organizationIdentifier,tenantId,
+  databaseName,adminUsername}`. A durable provisioning claim prevents concurrent
+  duplicate tenants; linkage occurs in the final tenant activation transaction.
+  Failures retain `provision_failed` for operator review, never automatic DDL retry.
+- `POST /platform/facilities/:facilityId/link-tenant` remains the reviewed
+  existing-tenant/catalog-mapping migration path.
+
+The core platform routes `GET|PUT /api/v1/platform/facilities/:tenantId/public-profile`
+manage an explicit public profile. They return `{status:"success",result:{profile}}`.
+A profile includes `slug,name,region,locality,description,currency,published,
+catalogPublished` and optional `website,facilityLoginUrl,patientPortalUrl,panelIds`.
+Only active tenants may publish. Saved profiles override environment entries for
+the same tenant, including unpublication; writes and audit entries are atomic.
+Linked applications must share the profile slug and remain approved.
+
+Public discovery merges approved independent marketplace records and explicitly
+published active PLS profiles, without exposing tenant IDs or fabricating URLs.
+PLS profiles without a marketplace integration return `bookingSupported:false`;
+their live catalogs are browsable but do not offer online booking. Linked and
+independent marketplace facilities retain the existing booking workflow.
+`panelIds` explicitly classifies configured live test tariff IDs as panels;
+unclassified configured tariffs remain tests, with no price overrides.
+
+Remote portal destinations require clean HTTPS URLs. Same-machine development
+may set backend `PUBLIC_FACILITY_ALLOW_LOOPBACK_HTTP=true` and website
+`PLS_PORTAL_ALLOW_LOOPBACK_HTTP=true`, plus the exact host allowlist. This permits
+only localhost/loopback HTTP and never credentials, queries or fragments.
+
 ## Patient booking and tracking
 
 ### `POST /bookings`

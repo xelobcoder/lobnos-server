@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => ({
           linkExistingCoreRecords: vi.fn(),
           listPlatformFacilities: vi.fn(),
           approveFacility: vi.fn(),
+          provisionFacility: vi.fn(),
           suspendFacility: vi.fn(),
           linkTenant: vi.fn(),
      },
@@ -34,6 +35,9 @@ vi.mock('./MarketplaceService', () => ({
           constructor(message: string, public statusCode: number) { super(message); }
      },
      MarketplaceService: class { constructor() { return mocks.service as any; } },
+}));
+vi.mock('../models/public/PublicFacilityCatalog', () => ({
+     PublicCatalogError: class extends Error {},
 }));
 vi.mock('../middleware/validateTenancy', () => ({
      parseCookies: (header = '') => Object.fromEntries(header.split(';').filter(Boolean).map(part => {
@@ -83,6 +87,21 @@ describe('marketplace HTTP contract', () => {
           expect(response.status).toBe(400);
           expect(response.headers.get('cache-control')).toContain('no-store');
           expect(mocks.service.trackBooking).not.toHaveBeenCalled();
+     });
+
+     it('forwards provisioning only with the authenticated platform actor and rejects tenant injection', async () => {
+          const body = { identityConfirmed: true, companyName: 'Synthetic lab' };
+          const response = await fetch(`${baseUrl}/platform/facilities/1/provision`, {
+               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+          });
+          expect(response.status).toBe(200);
+          expect(mocks.service.provisionFacility).toHaveBeenCalledWith('1', body, { tenantId: 1, employeeId: 9 });
+          mocks.service.provisionFacility.mockClear();
+          const blocked = await fetch(`${baseUrl}/platform/facilities/1/provision?tenantId=1`, {
+               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+          });
+          expect(blocked.status).toBe(400);
+          expect(mocks.service.provisionFacility).not.toHaveBeenCalled();
      });
 
      it('returns an uncached 201 booking request and passes only the submitted JSON body', async () => {

@@ -31,6 +31,7 @@ vi.mock('../database/connection', () => {
                select: () => query,
                orderBy: () => query,
                limit: () => query,
+               forUpdate: () => query,
                first: async () => records()[0],
                then: (resolve: any, reject: any) => Promise.resolve(records()).then(resolve, reject),
           };
@@ -39,6 +40,7 @@ vi.mock('../database/connection', () => {
      db.transaction = async (operation: (trx: any) => Promise<unknown>) => {
           state.transactionCount += 1;
           const trx = (table: string) => ({
+               ...db(table),
                insert: async (values: any) => {
                     state.inserts.push({ table, values });
                     const normalized = Array.isArray(values) ? values : [values];

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      authority: vi.fn(), setStatus: vi.fn(), getSubscription: vi.fn(), setPlan: vi.fn(), recordPayment: vi.fn(), voidPayment: vi.fn(), listAudit: vi.fn(),
      list: vi.fn(), options: vi.fn(), provision: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
+     getPublicProfile: vi.fn(), putPublicProfile: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
@@ -15,6 +16,9 @@ vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
           recordPayment = mocks.recordPayment; voidPayment = mocks.voidPayment; listAudit = mocks.listAudit;
           deleteTenant = mocks.deleteTenant;
      },
+}));
+vi.mock('../../models/public/PublicFacilityRegistry', () => ({
+     PublicFacilityRegistry: class { get = mocks.getPublicProfile; put = mocks.putPublicProfile; },
 }));
 
 import router, { facilityDiagnosticCode } from './facilities';
@@ -41,6 +45,7 @@ describe('platform facility routes', () => {
      it('guards every facility route, existing and new, with the platform authority as the first handler', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
                'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities', 'post /api/v1/platform/facilities',
+               'get /api/v1/platform/facilities/:tenantId/public-profile', 'put /api/v1/platform/facilities/:tenantId/public-profile',
                'delete /api/v1/platform/facilities/:tenantId',
                'patch /api/v1/platform/facilities/:tenantId/status', 'get /api/v1/platform/facilities/:tenantId/subscription',
                'put /api/v1/platform/facilities/:tenantId/subscription', 'post /api/v1/platform/facilities/:tenantId/payments',
@@ -51,6 +56,14 @@ describe('platform facility routes', () => {
                expect(route.stack).toHaveLength(2);
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
+     });
+
+     it('uses the validated path tenant and authenticated actor for public profile writes', async () => {
+          const body = { slug: 'synthetic-lab', published: false, catalogPublished: false };
+          mocks.putPublicProfile.mockResolvedValue({ profile: body });
+          const res = await invoke('put', '/api/v1/platform/facilities/:tenantId/public-profile', { params: { tenantId: '654321' }, body });
+          expect(mocks.putPublicProfile).toHaveBeenCalledWith(654321, body, res.locals.facilityActor);
+          expect(res.json).toHaveBeenCalledWith({ status: 'success', result: { profile: body } });
      });
 
      it('validates deletion reason and passes confirmation with the authenticated actor', async () => {

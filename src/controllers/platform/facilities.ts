@@ -6,6 +6,7 @@ import { requirePlatformFacilityAuthority } from '../../middleware/platformFacil
 import { FacilityProvisioningService } from '../../models/Tenancy/FacilityProvisioningService';
 import { FacilityManagementService } from '../../models/Tenancy/FacilityManagementService';
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
+import { PublicFacilityRegistry } from '../../models/public/PublicFacilityRegistry';
 import {
      parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateStatusChange, validateSubscriptionPlan, validateVoidInput,
 } from '../../models/Tenancy/FacilityManagementInput';
@@ -13,6 +14,7 @@ import {
 const router = Router();
 const service = new FacilityProvisioningService();
 const management = new FacilityManagementService();
+const publicRegistry = new PublicFacilityRegistry();
 const base = '/api/v1/platform/facilities';
 
 const SCHEMA_CODES = new Set(['ER_BAD_FIELD_ERROR', 'ER_NO_SUCH_TABLE', 'ER_CANT_AGGREGATE_2COLLATIONS', 'ER_CANT_AGGREGATE_NCOLLATIONS',
@@ -56,6 +58,10 @@ router.get(`${base}/options`, requirePlatformFacilityAuthority, handle(() => ser
 router.get(base, requirePlatformFacilityAuthority, handle(() => service.list()));
 router.post(base, requirePlatformFacilityAuthority, handle((req, res) =>
      service.provision(validateFacilityInput(req.body), actor(res))));
+router.get(`${base}/:tenantId/public-profile`, requirePlatformFacilityAuthority, handle(req =>
+     publicRegistry.get(parseTenantIdParam(req.params.tenantId))));
+router.put(`${base}/:tenantId/public-profile`, requirePlatformFacilityAuthority, handle((req, res) =>
+     publicRegistry.put(parseTenantIdParam(req.params.tenantId), req.body, actor(res))));
 router.delete(`${base}/:tenantId`, requirePlatformFacilityAuthority, handle((req, res) =>
      management.deleteTenant(parseTenantIdParam(req.params.tenantId), req.body?.confirmation,
           validateVoidInput(req.body).reason, actor(res))));

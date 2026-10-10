@@ -1,6 +1,7 @@
 import KnexConnection from '../../database/KnexConnections';
 import { configuration } from '../../hooks/configuration';
 import { TenancyRepository } from '../Tenancy/tenancyRepo';
+import { PublicFacilityRegistry } from './PublicFacilityRegistry';
 
 export interface PublicFacility {
      slug: string;
@@ -8,16 +9,18 @@ export interface PublicFacility {
      region: string;
      locality: string;
      description: string;
+     currency: string;
      website?: string;
      facilityLoginUrl?: string;
      patientPortalUrl?: string;
 }
 
-interface PublishedFacility extends PublicFacility {
+export interface PublishedFacility extends PublicFacility {
      tenantId: number;
      currency: string;
      published: boolean;
      catalogPublished: boolean;
+     panelIds?: number[];
 }
 
 export interface PublicCatalogItem {
@@ -48,7 +51,9 @@ function destination(value: unknown): string | undefined {
      if (value === undefined) return undefined;
      const raw = text(value, 2048);
      const url = new URL(raw);
-     if (url.protocol !== 'https:' || url.username || url.password || url.search || url.hash) {
+     const loopbackHttp = process.env.PUBLIC_FACILITY_ALLOW_LOOPBACK_HTTP === 'true' &&
+          url.protocol === 'http:' && ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname.toLowerCase());
+     if ((url.protocol !== 'https:' && !loopbackHttp) || url.username || url.password || url.search || url.hash) {
           throw new Error('Public facility destinations must be credential-free HTTPS URLs without query parameters');
      }
      return url.toString();
@@ -74,9 +79,15 @@ export function parsePublicFacilities(raw = process.env.PUBLIC_FACILITY_DIRECTOR
           if (!configuration.isMultiTenant && record.tenantId !== configuration.defaultTenantId) {
                throw new Error('Public facility tenant does not match this single-tenant installation');
           }
+          const panelIds = record.panelIds === undefined ? [] : record.panelIds;
+          if (!Array.isArray(panelIds) || panelIds.length > 1000 || new Set(panelIds).size !== panelIds.length ||
+               panelIds.some(id => typeof id !== 'number' || !Number.isSafeInteger(id) || id <= 0)) {
+               throw new Error('Public panel IDs must be unique positive tariff identifiers');
+          }
           return {
                slug, tenantId: record.tenantId, currency,
                published: record.published, catalogPublished: record.catalogPublished,
+               panelIds,
                name: text(record.name, 160),
                region: text(record.region, 120),
                locality: text(record.locality, 160),
@@ -92,6 +103,7 @@ function publicFields(facility: PublishedFacility): PublicFacility {
      return {
           slug: facility.slug, name: facility.name, region: facility.region,
           locality: facility.locality, description: facility.description,
+          currency: facility.currency,
           website: facility.website, facilityLoginUrl: facility.facilityLoginUrl,
           patientPortalUrl: facility.patientPortalUrl,
      };
@@ -116,12 +128,15 @@ function catalogItem(row: Record<string, unknown>, currency: string): PublicCata
 
 export class PublicFacilityCatalog {
      private readonly registry = new TenancyRepository();
+     private readonly profiles = new PublicFacilityRegistry();
 
      async list(): Promise<{ facilities: PublicFacility[] }> {
-          const published = parsePublicFacilities().filter(facility => facility.published);
+          const published = (await this.profiles.all()).filter(facility => facility.published);
           const facilities: PublicFacility[] = [];
           for (const facility of published) {
-               if (await this.registry.validateTenantStanding(facility.tenantId)) facilities.push(publicFields(facility));
+               if (await this.registry.validateTenantStanding(facility.tenantId) && await this.profiles.publicationAllowed(facility)) {
+                    facilities.push(publicFields(facility));
+               }
           }
           return { facilities };
      }
@@ -130,8 +145,8 @@ export class PublicFacilityCatalog {
           if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug) || slug.length > 80) {
                throw new PublicCatalogError('Laboratory not found', 404);
           }
-          const facility = parsePublicFacilities().find(item => item.slug === slug && item.published && item.catalogPublished);
-          if (!facility || !await this.registry.validateTenantStanding(facility.tenantId)) {
+          const facility = (await this.profiles.all()).find(item => item.slug === slug && item.published && item.catalogPublished);
+          if (!facility || !await this.registry.validateTenantStanding(facility.tenantId) || !await this.profiles.publicationAllowed(facility)) {
                throw new PublicCatalogError('Laboratory catalog not published', 404);
           }
           const connection = await KnexConnection(facility.tenantId);
@@ -144,9 +159,12 @@ export class PublicFacilityCatalog {
           const services = await connection('additionalservices')
                .select('keyid as id', 'serviceName as name', 'servicePrice as price')
                .orderBy('serviceName');
+          const items = tests.map(row => catalogItem(row, facility.currency));
+          const panelIds = new Set(facility.panelIds || []);
           return {
                facility: publicFields(facility),
-               tests: tests.map(row => catalogItem(row, facility.currency)),
+               tests: items.filter(item => !panelIds.has(item.id)),
+               panels: items.filter(item => panelIds.has(item.id)),
                services: services.map(row => catalogItem(row, facility.currency)),
                currency: facility.currency,
                pricingContext: 'General / cash list prices. Packages, insurance, discounts, taxes and other adjustments may change the final bill. Confirm preparation instructions and the final price with the laboratory.',

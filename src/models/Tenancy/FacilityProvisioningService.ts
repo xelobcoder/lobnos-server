@@ -170,7 +170,8 @@ export class FacilityProvisioningService {
           throw new FacilityError('Unable to reserve a facility', 409);
      }
 
-     async provision(input: FacilityInput, actor: FacilityActor): Promise<ProvisionedFacility> {
+     async provision(input: FacilityInput, actor: FacilityActor,
+          onActivate?: (trx: Knex.Transaction, facility: ProvisionedFacility) => Promise<void>): Promise<ProvisionedFacility> {
           if (!configuration.isMultiTenant) throw new FacilityError('Facility onboarding requires multi-tenant mode', 503);
           if (!process.env.PRIME_WINDOWS_KEY) throw new FacilityError('Facility licensing is not configured', 503);
           const createdBy = Number(process.env.FACILITY_PROVISIONING_PLATFORM_USER_ID);
@@ -319,6 +320,10 @@ export class FacilityProvisioningService {
                     const updated = await trx(TENANTS_TABLE).where({ id: reservation.organizationIdentifier, status: 'provisioning' })
                          .update({ status: 'active', provisioned_at: trx.fn.now(), updated_by: createdBy });
                     if (updated !== 1) throw new Error('Registry activation failed');
+                    if (onActivate) await onActivate(trx, {
+                         organizationIdentifier: reservation.organizationIdentifier, tenantId: reservation.tenantId,
+                         databaseName: reservation.databaseName, adminUsername,
+                    });
                     await this.event(trx, reservation, actor, 'active');
                });
                TenantRegistry.invalidate();

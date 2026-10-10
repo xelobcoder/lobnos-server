@@ -6,6 +6,7 @@ const state = vi.hoisted(() => ({
      coreTables: {} as Record<string, any[]>,
      nextId: 1,
      transactionCount: 0,
+     publicFacilities: [] as any[],
 }));
 
 vi.mock('../database/KnexConnections', () => {
@@ -78,6 +79,7 @@ vi.mock('../database/connection', () => {
                          where(column: string, value: any) { clauses.push(row => row[column] === value); return builder; },
                          orWhere(column: string, value: any) { clauses.push(row => row[column] === value); return builder; },
                          whereNull(column: string) { clauses.push(row => row[column] == null); return builder; },
+                         orWhereExists() { return builder; },
                     };
                     callback.call(builder, builder);
                     filters.push(row => clauses.some(clause => clause(row)));
@@ -133,12 +135,15 @@ vi.mock('../models/Tenancy/TenantRegistry', () => ({
      TenantRegistry: class { async requireTenant() { return { isActive: true }; } },
 }));
 vi.mock('../models/public/PublicFacilityCatalog', () => ({
+     PublicCatalogError: class extends Error {},
      PublicFacilityCatalog: class {
+          async list() { return { facilities: state.publicFacilities }; }
           async catalog() {
                return {
                     currency: 'GHS',
                     facility: { slug: 'sample-lab' },
                     tests: [{ id: 11, name: 'CBC', description: 'Blood count', price: 12.34 }],
+                    panels: [{ id: 12, name: 'Synthetic panel', description: 'Public panel', price: 25 }],
                     services: [],
                };
           }
@@ -191,6 +196,7 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
           };
           state.nextId = 10;
           state.transactionCount = 0;
+          state.publicFacilities = [];
      });
 
      it('does not publish a pending registration; approval is the publication gate', async () => {
@@ -334,6 +340,7 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
                price: '10.00', sample_requirements: '["Blood"]',
                collection_methods: '["in_facility"]', available: true, active: true,
           });
+
           const request = {
                facilitySlug: 'sample-lab', itemIds: [7], idempotencyKey: 'A'.repeat(43),
                patient: { name: 'Test Patient', phone: '+123456789' }, collectionMethod: 'in_facility',
@@ -347,6 +354,45 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
                ...request, patient: { name: 'Different Patient', phone: '+123456789' },
           })).rejects.toMatchObject({ statusCode: 409 });
           expect(state.tables.marketplace_bookings).toHaveLength(1);
+     });
+
+     it('publishes and books live panels using unique tariff IDs and server-owned prices', async () => {
+          state.publicFacilities = [{ slug: 'sample-lab', name: 'Sample Lab', facilityLoginUrl: 'https://lab.example/login' }];
+          state.tables.marketplace_facilities[0] = {
+               ...facility(), status: 'approved', integration_state: 'linked', linked_tenant_id: 9,
+          };
+          const service = new MarketplaceService();
+          const catalog = await service.publicCatalog('sample-lab');
+          expect(catalog.tests.map(item => [item.id, item.type])).toEqual([[11, 'test'], [12, 'panel']]);
+          const result = await service.createBooking({
+               facilitySlug: 'sample-lab', itemIds: [11, 12], idempotencyKey: 'P'.repeat(43),
+               patient: { name: 'Synthetic Patient', phone: '+123456789' }, collectionMethod: 'in_facility',
+          });
+          expect(result.totalAmount).toBe(37.34);
+          expect(state.tables.marketplace_booking_items.map(item => [item.core_item_id, item.item_type]))
+               .toEqual([[11, 'test'], [12, 'panel']]);
+          const directory = await service.listFacilities();
+          expect(directory.facilities[0].facilityLoginUrl).toBe('https://lab.example/login');
+     });
+
+     it('includes an explicitly published core tenant without inventing marketplace booking support', async () => {
+          state.tables.marketplace_facilities = [];
+          state.publicFacilities = [{
+               slug: 'sample-lab', name: 'Sample Laboratory', region: 'North', locality: 'Town',
+               description: '', currency: 'GHS', facilityLoginUrl: 'https://lab.example/login',
+          }];
+          const service = new MarketplaceService();
+          const directory = await service.listFacilities();
+          expect(directory.facilities).toEqual([expect.objectContaining({
+               slug: 'sample-lab', facilityType: 'pls-integrated', bookingSupported: false, currency: 'GHS',
+          })]);
+          expect(directory.facilities[0]).not.toHaveProperty('tenantId');
+          const catalog = await service.publicCatalog('sample-lab');
+          expect(catalog.facility).toMatchObject({ bookingSupported: false });
+          expect(catalog.tests.map(item => [item.id, item.type])).toEqual([[11, 'test'], [12, 'panel']]);
+          expect((await service.listFacilities('Synthetic panel')).facilities).toHaveLength(1);
+          expect((await service.listFacilities('no matching investigation')).facilities).toHaveLength(0);
+          expect(state.tables.marketplace_bookings).toHaveLength(0);
      });
 
      it('validates tenant, patient, billing, branch, and mapped tests before idempotent existing-record linkage', async () => {
