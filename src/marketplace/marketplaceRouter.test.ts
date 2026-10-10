@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
           register: vi.fn(),
           createBooking: vi.fn(),
           trackBooking: vi.fn(),
+          submitPlatformEnquiry: vi.fn(),
           submitPatientPaymentClaim: vi.fn(),
           login: vi.fn(),
           authenticateStaff: vi.fn(),
@@ -25,6 +26,7 @@ const mocks = vi.hoisted(() => ({
           listPlatformFacilities: vi.fn(),
           approveFacility: vi.fn(),
           provisionFacility: vi.fn(),
+          retryFacilityProvisioning: vi.fn(),
           suspendFacility: vi.fn(),
           linkTenant: vi.fn(),
      },
@@ -79,6 +81,7 @@ describe('marketplace HTTP contract', () => {
      });
 
      beforeEach(() => {
+          vi.stubEnv('WEBSITE_LEAD_WEBHOOK_TOKEN', 'test-enquiry-token');
           for (const method of Object.values(mocks.service)) method.mockReset().mockResolvedValue({});
      });
 
@@ -89,11 +92,29 @@ describe('marketplace HTTP contract', () => {
           expect(mocks.service.trackBooking).not.toHaveBeenCalled();
      });
 
+     it('accepts website enquiries only with the configured bearer token', async () => {
+          mocks.service.submitPlatformEnquiry.mockResolvedValue({ enquiryId: 7, accepted: true });
+          const body = { formType: 'demo', fullName: 'Taylor Example' };
+          const missing = await fetch(`${baseUrl}/platform-enquiries`, {
+               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+          });
+          expect(missing.status).toBe(401);
+          expect(mocks.service.submitPlatformEnquiry).not.toHaveBeenCalled();
+          const accepted = await fetch(`${baseUrl}/platform-enquiries`, {
+               method: 'POST',
+               headers: { 'content-type': 'application/json', authorization: 'Bearer test-enquiry-token' },
+               body: JSON.stringify(body),
+          });
+          expect(accepted.status).toBe(202);
+          expect(mocks.service.submitPlatformEnquiry).toHaveBeenCalledWith(body);
+     });
+
      it('forwards provisioning only with the authenticated platform actor and rejects tenant injection', async () => {
           const body = { identityConfirmed: true, companyName: 'Synthetic lab' };
           const response = await fetch(`${baseUrl}/platform/facilities/1/provision`, {
                method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
           });
+
           expect(response.status).toBe(200);
           expect(mocks.service.provisionFacility).toHaveBeenCalledWith('1', body, { tenantId: 1, employeeId: 9 });
           mocks.service.provisionFacility.mockClear();
@@ -102,6 +123,17 @@ describe('marketplace HTTP contract', () => {
           });
           expect(blocked.status).toBe(400);
           expect(mocks.service.provisionFacility).not.toHaveBeenCalled();
+     });
+
+     it('forwards a failed provisioning retry with the authenticated platform actor', async () => {
+          const body = { identityConfirmed: true, companyName: 'Synthetic lab' };
+          const response = await fetch(`${baseUrl}/platform/facilities/1/retry-provisioning`, {
+               method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body),
+          });
+          expect(response.status).toBe(200);
+          expect(mocks.service.retryFacilityProvisioning).toHaveBeenCalledWith(
+               '1', body, { tenantId: 1, employeeId: 9 },
+          );
      });
 
      it('returns an uncached 201 booking request and passes only the submitted JSON body', async () => {

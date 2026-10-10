@@ -28,6 +28,18 @@ explicit target and independently verifies tenant standing, identity, and PLS
 catalog configuration. Patient identifiers, contact information, payment references and
 tracking credentials must not be placed in a URL.
 
+## Corporate website enquiries
+
+`POST /platform-enquiries` is the first-party receiver for the corporate
+website's request-demo and contact forms. It requires the server-only bearer
+token configured as `WEBSITE_LEAD_WEBHOOK_TOKEN`; missing or invalid
+credentials are rejected before the payload reaches the service. The receiver
+revalidates field lengths, email, source and submission time, then stores the
+request in the control database `platform_enquiries` table with `new` status
+and returns HTTP 202. Configure the website with the endpoint URL and the same
+token through `LEAD_WEBHOOK_URL` and `LEAD_WEBHOOK_TOKEN`. Tokens and enquiry
+contents are never written to request logs.
+
 ## Public discovery and registration
 
 ### `GET /facilities`
@@ -116,6 +128,14 @@ Marketplace routes derive tenancy from that session and reject query `tenantId`.
   databaseName,adminUsername}`. A durable provisioning claim prevents concurrent
   duplicate tenants; linkage occurs in the final tenant activation transaction.
   Failures retain `provision_failed` for operator review, never automatic DDL retry.
+- `POST /platform/facilities/:facilityId/retry-provisioning` accepts the same
+  payload and is available only for an approved application in
+  `provision_failed`. If the failed attempt reserved a tenant, the retry
+  preserves its organization and tenant IDs, releases its cached connection,
+  removes its partial database, rebuilds it, and links the application in the
+  final activation transaction. If preflight failed before reservation, it
+  safely starts a fresh provisioning attempt. Retry claims prevent concurrent
+  attempts, and another failure remains visible as `provision_failed`.
 - `POST /platform/facilities/:facilityId/link-tenant` remains the reviewed
   existing-tenant/catalog-mapping migration path.
 

@@ -60,10 +60,11 @@ beforeEach(() => {
 describe('marketplace schema bootstrap', () => {
      it('creates every table using fresh schema builders before checking upgrade columns', async () => {
           await bootstrapMarketplace();
-          expect(mocks.tables.size).toBe(14);
+          expect(mocks.tables.size).toBe(15);
+          expect(mocks.tables.has('platform_enquiries')).toBe(true);
           expect(mocks.tables.has('marketplace_bookings')).toBe(true);
           expect(mocks.tables.has('marketplace_core_booking_links')).toBe(true);
-          expect(mocks.writes).toHaveLength(14);
+          expect(mocks.writes).toHaveLength(15);
           expect(mocks.backfill).not.toHaveBeenCalled();
      });
 

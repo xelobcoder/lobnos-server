@@ -2,13 +2,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      authority: vi.fn(), setStatus: vi.fn(), getSubscription: vi.fn(), setPlan: vi.fn(), recordPayment: vi.fn(), voidPayment: vi.fn(), listAudit: vi.fn(),
-     list: vi.fn(), options: vi.fn(), provision: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
+     list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
      getPublicProfile: vi.fn(), putPublicProfile: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
 vi.mock('../../models/Tenancy/FacilityProvisioningService', () => ({
-     FacilityProvisioningService: class { list = mocks.list; options = mocks.options; provision = mocks.provision; },
+     FacilityProvisioningService: class { list = mocks.list; options = mocks.options; provision = mocks.provision; retry = mocks.retry; },
 }));
 vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
      FacilityManagementService: class {
@@ -45,6 +45,7 @@ describe('platform facility routes', () => {
      it('guards every facility route, existing and new, with the platform authority as the first handler', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
                'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities', 'post /api/v1/platform/facilities',
+               'post /api/v1/platform/facilities/:tenantId/retry',
                'get /api/v1/platform/facilities/:tenantId/public-profile', 'put /api/v1/platform/facilities/:tenantId/public-profile',
                'delete /api/v1/platform/facilities/:tenantId',
                'patch /api/v1/platform/facilities/:tenantId/status', 'get /api/v1/platform/facilities/:tenantId/subscription',
@@ -56,6 +57,24 @@ describe('platform facility routes', () => {
                expect(route.stack).toHaveLength(2);
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
+     });
+
+     it('validates and retries a failed facility using the path tenant and authenticated actor', async () => {
+          const body = {
+               companyName: 'Example Lab', email: 'lab@example.test', phone: '0201234567', address: 'Example Street',
+               countryId: 1, stateId: 2, districtId: 3, adminName: 'Administrator',
+               adminEmail: 'admin@example.test', adminPassword: 'a-long-test-password',
+          };
+          mocks.retry.mockResolvedValue({ tenantId: 654321, organizationIdentifier: 'NRAM1' });
+          const res = await invoke('post', '/api/v1/platform/facilities/:tenantId/retry', {
+               params: { tenantId: '654321' }, body,
+          });
+          expect(mocks.retry).toHaveBeenCalledWith(654321, expect.objectContaining({
+               ...body, licenseDays: 365, street: '', gpsAddress: '', moduleConfiguration: null,
+          }), res.locals.facilityActor);
+          expect(res.json).toHaveBeenCalledWith({
+               status: 'success', result: { tenantId: 654321, organizationIdentifier: 'NRAM1' },
+          });
      });
 
      it('uses the validated path tenant and authenticated actor for public profile writes', async () => {

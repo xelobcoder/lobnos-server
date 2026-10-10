@@ -6,6 +6,7 @@ import { PublicCatalogError, PublicFacilityCatalog } from '../models/public/Publ
 import { PublicFacilityRegistry } from '../models/public/PublicFacilityRegistry';
 import { FacilityError, validateFacilityInput } from '../models/Tenancy/FacilityInput';
 import type { FacilityActor } from '../models/Tenancy/FacilityProvisioningService';
+import { TENANTS_TABLE } from '../models/Tenancy/TenantRegistry';
 
 const SESSION_TTL_HOURS = 12;
 const STAFF_TOKEN_BYTES = 32;
@@ -99,6 +100,48 @@ function validateSlug(slug: unknown): string {
 }
 
 export class MarketplaceService {
+     async submitPlatformEnquiry(input: unknown) {
+          if (!isRecord(input)) throw new MarketplaceError('Invalid enquiry', 400);
+          const formType = input.formType;
+          if (formType !== 'demo' && formType !== 'contact') throw new MarketplaceError('Invalid enquiry type', 400);
+          const fullName = cleanText(input.fullName, 'full name', 120)!;
+          if (fullName.length < 2) throw new MarketplaceError('Invalid full name', 400);
+          const workEmail = cleanText(input.workEmail, 'work email', 254)!.toLowerCase();
+          if (!emailPattern.test(workEmail)) throw new MarketplaceError('Invalid work email', 400);
+          const message = cleanText(input.message, 'message', 4000)!;
+          if (message.length < 10) throw new MarketplaceError('Invalid message', 400);
+          const interests = input.interests === undefined ? [] : input.interests;
+          if (!Array.isArray(interests) || interests.length > 12 ||
+               interests.some(item => typeof item !== 'string' || item.trim().length > 80)) {
+               throw new MarketplaceError('Invalid interests', 400);
+          }
+          const submittedAt = new Date(input.submittedAt);
+          if (typeof input.submittedAt !== 'string' || !Number.isFinite(submittedAt.getTime()) ||
+               Math.abs(Date.now() - submittedAt.getTime()) > 24 * 60 * 60 * 1000) {
+               throw new MarketplaceError('Invalid submission time', 400);
+          }
+          if (input.source !== 'pls-corporate-website') throw new MarketplaceError('Invalid enquiry source', 400);
+          const optional = (value: unknown, field: string, maximum: number) =>
+               value === undefined ? '' : cleanText(value, field, maximum, false) || '';
+          const [id] = await db('platform_enquiries').insert({
+               form_type: formType,
+               full_name: fullName,
+               work_email: workEmail,
+               phone: optional(input.phone, 'phone', 40),
+               organization: optional(input.organization, 'organization', 160),
+               country: optional(input.country, 'country', 80),
+               facility_type: optional(input.facilityType, 'facility type', 100),
+               facilities_count: optional(input.facilitiesCount, 'facilities count', 40),
+               interests_json: JSON.stringify(interests.map(item => item.trim())),
+               subject: optional(input.subject, 'subject', 160),
+               message,
+               source: input.source,
+               submitted_at: submittedAt,
+               status: 'new',
+          });
+          return { enquiryId: Number(id), accepted: true };
+     }
+
      async listFacilities(search?: unknown) {
           if (search !== undefined && (typeof search !== 'string' || search.length > 120)) throw new MarketplaceError('Invalid search', 400);
           const needle = typeof search === 'string' ? search.trim() : '';
@@ -976,15 +1019,122 @@ export class MarketplaceService {
                });
                return { facilityId, slug: application.slug, integrationState: 'linked', ...provisioned };
           } catch (error) {
+               let failedTenant;
+               try {
+                    failedTenant = await db(TENANTS_TABLE).where({
+                         email: validated.email, company_name: validated.companyName, status: 'failed',
+                    }).first('tenant_number');
+               } catch {
+                    console.error('[marketplace] Failed to resolve the tenant reservation after provisioning failure');
+               }
+               await db.transaction(async trx => {
+                    await trx('marketplace_facilities').where({ id: facilityId, integration_state: 'provisioning' })
+                         .update({
+                              integration_state: 'provision_failed',
+                              linked_tenant_id: failedTenant ? Number(failedTenant.tenant_number) : null,
+                              updated_at: new Date(),
+                         });
+                    await trx('marketplace_audit').insert({
+                         facility_id: facilityId, event_type: 'facility_provisioning_failed', actor_type: 'platform',
+                         actor_id: String(actor.employeeId), details_json: JSON.stringify({
+                              operatorReviewRequired: true,
+                              ...(failedTenant ? { tenantId: Number(failedTenant.tenant_number) } : {}),
+                         }),
+                    });
+               }).catch(() => {
+                    console.error('[marketplace] Failed to record provisioning failure; operator review required');
+               });
+               if (error instanceof FacilityError) throw new MarketplaceError(error.message, error.statusCode);
+               throw error;
+          }
+     }
+
+     async retryFacilityProvisioning(facilityIdInput: unknown, input: unknown, actor: FacilityActor) {
+          const facilityId = positiveId(facilityIdInput, 'facility id');
+          if (!isRecord(input) || input.identityConfirmed !== true) {
+               throw new MarketplaceError('Explicit facility identity confirmation is required', 400);
+          }
+          let validated;
+          try { validated = validateFacilityInput(input); }
+          catch (error) {
+               if (error instanceof FacilityError) throw new MarketplaceError(error.message, error.statusCode);
+               throw error;
+          }
+          const claim = await db.transaction(async trx => {
+               const facility = await trx('marketplace_facilities').where({ id: facilityId }).forUpdate().first();
+               if (!facility) throw new MarketplaceError('Facility not found', 404);
+               if (facility.status !== 'approved' || facility.integration_state !== 'provision_failed') {
+                    throw new MarketplaceError('Only an approved application with failed provisioning may be retried', 409);
+               }
+               if (facility.contact_email !== validated.email || facility.name !== validated.companyName) {
+                    throw new MarketplaceError('Retry details must match the approved website application', 409);
+               }
+               if (await trx('marketplace_catalog_items').where({ facility_id: facilityId }).first('id') ||
+                    await trx('marketplace_bookings').where({ facility_id: facilityId }).first('id')) {
+                    throw new MarketplaceError('Existing catalog or booking history requires reviewed mappings through the existing tenant/link workflow', 409);
+               }
+               let tenant;
+               if (facility.linked_tenant_id !== null) {
+                    tenant = await trx(TENANTS_TABLE).where({
+                         tenant_number: facility.linked_tenant_id, status: 'failed',
+                         email: validated.email, company_name: validated.companyName,
+                    }).first('tenant_number');
+                    if (!tenant) throw new MarketplaceError('The failed tenant reservation no longer matches this application', 409);
+               } else {
+                    tenant = await trx(TENANTS_TABLE).where({
+                         email: validated.email, company_name: validated.companyName,
+                    }).first('tenant_number', 'status');
+                    if (tenant && tenant.status !== 'failed') {
+                         throw new MarketplaceError(`The matching tenant is ${tenant.status}; review it before retrying`, 409);
+                    }
+               }
+               const tenantId = tenant ? Number(tenant.tenant_number) : null;
+               await trx('marketplace_facilities').where({ id: facilityId, integration_state: 'provision_failed' }).update({
+                    integration_state: 'provisioning', linked_tenant_id: tenantId, updated_at: new Date(),
+               });
+               await trx('marketplace_audit').insert({
+                    facility_id: facilityId, event_type: 'facility_provisioning_retry_started', actor_type: 'platform',
+                    actor_id: String(actor.employeeId), details_json: JSON.stringify({
+                         identityConfirmed: true, ...(tenantId ? { tenantId } : {}),
+                    }),
+               });
+               return { slug: facility.slug, tenantId };
+          });
+          try {
+               const { FacilityProvisioningService } = await import('../models/Tenancy/FacilityProvisioningService');
+               const service = new FacilityProvisioningService();
+               const activate = async (trx: any, tenant: any) => {
+                    const current = await trx('marketplace_facilities').where({ id: facilityId }).forUpdate().first();
+                    if (!current || current.status !== 'approved' || current.integration_state !== 'provisioning' ||
+                         (current.linked_tenant_id !== null && Number(current.linked_tenant_id) !== tenant.tenantId)) {
+                         throw new MarketplaceError('Application changed during provisioning retry', 409);
+                    }
+                    await trx('marketplace_facilities').where({ id: facilityId }).update({
+                         integration_state: 'linked', linked_tenant_id: tenant.tenantId, updated_at: new Date(),
+                    });
+                    await trx('marketplace_audit').insert({
+                         facility_id: facilityId, event_type: 'facility_provisioning_retry_linked', actor_type: 'platform',
+                         actor_id: String(actor.employeeId), details_json: JSON.stringify({
+                              tenantId: tenant.tenantId, identityConfirmed: true,
+                         }),
+                    });
+               };
+               const provisioned = claim.tenantId === null
+                    ? await service.provision(validated, actor, activate)
+                    : await service.retry(claim.tenantId, validated, actor, activate);
+               return { facilityId, slug: claim.slug, integrationState: 'linked', ...provisioned };
+          } catch (error) {
                await db.transaction(async trx => {
                     await trx('marketplace_facilities').where({ id: facilityId, integration_state: 'provisioning' })
                          .update({ integration_state: 'provision_failed', updated_at: new Date() });
                     await trx('marketplace_audit').insert({
-                         facility_id: facilityId, event_type: 'facility_provisioning_failed', actor_type: 'platform',
-                         actor_id: String(actor.employeeId), details_json: JSON.stringify({ operatorReviewRequired: true }),
+                         facility_id: facilityId, event_type: 'facility_provisioning_retry_failed', actor_type: 'platform',
+                         actor_id: String(actor.employeeId), details_json: JSON.stringify({
+                              operatorReviewRequired: true, ...(claim.tenantId ? { tenantId: claim.tenantId } : {}),
+                         }),
                     });
                }).catch(() => {
-                    console.error('[marketplace] Failed to record provisioning failure; operator review required');
+                    console.error('[marketplace] Failed to record provisioning retry failure; operator review required');
                });
                if (error instanceof FacilityError) throw new MarketplaceError(error.message, error.statusCode);
                throw error;

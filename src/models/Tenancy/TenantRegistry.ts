@@ -21,6 +21,10 @@ export interface RegisteredTenant {
      facilityCode: string;
      name: string;
      email: string | null;
+     phone: string | null;
+     countryId: number | null;
+     stateId: number | null;
+     districtId: number | null;
      databaseName: string;
      host: string | null;
      port: number | null;
@@ -87,6 +91,10 @@ function toRegisteredTenant(row: any): RegisteredTenant | null {
           facilityCode: row.facility_code,
           name: row.company_name,
           email: row.email ?? null,
+           phone: row.phone ?? null,
+           countryId: row.country_id === null || row.country_id === undefined ? null : Number(row.country_id),
+           stateId: row.state_id === null || row.state_id === undefined ? null : Number(row.state_id),
+           districtId: row.district_id === null || row.district_id === undefined ? null : Number(row.district_id),
           databaseName: row.database_name,
           host,
           port,

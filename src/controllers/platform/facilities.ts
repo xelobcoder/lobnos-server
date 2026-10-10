@@ -58,6 +58,8 @@ router.get(`${base}/options`, requirePlatformFacilityAuthority, handle(() => ser
 router.get(base, requirePlatformFacilityAuthority, handle(() => service.list()));
 router.post(base, requirePlatformFacilityAuthority, handle((req, res) =>
      service.provision(validateFacilityInput(req.body), actor(res))));
+router.post(`${base}/:tenantId/retry`, requirePlatformFacilityAuthority, handle((req, res) =>
+     service.retry(parseTenantIdParam(req.params.tenantId), validateFacilityInput(req.body), actor(res))));
 router.get(`${base}/:tenantId/public-profile`, requirePlatformFacilityAuthority, handle(req =>
      publicRegistry.get(parseTenantIdParam(req.params.tenantId))));
 router.put(`${base}/:tenantId/public-profile`, requirePlatformFacilityAuthority, handle((req, res) =>

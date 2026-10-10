@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const state = vi.hoisted(() => ({
-     tables: {} as Record<string, any[]>, profiles: [] as any[], provision: vi.fn(),
+     tables: {} as Record<string, any[]>, profiles: [] as any[], provision: vi.fn(), retry: vi.fn(),
 }));
 vi.mock('../database/connection', () => {
      const db: any = (table: string) => {
@@ -33,7 +33,7 @@ vi.mock('../models/public/PublicFacilityCatalog', () => ({
      PublicCatalogError: class extends Error {},
 }));
 vi.mock('../models/Tenancy/FacilityProvisioningService', () => ({
-     FacilityProvisioningService: class { provision = state.provision; },
+     FacilityProvisioningService: class { provision = state.provision; retry = state.retry; },
 }));
 
 import { MarketplaceService } from './MarketplaceService';
@@ -55,7 +55,12 @@ beforeEach(() => {
      };
      state.profiles = [];
      state.provision.mockReset();
+     state.retry.mockReset();
      state.provision.mockImplementation(async (_input, _actor, activate) => {
+          await systemConfigConnection.transaction(async trx => activate(trx, provisioned));
+          return provisioned;
+     });
+     state.retry.mockImplementation(async (_tenantId, _input, _actor, activate) => {
           await systemConfigConnection.transaction(async trx => activate(trx, provisioned));
           return provisioned;
      });
@@ -103,6 +108,33 @@ describe('controlled marketplace provisioning', () => {
           expect(state.tables.marketplace_facilities[0]).toMatchObject({ integration_state: 'provision_failed', linked_tenant_id: null });
           await expect(new MarketplaceService().provisionFacility(1, input, actor)).rejects.toMatchObject({ statusCode: 409 });
           expect(state.provision).toHaveBeenCalledTimes(1);
+     });
+     it('retries and relinks the failed tenant reserved by the original attempt', async () => {
+          state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
+          state.tables.marketplace_facilities[0].linked_tenant_id = 1234;
+          state.tables.marketplace_facilities[0].name = input.companyName;
+          state.tables.marketplace_facilities[0].contact_email = input.email;
+          state.tables.prime_tenants = [{
+               tenant_number: 1234, status: 'failed', company_name: input.companyName, email: input.email,
+          }];
+          const result = await new MarketplaceService().retryFacilityProvisioning(1, input, actor);
+          expect(state.retry).toHaveBeenCalledWith(1234, expect.objectContaining({ companyName: input.companyName }),
+               actor, expect.any(Function));
+          expect(state.provision).not.toHaveBeenCalled();
+          expect(result).toMatchObject({ facilityId: 1, integrationState: 'linked', tenantId: 1234 });
+          expect(state.tables.marketplace_facilities[0]).toMatchObject({
+               integration_state: 'linked', linked_tenant_id: 1234,
+          });
+     });
+     it('restarts provisioning when the failed attempt ended before reserving a tenant', async () => {
+          state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
+          state.tables.marketplace_facilities[0].name = input.companyName;
+          state.tables.marketplace_facilities[0].contact_email = input.email;
+          const result = await new MarketplaceService().retryFacilityProvisioning(1, input, actor);
+          expect(state.provision).toHaveBeenCalledWith(expect.objectContaining({ companyName: input.companyName }),
+               actor, expect.any(Function));
+          expect(state.retry).not.toHaveBeenCalled();
+          expect(result).toMatchObject({ integrationState: 'linked' });
      });
      it('does not link if application approval changes during provisioning', async () => {
           state.provision.mockImplementation(async (_input, _actor, activate) => {

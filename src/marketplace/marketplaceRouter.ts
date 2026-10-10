@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import { timingSafeEqual } from 'crypto';
 import { parseCookies } from '../middleware/validateTenancy';
 import { requirePlatformFacilityAuthority } from '../middleware/platformFacilityAuthority';
 import { requireCoreFacilityStaff, requireCoreRole } from './coreStaffAuth';
@@ -8,6 +9,19 @@ import { PublicCatalogError } from '../models/public/PublicFacilityCatalog';
 const router = Router();
 const service = new MarketplaceService();
 const base = '/api/v1/marketplace';
+
+function requireLeadWebhookToken(req: Request, res: Response, next: () => void) {
+     const configured = process.env.WEBSITE_LEAD_WEBHOOK_TOKEN;
+     if (!configured) return res.status(503).json({ status: 'error', message: 'Enquiry receiver is not configured' });
+     const match = /^Bearer\s+(.+)$/i.exec(req.headers.authorization || '');
+     if (!match) return res.status(401).json({ status: 'error', message: 'Invalid enquiry delivery credentials' });
+     const supplied = Buffer.from(match[1]);
+     const expected = Buffer.from(configured);
+     if (supplied.length !== expected.length || !timingSafeEqual(supplied, expected)) {
+          return res.status(401).json({ status: 'error', message: 'Invalid enquiry delivery credentials' });
+     }
+     next();
+}
 
 router.use(base, (_req, res, next) => {
      res.setHeader('Cache-Control', 'no-store, private, max-age=0');
@@ -86,6 +100,8 @@ router.post(`${base}/registrations`, handle(req => service.register(req.body), [
 router.post(`${base}/bookings`, handle(req => service.createBooking(req.body), [], 201));
 router.post(`${base}/bookings/track`, handle(req => service.trackBooking(req.body)));
 router.post(`${base}/bookings/payment-claims`, handle(req => service.submitPatientPaymentClaim(req.body), [], 201));
+router.post(`${base}/platform-enquiries`, requireLeadWebhookToken,
+     handle(req => service.submitPlatformEnquiry(req.body), [], 202));
 
 router.post(`${base}/staff/login`, handle(async (req, res) => {
      const session = await service.login(req.body);
@@ -159,6 +175,8 @@ router.post(`${base}/platform/facilities/:facilityId/approve`, requirePlatformFa
      handle((req, res) => service.approveFacility(req.params.facilityId, res.locals.facilityActor)));
 router.post(`${base}/platform/facilities/:facilityId/provision`, requirePlatformFacilityAuthority,
      handle((req, res) => service.provisionFacility(req.params.facilityId, req.body, res.locals.facilityActor)));
+router.post(`${base}/platform/facilities/:facilityId/retry-provisioning`, requirePlatformFacilityAuthority,
+     handle((req, res) => service.retryFacilityProvisioning(req.params.facilityId, req.body, res.locals.facilityActor)));
 router.post(`${base}/platform/facilities/:facilityId/suspend`, requirePlatformFacilityAuthority,
      handle((req, res) => service.suspendFacility(req.params.facilityId, req.body?.reason, res.locals.facilityActor)));
 router.post(`${base}/platform/facilities/:facilityId/link-tenant`, requirePlatformFacilityAuthority,

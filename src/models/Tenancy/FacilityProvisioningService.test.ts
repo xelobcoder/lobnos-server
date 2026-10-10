@@ -103,6 +103,50 @@ describe('complete facility provisioning lifecycle', () => {
           expect(mocks.release).toHaveBeenCalled();
      });
 
+     it('removes a failed facility database before rebuilding the same reservation', async () => {
+          const failed = {
+               id: 'NRAM1', tenant_number: 654321, database_name: 'pls_nram1_654321', status: 'failed',
+               company_name: input.companyName, email: input.email, phone: input.phone,
+               country_id: input.countryId, state_id: input.stateId, district_id: input.districtId,
+          };
+          const { db, writes } = databaseHarness({ prime_tenants: failed });
+          const connection = schemaConnection();
+          mocks.connect.mockResolvedValue(connection);
+          mocks.tenantConnection.mockResolvedValue(db);
+
+          const result = await new FacilityProvisioningService(db).retry(654321, input, actor);
+
+          expect(result).toMatchObject({
+               organizationIdentifier: 'NRAM1', tenantId: 654321, databaseName: 'pls_nram1_654321',
+          });
+          expect(mocks.release).toHaveBeenCalledWith(654321);
+          const sql = connection.query.mock.calls.map(([statement]) => statement);
+          expect(sql.indexOf('DROP DATABASE IF EXISTS ??')).toBeLessThan(sql.indexOf(
+               'CREATE DATABASE ?? CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci',
+          ));
+          expect(connection.query).toHaveBeenCalledWith('DROP DATABASE IF EXISTS ??', ['pls_nram1_654321']);
+          expect(writes.filter(write => write.table === 'prime_tenants').map(write => write.value.status))
+               .toEqual(['provisioning', 'active']);
+          expect(writes.filter(write => write.table === 'facility_provisioning_events').map(write => write.value.stage))
+               .toEqual(['retry_started', 'retry_database_removed', 'schema_cloned', 'programmable_objects_installed',
+                    'reference_seeded', 'runtime_bootstrapped', 'initialized', 'active']);
+     });
+
+     it('refuses to retry anything except the exact failed facility reservation', async () => {
+          const failed = {
+               id: 'NRAM1', tenant_number: 654321, database_name: 'pls_nram1_654321', status: 'active',
+               company_name: input.companyName, email: input.email, phone: input.phone,
+               country_id: input.countryId, state_id: input.stateId, district_id: input.districtId,
+          };
+          const { db } = databaseHarness({ prime_tenants: failed });
+          mocks.connect.mockResolvedValue(schemaConnection());
+
+          await expect(new FacilityProvisioningService(db).retry(654321, input, actor))
+               .rejects.toThrow('only failed facilities can be retried');
+          expect(mocks.release).not.toHaveBeenCalled();
+          expect(mocks.connect.mock.results[0]?.value).toBeDefined();
+     });
+
      beforeEach(() => {
           vi.clearAllMocks();
           vi.stubEnv('PRIME_WINDOWS_KEY', 'test-only-key');

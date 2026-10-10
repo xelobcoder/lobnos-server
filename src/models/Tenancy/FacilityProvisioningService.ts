@@ -170,8 +170,57 @@ export class FacilityProvisioningService {
           throw new FacilityError('Unable to reserve a facility', 409);
      }
 
+     private async prepareRetry(input: FacilityInput, actor: FacilityActor, createdBy: number, tenantId: number): Promise<Reservation> {
+          return this.master.transaction(async trx => {
+               const tenant = await trx(TENANTS_TABLE).where({ tenant_number: tenantId }).forUpdate().first();
+               if (!tenant) throw new FacilityError('Facility not found', 404);
+               if (tenant.status !== 'failed') {
+                    throw new FacilityError(`Facility is ${tenant.status}; only failed facilities can be retried`, 409);
+               }
+               const organizationIdentifier = String(tenant.id);
+               const databaseName = safeDatabaseIdentifier(tenant.database_name);
+               const expectedDatabaseName = safeDatabaseIdentifier(`pls_${organizationIdentifier.toLowerCase()}_${tenantId}`);
+               assertNotControlAssignment(tenantId, databaseName);
+               if (databaseName !== expectedDatabaseName) {
+                    throw new FacilityError('Facility database cannot be safely cleaned up for retry', 409);
+               }
+               if (tenant.company_name !== input.companyName || tenant.email !== input.email || tenant.phone !== input.phone ||
+                    Number(tenant.country_id) !== input.countryId || Number(tenant.state_id) !== input.stateId ||
+                    Number(tenant.district_id) !== input.districtId) {
+                    throw new FacilityError('Retry details must match the failed facility reservation', 409);
+               }
+               const state = await trx('platform_states').where({
+                    id: input.stateId, country_id: input.countryId, status: 'active',
+               }).whereNull('deleted_at').first();
+               const district = await trx('platform_districts').where({
+                    id: input.districtId, country_id: input.countryId, state_id: input.stateId, status: 'active',
+               }).whereNull('deleted_at').first();
+               if (!state || !district) throw new FacilityError('The failed facility location is no longer active', 409);
+               const reservation = { organizationIdentifier, tenantId, databaseName, state, district };
+               const updated = await trx(TENANTS_TABLE).where({ tenant_number: tenantId, status: 'failed' })
+                    .update({ status: 'provisioning', updated_by: createdBy });
+               if (updated !== 1) throw new FacilityError('Facility retry is already in progress', 409);
+               await this.event(trx, reservation, actor, 'retry_started');
+               return reservation;
+          });
+     }
+
      async provision(input: FacilityInput, actor: FacilityActor,
           onActivate?: (trx: Knex.Transaction, facility: ProvisionedFacility) => Promise<void>): Promise<ProvisionedFacility> {
+          return this.runProvision(input, actor, onActivate);
+     }
+
+     async retry(tenantId: number, input: FacilityInput, actor: FacilityActor,
+          onActivate?: (trx: Knex.Transaction, facility: ProvisionedFacility) => Promise<void>): Promise<ProvisionedFacility> {
+          if (!Number.isSafeInteger(tenantId) || tenantId < 100000 || tenantId > 999999) {
+               throw new FacilityError('tenantId must be a six-digit positive integer');
+          }
+          return this.runProvision(input, actor, onActivate, tenantId);
+     }
+
+     private async runProvision(input: FacilityInput, actor: FacilityActor,
+          onActivate?: (trx: Knex.Transaction, facility: ProvisionedFacility) => Promise<void>,
+          retryTenantId?: number): Promise<ProvisionedFacility> {
           if (!configuration.isMultiTenant) throw new FacilityError('Facility onboarding requires multi-tenant mode', 503);
           if (!process.env.PRIME_WINDOWS_KEY) throw new FacilityError('Facility licensing is not configured', 503);
           const createdBy = Number(process.env.FACILITY_PROVISIONING_PLATFORM_USER_ID);
@@ -215,8 +264,16 @@ export class FacilityProvisioningService {
                     }
                }
                stage = 'reservation';
-               reservation = await this.reserve(input, actor, createdBy);
+               reservation = retryTenantId === undefined
+                    ? await this.reserve(input, actor, createdBy)
+                    : await this.prepareRetry(input, actor, createdBy, retryTenantId);
                TenantRegistry.invalidate();
+               if (retryTenantId !== undefined) {
+                    stage = 'retry_cleanup';
+                    await releaseTenantConnection(reservation.tenantId);
+                    await admin.query('DROP DATABASE IF EXISTS ??', [reservation.databaseName]);
+                    await this.event(this.master, reservation, actor, 'retry_database_removed');
+               }
                stage = 'schema_creation';
                await createFacilitySchema(admin, structure, reservation.databaseName);
                await this.event(this.master, reservation, actor, 'schema_cloned');

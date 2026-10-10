@@ -8,6 +8,28 @@ import { bootstrapPublicFacilityRegistry } from '../models/public/PublicFacility
  */
 export async function bootstrapMarketplace(): Promise<void> {
      await bootstrapPublicFacilityRegistry(db);
+     if (!(await db.schema.hasTable('platform_enquiries'))) {
+          await db.schema.createTable('platform_enquiries', table => {
+               table.bigIncrements('id').primary();
+               table.string('form_type', 20).notNullable();
+               table.string('full_name', 120).notNullable();
+               table.string('work_email', 254).notNullable();
+               table.string('phone', 40).notNullable().defaultTo('');
+               table.string('organization', 160).notNullable().defaultTo('');
+               table.string('country', 80).notNullable().defaultTo('');
+               table.string('facility_type', 100).notNullable().defaultTo('');
+               table.string('facilities_count', 40).notNullable().defaultTo('');
+               table.text('interests_json').notNullable();
+               table.string('subject', 160).notNullable().defaultTo('');
+               table.text('message').notNullable();
+               table.string('source', 80).notNullable();
+               table.timestamp('submitted_at').notNullable();
+               table.string('status', 20).notNullable().defaultTo('new');
+               table.timestamp('received_at').notNullable().defaultTo(db.fn.now());
+               table.index(['status', 'received_at']);
+               table.index(['work_email', 'received_at']);
+          });
+     }
      if (!(await db.schema.hasTable('marketplace_facilities'))) {
           await db.schema.createTable('marketplace_facilities', table => {
                table.bigIncrements('id').primary();

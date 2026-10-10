@@ -92,7 +92,9 @@ be the current registered default/control tenant ID.
 * `GET /api/v1/platform/facilities`
   returns `{status:"success",result:RegisteredTenant[]}`. Entries include
   `name`, `platformId`, `tenantId`, `status`, `databaseName` and the existing
-  registry metadata, plus isControlTenant:boolean (display hint only; the server
+  registry metadata. The platform-only response also includes `email`, `phone`,
+  `countryId`, `stateId`, and `districtId` so a failed reservation can be safely
+  prefilled for retry, plus isControlTenant:boolean (display hint only; the server
   independently refuses control-tenant status/subscription changes). status is the
   lowercase registry value (ctive, suspended, provisioning, ailed, ...).
   Failed/provisioning facilities remain visible for diagnosis.
@@ -122,6 +124,19 @@ be the current registered default/control tenant ID.
   for example `pls_abdee_108660`. The suffix remains a six-digit tenant ID.
   Existing database names and table names are not renamed. Tenant connections
   use the database name stored in the registry.
+
+* `POST /api/v1/platform/facilities/:tenantId/retry`
+  accepts the same validated onboarding payload as the initial provisioning
+  request. It is available only when the registry status is `failed`. The
+  company identity, contact, and location fields must match the failed
+  reservation; administrator, address, license, and module values may be
+  corrected for the new attempt. The endpoint preserves the organization
+  identifier and six-digit tenant ID. Before rebuilding, it releases cached
+  tenant connections, verifies the stored database name exactly matches the
+  generated facility naming convention, and drops that partial database with
+  `DROP DATABASE IF EXISTS`. Concurrent retries and retries of active,
+  suspended, or currently provisioning facilities return HTTP 409. A retry
+  failure returns the facility to `failed` and records the failed stage.
 
 Errors use existing `customError` shape: `{status:"error",statusCode,message}`.
 Invalid input is 400, duplicate company email 409, unavailable configuration 503,
