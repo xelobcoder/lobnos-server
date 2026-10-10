@@ -44,6 +44,7 @@ import PatientAnalytics from './controllers/analytics/patient-analytics/patient-
 import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
+import publicFacilitiesRouter from "./controllers/public/facilities";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
@@ -65,6 +66,8 @@ import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 import { bootstrapTenants, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
 import { logApplicationStarted } from './bootstrap/startupLogger';
+import marketplaceRouter from './marketplace/marketplaceRouter';
+import { bootstrapMarketplace } from './marketplace/MarketplaceBootstrapper';
 
 
 
@@ -83,6 +86,10 @@ app.use(cors({
 app.use(express.static("public"));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+// Marketplace routes validate/reject query strings before the generic request
+// logger, keeping tracking credentials, payment references and patient details
+// out of access-log URLs.
+app.use(marketplaceRouter);
 app.use(requestLogger);
 app.get('/api/v1/health', (_req: Request, res: Response) => {
     res.statusCode = 200;
@@ -91,6 +98,7 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
 // Platform authority derives its tenant from the verified session, not a caller-supplied tenantId.
 // The router enforces active control-tenant standing and live super-admin/session validation.
 app.use(platformFacilitiesRouter);
+app.use(publicFacilitiesRouter);
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 // app.use(checkTokenExists)
@@ -199,6 +207,7 @@ app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
 
 async function startApplication() {
     const { readyTenants, accountingTenants } = await bootstrapTenants();
+    await bootstrapMarketplace();
     if (readyTenants.length === 0) {
         console.error('[Bootstrap] No tenant database could be prepared; logins will fail until a tenant is reachable.');
     }
