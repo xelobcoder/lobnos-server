@@ -4,6 +4,7 @@ import { configuration } from '../../hooks/configuration';
 import { TENANTS_TABLE, TenantRegistry } from './TenantRegistry';
 import { FacilityError } from './FacilityInput';
 import type { FacilityActor } from './FacilityProvisioningService';
+import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE, FacilityModuleConfiguration } from './FacilityModules';
 import {
      AuditQuery, FacilityStatusTarget, PaymentInput, SubscriptionFrequency, SubscriptionPlanInput,
      formatCents, normalizeStoredAmount, parseAsOf, storedDateToIso, storedTimestampToIso, utcToday, validatePaymentInput,
@@ -33,6 +34,7 @@ export interface SubscriptionPeriodView {
      payment: null | { id: number; paidAt: string; reference: string; notes: string };
 }
 export interface SubscriptionView {
+     moduleConfiguration: FacilityModuleConfiguration | null;
      tenantId: number;
      organizationIdentifier: string;
      facilityStatus: string;
@@ -221,6 +223,7 @@ export class FacilityManagementService {
                          table.timestamp('created_at').notNullable().defaultTo(this.master.fn.now());
                     });
                     await this.reconcileLegacyPlansTable();
+                    await ensureFacilityModuleTable(this.master);
                })().catch(error => {
                     FacilityManagementService.schemaReady = null;
                     throw error;
@@ -354,12 +357,15 @@ export class FacilityManagementService {
           const historyRows = await this.master(PAYMENTS_TABLE).where({ tenant_id: tenantId })
                .orderBy('period_start', 'desc').orderBy('id', 'desc').limit(HISTORY_LIMIT + 1).select();
           const view: SubscriptionView = {
+               moduleConfiguration: null,
                tenantId, organizationIdentifier: tenant.id, facilityStatus: String(tenant.status),
                isControlTenant: this.isControl(tenantId), asOf, plan: null, schedule: [], window: null, periods: [],
                overdueBeforeWindow: 0,
                history: historyRows.slice(0, HISTORY_LIMIT).map(toHistoryItem),
                historyTruncated: historyRows.length > HISTORY_LIMIT,
           };
+          const moduleRow = await this.master(MODULE_CONFIG_TABLE).where({ tenant_id: tenantId }).first('configuration');
+          if (moduleRow) view.moduleConfiguration = JSON.parse(moduleRow.configuration);
           if (segments.length === 0) return view;
           view.schedule = segments.map((segment, i) => ({ ...planView(segment), endDate: segmentEndDate(segments, i) }));
           view.plan = planView(segments[Math.max(segmentFor(segments, asOf), 0)]);

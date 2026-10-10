@@ -1,3 +1,6 @@
+import { validateModuleConfiguration } from './FacilityModules';
+import type { FacilityModuleConfiguration } from './FacilityModules';
+
 export class FacilityError extends Error {
      constructor(message: string, public statusCode = 400) { super(message); }
 }
@@ -14,6 +17,9 @@ export interface FacilityInput {
      adminEmail: string;
      adminPassword: string;
      licenseDays: number;
+     street: string;
+     gpsAddress: string;
+     moduleConfiguration: FacilityModuleConfiguration | null;
 }
 
 /** Limits reflect companyprofile, branch and roles, not just the wider registry columns. */
@@ -50,5 +56,11 @@ export function validateFacilityInput(body: unknown): FacilityInput {
           throw new FacilityError('licenseDays must be an integer between 1 and 3650');
      }
      result.licenseDays = days;
+     for (const field of ['street', 'gpsAddress']) {
+          const text = value[field] === undefined ? '' : value[field];
+          if (typeof text !== 'string' || text.trim().length > 100) throw new FacilityError(`${field} must be at most 100 characters`);
+          result[field] = text.trim();
+     }
+     result.moduleConfiguration = validateModuleConfiguration(value.moduleConfiguration);
      return result;
 }

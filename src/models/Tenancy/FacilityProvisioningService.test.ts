@@ -145,6 +145,37 @@ describe('complete facility provisioning lifecycle', () => {
           expect(writes.some(write => write.table === 'prime_tenants' && write.value.status === 'active')).toBe(true);
      });
 
+     it('saves module activations, branch mode, exact monthly costs and report address per facility', async () => {
+          const { db, writes } = databaseHarness();
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          const configured = validateFacilityInput({ ...input, street: 'New Street', gpsAddress: 'XX-123',
+               moduleConfiguration: {
+                    branchMode: 'multiple', currency: 'GHS', modules: {
+                         pharmacy: { enabled: true, monthlyPrice: '100.25' },
+                         email: { enabled: true, monthlyPrice: '20.25' },
+                         sms: { enabled: false, monthlyPrice: '50' },
+                         inventory: { enabled: true, monthlyPrice: '10' },
+                         deviceInterfacing: { enabled: false, monthlyPrice: '0' },
+                    },
+               },
+          });
+          const result = await new FacilityProvisioningService(db).provision(configured, actor);
+          const profile = writes.find(write => write.table === 'companyprofile')!.value;
+          expect(profile).toMatchObject({ ADDRESS: input.address, STREET: 'New Street' });
+          expect(JSON.parse(profile.additionalInfo)).toMatchObject({ gpsAddress: 'XX-123', branchMode: 'multiple' });
+          expect(writes.filter(write => write.table === 'branch')).toHaveLength(1);
+          const settings = writes.find(write => write.table === 'applicationsettings' && write.value.moduleConfiguration)!.value;
+          expect(settings).toMatchObject({ emailModuleActivated: 1, smsActivated: 0 });
+          expect(JSON.parse(settings.services)).toMatchObject({ isConnectedInventory: 1, isEmailServicesConnected: 1, isSmsServicesConnected: 0 });
+          const modules = writes.find(write => write.table === 'facility_module_configuration')!.value;
+          expect(modules.tenant_id).toBe(result.tenantId);
+          expect(JSON.parse(modules.configuration)).toMatchObject({ monthlyTotal: '130.50', branchMode: 'multiple' });
+          expect(writes.findIndex(write => write.table === 'facility_module_configuration')).toBeLessThan(
+               writes.findIndex(write => write.table === 'prime_tenants' && write.value.status === 'active'),
+          );
+     });
+
      it.each(['clone', 'seeds', 'bootstrap', 'license', 'objects'])('marks failed, audits and never returns success after %s failure', async failure => {
           const { db, writes } = databaseHarness();
           const connection = schemaConnection();

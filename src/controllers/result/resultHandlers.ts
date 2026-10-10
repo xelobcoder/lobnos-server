@@ -371,7 +371,7 @@ export const getResultPrintoutHandler = async (request: Request<
 
 		const httpProtocol = process.env.NODE_ENV === 'development' ? "http" : "https";
 
-		dataset.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images`
+		dataset.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images?tenantId=${tenantIdP}`
 		dataset.enteredOn = enteredOn as Date || null;
 
 		if (employeeid) {
@@ -565,7 +565,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 				const httpProtocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
 
-				finalResult.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images` as any;
+				finalResult.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images?tenantId=${tenantIdP}` as any;
 
 				if (employeeid) {
 					const employeedata = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId);

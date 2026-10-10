@@ -16,6 +16,7 @@ import { seedFacilityReferences } from './FacilityReferenceSeeds';
 import { loadFacilityCatalogSeeds } from './FacilityCatalogSeeds';
 import { loadFacilityStructureExports } from './FacilityStructureExports';
 import logger from '../../hooks/logger';
+import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE } from './FacilityModules';
 
 import { PROVISIONING_EVENTS_TABLE } from './FacilityManagementService';
 
@@ -272,10 +273,26 @@ export class FacilityProvisioningService {
                     await trx('applicationsettings').where({ keyid: 1 }).update({ regioncode: region.id, districtcode: district.id });
                     await trx('companyprofile').insert({
                          NAME: input.companyName, EMAIL: input.email, PHONENUMBER: input.phone, ADDRESS: input.address,
-                         MOTTO: '', STREET: '', additionalInfo: JSON.stringify({
+                         MOTTO: '', STREET: input.street, additionalInfo: JSON.stringify({
                               countryId: input.countryId, stateId: input.stateId, districtId: input.districtId,
+                              gpsAddress: input.gpsAddress, branchMode: input.moduleConfiguration?.branchMode ?? 'single',
                          }),
                     });
+                    if (input.moduleConfiguration) {
+                         const modules = input.moduleConfiguration.modules;
+                         const settings = await trx('applicationsettings').where({ keyid: 1 }).first('services');
+                         const services = typeof settings?.services === 'string' ? JSON.parse(settings.services) : settings?.services ?? {};
+                         await trx('applicationsettings').where({ keyid: 1 }).update({
+                              moduleConfiguration: JSON.stringify(input.moduleConfiguration),
+                              emailModuleActivated: Number(modules.email.enabled),
+                              smsActivated: Number(modules.sms.enabled),
+                              services: JSON.stringify({ ...services,
+                                   isConnectedInventory: Number(modules.inventory.enabled),
+                                   isSmsServicesConnected: Number(modules.sms.enabled),
+                                   isEmailServicesConnected: Number(modules.email.enabled),
+                              }),
+                         });
+                    }
                     await trx('roles').insert({
                          employeeid: 1, username: input.adminName, login_username: adminUsername, role: 'admin',
                          password: passwordHash, pin: null, pin_hash: null, activation: 1,
@@ -293,8 +310,12 @@ export class FacilityProvisioningService {
                     if (!(await license.validateLicense())) throw new Error('Initial license verification failed');
                });
                await this.event(this.master, reservation, actor, 'initialized');
+               if (input.moduleConfiguration) await ensureFacilityModuleTable(this.master);
                stage = 'activation';
                await this.master.transaction(async trx => {
+                    if (input.moduleConfiguration) await trx(MODULE_CONFIG_TABLE).insert({
+                         tenant_id: reservation.tenantId, configuration: JSON.stringify(input.moduleConfiguration),
+                    });
                     const updated = await trx(TENANTS_TABLE).where({ id: reservation.organizationIdentifier, status: 'provisioning' })
                          .update({ status: 'active', provisioned_at: trx.fn.now(), updated_by: createdBy });
                     if (updated !== 1) throw new Error('Registry activation failed');

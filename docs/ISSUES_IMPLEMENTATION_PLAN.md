@@ -213,6 +213,16 @@ This enhancement was requested separately from Issues 1-11. Suspended drafts are
 
 **Acceptance criteria:** suspended work remains separate from billed debt; staff can resume it with current prices; only the standard billing submit finalizes it and creates the actual sale.
 
+The lab multi-billing screen submits the draft fields directly (`billingSource`,
+`selectedTestIds`, `selectedServiceIds`, and `isPricingQuote`), not a nested UI
+snapshot or snake-case storage columns. Only selected services are saved, not the
+available service catalog. Resuspending updates the same draft. Resume reloads
+current prices and reapplies saved selections/options. Patientless quotes expose
+**Convert to Sale**, which saves the quote and requests a patient before restoring
+it as a sale. Payments must be entered again after resuming. A successful sale
+marks the draft finalized; a failed finalization displays an explicit retry
+without submitting the sale again.
+
 ## Suggested Delivery Order
 
 1. **Resolve policy gates:** commission precedence, accounting posting/treatment, access defaults, billing strategy definition, formula governance, QC acceptance/scope, ultrasound clinical approval, and TAT clock rules.

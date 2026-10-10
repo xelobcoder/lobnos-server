@@ -71,7 +71,6 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
      const bypassRoutes = [
           '/api/v1/prime/login',
-          '/api/v1/settings/companyprofile/images',
           '/api/v1/prime/forgotpassword',
           '/api/v1/prime/verify-reset-otp',
           '/api/v1/prime/resetpassword',
@@ -79,6 +78,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
      ];
 
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
+     if ((request.method === 'GET' || request.method === 'HEAD') && request.path === '/api/v1/settings/companyprofile/images') return next();
 
      if (request.method === 'GET' && request.path === '/api/v1/interfacing/devices') return next();
 
@@ -146,7 +146,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
 };
 
 /** Unauthenticated endpoints that may be called without a tenant; they are served for this installation's own tenant. */
-const TENANTLESS_ROUTES = ['/api/v1/settings/companyprofile/images', '/api/v1/prime/forgotpassword', '/api/v1/prime/verify-reset-otp', '/api/v1/prime/resetpassword', '/api/v1/health'];
+const TENANTLESS_ROUTES = ['/api/v1/prime/forgotpassword', '/api/v1/prime/verify-reset-otp', '/api/v1/prime/resetpassword', '/api/v1/health'];
 
 export const ValidateTenancyAgreement = async (request: Request<{}, {}, {}, { tenantId: number }>, response: Response, next: NextFunction) => {
      try {
@@ -257,4 +257,3 @@ export const isAuthorizedRoleAdminOrAccountant = async (request: Request, respon
           responseError(response);
      }
 }
-

@@ -6,6 +6,8 @@ import { getAllCompanyProfiles } from "../../../settings/companyProfile";
 import { SmsService } from "../../integrations/Arkesel";
 import { SmsMessageParser } from "../PrimeSms/SmsMessageParser";
 import { PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
+import { validateModuleConfiguration } from "../../../Tenancy/FacilityModules";
+import logger from "../../../../hooks/logger";
 
 export class PrimeEventsSMSDataSource {
 
@@ -18,6 +20,7 @@ export class PrimeEventsSMSDataSource {
      }
 
      async isEventActive(eventCode: string): Promise<boolean> {
+          if (!(await this.isSmsModuleEnabled())) return false;
           const event = await this.repo.findByCode(eventCode);
           if (!event || typeof (event as any).active === 'undefined') return false;
           return (event as any).active === 1 || (event as any).active === true;
@@ -25,6 +28,10 @@ export class PrimeEventsSMSDataSource {
 
 
      async sendSMSMessage(smsconstent: string, phonee164: string, eventCode: string, refId: string | number, isevent: boolean, createdby: number): Promise<{ status: boolean | string }> {
+          if (!(await this.isSmsModuleEnabled())) {
+               logger.info('SMS event skipped because the facility module is not activated', { tenantId: this.tenantId, eventCode });
+               return { status: false };
+          }
           try {
                const sms = await new SmsService().sendSms([phonee164], smsconstent);
                if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
@@ -44,6 +51,15 @@ export class PrimeEventsSMSDataSource {
                console.error('Error sending SMS message:', error);
                return { status: false };
           }
+     }
+
+     private async isSmsModuleEnabled(): Promise<boolean> {
+          const connection = await KnexConnection(this.tenantId);
+          const settings = await connection('applicationsettings').where({ keyid: 1 }).first();
+          if (!settings?.moduleConfiguration) return true;
+          const config = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
+          if (!config) throw new Error('Invalid stored module configuration');
+          return config.modules.sms.enabled;
      }
 
 

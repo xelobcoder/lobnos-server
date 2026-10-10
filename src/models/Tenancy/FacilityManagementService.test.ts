@@ -215,8 +215,17 @@ describe('platform facility status and subscription management', () => {
      });
 
      describe('subscription', () => {
+          it('returns itemized module costs even before a separate payment schedule is configured', async () => {
+               await db('facility_module_configuration').insert({ tenant_id: CLIENT, configuration: JSON.stringify({
+                    branchMode: 'multiple', currency: 'GHS', modules: {}, monthlyTotal: '130.50',
+               }) });
+               const result = await service.getSubscription(CLIENT);
+               expect(result.moduleConfiguration).toMatchObject({ monthlyTotal: '130.50', branchMode: 'multiple' });
+               expect(result.plan).toBeNull();
+          });
           it('returns an empty contract when no plan exists', async () => {
                expect(await service.getSubscription(CLIENT)).toEqual({
+                    moduleConfiguration: null,
                     tenantId: CLIENT, organizationIdentifier: 'NRAM11', facilityStatus: 'active', isControlTenant: false,
                     asOf: '2026-10-09', plan: null, schedule: [], window: null, periods: [], overdueBeforeWindow: 0,
                     history: [], historyTruncated: false,

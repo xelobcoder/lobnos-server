@@ -13,7 +13,7 @@
   </h2>
  <div style="margin-bottom: 20px;"> 
   <div style="width: 50%;">
-    <img height="150px" width="150px" src="http://localhost:5000/api/v1/settings/companyprofile/images"/>
+    {{#if this.logourl}}<img height="150px" width="150px" src="{{this.logourl}}"/>{{/if}}
   </div>
   <div style="width: 30%; margin-left: 70%;margin-top: -180px;">
       <p id="capiFirst">{{this.companyinfo.address}}</p>

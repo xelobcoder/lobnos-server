@@ -18,9 +18,8 @@ const configureMulterStorage = (destinationDir: string) => {
 };
 
 const fileFilter = (req: Request, file, cb: multer.FileFilterCallback) => {
-	const allowedTypes = /jpeg|jpg|png/;
-	const isAllowedMimeType = allowedTypes.test(file.mimetype);
-	const isAllowedExtname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
+	const isAllowedMimeType = ['image/jpeg', 'image/png'].includes(file.mimetype);
+	const isAllowedExtname = ['.jpeg', '.jpg', '.png'].includes(path.extname(file.originalname).toLowerCase());
 
 	if (isAllowedMimeType && isAllowedExtname) {
 		cb(null, true);
@@ -47,7 +46,7 @@ export const uploadImageFile = async (
 				if (err) {
 					reject(err);
 				} else if (!request.file) {
-					reject(null);
+					resolve(null);
 				} else {
 					resolve(true);
 				}

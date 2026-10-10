@@ -42,6 +42,7 @@ import homeCollectionRouter from './controllers/operations/homeCollection/routes
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
+import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
@@ -91,6 +92,7 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
 // The router enforces active control-tenant standing and live super-admin/session validation.
 app.use(platformFacilitiesRouter);
 app.use(ValidateTenancyAgreement)
+app.use(facilityModuleAccess);
 // app.use(checkTokenExists)
 app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)

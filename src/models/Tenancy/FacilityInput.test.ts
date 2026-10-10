@@ -10,7 +10,7 @@ const input = {
 
 describe('facility boundary validation', () => {
      it('keeps the supplied password and defaults the license to 365 days', () => {
-          expect(validateFacilityInput(input)).toEqual({ ...input, licenseDays: 365 });
+          expect(validateFacilityInput(input)).toEqual({ ...input, licenseDays: 365, street: '', gpsAddress: '', moduleConfiguration: null });
      });
      it.each([
           { companyName: '' }, { countryId: '1' }, { districtId: -1 }, { licenseDays: 1.5 },

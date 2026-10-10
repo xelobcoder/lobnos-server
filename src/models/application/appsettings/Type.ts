@@ -60,6 +60,7 @@ export type ApplicationSettingsData = {
      smsSettings: smsSettings;
      emailNotification: number;
      emailModuleActivated?: numberBoolean;
+     moduleConfiguration?: string | null;
      includeTax: number;
      AllowCrmToGiveDisocunt
      : numberBoolean;

@@ -2,6 +2,70 @@
 
 ## HTTP contract
 
+### Facility branding
+
+Company logos are stored and read per tenant. A newly provisioned facility does
+not inherit another company's logo: upload its image in that facility's company
+profile settings after provisioning. Reports, receipts and payroll use scoped
+image URLs, alongside the tenant's company profile and address.
+Legacy shared branding is restricted to the configured installation tenant.
+Confirm `DEFAULT_TENANT_ID` identifies that legacy owner before deployment.
+For this installation (`DATABASE=primelabtestmig`), the registered owner is
+`DEFAULT_TENANT_ID=990556`; the local configuration sets that explicitly. Deploy
+the same setting and restart through the normal service process to load it.
+See [company image storage and access](company-images.md) for upload,
+compatibility and deployment details.
+
+### Modules, branch support and report address
+
+The provisioning UI requires a company address (also validated server-side).
+It writes that address to the main branch and `companyprofile.ADDRESS`, so the
+tenant's reports use its own facility address. Optional `street` and `gpsAddress`
+are trimmed strings of at most 100 characters; street is stored in
+`companyprofile.STREET`, and GPS address in its location metadata.
+
+Provisioning accepts optional `moduleConfiguration`:
+
+```json
+{
+  "branchMode": "single",
+  "currency": "GHS",
+  "modules": {
+    "pharmacy": { "enabled": false, "monthlyPrice": "0.00" },
+    "email": { "enabled": true, "monthlyPrice": "20.00" },
+    "sms": { "enabled": false, "monthlyPrice": "0.00" },
+    "inventory": { "enabled": true, "monthlyPrice": "50.00" },
+    "deviceInterfacing": { "enabled": false, "monthlyPrice": "0.00" }
+  }
+}
+```
+
+All five selections must be present when configuration is supplied. Flags must
+be booleans, currency three uppercase letters, prices nonnegative decimal
+strings with at most ten integer digits and two decimals. The server calculates
+the enabled-module total using integer cents, bounded to DECIMAL(12,2).
+Configuration is stored in the new tenant's settings and in master
+`facility_module_configuration`. Email/SMS/inventory selections also initialize
+their existing application flags. Provider setup is still necessary for delivery.
+Explicit facility activation also takes precedence over legacy email flags for
+queued notifications, and disabled SMS cannot send automatic event messages.
+No existing client is disabled merely because it lacks module configuration.
+
+Both branch modes create exactly one main branch. `multiple` permits subsequent
+branch creation; explicit `single` configuration blocks additional branches.
+Tenant-scoped module APIs enforce activation. The frontend hides disabled-module
+navigation and displays a notice for direct module-page access; platform
+super-admin navigation remains complete. Pharmacy activation also permits its
+shared inventory functionality.
+
+Subscription reads include `moduleConfiguration` with itemized monthly prices
+and `monthlyTotal`. These are **not automatically substituted for an existing
+subscription**. The payment page can fill a monthly schedule using that total;
+the super admin must save the schedule. Disabled modules do not contribute to the
+total. Existing schedule frequencies, recorded payments and access status are
+unchanged. Legacy API callers omitting configuration retain their existing seed
+defaults; the provisioning UI explicitly sends the selections.
+
 ### Temporary test-tenant deletion
 
 `DELETE /api/v1/platform/facilities/:tenantId` requires the same platform

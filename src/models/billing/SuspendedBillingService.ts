@@ -13,7 +13,8 @@ export interface SuspendedBillingDraftInput {
      useSpecialCode?: boolean;
      selectedTestIds: number[];
      selectedServiceIds: number[];
-     selectedTestOptions?: Array<{ testid: number; catalogIds?: number[]; name?: string | null; outsourceid?: number | null; userAdjustedValue?: number | null; userAdjustmentType?: string | null }>;
+     selectedTestOptions?: Array<{ testid: number; catalogIds?: number[]; name?: string | null; outsourceid?: number | null; organization?: { outsourceid: number; name?: string }; userAdjustedValue?: number | null; userAdjustmentType?: string | null; prioritised?: boolean }>;
+     selectedServiceOptions?: Array<{ keyid: number; userAdjustedValue?: number | null; userAdjustmentType?: string | null; prioritised?: boolean }>;
      isPackageUsed?: boolean;
      packageid?: number | null;
      includeServices?: boolean;
@@ -24,6 +25,9 @@ export interface SuspendedBillingDraftInput {
      promoMethod?: string | null;
      promoAmount?: number | null;
      notes?: string | null;
+     additionalInfo?: string;
+     status?: string;
+     isAdjustment?: boolean | number;
 }
 
 export class SuspendedBillingService {
@@ -118,9 +122,9 @@ export class SuspendedBillingService {
           const connection = await KnexConnection(this.tenantId);
           const draft = await connection('suspended_billing_transactions').where({ id: draftId }).first();
           if (!draft) throw new Error('Suspended transaction was not found');
+          if (actor.branch === null || Number(actor.branch) !== Number(draft.branchid)) throw new Error('Suspended transaction is not active for your branch');
           if (draft.status === 'finalized' && Number(draft.finalized_billingid) === billingId) return;
           if (draft.status !== 'suspended') throw new Error('Suspended transaction is no longer active');
-          if (actor.branch === null || Number(actor.branch) !== Number(draft.branchid)) throw new Error('Suspended transaction is not active for your branch');
           await connection.transaction(async (trx: any) => {
                const bill = await trx('billing').where({ billingid: billingId }).first();
                let draftData = draft.draft_data;
@@ -151,7 +155,9 @@ export class SuspendedBillingService {
           if (Number(input.billingSource) > 1 && Number(input.billingSource) !== 4 && !Number(input.entityId)) throw new Error('Select the billing entity before suspending this transaction');
           if (Number(input.billingSource) === 4 && (!input.nhismembershipid || !input.claimscheckcode)) throw new Error('NHIS membership and claim check codes are required before suspending');
           if (!Array.isArray(input.selectedTestIds) || !Array.isArray(input.selectedServiceIds)) throw new Error('Selected tests and services must be provided');
+          if ([...input.selectedTestIds, ...input.selectedServiceIds].some(id => !Number.isSafeInteger(id) || id <= 0)) throw new Error('Selected tests and services must have valid identifiers');
           if (input.selectedTestIds.length === 0 && input.selectedServiceIds.length === 0 && !input.isPackageUsed) throw new Error('Select at least one test, service, or package before suspending');
-          if ((input as any).isAdjustment) throw new Error('Existing billing adjustments cannot be suspended as new transactions');
+          if (input.isPackageUsed && (!Number.isSafeInteger(Number(input.packageid)) || Number(input.packageid) <= 0)) throw new Error('Select a valid package before suspending');
+          if (input.isAdjustment) throw new Error('Existing billing adjustments cannot be suspended as new transactions');
      }
 }
