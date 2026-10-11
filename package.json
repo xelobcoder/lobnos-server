@@ -56,7 +56,8 @@
     "create-distribution:linux": "bash ./scripts/create-distribution.sh",
     "verify-distribution": "node ./distribution/verify-distribution.js",
     "desktop:build:licensed": "node ./scripts/licensing/build-desktop.cjs",
-    "desktop:configure-install-password": "node ./scripts/licensing/installation-verifier.cjs"
+    "desktop:configure-install-password": "node ./scripts/licensing/installation-verifier.cjs",
+    "license:sign-request": "node ./scripts/licensing/sign-request.cjs"
   },
   "keywords": [
     "high performance laboratory information system",

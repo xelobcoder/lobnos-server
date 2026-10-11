@@ -1,0 +1,8 @@
+{
+  "version": 1,
+  "tenantId": 990556,
+  "installationId": "a52b1a775e1be9c2676b2c49cc4a2bdb",
+  "installationPublicKey": "-----BEGIN PUBLIC KEY-----\nMCowBQYDK2VwAyEAH9TjJFXDwOrgKp4KSZko57yYM0KZYtKOsbrUED1tpLo=\n-----END PUBLIC KEY-----\n",
+  "installationPublicKeyFingerprint": "62ba1506e91d5a80f8c2d88421a7afcb4f0bddbb09487f8f5bd26306d6d1297e",
+  "deviceFingerprint": "eb3f52a7ff7ca83501583c52ff4dd51bab0647e0766b49bd766ec4aade05d77d"
+}

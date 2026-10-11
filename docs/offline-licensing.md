@@ -105,21 +105,38 @@ unrelated facility env values, which must be reviewed for distribution.
 
 Each installation must export its own request from the desktop License menu and deliver
 that file to the administrator through the organization's approved offline transfer path.
-After `pnpm.cmd build`, the issuer can construct and sign the certificate directly from the
-request (no hand-written JSON payload):
+After `pnpm.cmd build`, sign a request interactively. Place the request in the backend
+project directory with the default name `PLS-activation-request.json`, then run:
 
 ```powershell
-node scripts/licensing/issuer.cjs sign-request `
-  --private-key "$env:LOCALAPPDATA\PLS-Licensing\issuer\issuer-private.pem" `
-  --request <activation-request.json> `
-  --output <signed-certificate.json> `
-  --starts-at <UTC_ISO_START> --ends-at <UTC_ISO_END> --grace-days 0
+pnpm.cmd run license:sign-request
 ```
+
+Enter a duration such as `14 days` or `3 weeks` when prompted. The start is set to
+midnight at the beginning of the current UTC day, and the end is the final millisecond
+of the requested duration. The certificate is saved beside the request under a unique
+name and existing files are never overwritten. If the default request file is absent,
+the command prompts for its path. The issuer key is read from the default external
+`LOCALAPPDATA\PLS-Licensing\issuer` directory or `PLS_ISSUER_KEY_DIR`.
+
+For automation or non-interactive use, provide a request and duration explicitly:
+
+```powershell
+pnpm.cmd run license:sign-request -- `
+  --request .\PLS-activation-request.json `
+  --weeks 3 `
+  --grace-days 0
+```
+
+Use `--days <number>` instead of `--weeks <number>` for a day count. Optional
+`--output <path>` chooses the certificate location, `--private-key <path>` selects
+the issuer key, and `--grace-days <0-365>` sets the signed grace period. The default
+grace period is zero.
 
 Use the approved existing license validity window for these signed dates, or explicitly
 approved terms; signed validity does not renew or extend the `prime_window_access` database
-window. `starts-at` and `ends-at` must be UTC ISO timestamps including milliseconds and
-must fit within the approved terms. Transfer the resulting certificate back to that
+window. Choose a duration that fits within the approved terms and that database window.
+Transfer the resulting certificate back to that
 installation for import in the License menu. The request and certificate are bound to the
 requesting tenant, installation identity, and device, so another customer machine needs a
 separate request and certificate.
