@@ -29,8 +29,14 @@ export const resolveLoginTenant = (entityType: LoginEntityType) =>
 
           try {
                const registry = new TenantRegistry();
-               const tenant = await registry.getByOrganizationIdentifier(parsed.organizationIdentifier);
+               const tenant = configuration.desktopStandalone
+                    ? await registry.getLocalTenant()
+                    : await registry.getByOrganizationIdentifier(parsed.organizationIdentifier);
                if (!tenant || !servesTenant(tenant)) return deny(res, 401, INVALID_CREDENTIALS);
+               if (configuration.desktopStandalone &&
+                    tenant.platformId.toUpperCase() !== parsed.organizationIdentifier) {
+                    return deny(res, 401, INVALID_CREDENTIALS);
+               }
                if (!tenant.isActive) {
                     return deny(res, 403, 'This organization\'s subscription is not active. Please contact your administrator.', 'TENANT_INACTIVE');
                }

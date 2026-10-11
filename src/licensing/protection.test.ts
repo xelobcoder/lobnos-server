@@ -54,6 +54,7 @@ beforeEach(async () => {
      vi.stubEnv('PLS_LICENSE_MODE', 'signed');
      vi.stubEnv('ACCESS_TOKEN_SECRET', secret);
      configuration.isMultiTenant = true;
+     configuration.desktopStandalone = false;
      configuration.defaultTenantId = 3;
      mocks.status.mockResolvedValue({ mode: 'signed', state: 'missing', signedValid: false, reason: 'LICENSE_MISSING' });
      mocks.window.mockResolvedValue(true);
@@ -93,6 +94,16 @@ describe('signed-mode operational intersection and router protection', () => {
           expect(mocks.status).toHaveBeenLastCalledWith(3);
           expect((await call('/api/v1/public/facilities?tenantId=4')).status).toBe(200);
           expect(mocks.status).toHaveBeenLastCalledWith(3);
+     });
+     it('desktop standalone licensing always uses its configured local identity, never a query-selected tenant', async () => {
+          configuration.desktopStandalone = true;
+          configuration.isMultiTenant = false;
+          configuration.defaultTenantId = 125;
+          mocks.status.mockResolvedValue({ mode: 'signed', state: 'active', signedValid: true });
+          expect((await call('/api/v1/billing?tenantId=4')).status).toBe(200);
+          expect(mocks.status).toHaveBeenLastCalledWith(125);
+          expect((await call('/api/v1/security/license/request?tenantId=4', 'GET', token({ tid: 125 }))).status).toBe(403);
+          expect(mocks.request).not.toHaveBeenCalled();
      });
      it('allows operational writes only when both validations pass', async () => {
           mocks.status.mockResolvedValue({ mode: 'signed', state: 'active', signedValid: true });

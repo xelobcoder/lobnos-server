@@ -2,7 +2,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      tenants: [] as any[],
-     config: { isMultiTenant: true, defaultTenantId: 397773 },
+     localTenant: null as any,
+     config: { isMultiTenant: true, desktopStandalone: false, defaultTenantId: 397773 },
 }));
 
 vi.mock('../hooks/configuration', () => ({ configuration: mocks.config }));
@@ -10,6 +11,7 @@ vi.mock('../hooks/logger', () => ({ default: { error: vi.fn(), info: vi.fn(), wa
 vi.mock('../models/Tenancy/TenantRegistry', () => ({
      TenantRegistry: class {
           async getByOrganizationIdentifier(prefix: string) { return mocks.tenants.find((t) => t.platformId === prefix) ?? null; }
+          async getLocalTenant() { return mocks.localTenant; }
      },
 }));
 
@@ -26,6 +28,8 @@ const run = async (entityType: 'staff' | 'patient' | 'clinician', username: stri
 describe('resolveLoginTenant', () => {
      beforeEach(() => {
           mocks.config.isMultiTenant = true;
+          mocks.config.desktopStandalone = false;
+          mocks.localTenant = null;
           mocks.tenants = [
                { tenantId: 397773, platformId: 'PLS20153', isActive: true },
                { tenantId: 827461, platformId: 'PLS20154', isActive: true },
@@ -56,6 +60,18 @@ describe('resolveLoginTenant', () => {
           mocks.config.isMultiTenant = false;
           expect((await run('staff', 'PLS20154S3')).statusCode).toBe(401);
           expect((await run('staff', 'PLS20153S3')).req.query.tenantId).toBe('397773');
+     });
+
+     it('desktop standalone login resolves only the local database identity', async () => {
+          mocks.config.desktopStandalone = true;
+          mocks.config.isMultiTenant = false;
+          mocks.localTenant = { tenantId: 397773, platformId: 'PLS20153', isActive: true };
+          const { req, next } = await run('staff', 'PLS20153S4');
+          expect(next).toHaveBeenCalled();
+          expect(req.query.tenantId).toBe('397773');
+          expect((await run('staff', 'PLS20154S4')).statusCode).toBe(401);
+          mocks.localTenant = { tenantId: 827461, platformId: 'PLS20154', isActive: true };
+          expect((await run('staff', 'PLS20154S4')).statusCode).toBe(401);
      });
 
      it('accepts patient combined identifiers without a separate organization field', async () => {

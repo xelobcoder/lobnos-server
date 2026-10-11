@@ -3,12 +3,15 @@ import { Knex } from 'knex';
 
 const mocks = vi.hoisted(() => ({
      randomInt: vi.fn(),
-     config: { defaultTenantId: 3, isMultiTenant: true, masterControlDatabase: 'test' },
+     config: { defaultTenantId: 3, isMultiTenant: true, desktopStandalone: false, masterControlDatabase: 'test' },
 }));
 vi.mock('crypto', async (original) => ({
      ...await original<typeof import('crypto')>(), randomInt: mocks.randomInt,
 }));
-vi.mock('../../database/connection', () => ({ singleTenantKnexInstance: {}, systemConfigConnection: {} }));
+vi.mock('../../database/connection', () => ({
+     singleTenantKnexInstance: { client: { config: { connection: { database: 'desktop_local' } } } },
+     systemConfigConnection: {},
+}));
 vi.mock('../../hooks/configuration', () => ({ configuration: mocks.config }));
 vi.mock('../../hooks/logger', () => ({ default: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
 
@@ -19,6 +22,7 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           vi.restoreAllMocks();
           mocks.randomInt.mockReset();
           mocks.config.defaultTenantId = 3;
+          mocks.config.desktopStandalone = false;
           vi.spyOn(TenantRegistry, 'ensureReady').mockResolvedValue(undefined);
      });
 
@@ -31,6 +35,31 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           expect(await registry.getByOrganizationIdentifier('pls20154')).toMatchObject({ tenantId: 397773 });
           expect(await registry.getByOrganizationIdentifier('PLS20156')).toBeNull();
           expect(await registry.getByOrganizationIdentifier('397773')).toBeNull();
+     });
+
+     it('resolves only the configured local database without registry preparation or enumeration', async () => {
+          const row = {
+               id: 'PLS20154', tenant_number: 397773, facility_code: 'PLS201', company_name: 'Local lab',
+               email: null, phone: null, database_name: 'desktop_local', db_connection_string: 'mysql://localhost/desktop_local',
+               status: 'active', deleted_at: null,
+          };
+          const query: any = {
+               where: vi.fn(condition => { expect(condition).toEqual({ database_name: 'desktop_local' }); return query; }),
+               limit: vi.fn(count => { expect(count).toBe(2); return query; }),
+               select: vi.fn(async () => [row]),
+          };
+          const db: any = vi.fn(table => { expect(table).toBe('prime_tenants'); return query; });
+          const registry = new TenantRegistry(db);
+          vi.spyOn(registry, 'listTenants').mockRejectedValue(new Error('must not enumerate'));
+          expect(await registry.getLocalTenant()).toMatchObject({
+               tenantId: 397773, platformId: 'PLS20154', databaseName: 'desktop_local', isActive: true,
+          });
+          expect(TenantRegistry.ensureReady).not.toHaveBeenCalled();
+          expect(registry.listTenants).not.toHaveBeenCalled();
+          mocks.config.desktopStandalone = true;
+          const localOnly = await new TenantRegistry(db).listTenants();
+          expect(localOnly).toHaveLength(1);
+          expect(localOnly[0]).toMatchObject({ tenantId: 397773, databaseName: 'desktop_local' });
      });
 
      it('runs legacy-ID migration during registry preparation before declaring readiness', async () => {

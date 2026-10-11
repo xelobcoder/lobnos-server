@@ -1,4 +1,6 @@
 interface Configuration {
+    /** Set only by the trusted standalone desktop launcher, never by online deployment defaults. */
+    desktopStandalone: boolean;
     isMultiTenant: boolean;
     /** Standard tenant database name derived from the tenant ID, e.g. tenant 3 -> `pls_t00003`. */
     tenancyNaming: (tenantId: string | number) => string;
@@ -11,7 +13,8 @@ interface Configuration {
 }
 
 export const configuration: Configuration = {
-    isMultiTenant: process.env.MULTI_TENANT !== 'false',
+    desktopStandalone: process.env.PLS_DESKTOP_STANDALONE === 'true',
+    isMultiTenant: process.env.PLS_DESKTOP_STANDALONE === 'true' ? false : process.env.MULTI_TENANT !== 'false',
     tenancyNaming: (tenantId: string | number) => `PLS${String(tenantId).padStart(5, '0')}`,
     masterControlDatabase: process.env.SYSTEM_CONFIG_DATABASE || 'primelabmaster_control',
     defaultTenantId: Number(process.env.DEFAULT_TENANT_ID) > 0 ? Number(process.env.DEFAULT_TENANT_ID) : 3,

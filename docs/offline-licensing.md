@@ -16,6 +16,109 @@ the normal explicit desktop release/update procedure before the License menu can
 CLI. No signing certificate is provisioned by a build; the issuer must create one per
 installation from its activation request.
 
+### One-command signed Windows installer build
+
+From the backend checkout, with the sibling `..\lobnos` desktop checkout present:
+
+```powershell
+pnpm.cmd run desktop:build:licensed
+```
+
+The script creates/reuses `LOCALAPPDATA\PLS-Licensing\issuer\issuer-private.pem` and
+`issuer-public.pem`, writes an external generic config from the reviewed
+`lobnos\desktop\config\generic-backend.env.example` template, compiles the backend,
+then runs `pnpm run desktop:dist:win` in the desktop
+checkout. The private key is restricted to the current Windows SID and local
+Administrators before key creation, and re-restricted on reuse. ACL setup failure is fatal.
+To select another absolute external key directory, set `PLS_ISSUER_KEY_DIR`; it may not be
+inside either checkout. Protect and back up this key independently: an incomplete, corrupt,
+or mismatched keypair causes a hard failure and is never silently replaced. Key creation
+and config preparation without compilation/package generation can be checked with:
+
+```powershell
+pnpm.cmd run desktop:build:licensed -- --prepare-only
+```
+
+The default is **GENERIC standalone**, with `PLS_DESKTOP_GENERIC=true`. It pins only
+signed mode and the public issuer key; no tenant lookup or backend `.env` is needed.
+It packages no database/API/email secrets, tenant binding, certificate or state. Store
+the resulting installer and distribute the same file to any client. Staging verification
+rejects settings outside the reviewed allowlist and historical frontend token settings.
+Existing installed userData and source environment files remain untouched. Issuer keys and
+local request/certificate temporaries are not copied into the runtime/installer. The built
+installer enforces signed licensing for future installs, but does not ship a certificate
+for the build machine or activate all installations.
+
+First launch opens a sandboxed local setup window before backend launch. Enter the
+organization name and facility/control MySQL host, port, username, password and database
+name; users never enter a tenant ID. Setup first looks for the active `prime_tenants` row
+whose `database_name` matches `PRODUCTION_DATABASE` and uses its numeric tenant identity.
+If none exists, setup safely/idempotently adds one local organization row and allocates its
+tenant ID, organization identifier and facility code using the existing registry fields and
+location references. This requires an administrator-prepared control database containing
+the current `prime_tenants` schema and unique indexes, active country/state/district rows,
+and at least one platform user. Missing tables or schema are reported; desktop setup does
+not install MySQL, create databases or users, grant privileges, overwrite registry data, or
+run migrations. A matching inactive/duplicate registry row is not reactivated or replaced.
+The generated or discovered ID is stored per installation as `DEFAULT_TENANT_ID` and
+`PLS_LICENSE_TENANT_ID`.
+
+The launcher enforces `PLS_DESKTOP_STANDALONE=true` and `MULTI_TENANT=false` for the
+generic desktop, overriding conflicting user environment values. Desktop login looks up only
+the local configured database identity; startup validates and bootstraps only that identity,
+without tenant-wide registry migration/enumeration. Cloud/multi-tenant deployments do not
+use the desktop override. Signed licensing remains bound to the local numeric identity as
+well as installation key and device; a caller-supplied tenant query cannot select or borrow
+another tenant's certificate.
+
+Settings are saved atomically in `app.getPath("userData")/config/installation.json`,
+outside the packaged runtime. It is local credential storage, not encryption/DPAPI;
+protect the user's profile and use appropriate OS permissions. Passwords are masked and
+never returned to the web frontend or setup summary. IPC only accepts the local setup
+window's main frame and exact file URL. **Settings > Database setup** repairs bad
+configuration; blank passwords retain existing values and changes require confirmed
+restart. Generic launch derives `DEFAULT_TENANT_ID` from the registry row matching the local database
+and uses explicit single-tenant routing. Mode/public key remain package-pinned regardless of
+local settings. Changing the local database to another organization requires its own
+registry-matched identity and certificate for this device.
+
+`PLS_DESKTOP_GENERIC` accepts only `true` or `false`. To intentionally retain a
+facility-pinned environment build, use
+`--facility-specific --tenant-id <ACTUAL_REGISTERED_TENANT_ID>` (or explicitly set
+`PLS_DESKTOP_GENERIC=false`). Only that compatibility mode resolves tenant from the
+explicit options/environment or a unique backend database registry match; it preserves
+unrelated facility env values, which must be reviewed for distribution.
+
+### Customer request signing
+
+Each installation must export its own request from the desktop License menu and deliver
+that file to the administrator through the organization's approved offline transfer path.
+After `pnpm.cmd build`, the issuer can construct and sign the certificate directly from the
+request (no hand-written JSON payload):
+
+```powershell
+node scripts/licensing/issuer.cjs sign-request `
+  --private-key "$env:LOCALAPPDATA\PLS-Licensing\issuer\issuer-private.pem" `
+  --request <activation-request.json> `
+  --output <signed-certificate.json> `
+  --starts-at <UTC_ISO_START> --ends-at <UTC_ISO_END> --grace-days 0
+```
+
+Use the approved existing license validity window for these signed dates, or explicitly
+approved terms; signed validity does not renew or extend the `prime_window_access` database
+window. `starts-at` and `ends-at` must be UTC ISO timestamps including milliseconds and
+must fit within the approved terms. Transfer the resulting certificate back to that
+installation for import in the License menu. The request and certificate are bound to the
+requesting tenant, installation identity, and device, so another customer machine needs a
+separate request and certificate.
+
+`--activate-local` is rejected for generic builds. It is an opt-in facility-specific
+build-machine convenience only (`--facility-specific`). It requires
+`--local-storage-dir` (the exact external `app.getPath("userData")/licensing` directory)
+plus explicit `--starts-at` and `--ends-at` terms. It stores activation in that local
+userData directory and never copies its certificate into the installer. Do not include this
+option in a normal customer release build.
+
 | Variable | Contract |
 | --- | --- |
 | `PLS_LICENSE_MODE` | Unset/empty or `legacy`: existing behavior. Exactly `signed`: enable signed enforcement. Other values fail closed. |
@@ -173,8 +276,21 @@ node scripts/licensing/issuer.cjs sign --private-key <secure-external/private.pe
 ```
 
 Create `payload.json` from the installation's request binding fields plus the approved
-license term. The signer validates the strict payload and exclusively writes the output.
-Keygen also refuses overwrite. Transfer only the public key and certificate to the customer.
+license term. For the normal request workflow, avoid hand-writing that JSON and use:
+
+```powershell
+node scripts/licensing/issuer.cjs sign-request `
+  --private-key <secure-external/private.pem> `
+  --request <activation-request.json> `
+  --output <certificate.json> `
+  --starts-at <UTC_ISO_START> --ends-at <UTC_ISO_END> --grace-days 0
+```
+
+The issuer copies the tenant, installation identity, public-key fingerprint and device
+binding from the validated request, then combines them with the explicitly approved term.
+The signer validates the strict payload and exclusively writes the output. `sign` remains
+available for controlled integrations that already construct payloads. Keygen also refuses
+overwrite. Transfer only the public key and certificate to the customer.
 
 Certificate envelope is exactly `{payload,signature}` with no extra properties. Payload:
 

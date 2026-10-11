@@ -119,10 +119,13 @@ export class TenantRegistry {
 
      constructor(private connection: Knex = systemConfigConnection) { }
 
-     /** Adds the registry columns, registers this installation's database and assigns missing IDs/codes. Idempotent. */
+     /** Cloud mode prepares the shared registry; desktop mode only validates its one local identity. */
      static ensureReady(): Promise<void> {
           if (!TenantRegistry.ready) {
-               TenantRegistry.ready = new TenantRegistry().prepare().catch((error) => {
+               const registry = new TenantRegistry();
+               TenantRegistry.ready = (configuration.desktopStandalone
+                    ? registry.assertLocalTenantReady()
+                    : registry.prepare()).catch((error) => {
                     TenantRegistry.ready = null;
                     throw error;
                });
@@ -136,6 +139,10 @@ export class TenantRegistry {
      }
 
      async listTenants(): Promise<RegisteredTenant[]> {
+          if (configuration.desktopStandalone) {
+               const local = await this.getLocalTenant();
+               return local ? [local] : [];
+          }
           await TenantRegistry.ensureReady();
           const cached = TenantRegistry.cache;
           if (cached && Date.now() - cached.loadedAt < CACHE_TTL_MS) return cached.tenants;
@@ -170,6 +177,26 @@ export class TenantRegistry {
           const prefix = String(identifier || '').trim().toUpperCase();
           if (!/^[A-Z][A-Z0-9]{2,31}$/.test(prefix)) return null;
           return (await this.listTenants()).find((tenant) => tenant.platformId.toUpperCase() === prefix) ?? null;
+     }
+
+     /**
+      * Standalone desktop login resolves only the configured local database. Deliberately avoid
+      * ensureReady()/listTenants(): those perform registry-wide repair and tenant enumeration.
+      */
+     async getLocalTenant(): Promise<RegisteredTenant | null> {
+          const databaseName = (singleTenantKnexInstance as any)?.client?.config?.connection?.database;
+          if (typeof databaseName !== 'string' || !databaseName) return null;
+          const rows = await this.connection(TENANTS_TABLE).where({ database_name: databaseName }).limit(2).select('*');
+          if (rows.length > 1) throw new Error('Multiple registry entries reference the standalone desktop database');
+          if (!rows.length || rows[0].status !== 'active' || rows[0].deleted_at) return null;
+          return toRegisteredTenant(rows[0]);
+     }
+
+     private async assertLocalTenantReady(): Promise<void> {
+          const local = await this.getLocalTenant();
+          if (!local || local.tenantId !== configuration.defaultTenantId) {
+               throw new Error('Standalone desktop registry identity does not match its configured local database and tenant ID');
+          }
      }
 
      /** Also run automatically by registry preparation before tenant connections are opened. */

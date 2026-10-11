@@ -10,6 +10,57 @@ to legacy behavior. Signed validity intersects, rather than replaces, the existi
 for the CLI/API contract, desktop environment, issuer workflow, renewal, recovery,
 continuity exemptions and offline security limitations. Never distribute an issuer private key.
 
+### Build a signed Windows desktop installer
+
+Build once from this backend checkout, then store and distribute the same installer:
+
+```powershell
+pnpm.cmd run desktop:build:licensed
+```
+
+The command creates or reuses a protected Ed25519 issuer keypair under
+`%LOCALAPPDATA%\PLS-Licensing\issuer`, writes only the public key and signed mode to
+an external generated configuration based on the reviewed generic template, compiles
+the backend, and invokes the sibling desktop Windows NSIS build. The default is a
+**GENERIC standalone installer**: no tenant binding, production database credentials,
+API/email secrets, certificate or installation state is packaged. Existing backend
+configuration and installed userData are not overwritten or activated. Set
+`PLS_ISSUER_KEY_DIR` to an absolute directory outside both checkouts to use a different
+protected issuer location. `--prepare-only` validates/creates the key and config but
+skips compilation and packaging. A missing half, corrupt key or keypair mismatch fails
+without silently generating a replacement.
+
+Build configuration affects future installers only; it does not modify an installed
+desktop user's userData or activate that installation. Each customer machine must
+export its own activation request and receive/import a separately signed certificate.
+First launch opens a trusted local setup window before starting the backend. Enter the
+organization name and explicit facility/control MySQL host, port, username, password and
+database names; there is no tenant-ID field. Setup identifies the organization from an
+active `prime_tenants` row matching the configured facility database. If no row exists, it
+transactionally adds one local registry identity using the already-prepared control schema
+and platform location references. It never creates databases/users, changes an existing
+registry entry, or runs migrations. The existing control database must have current
+`prime_tenants` unique indexes plus active country/state/district references and a platform
+user; missing prerequisites produce an actionable setup error. The generated tenant ID is
+saved as `DEFAULT_TENANT_ID`/`PLS_LICENSE_TENANT_ID` for this installation. Desktop startup,
+login resolution, and bootstrap serve only that local database/identity and do not enumerate
+other tenants. The launcher forces `PLS_DESKTOP_STANDALONE=true` and `MULTI_TENANT=false`,
+regardless of user environment values; online/cloud configuration is unchanged.
+
+Settings are stored per installation outside the packaged runtime. **Settings > Database
+setup** repairs configuration and confirms a restart; blank existing password fields retain
+their values. **License > Export activation request** then **Import signed license** performs
+per-device, per-local-organization offline activation. Tenant query parameters cannot select
+another signed identity. Existing database validity/grace windows still apply.
+
+`$env:PLS_DESKTOP_GENERIC='true'` explicitly selects the default (only `true`/`false`
+are accepted). For intentional older facility-pinned releases only:
+`pnpm.cmd run desktop:build:licensed -- --facility-specific --tenant-id <ACTUAL_TENANT_ID>`.
+That opt-in retains the supplied facility environment, so review it before distributing.
+Local activation is rejected for generic builds; `--activate-local` is only available with
+explicit facility-specific mode, external storage and validity dates. There is no network
+license service or globally enforced activation count.
+
 A comprehensive, enterprise-grade LIMS (Laboratory Information Management System) built with Express.js, TypeScript, and MySQL. Designed for healthcare facilities, diagnostic labs, and pathology centers.
 
 ## Features

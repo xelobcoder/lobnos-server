@@ -48,6 +48,16 @@ describe('offline certificate', () => {
           await expect(service.activate(changed, 3)).rejects.toMatchObject({ code: 'LICENSE_SIGNATURE_INVALID' });
           expect((await service.status(3)).endsAt).toBe('2026-10-12T00:00:00.000Z');
      });
+     it('a generic installation cannot borrow its old certificate after selecting another tenant', async () => {
+          const original = certificate();
+          await service.activate(original, 3);
+          const nextRequest = await service.request(4);
+          expect(nextRequest.installationId).toBe(request.installationId);
+          expect(nextRequest.tenantId).toBe(4);
+          expect(await service.status(4)).toMatchObject({ signedValid: false, reason: 'LICENSE_MISSING' });
+          await expect(service.activate(original, 4)).rejects.toMatchObject({ code: 'LICENSE_TENANT_MISMATCH' });
+          expect((await service.status(3)).signedValid).toBe(true);
+     });
      it.each([
           [{ installationId: 'f'.repeat(32) }, 'LICENSE_INSTALLATION_MISMATCH'],
           [{ installationPublicKeyFingerprint: 'f'.repeat(64) }, 'LICENSE_INSTALLATION_MISMATCH'],
