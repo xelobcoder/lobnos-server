@@ -50,110 +50,57 @@ of 12–256 characters; never reuse examples, published defaults or an exposed p
 The builder prompts when the external verifier is absent, then reuses it on later builds.
 Explicit reconfiguration affects future installers only, not existing packages.
 
-Generic runtime preparation and verification reject a missing/malformed packaged
+Licensed runtime preparation and verification reject a missing/malformed packaged
 `PLS_INSTALL_PASSWORD_VERIFIER`. No real verifier was created by automated tests:
 test fixtures are **not release configuration**. A deployable installer cannot be made
 until the release administrator supplies this configuration. Publisher code-signing
 credentials and per-device signed activation remain separate prerequisites.
 
-## Customer inputs and authorization
+## Pre-provisioned facility database
 
-Setup asks for organization name, installation authorization password, local MySQL
-host/port and temporary administrator credentials. Only `127.0.0.1`, `localhost` and
-`::1` are allowed. Oracle MySQL 8.x is required by the baseline's collations/routines;
-MariaDB/MySQL 5.x are explicitly refused before database creation.
+The desktop application does **not** create databases, install schema, run migrations,
+seed data, create MySQL users, or bootstrap an organization/admin account. A deployment
+administrator provisions the client's MySQL database and completes all required migrations
+and initial data setup before packaging/running the desktop frontend and backend.
 
-The scrypt comparison is timing-safe; five incorrect attempts block further attempts
-for five minutes in the main process. This is an offline installation authorization
-check, not signed license activation or tamper-proof DRM. A customer-controlled OS
-administrator can modify binaries; a packaged verifier also permits offline guessing.
+The licensed desktop build is facility-specific. It reads the backend `.env`, resolves the
+registered tenant from that database, and writes a desktop runtime configuration. When
+`NODE_ENV` is not `production`, the application connection uses `DB_HOST`, `DB_PORT`,
+`DB_USERNAME`, `DB_PASSWORD`, and `DATABASE`; in production it uses `PRODUCTION_DB_*`.
+The build maps the selected connection to the desktop's production environment and carries
+the `SYSTEM_CONFIG_DB_*` / `SYSTEM_CONFIG_DATABASE` settings through separately. For the
+current local deployment, the configured facility database is `primelabtestmig` on port
+`2309`, using the existing `.env` account. The desktop starts its backend and frontend
+against that prepared database; it does not show database-provisioning setup on first run.
 
-MySQL must already be installed/running. There is **no universal administrator password**.
-The supplied account must be able to create the two local schemas, inspect `mysql.user`,
-create a localhost account, grant its schema-local privileges and install schema/routines.
-Credentials are sent only through an anonymous child stdin pipe, not argv, config files
-or logs. Remote database provisioning is not supported.
+Because the installer includes the connection credentials required by the packaged
+backend, treat it as a secret and only distribute the facility-specific installer to its
+intended client/device. Do not commit `.env` or generated desktop connection configuration.
+In particular, avoid distributing a package containing a MySQL root credential beyond
+the machine/environment that needs it.
 
-## Complete reviewed pipeline
-
-Before connecting, setup validates all 288 structure files: **287 InnoDB tables,
-71 triggers and 36 procedures**, object names, schema isolation, FK target closure and
-the control catalog's dependency closure. Dump DROP/SET statements and transaction data
-are never executed. Definers are removed and source-database references isolated.
-All nine catalog assets and the exact 12 current up migrations/reference seed modules
-must be present. Packaging copies only structure exports and the allowlisted reference
-catalog assets, not transaction/patient exports or development environments.
-
-1. Generate random application password, tenant/organization identity, separate backend/
-   frontend JWT keys and window key
-   and initial login password. Encrypt a durable recovery checkpoint before MySQL writes.
-2. Acquire a server-local named lock. Inspect **both** schema ownership markers and any
-   existing generated account before mutating either database.
-3. Create `Primelabsys` (Windows MySQL may normalize its spelling to lowercase) and
-   `primelabmaster_control`, with installation-bound markers.
-4. Create a random `pls_<installation fragment>` localhost account. Grant database-local
-   application DML/DDL/routine permissions to the facility schema and SELECT only to
-   control. No global grants, FILE, PROCESS, SUPER, CREATE USER or GRANT OPTION are given.
-   Existing matching accounts are authenticated with the saved secret, never reset.
-5. Install missing baseline tables and programmable objects. Control receives the ten
-   catalog/reference tables plus `roles`, needed by catalog-author foreign keys, and
-   a local-only active registry row. It does not need cloud location/platform data.
-6. Run the reviewed, guarded up migrations with a private Knex migration checkpoint.
-   MySQL DDL is not transactional; failures never imply readiness.
-7. Seed only an owned, unseeded, empty reference set. Reference data and its seeded marker
-   commit together. Create a single facility administrator with bcrypt password hash.
-   Control gets a disabled catalog-author row, not a copied staff account.
-   No legacy employee/password seed, branch reset, patient data, home-collection demo
-   order, legacy validity window, certificate or background sender/worker is created.
-8. Run current bootstrappers strictly, observe caught query/error failures, check the
-   master catalog and verify actual foreign-key integrity in both schemas. Mark ready
-   only when all checks pass. Already-ready installations do not reseed or reset logins.
-9. Save encrypted application configuration; show initial login credentials only in
-   a native dialog. Signed activation remains mandatory through the existing workflow.
-
-The generated frontend session key is supplied only to the local Next.js process at
-runtime, for its existing PLS-SESSION signing/verification. It is not embedded at build
-time or returned to a renderer; database/backend credentials are not passed to that process.
-
-New/changed migration sets or incomplete baseline assets require explicit pipeline review;
-setup fails with a provisioning-prerequisite error rather than best-effort partial success.
-No production database or migration was executed during implementation validation.
+The installation authorization password is only the offline installer gate. It is not a
+database credential, does not provision the schema, and does not replace signed-license
+activation. Signed activation remains mandatory through the existing workflow.
 
 ## Encryption, compatibility and recovery
 
-`userData/config/installation.json` and `provisioning.json` are version-2 encrypted
-envelopes using Electron `safeStorage` (Windows DPAPI). The Windows DACL is replaced,
-not merely appended, granting access only to the current SID and SYSTEM. Encryption
-unavailable/basic-text fallback or ACL failure blocks setup. Existing plaintext JSON
-configuration is read compatibly and rewritten encrypted without changing database
-identity. Existing environment files and licensing state are left untouched.
+`userData/config/installation.json`, when present from an older release, remains a
+version-2 encrypted envelope using Electron `safeStorage` (Windows DPAPI). The Windows
+DACL is replaced, not merely appended, granting access only to the current SID and SYSTEM.
+Older provisioning checkpoints are not used by this runtime. Existing environment files
+and licensing state are left untouched.
 
 Back up the original OS profile, protected configuration and databases securely.
 Encrypted files are OS-account-bound; copying them to a different profile is not a
 supported credential-recovery method. DPAPI protects data at rest, not from code running
 as the same OS account or a privileged administrator.
 
-After failure, **retain `provisioning.json`** and retry with the original organization and
-endpoint. The administrator password may be supplied again; it is never persisted.
-The generated application user and database markers must agree. Unowned databases,
-duplicate/case-conflicting schemas, foreign accounts, incompatible versions, incomplete
-assets, DDL, migration, seed, FK and runtime failures are explicit errors.
-
-DDL can leave incomplete owned schemas. Retry installs missing objects without dropping
-existing tables or changing saved passwords. A crash between CREATE DATABASE and its
-ownership marker cannot safely be adopted automatically: an administrator must inspect
-the orphan and perform an explicitly scoped recovery. Setup does not automatically
-drop, overwrite, adopt or migrate unrelated databases. Never delete recovery files or
-rename production schemas as a shortcut.
-
-An interrupted Knex migration can also retain its migration lock. It is not force-unlocked
-automatically: an administrator must first confirm no provisioning process is running,
-inspect the owned migration checkpoint and authorize a scoped recovery.
-
-Legacy setups remain usable but the simplified UI does not edit their generated/account
-fields. Restore their original configuration through an administrator if repair is needed.
-Reverification of a new owned setup requires confirmation before restart. Initial login
-credentials are not reset on retries; change the password after first login.
+If the backend cannot connect, check the packaged/per-user `config/backend.env` against
+the prepared MySQL endpoint and database. The application does not repair access by
+changing MySQL accounts or grants. Complete schema migrations and registry setup outside
+the desktop app, then rebuild or update the facility-specific configuration as needed.
+Existing installations keep their per-user config across application upgrades.
 
 ## Validation
 

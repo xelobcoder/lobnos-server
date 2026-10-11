@@ -222,6 +222,63 @@ function ensureIssuerKeys(directory, dependencies = {}) {
 	}
 }
 
+function writeDesktopDatabaseConfig(filePath, serverEnv, frontendEnv) {
+	const production = serverEnv.NODE_ENV === "production";
+	const source = production ? {
+		host: serverEnv.PRODUCTION_DB_HOSTNAME,
+		port: serverEnv.PRODUCTION_DB_PORT,
+		user: serverEnv.PRODUCTION_DB_USERNAME,
+		password: serverEnv.PRODUCTION_DB_PASSWORD,
+		database: serverEnv.PRODUCTION_DATABASE,
+	} : {
+		host: serverEnv.DB_HOST,
+		port: serverEnv.DB_PORT,
+		user: serverEnv.DB_USERNAME,
+		password: serverEnv.DB_PASSWORD,
+		database: serverEnv.DATABASE,
+	};
+	for (const [name, value] of Object.entries(source)) {
+		if (typeof value !== "string" || !value) {
+			throw new Error(`The current ${production ? "production" : "development"} .env database setting ${name} is required.`);
+		}
+	}
+	if (typeof frontendEnv?.JWT_SECRET_KEY !== "string" || !frontendEnv.JWT_SECRET_KEY) {
+		throw new Error("The frontend .env JWT_SECRET_KEY is required for desktop sessions.");
+	}
+	const control = {
+		host: serverEnv.SYSTEM_CONFIG_DB_HOST || source.host,
+		port: serverEnv.SYSTEM_CONFIG_DB_PORT || source.port,
+		user: serverEnv.SYSTEM_CONFIG_DB_USERNAME || source.user,
+		password: serverEnv.SYSTEM_CONFIG_DB_PASSWORD === undefined ? source.password : serverEnv.SYSTEM_CONFIG_DB_PASSWORD,
+		database: serverEnv.SYSTEM_CONFIG_DATABASE || "primelabmaster_control",
+	};
+	let content = fs.readFileSync(filePath, "utf8");
+	const eol = content.includes("\r\n") ? "\r\n" : "\n";
+	const values = {
+		NODE_ENV: "production",
+		PRODUCTION_DB_HOSTNAME: source.host,
+		PRODUCTION_DB_PORT: source.port,
+		PRODUCTION_DB_USERNAME: source.user,
+		PRODUCTION_DB_PASSWORD: source.password,
+		PRODUCTION_DATABASE: source.database,
+		DB_HOST: source.host,
+		DB_PORT: source.port,
+		DB_USERNAME: source.user,
+		DB_PASSWORD: source.password,
+		DATABASE: source.database,
+		SYSTEM_CONFIG_DB_HOST: control.host,
+		SYSTEM_CONFIG_DB_PORT: control.port,
+		SYSTEM_CONFIG_DB_USERNAME: control.user,
+		SYSTEM_CONFIG_DB_PASSWORD: control.password,
+		SYSTEM_CONFIG_DATABASE: control.database,
+		JWT_SECRET_KEY: frontendEnv.JWT_SECRET_KEY,
+	};
+	for (const [key, value] of Object.entries(values)) {
+		content = setConfigValue(content, key, value, eol);
+	}
+	fs.writeFileSync(filePath, content);
+}
+
 function configuredPublicKey(config, configFile) {
 	const inline = config.PLS_LICENSE_PUBLIC_KEY;
 	const file = config.PLS_LICENSE_PUBLIC_KEY_FILE;
@@ -478,16 +535,13 @@ async function main(argv = process.argv.slice(2), dependencies = {}) {
 	if (environment.PLS_DESKTOP_GENERIC !== undefined && !["true", "false"].includes(environment.PLS_DESKTOP_GENERIC)) {
 		throw new Error("PLS_DESKTOP_GENERIC must be true or false.");
 	}
-	const generic = !options["--facility-specific"] && environment.PLS_DESKTOP_GENERIC !== "false";
-	if (options["--facility-specific"] && environment.PLS_DESKTOP_GENERIC === "true") {
-		throw new Error("--facility-specific conflicts with PLS_DESKTOP_GENERIC=true.");
+	if (environment.PLS_DESKTOP_GENERIC === "true") {
+		throw new Error("Generic standalone auto-provisioning has been retired. Provision the local database first and build a facility-specific desktop.");
 	}
-	if (generic && (options["--tenant-id"] || options["--activate-local"])) {
-		throw new Error("Generic builds do not bind or activate tenants; use --facility-specific explicitly.");
-	}
-	if (!generic && !fs.existsSync(configFile)) throw new Error("Facility-specific backend configuration is missing.");
-	const tenant = generic ? undefined : await resolveTenant(options, config,
-		dependencies.serverEnv || readEnv(path.join(BACKEND_ROOT, ".env")), environment);
+	const generic = false;
+	if (!fs.existsSync(configFile)) throw new Error("Facility-specific backend configuration is missing.");
+	const serverEnv = dependencies.serverEnv || readEnv(path.join(BACKEND_ROOT, ".env"));
+	const tenant = await resolveTenant(options, config, serverEnv, environment);
 	const directory = externalKeyDirectory(dependencies.keyDirectory || issuerDirectory());
 	const sid = dependencies.sid || getWindowsSid();
 	fs.mkdirSync(directory, { recursive: true });
@@ -511,6 +565,8 @@ async function main(argv = process.argv.slice(2), dependencies = {}) {
 		configFile = path.join(directory, "generic-backend.env");
 		fs.writeFileSync(configFile, genericConfig(keyPair.publicPem, parse, verifier), { mode: 0o600 });
 	} else {
+		writeDesktopDatabaseConfig(configFile, serverEnv,
+			readEnv(path.join(DESKTOP_ROOT, ".env")));
 		writeDesktopConfig(configFile, tenant, keyPair.publicPem);
 	}
 	if (options["--prepare-only"]) {
@@ -579,4 +635,5 @@ module.exports = {
 	tenantFromDatabase,
 	validateExternalStorage,
 	writeDesktopConfig,
+	writeDesktopDatabaseConfig,
 };

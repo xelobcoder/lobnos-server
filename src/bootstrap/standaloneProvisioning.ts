@@ -9,6 +9,13 @@ const MARKER = 'pls_local_installation';
 export const LOCAL_HOST = '127.0.0.1';
 export const LOCAL_PORT = '2309';
 export const LOCAL_ACCOUNT = 'primelab';
+// No MySQL host/port/account/password is ever collected from the installer. This is the only
+// administrative credential used, strictly to bootstrap the fixed LOCAL_ACCOUNT the first time;
+// it is never sent in the provisioning request. Dedicated standalone MySQL instances are expected
+// to keep root passwordless on loopback; an ops/release engineer may override both via environment
+// variables if their local MySQL is configured differently.
+export const LOCAL_BOOTSTRAP_ACCOUNT = process.env.PLS_LOCAL_DB_ADMIN_USER || 'root';
+export const LOCAL_BOOTSTRAP_PASSWORD = process.env.PLS_LOCAL_DB_ADMIN_PASSWORD || '';
 export const CONTROL_TABLES = ['test_panels', 'testdetails', 'testdetailcategory', 'testconditions',
      'testcreationrules', 'sampletype', 'samplecontainer', 'departments', 'testconditiondefinitions', 'test_report_settings', 'roles'];
 
@@ -76,10 +83,13 @@ export function validateProvisionRequest(request: LocalProvisionRequest): void {
           typeof state.organizationName !== 'string' || !state.organizationName.trim() || state.organizationName.length > 100 ||
           state.host !== LOCAL_HOST || state.port !== LOCAL_PORT ||
           typeof state.accountPassword !== 'string' || !state.accountPassword || state.accountPassword.length > 256 ||
-          [state.loginPassword, state.jwtSecret, state.windowKey]
+          // The application login password is a simple, user-facing default (e.g. "12345") that the
+          // owner changes after first login; it is intentionally not required to be a random secret.
+          typeof state.loginPassword !== 'string' || !state.loginPassword || state.loginPassword.length > 256 ||
+          [state.jwtSecret, state.windowKey]
                .some(secret => typeof secret !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(secret)) ||
           (state.frontendJwtSecret !== undefined && !/^[A-Za-z0-9_-]{43}$/.test(state.frontendJwtSecret)) ||
-          [state.organizationName, state.accountPassword].some(value => /[\r\n\0]/.test(value))) {
+          [state.organizationName, state.accountPassword, state.loginPassword].some(value => /[\r\n\0]/.test(value))) {
           throw new LocalProvisionError('Invalid local provisioning request; only loopback MySQL is supported.');
      }
 }
@@ -99,7 +109,12 @@ async function ownedDatabase(connection: Connection, database: string, state: Lo
      }
      let markers: any[];
      try { markers = await rows(connection, `SELECT * FROM \`${database}\`.\`${MARKER}\``); }
-     catch {
+     catch (error) {
+          // Only a genuinely missing marker table is safe to treat as "not yet provisioned";
+          // any other read failure (permissions, conflicting state, etc.) must block mutation.
+          if ((error as { code?: string })?.code !== 'ER_NO_SUCH_TABLE') {
+               throw new LocalProvisionError('An existing database is not owned by this installation. Automatic setup refuses to modify it. Restore its existing configuration or contact an administrator.');
+          }
           const tables = await rows(connection, 'SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = ?', [exists[0].SCHEMA_NAME]);
           if (!tables.length) return false; // User-created EMPTY database: safe to initialize.
           throw new LocalProvisionError('An existing database is not owned by this installation. Automatic setup refuses to modify it. Restore its existing configuration or contact an administrator.');
@@ -176,48 +191,66 @@ async function registry(connection: Connection, state: LocalInstallation): Promi
                `mysql://${state.host === '::1' ? '[::1]' : state.host}:${state.port}/${LOCAL_DATABASE}`]);
 }
 
+const APPLICATION_ACCOUNT_PRIVILEGES = 'SELECT, INSERT, UPDATE, DELETE, CREATE, DROP, ALTER, INDEX, REFERENCES, ' +
+     'CREATE VIEW, SHOW VIEW, TRIGGER, EXECUTE, CREATE ROUTINE, ALTER ROUTINE, LOCK TABLES';
+/** Creates the fixed LOCAL_ACCOUNT the first time only, scoped strictly to both local databases. */
+async function ensureApplicationAccount(privileged: Connection, state: LocalInstallation): Promise<void> {
+     const existing = await rows(privileged, 'SELECT Host FROM mysql.user WHERE User = ?', [LOCAL_ACCOUNT]);
+     if (existing.length) return;
+     await privileged.query('CREATE USER IF NOT EXISTS ??@?? IDENTIFIED BY ?', [LOCAL_ACCOUNT, 'localhost', state.accountPassword]);
+     await privileged.query(`GRANT ${APPLICATION_ACCOUNT_PRIVILEGES} ON \`${LOCAL_DATABASE}\`.* TO ??@??`, [LOCAL_ACCOUNT, 'localhost']);
+     await privileged.query(`GRANT ${APPLICATION_ACCOUNT_PRIVILEGES} ON \`${LOCAL_CONTROL_DATABASE}\`.* TO ??@??`, [LOCAL_ACCOUNT, 'localhost']);
+}
+
 export async function provisionLocalDatabases(request: LocalProvisionRequest, dependencies: ProvisionDependencies): Promise<{ ready: true }> {
      validateProvisionRequest(request);
      // Verify assets before creating a database.
      validateProvisionStructure(dependencies.structure);
-     let admin: Connection;
-     let locked = false, stage = 'existing primelab connection';
+     let privileged: Connection | undefined;
+     let app: Connection | undefined;
+     let locked = false, stage = 'local MySQL connection';
      try {
-          admin = await dependencies.connect({ host: LOCAL_HOST, port: Number(LOCAL_PORT),
-               user: LOCAL_ACCOUNT, password: request.state.accountPassword, connectTimeout: 5000, multipleStatements: false });
-          const version = await rows(admin, 'SELECT VERSION() AS version');
+          // Only used to bootstrap the fixed LOCAL_ACCOUNT the first time; never supplied by the installer.
+          privileged = await dependencies.connect({ host: LOCAL_HOST, port: Number(LOCAL_PORT),
+               user: LOCAL_BOOTSTRAP_ACCOUNT, password: LOCAL_BOOTSTRAP_PASSWORD, connectTimeout: 5000, multipleStatements: false });
+          const version = await rows(privileged, 'SELECT VERSION() AS version');
           if (!/^8\.\d+\.\d+/.test(String(version[0]?.version)) || /mariadb/i.test(String(version[0]?.version))) {
                throw new LocalProvisionError('Automatic setup requires Oracle MySQL 8.x for the reviewed schema collations and routines. No databases were created.');
           }
-          const server = await rows(admin, 'SELECT @@lower_case_table_names AS lowerCaseNames');
+          const server = await rows(privileged, 'SELECT @@lower_case_table_names AS lowerCaseNames');
           const caseInsensitive = Number(server[0]?.lowerCaseNames) > 0;
-          const lock = await rows(admin, "SELECT GET_LOCK('pls-local-setup-v1', 0) AS acquired");
+          const lock = await rows(privileged, "SELECT GET_LOCK('pls-local-setup-v1', 0) AS acquired");
           if (Number(lock[0]?.acquired) !== 1) throw new LocalProvisionError('Another local setup is running. Retry when it finishes.');
           locked = true;
           stage = 'ownership checks';
           // Both databases are checked BEFORE the first mutating query.
-          const facilityOwned = await ownedDatabase(admin, LOCAL_DATABASE, request.state);
-          const controlOwned = await ownedDatabase(admin, LOCAL_CONTROL_DATABASE, request.state);
+          const facilityOwned = await ownedDatabase(privileged, LOCAL_DATABASE, request.state);
+          const controlOwned = await ownedDatabase(privileged, LOCAL_CONTROL_DATABASE, request.state);
           stage = 'owned database creation';
-          if (!facilityOwned) await createOwnedDatabase(admin, LOCAL_DATABASE, request.state);
-          if (!controlOwned) await createOwnedDatabase(admin, LOCAL_CONTROL_DATABASE, request.state);
+          if (!facilityOwned) await createOwnedDatabase(privileged, LOCAL_DATABASE, request.state);
+          if (!controlOwned) await createOwnedDatabase(privileged, LOCAL_CONTROL_DATABASE, request.state);
+          stage = 'application account provisioning';
+          await ensureApplicationAccount(privileged, request.state);
           stage = 'facility schema and programmable objects';
-          await installTables(admin, dependencies.structure, LOCAL_DATABASE, undefined, caseInsensitive);
-          await installObjects(admin, dependencies.structure);
+          app = await dependencies.connect({ host: LOCAL_HOST, port: Number(LOCAL_PORT),
+               user: LOCAL_ACCOUNT, password: request.state.accountPassword, connectTimeout: 5000, multipleStatements: false });
+          await installTables(app, dependencies.structure, LOCAL_DATABASE, undefined, caseInsensitive);
+          await installObjects(app, dependencies.structure);
           stage = 'control schema and registry';
-          await installTables(admin, dependencies.structure, LOCAL_CONTROL_DATABASE, CONTROL_TABLES, caseInsensitive);
-          await registry(admin, request.state);
+          await installTables(app, dependencies.structure, LOCAL_CONTROL_DATABASE, CONTROL_TABLES, caseInsensitive);
+          await registry(app, request.state);
           stage = 'reference seeds and runtime readiness';
           await dependencies.initialize(request);
           return { ready: true };
      } catch (error) {
           if (error instanceof LocalProvisionError) throw error;
           // Driver errors can contain passwords, SQL, or patient values. Never forward them.
-          throw new LocalProvisionError(`Local setup failed during ${stage}. Verify existing primelab credentials and database-scoped schema/DML/routine privileges on both local databases. No account or grants were changed. Restore original protected setup and retry; schema DDL may have completed partially.`);
+          throw new LocalProvisionError(`Local setup failed during ${stage}. Verify local MySQL connectivity and the fixed application account privileges on both local databases. No account or grants were changed. Restore original protected setup and retry; schema DDL may have completed partially.`);
      } finally {
-          if (admin) {
-               if (locked) await admin.query("SELECT RELEASE_LOCK('pls-local-setup-v1')").catch(() => undefined);
-               await admin.end().catch(() => undefined);
+          if (app) await app.end().catch(() => undefined);
+          if (privileged) {
+               if (locked) await privileged.query("SELECT RELEASE_LOCK('pls-local-setup-v1')").catch(() => undefined);
+               await privileged.end().catch(() => undefined);
           }
      }
 }

@@ -269,32 +269,48 @@ test("Windows package scripts use cmd.exe without a shell and only fixed argumen
 	}
 });
 
-test("automated build defaults to generic without DB lookup, preserves source secrets and reuses keys", async t => {
-		const directory = temporaryDirectory(t, "pls-generic-automation-");
-		const source = path.join(directory, "source.env");
-		fs.writeFileSync(source, "PRODUCTION_DB_PASSWORD=never-package-this\nPLS_LICENSE_TENANT_ID=638241\n");
-		const pair = makePair();
-		let generated = 0;
-		const dependencies = {
-			configFile: source, keyDirectory: directory, environment: {}, sid: "test-sid",
-			installationPrompt: async () => "fixture-install-password-only",
-			secureFile() {}, secureDirectory() {},
-			get serverEnv() { throw new Error("Generic builds must not load the server environment or database"); },
-			generateKeys() {
-				generated++;
-				fs.writeFileSync(path.join(directory, "issuer-private.pem"), pair.privatePem);
-				fs.writeFileSync(path.join(directory, "issuer-public.pem"), pair.publicPem);
-			},
-		};
-		await main(["--prepare-only"], dependencies);
-		const first = fs.readFileSync(path.join(directory, "generic-backend.env"), "utf8");
-		await main(["--prepare-only"], dependencies);
-		assert.equal(generated, 1);
-		assert.equal(fs.readFileSync(path.join(directory, "generic-backend.env"), "utf8"), first);
-		assert.match(first, /PLS_DESKTOP_GENERIC=true/);
-		assert.doesNotMatch(first, /never-package-this|TENANT_ID|PRIVATE KEY|DB_PASSWORD/);
-		assert.match(fs.readFileSync(source, "utf8"), /never-package-this/);
-		await assert.rejects(main(["--tenant-id", "638241", "--prepare-only"], dependencies), /Generic builds do not bind/);
-		dependencies.environment = { PLS_DESKTOP_GENERIC: "TRUE" };
-		await assert.rejects(main(["--prepare-only"], dependencies), /must be true or false/);
+test("retired generic auto-provisioning build configuration is rejected", async t => {
+	const directory = temporaryDirectory(t, "pls-generic-retired-");
+	const config = path.join(directory, "backend.env");
+	fs.writeFileSync(config, "PLS_LICENSE_TENANT_ID=638241\n");
+	await assert.rejects(main(["--prepare-only"], {
+		configFile: config,
+		keyDirectory: directory,
+		environment: { PLS_DESKTOP_GENERIC: "true" },
+	}), /auto-provisioning has been retired/);
+});
+
+test("facility desktop config uses the provisioned database settings from backend .env", (t) => {
+	const directory = temporaryDirectory(t, "pls-desktop-db-config-");
+	const config = path.join(directory, "backend.env");
+	fs.writeFileSync(config, "NODE_ENV=development\n");
+	const sourceEnv = [
+		"NODE_ENV=development",
+		"DB_HOST=127.0.0.1",
+		"DB_PORT=2309",
+		"DB_USERNAME=root",
+		"DB_PASSWORD=fixture-db-password",
+		"DATABASE=primelabtestmig",
+		"SYSTEM_CONFIG_DB_HOST=localhost",
+		"SYSTEM_CONFIG_DB_PORT=2309",
+		"SYSTEM_CONFIG_DB_USERNAME=root",
+		"SYSTEM_CONFIG_DB_PASSWORD=fixture-control-password",
+		"SYSTEM_CONFIG_DATABASE=primelabmaster_control",
+	].join("\n");
+	const sourceFile = path.join(directory, ".env");
+	fs.writeFileSync(sourceFile, sourceEnv);
+	const { parse } = require("dotenv");
+	const { writeDesktopDatabaseConfig } = require("./build-desktop.cjs");
+	writeDesktopDatabaseConfig(config, parse(sourceEnv), { JWT_SECRET_KEY: "fixture-frontend-secret" });
+	const packaged = parse(fs.readFileSync(config, "utf8"));
+	assert.equal(packaged.PRODUCTION_DB_HOSTNAME, "127.0.0.1");
+	assert.equal(packaged.PRODUCTION_DB_PORT, "2309");
+	assert.equal(packaged.PRODUCTION_DB_USERNAME, "root");
+	assert.equal(packaged.PRODUCTION_DATABASE, "primelabtestmig");
+	assert.equal(packaged.PRODUCTION_DB_PASSWORD, "fixture-db-password");
+	assert.equal(packaged.SYSTEM_CONFIG_DB_USERNAME, "root");
+	assert.equal(packaged.SYSTEM_CONFIG_DB_PASSWORD, "fixture-control-password");
+	assert.equal(packaged.SYSTEM_CONFIG_DATABASE, "primelabmaster_control");
+	assert.equal(packaged.JWT_SECRET_KEY, "fixture-frontend-secret");
+	assert.equal(fs.readFileSync(sourceFile, "utf8"), sourceEnv);
 });
