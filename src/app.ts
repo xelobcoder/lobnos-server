@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import { signedLicenseGuard } from './licensing/policy';
+import licenseRoutes from './controllers/security/licenseRoutes';
 import express, { Request, Response } from "express";
 import cors from "cors";
 import branchesHandler from "./controllers/applicationsettings/branches/route";
@@ -83,9 +85,12 @@ app.use(cors({
     preflightContinue: false
 }));
 
-app.use(express.static("public"));
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
+app.use(signedLicenseGuard);
+// Recovery is authenticated but not gated by an activated certificate.
+app.use(licenseRoutes);
+app.use(express.static("public"));
 // Marketplace routes validate/reject query strings before the generic request
 // logger, keeping tracking credentials, payment references and patient details
 // out of access-log URLs.

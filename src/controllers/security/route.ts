@@ -18,6 +18,9 @@ import { PrimeWindowAccessController } from "../settings/PrimeWindowAccessContro
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import { resolveLoginTenant } from "../../middleware/resolveLoginTenant";
 import { requestPasswordResetOtp, resetPasswordWithOtp, verifyPasswordResetOtp } from "../logins/authHandlers";
+import { licenseMode } from "../../licensing/storage";
+import { requireOwnerRole } from "../../middleware/authority";
+import { customError } from "../../hooks/helper";
 
 
 const router: Router = express.Router();
@@ -27,6 +30,9 @@ const authController = new AuthController();
 
 const checkLicenseAccess = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
 	try {
+		// In signed mode login/token recovery stays reachable; the global operational gate
+		// checks the intersection on all non-exempt APIs. Legacy behavior is unchanged.
+		if (licenseMode() === 'signed') return next();
 		const tenantId = parseInt(req.query.tenantId as string);
 		if (!tenantId) return res.status(400).json({ status: 'error', message: 'tenantId is required' });
 		const repo = new PrimeWindowAccessRepository(tenantId);
@@ -34,7 +40,7 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
 		if (!isValid) return res.status(403).json({ status: 'error', message: 'License expired or invalid' });
 		next();
 	} catch (error) {
-		return res.status(500).json({ status: 'error', message: 'License validation failed: ' + (error as Error).message });
+		return res.status(500).json({ status: 'error', message: 'License validation failed' });
 	}
 };
 
@@ -102,6 +108,14 @@ router.post('/api/v1/security-features/backup/rotate-key', handleOverLoad(Encryp
 router.post('/api/v1/security-features/backup/:id/decrypt', handleOverLoad(EncryptionController.decryptBackup));
 
 // prime window access routes
+// Preserve legacy renewal contracts. In signed mode protect recovery renewal writes
+// (and diagnostic reads) using the actual authenticated administrator.
+router.use('/api/v1/security/license', (req, res, next) => {
+	try {
+		if (licenseMode() === 'legacy') return next();
+		return checkTokenExists(req, res, () => requireOwnerRole(req, res, next));
+	} catch { return customError('LICENSE_MODE_INVALID', 503, res); }
+});
 router.post('/api/v1/security/license/add', handleOverLoad(PrimeWindowAccessController.addLicense));
 router.put('/api/v1/security/license/revoke/:id', handleOverLoad(PrimeWindowAccessController.revokeLicense));
 router.get('/api/v1/security/license/check', handleOverLoad(PrimeWindowAccessController.checkLicense));

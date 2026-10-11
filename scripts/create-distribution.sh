@@ -39,6 +39,8 @@ copy_dir() {
 
 copy_dir "$PROJECT_ROOT/dist" "$DISTRIBUTION_DIR/dist"
 copy_dir "$PROJECT_ROOT/scripts" "$DISTRIBUTION_DIR/scripts"
+# Issuer workstation tools are not customer runtime utilities.
+rm -rf "$DISTRIBUTION_DIR/scripts/licensing"
 copy_dir "$PROJECT_ROOT/cert" "$DISTRIBUTION_DIR/cert" 2>/dev/null || true
 copy_dir "$PROJECT_ROOT/public" "$DISTRIBUTION_DIR/public" 2>/dev/null || true
 copy_dir "$PROJECT_ROOT/node_modules" "$DISTRIBUTION_DIR/node_modules" 2>/dev/null || true

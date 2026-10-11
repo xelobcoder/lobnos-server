@@ -10,6 +10,7 @@ import { EmailDispatchResult, ResolvedEmailJob } from '../types/EmailModels';
 import { ensureEmailModuleActivated } from '../helpers/emailModuleActivation';
 import { ProviderFactory } from './ProviderFactory';
 import { TemplateRenderer } from './TemplateRenderer';
+import { requireOperationalLicense } from '../../../../licensing/enforcement';
 
 export class EmailQueueService {
      constructor(
@@ -113,6 +114,7 @@ export class EmailQueueService {
      }
 
      async processQueue(limit = 20) {
+          await requireOperationalLicense(this.queueRepo.getTenantId());
           await this.ensureActivated();
           const jobs = await this.queueRepo.findProcessable(limit);
           const results = [];
@@ -140,6 +142,7 @@ export class EmailQueueService {
      }
 
      async processSingle(queueId: number) {
+          await requireOperationalLicense(this.queueRepo.getTenantId());
           await this.ensureActivated();
           const queueItem = await this.queueRepo.findById(queueId);
           if (!queueItem) {

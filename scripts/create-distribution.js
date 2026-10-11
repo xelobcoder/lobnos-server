@@ -31,6 +31,7 @@ const INCLUDE_FILES = [
 
 // Files that should NOT be included
 const EXCLUDE_PATTERNS = [
+  /scripts[\\/]licensing(?:[\\/]|$)/, // Issuer workstation tools must never ship to customers.
   /node_modules\/.*\.(test|spec)\.(js|ts)$/,
   /node_modules\/.*\.map$/,
   /\.git/,

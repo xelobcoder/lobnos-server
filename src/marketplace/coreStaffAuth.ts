@@ -8,6 +8,8 @@ import TokenValidator from '../models/settings/users/TokenValidator';
 import { TenantRegistry } from '../models/Tenancy/TenantRegistry';
 import { parseCookies, verifyStaffSession } from '../middleware/validateTenancy';
 import { MarketplaceError } from './MarketplaceService';
+import { requireOperationalLicense } from '../licensing/enforcement';
+import { LicenseError } from '../licensing/certificate';
 
 const allowedStaffRoles = new Set([
      'admin', 'super-admin', 'super_admin', 'manager', 'scientist', 'phelobotomist', 'phlebotomist',
@@ -70,6 +72,7 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
           if (!['admin', 'manager', 'super-admin', 'super_admin'].includes(liveRole) && !liveBranchId) {
                return res.status(403).json({ status: 'error', message: 'PLS staff must have an assigned branch for marketplace access' });
           }
+          await requireOperationalLicense(tenantId);
           res.locals.marketplaceCoreStaff = {
                id: null,
                employeeId,
@@ -85,6 +88,10 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
           };
           return next();
      } catch (error) {
+          if (error instanceof LicenseError) {
+               console.warn(`[licensing] ${error.code}`);
+               return res.status(error.statusCode).json({ status: 'error', statusCode: error.statusCode, message: error.code });
+          }
           if (error instanceof MarketplaceError) return res.status(error.statusCode).json({ status: 'error', message: error.message });
           return res.status(503).json({ status: 'error', message: 'Unable to verify the PLS staff session' });
      }

@@ -2,6 +2,14 @@
 
 **High Performance Laboratory Information Management System**
 
+## Offline installation-bound licensing
+
+Signed licensing is **opt-in** (`PLS_LICENSE_MODE=signed`); existing deployments default
+to legacy behavior. Signed validity intersects, rather than replaces, the existing
+`prime_window_access` validity/grace window. See [offline licensing](docs/offline-licensing.md)
+for the CLI/API contract, desktop environment, issuer workflow, renewal, recovery,
+continuity exemptions and offline security limitations. Never distribute an issuer private key.
+
 A comprehensive, enterprise-grade LIMS (Laboratory Information Management System) built with Express.js, TypeScript, and MySQL. Designed for healthcare facilities, diagnostic labs, and pathology centers.
 
 ## Features

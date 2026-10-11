@@ -41,6 +41,7 @@ if exist "%PROJECT_ROOT%\dist" (
 if exist "%PROJECT_ROOT%\scripts" (
     echo   Copying scripts...
     xcopy "%PROJECT_ROOT%\scripts" "%DISTRIBUTION_DIR%\scripts" /E /I /Q
+    if exist "%DISTRIBUTION_DIR%\scripts\licensing" rmdir /S /Q "%DISTRIBUTION_DIR%\scripts\licensing"
 )
 
 if exist "%PROJECT_ROOT%\cert" (

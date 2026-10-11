@@ -42,6 +42,8 @@ vi.mock('../middleware/validateTenancy', () => ({
 }));
 
 import { requireCoreFacilityStaff } from './coreStaffAuth';
+import * as licenseEnforcement from '../licensing/enforcement';
+import { LicenseError } from '../licensing/certificate';
 
 function request(body: Record<string, unknown> = {}, query: Record<string, unknown> = {}) {
      return {
@@ -62,6 +64,24 @@ function response() {
 }
 
 describe('integrated marketplace staff authorization boundary', () => {
+     it('checks licensing for the linked session tenant, not the control tenant, before operations', async () => {
+          state.claims = { email: 'staff@example.invalid', tid: 9 } as any;
+          state.roleRow = { employeeid: 5, role: 'admin', activation: 1, branch: null };
+          state.liveEmployee = { employeeid: 5, email: 'staff@example.invalid', role: 'admin', activation: 1, branch: null };
+          state.facility = { ...state.facility, linked_tenant_id: 9 };
+          const guard = vi.spyOn(licenseEnforcement, 'requireOperationalLicense')
+               .mockRejectedValueOnce(new LicenseError('LICENSE_EXPIRED'));
+          try {
+               const res = response();
+               const next = vi.fn();
+               await requireCoreFacilityStaff(request(), res, next);
+               expect(guard).toHaveBeenCalledWith(9);
+               expect(res.statusCode).toBe(403);
+               expect(res.body.message).toBe('LICENSE_EXPIRED');
+               expect(next).not.toHaveBeenCalled();
+               expect(res.locals.marketplaceCoreStaff).toBeUndefined();
+          } finally { guard.mockRestore(); }
+     });
      it('binds authorization to the signed tenant and current role, not request tenant input or JWT role', async () => {
           state.claims = { email: 'staff@example.invalid', tid: 9 } as any;
           state.roleRow = { employeeid: 5, role: 'manager', activation: 1, branch: null };

@@ -16,6 +16,8 @@ vi.mock('./validateTenancy', () => ({
 
 import { requirePlatformFacilityAuthority } from './platformFacilityAuthority';
 import { configuration } from '../hooks/configuration';
+import * as licenseEnforcement from '../licensing/enforcement';
+import { LicenseError } from '../licensing/certificate';
 
 describe('platform facility HTTP authority', () => {
      const claims = { tid: 123456, employeeid: 9, email: 'control@example.test', role: 'super-admin' };
@@ -46,6 +48,17 @@ describe('platform facility HTTP authority', () => {
           expect(next).toHaveBeenCalledOnce();
           expect(res.locals.facilityActor).toEqual({ tenantId: 123456, employeeId: 9 });
           expect(requestedId).toEqual({ employeeid: 9 });
+     });
+     it('gates the derived control tenant before handing off to facility mutations', async () => {
+          const guard = vi.spyOn(licenseEnforcement, 'requireOperationalLicense')
+               .mockRejectedValueOnce(new LicenseError('LICENSE_EXPIRED'));
+          try {
+               const { res, next } = await call();
+               expect(guard).toHaveBeenCalledWith(123456);
+               expect(res.status).toHaveBeenCalledWith(403);
+               expect(next).not.toHaveBeenCalled();
+               expect(res.locals.facilityActor).toBeUndefined();
+          } finally { guard.mockRestore(); }
      });
      it.each([
           { payload: { ...claims, tid: 654321 } }, { payload: { ...claims, tid: undefined } },

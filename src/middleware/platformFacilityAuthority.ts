@@ -5,6 +5,8 @@ import { customError } from '../hooks/helper';
 import { parseCookies, verifyStaffSession } from './validateTenancy';
 import { TenantRegistry } from '../models/Tenancy/TenantRegistry';
 import KnexConnection from '../database/KnexConnections';
+import { requireOperationalLicense } from '../licensing/enforcement';
+import { LicenseError } from '../licensing/certificate';
 
 /** This installation has no platform-user login. Authority is exclusively the live control-tenant role. */
 export function hasPlatformFacilityAuthority(claims: JwtPayload, row: any, controlTenantId: number): boolean {
@@ -46,9 +48,14 @@ export async function requirePlatformFacilityAuthority(req: Request, res: Respon
           }
           const session = await verifyStaffSession(claims, claims.employeeid, controlTenantId, req);
           if (!session.ok) return res.status(session.statusCode || 401).json(session.body);
+          await requireOperationalLicense(controlTenantId);
           res.locals.facilityActor = { tenantId: controlTenantId, employeeId: claims.employeeid };
           next();
-     } catch {
+     } catch (error) {
+          if (error instanceof LicenseError) {
+               console.warn(`[licensing] ${error.code}`);
+               return customError(error.code, error.statusCode, res);
+          }
           return customError('Unable to verify platform facility authority', 503, res);
      }
 }
