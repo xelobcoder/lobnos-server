@@ -55,7 +55,8 @@
     "create-distribution:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/create-distribution.bat",
     "create-distribution:linux": "bash ./scripts/create-distribution.sh",
     "verify-distribution": "node ./distribution/verify-distribution.js",
-    "desktop:build:licensed": "node ./scripts/licensing/build-desktop.cjs"
+    "desktop:build:licensed": "node ./scripts/licensing/build-desktop.cjs",
+    "desktop:configure-install-password": "node ./scripts/licensing/installation-verifier.cjs"
   },
   "keywords": [
     "high performance laboratory information system",
@@ -96,6 +97,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/luxon": "^3.7.2",
     "@types/multer": "^1.4.12",
+    "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.1",
     "@types/uuid": "^10.0.0",
     "pkg": "^5.8.1",

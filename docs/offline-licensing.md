@@ -40,7 +40,21 @@ pnpm.cmd run desktop:build:licensed -- --prepare-only
 ```
 
 The default is **GENERIC standalone**, with `PLS_DESKTOP_GENERIC=true`. It pins only
-signed mode and the public issuer key; no tenant lookup or backend `.env` is needed.
+signed mode, the public issuer key and a salted scrypt installation-password verifier;
+no tenant lookup or backend `.env` is needed. The first build requires a masked terminal
+prompt to create the external verifier. Administrators may configure it explicitly first:
+
+```powershell
+pnpm.cmd run desktop:configure-install-password
+```
+
+The command saves `installation-verifier.json` (scrypt) and
+`installer-verifier.json` (PBKDF2) alongside the external issuer keys, never the plaintext password.
+Windows identity and ACL setup use native System32 utilities rather than `PATH`,
+including when launched from Git Bash. Use PowerShell if masked input is unavailable.
+There is no password CLI/environment option. Later builds reuse the verifier without a prompt.
+Missing/malformed verifier configuration blocks a real generic release. Use a new strong
+password, not any example or previously exposed password.
 It packages no database/API/email secrets, tenant binding, certificate or state. Store
 the resulting installer and distribute the same file to any client. Staging verification
 rejects settings outside the reviewed allowlist and historical frontend token settings.
@@ -49,19 +63,16 @@ local request/certificate temporaries are not copied into the runtime/installer.
 installer enforces signed licensing for future installs, but does not ship a certificate
 for the build machine or activate all installations.
 
-First launch opens a sandboxed local setup window before backend launch. Enter the
-organization name and facility/control MySQL host, port, username, password and database
-name; users never enter a tenant ID. Setup first looks for the active `prime_tenants` row
-whose `database_name` matches `PRODUCTION_DATABASE` and uses its numeric tenant identity.
-If none exists, setup safely/idempotently adds one local organization row and allocates its
-tenant ID, organization identifier and facility code using the existing registry fields and
-location references. This requires an administrator-prepared control database containing
-the current `prime_tenants` schema and unique indexes, active country/state/district rows,
-and at least one platform user. Missing tables or schema are reported; desktop setup does
-not install MySQL, create databases or users, grant privileges, overwrite registry data, or
-run migrations. A matching inactive/duplicate registry row is not reactivated or replaced.
-The generated or discovered ID is stored per installation as `DEFAULT_TENANT_ID` and
-`PLS_LICENSE_TENANT_ID`.
+First launch opens a sandboxed local setup window before backend launch. Installation
+authorization is verified first, before disk writes or database access. Enter only the
+organization name, installation password and temporary **local MySQL 8.x administrator**
+host/port/user/password. There is no universal MySQL password. Database names, application
+account and tenant identity are hidden/generated. Setup creates `Primelabsys` and
+`primelabmaster_control`, installs the complete reviewed baseline, runs guarded migrations,
+reference seeds and runtime bootstrappers, then verifies readiness. Existing unowned
+databases/accounts are refused, never adopted or overwritten. MySQL itself must already
+be installed and running. See [standalone provisioning](standalone-installation.md) for
+the pipeline, privileges, failure/retry behavior and release prerequisites.
 
 The launcher enforces `PLS_DESKTOP_STANDALONE=true` and `MULTI_TENANT=false` for the
 generic desktop, overriding conflicting user environment values. Desktop login looks up only
@@ -71,16 +82,17 @@ use the desktop override. Signed licensing remains bound to the local numeric id
 well as installation key and device; a caller-supplied tenant query cannot select or borrow
 another tenant's certificate.
 
-Settings are saved atomically in `app.getPath("userData")/config/installation.json`,
-outside the packaged runtime. It is local credential storage, not encryption/DPAPI;
-protect the user's profile and use appropriate OS permissions. Passwords are masked and
-never returned to the web frontend or setup summary. IPC only accepts the local setup
-window's main frame and exact file URL. **Settings > Database setup** repairs bad
-configuration; blank passwords retain existing values and changes require confirmed
-restart. Generic launch derives `DEFAULT_TENANT_ID` from the registry row matching the local database
-and uses explicit single-tenant routing. Mode/public key remain package-pinned regardless of
-local settings. Changing the local database to another organization requires its own
-registry-matched identity and certificate for this device.
+Settings are saved atomically using Electron `safeStorage` in
+`app.getPath("userData")/config/installation.json`. Generated recovery credentials are
+protected similarly in `provisioning.json` **before** the first database write. Windows
+ACLs restrict these files/directories to the current OS account and SYSTEM. Setup refuses
+unencrypted fallback storage. Neither supplied password is saved or logged. Legacy JSON
+setup remains readable and is migrated to encrypted storage; source/per-user environment
+files and license state are not rewritten. IPC accepts only the local setup main frame and
+exact file URL. The initial administrator login is shown only in a native dialog.
+**Settings > Database setup** can verify/retry the owned installation with confirmation
+before restart; it cannot replace an existing legacy installation. Mode/public key remain
+package-pinned. Setup does not issue, activate or extend a signed license.
 
 `PLS_DESKTOP_GENERIC` accepts only `true` or `false`. To intentionally retain a
 facility-pinned environment build, use

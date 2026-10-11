@@ -114,18 +114,34 @@ function issuerDirectory(environment = process.env) {
 	return externalKeyDirectory(path.join(environment.LOCALAPPDATA, "PLS-Licensing", "issuer"));
 }
 
-function getWindowsSid() {
-	const output = execFileSync("whoami.exe", ["/user", "/fo", "csv", "/nh"], {
-		encoding: "utf8",
-		stdio: ["ignore", "pipe", "ignore"],
-		windowsHide: true,
-	});
+function windowsSystemExecutable(name, environment = process.env) {
+	const root = environment.SystemRoot || environment.WINDIR;
+	if (!root || !path.win32.isAbsolute(root)) {
+		throw new Error("Windows system directory is unavailable; run the command in a regular PowerShell terminal.");
+	}
+	return path.win32.join(root, "System32", name);
+}
+
+function getWindowsSid(dependencies = {}) {
+	let output;
+	try {
+		output = (dependencies.execFileSync || execFileSync)(
+			windowsSystemExecutable("whoami.exe", dependencies.environment),
+			["/user", "/fo", "csv", "/nh"], {
+				encoding: "utf8",
+				stdio: ["ignore", "pipe", "ignore"],
+				windowsHide: true,
+				shell: false,
+			});
+	} catch (error) {
+		throw new Error("Could not determine the current Windows security identifier.", { cause: error });
+	}
 	const match = output.match(/\bS-1-\d+(?:-\d+)+\b/);
 	if (!match) throw new Error("Could not determine the current Windows security identifier.");
 	return match[0];
 }
 
-function setWindowsAcl(target, directory, sid) {
+function setWindowsAcl(target, directory, sid, dependencies = {}) {
 	if (process.platform !== "win32") {
 		throw new Error("Issuer key ACL setup is supported only on Windows.");
 	}
@@ -135,7 +151,8 @@ function setWindowsAcl(target, directory, sid) {
 	} else {
 		args.push(`*${sid}:F`, "*S-1-5-32-544:F");
 	}
-	const result = spawnSync("icacls.exe", args, {
+	const result = (dependencies.spawnSync || spawnSync)(
+		windowsSystemExecutable("icacls.exe", dependencies.environment), args, {
 		encoding: "utf8",
 		stdio: ["ignore", "ignore", "ignore"],
 		windowsHide: true,
@@ -483,8 +500,16 @@ async function main(argv = process.argv.slice(2), dependencies = {}) {
 	});
 	if (generic) {
 		const { genericConfig } = require(path.join(DESKTOP_ROOT, "desktop", "generic-config.cjs"));
+		const verifier = await require("./installation-verifier.cjs").installationVerifier(directory, {
+			prompt: dependencies.installationPrompt,
+			secure: dependencies.secureFile || ((target) => setWindowsAcl(target, false, sid)),
+		});
+		const installerVerifierFile = path.join(directory, "installer-verifier.json");
+		if (!fs.existsSync(installerVerifierFile)) {
+			throw new Error("Configure the installer password once using desktop:configure-install-password.");
+		}
 		configFile = path.join(directory, "generic-backend.env");
-		fs.writeFileSync(configFile, genericConfig(keyPair.publicPem, parse), { mode: 0o600 });
+		fs.writeFileSync(configFile, genericConfig(keyPair.publicPem, parse, verifier), { mode: 0o600 });
 	} else {
 		writeDesktopConfig(configFile, tenant, keyPair.publicPem);
 	}
@@ -509,6 +534,7 @@ async function main(argv = process.argv.slice(2), dependencies = {}) {
 		PLS_DESKTOP_GENERIC: String(generic),
 		PLS_DESKTOP_BACKEND_ENV: configFile,
 		PLS_SERVER_DIR: BACKEND_ROOT,
+		PLS_INSTALLER_VERIFIER_FILE: path.join(directory, "installer-verifier.json"),
 	};
 	if (generic) {
 		const desktopFile = path.join(directory, "generic-desktop.env");
@@ -542,12 +568,14 @@ module.exports = {
 	ensureIssuerKeys,
 	configuredPublicKey,
 	externalKeyDirectory,
+	getWindowsSid,
 	inside,
 	main,
 	parseArguments,
 	resolveTenant,
 	runCommand,
 	setConfigValue,
+	setWindowsAcl,
 	tenantFromDatabase,
 	validateExternalStorage,
 	writeDesktopConfig,

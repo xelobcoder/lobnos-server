@@ -9,9 +9,11 @@ const test = require("node:test");
 const {
 	assertRuntimeHasNoPrivateKey,
 	ensureIssuerKeys,
+	getWindowsSid,
 	parseArguments,
 	resolveTenant,
 	runCommand,
+	setWindowsAcl,
 	writeDesktopConfig,
 	main,
 } = require("./build-desktop.cjs");
@@ -29,6 +31,87 @@ function makePair() {
 		publicPem: pair.publicKey.export({ type: "spki", format: "pem" }),
 	};
 }
+
+test("Windows identity lookup bypasses PATH and parses the native CSV SID", () => {
+	let invocation;
+	const sid = getWindowsSid({
+		environment: { SystemRoot: "C:\\Windows", PATH: "C:\\Program Files\\Git\\usr\\bin" },
+		execFileSync(command, args, options) {
+			invocation = { command, args, options };
+			return '"workstation\\fixture","S-1-5-21-111-222-333-1001"\r\n';
+		},
+	});
+	assert.equal(sid, "S-1-5-21-111-222-333-1001");
+	assert.equal(invocation.command, "C:\\Windows\\System32\\whoami.exe");
+	assert.deepEqual(invocation.args, ["/user", "/fo", "csv", "/nh"]);
+	assert.equal(invocation.options.shell, false);
+});
+
+test("Windows identity lookup fails explicitly without a SID or native executable", () => {
+	for (const exec of [
+		() => "fixture\n",
+		() => { throw new Error("fixture process failure"); },
+	]) {
+		assert.throws(() => getWindowsSid({
+			environment: { SystemRoot: "C:\\Windows" }, execFileSync: exec,
+		}), /Could not determine the current Windows security identifier/);
+	}
+	for (const environment of [{}, { SystemRoot: "relative" }]) {
+		assert.throws(() => getWindowsSid({
+			environment, execFileSync: () => assert.fail("must not search PATH"),
+		}), /Could not determine the current Windows security identifier/);
+	}
+});
+
+test("Windows ACL setup bypasses PATH and preserves file and directory grants", {
+	skip: process.platform !== "win32",
+}, () => {
+	const sid = "S-1-5-21-111-222-333-1001";
+	for (const directory of [false, true]) {
+		let invocation;
+		setWindowsAcl("C:\\fixture\\verifier.json", directory, sid, {
+			environment: { WINDIR: "D:\\Windows", PATH: "C:\\Program Files\\Git\\usr\\bin" },
+			spawnSync(command, args, options) {
+				invocation = { command, args, options };
+				return { status: 0 };
+			},
+		});
+		assert.equal(invocation.command, "D:\\Windows\\System32\\icacls.exe");
+		assert.deepEqual(invocation.args, [
+			"C:\\fixture\\verifier.json", "/inheritance:r", "/grant:r",
+			`*${sid}:${directory ? "(OI)(CI)F" : "F"}`,
+			`*S-1-5-32-544:${directory ? "(OI)(CI)F" : "F"}`,
+		]);
+		assert.equal(invocation.options.shell, false);
+	}
+	for (const result of [{ status: 1 }, { status: null, error: new Error("fixture") }]) {
+		assert.throws(() => setWindowsAcl("C:\\fixture\\verifier.json", false, sid, {
+			environment: { SystemRoot: "C:\\Windows" }, spawnSync: () => result,
+		}), /Could not restrict issuer key permissions/);
+	}
+});
+
+test("native Windows utilities secure both verifier files end to end", {
+	skip: process.platform !== "win32",
+}, async t => {
+	const directory = temporaryDirectory(t, "pls-native-verifier-");
+	const sid = getWindowsSid();
+	const secured = [];
+	await require("./installation-verifier.cjs").installationVerifier(directory, {
+		configure: true,
+		prompt: async () => "fixture-native-installation-only",
+		secure(file) {
+			setWindowsAcl(file, false, sid);
+			secured.push(path.basename(file));
+		},
+	});
+	assert.equal(secured.length, 3);
+	assert.ok(secured.includes("installation-verifier.json"));
+	assert.ok(secured.includes("installer-verifier.json"));
+	for (const filename of ["installation-verifier.json", "installer-verifier.json"]) {
+		assert.ok(fs.existsSync(path.join(directory, filename)));
+	}
+});
 
 test("issuer keypair is reused and never regenerated once present", (t) => {
 	const directory = temporaryDirectory(t, "pls-issuer-reuse-");
@@ -194,6 +277,7 @@ test("automated build defaults to generic without DB lookup, preserves source se
 		let generated = 0;
 		const dependencies = {
 			configFile: source, keyDirectory: directory, environment: {}, sid: "test-sid",
+			installationPrompt: async () => "fixture-install-password-only",
 			secureFile() {}, secureDirectory() {},
 			get serverEnv() { throw new Error("Generic builds must not load the server environment or database"); },
 			generateKeys() {

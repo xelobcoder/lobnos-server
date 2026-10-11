@@ -46,7 +46,7 @@ importers:
         version: 9.0.3
       knex:
         specifier: ^3.1.0
-        version: 3.3.0(mysql2@3.23.0(@types/node@26.1.1))(supports-color@7.2.0)
+        version: 3.3.0(mysql2@3.23.0(@types/node@26.6.5))(supports-color@7.2.0)
       kysely:
         specifier: ^0.27.4
         version: 0.27.6
@@ -61,7 +61,7 @@ importers:
         version: 1.4.5-lts.2
       mysql2:
         specifier: ^3.11.5
-        version: 3.23.0(@types/node@26.1.1)
+        version: 3.23.0(@types/node@26.6.5)
       node-cron:
         specifier: ^4.2.0
         version: 4.6.0
@@ -99,6 +99,9 @@ importers:
       '@types/multer':
         specifier: ^1.4.12
         version: 1.4.13
+      '@types/node':
+        specifier: ^26.6.5
+        version: 26.6.5
       '@types/nodemailer':
         specifier: ^8.0.1
         version: 8.0.1
@@ -110,13 +113,13 @@ importers:
         version: 5.8.1(supports-color@7.2.0)
       ts-node:
         specifier: ^10.9.2
-        version: 10.9.2(@types/node@26.1.1)(typescript@5.9.3)
+        version: 10.9.2(@types/node@26.6.5)(typescript@5.9.3)
       typescript:
         specifier: ^5.4.5
         version: 5.9.3
       vitest:
         specifier: ^4.1.10
-        version: 4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1))
+        version: 4.1.10(@types/node@26.6.5)(vite@8.2.0(@types/node@26.6.5))
 
 packages:
 
@@ -382,8 +385,8 @@ packages:
   '@types/node@14.18.63':
     resolution: {integrity: sha512-fAtCfv4jJg+ExtXhvCkCqUKZ+4ok/JQk01qDKhL5BDDoS3AxKXhV5/MAVUZyQnSEd2GT92fkgZl0pz0Q0AzcIQ==}
 
-  '@types/node@26.1.1':
-    resolution: {integrity: sha512-nxAkRSVkN1Y0JC1W8ky/fTfkGsMmcrRsbx+3XoZE+rMOX71kLYTV7fLXpqud1GpbpP5TuffXFqfX7fH2GgZREw==}
+  '@types/node@26.6.5':
+    resolution: {integrity: sha512-uMzsv9stDdofIZBx4UGh4Z9ZgXnGC9seRDscilBcTHAeOFk67MZg/k9bWVfO+bk4qZmG+l52hRnLwUiH2LnJTg==}
 
   '@types/nodemailer@8.0.1':
     resolution: {integrity: sha512-PxpaInm8V1JQDd4j0ds5HfvWQk8JupS1C0Picb96QJsrrRDjBH+DlK7L4ZdNSqNULhiZRQHc40nLVShaGxXAMw==}
@@ -1903,8 +1906,8 @@ packages:
     engines: {node: '>=14.17'}
     hasBin: true
 
-  undici-types@8.3.0:
-    resolution: {integrity: sha512-j375ScV60dom+YkPFIfTLcOiPxkN/buHz5GobjLhixFuANaNs3C9l4GmrWqejgXWJ7BbJcFYpTEUkS1Ge8bpZQ==}
+  undici-types@8.9.0:
+    resolution: {integrity: sha512-KTDyRTYX8sWmKXAikPHHSyc63CRPETMctyjKFupcC6OBLXT3xsN0e9aF7m+mIXutFWpUXuedtowG7iLOzp0kQg==}
 
   universalify@2.0.1:
     resolution: {integrity: sha512-gptHNQghINnc/vTGIk0SOFGFNXw7JVrlRUtConJRlvaw6DuX0wO5Jeko9sWrMBhh+PsYAZ7oXAiOnf/UKogyiw==}
@@ -2272,12 +2275,12 @@ snapshots:
 
   '@types/bcrypt@6.0.0':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/chai@5.2.3':
     dependencies:
@@ -2286,11 +2289,11 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/deep-eql@4.0.2': {}
 
@@ -2298,7 +2301,7 @@ snapshots:
 
   '@types/express-serve-static-core@5.1.2':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
       '@types/qs': 6.15.1
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
@@ -2314,7 +2317,7 @@ snapshots:
   '@types/jsonwebtoken@9.0.10':
     dependencies:
       '@types/ms': 2.1.0
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/luxon@3.7.3': {}
 
@@ -2326,13 +2329,13 @@ snapshots:
 
   '@types/node@14.18.63': {}
 
-  '@types/node@26.1.1':
+  '@types/node@26.6.5':
     dependencies:
-      undici-types: 8.3.0
+      undici-types: 8.9.0
 
   '@types/nodemailer@8.0.1':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/qs@6.15.1': {}
 
@@ -2340,12 +2343,12 @@ snapshots:
 
   '@types/send@1.2.1':
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/serve-static@2.2.0':
     dependencies:
       '@types/http-errors': 2.0.5
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
 
   '@types/triple-beam@1.3.5': {}
 
@@ -2362,13 +2365,13 @@ snapshots:
       chai: 6.2.2
       tinyrainbow: 3.1.1
 
-  '@vitest/mocker@4.1.10(vite@8.2.0(@types/node@26.1.1))':
+  '@vitest/mocker@4.1.10(vite@8.2.0(@types/node@26.6.5))':
     dependencies:
       '@vitest/spy': 4.1.10
       estree-walker: 3.0.3
       magic-string: 0.30.21
     optionalDependencies:
-      vite: 8.2.0(@types/node@26.1.1)
+      vite: 8.2.0(@types/node@26.6.5)
 
   '@vitest/pretty-format@4.1.10':
     dependencies:
@@ -3110,7 +3113,7 @@ snapshots:
       jwa: 2.0.1
       safe-buffer: 5.2.1
 
-  knex@3.3.0(mysql2@3.23.0(@types/node@26.1.1))(supports-color@7.2.0):
+  knex@3.3.0(mysql2@3.23.0(@types/node@26.6.5))(supports-color@7.2.0):
     dependencies:
       colorette: 2.0.19
       commander: 10.0.1
@@ -3127,7 +3130,7 @@ snapshots:
       tarn: 3.1.2
       tildify: 2.0.0
     optionalDependencies:
-      mysql2: 3.23.0(@types/node@26.1.1)
+      mysql2: 3.23.0(@types/node@26.6.5)
     transitivePeerDependencies:
       - supports-color
 
@@ -3352,9 +3355,9 @@ snapshots:
       once: 1.4.0
       readable-stream: 3.6.2
 
-  mysql2@3.23.0(@types/node@26.1.1):
+  mysql2@3.23.0(@types/node@26.6.5):
     dependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
       aws-ssl-profiles: 1.1.2
       denque: 2.1.0
       generate-function: 2.3.1
@@ -3809,14 +3812,14 @@ snapshots:
 
   triple-beam@1.4.1: {}
 
-  ts-node@10.9.2(@types/node@26.1.1)(typescript@5.9.3):
+  ts-node@10.9.2(@types/node@26.6.5)(typescript@5.9.3):
     dependencies:
       '@cspotcode/source-map-support': 0.8.1
       '@tsconfig/node10': 1.0.12
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.4
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
       acorn: 8.17.0
       acorn-walk: 8.3.5
       arg: 4.1.3
@@ -3842,7 +3845,7 @@ snapshots:
 
   typescript@5.9.3: {}
 
-  undici-types@8.3.0: {}
+  undici-types@8.9.0: {}
 
   universalify@2.0.1: {}
 
@@ -3875,7 +3878,7 @@ snapshots:
 
   vary@1.1.2: {}
 
-  vite@8.2.0(@types/node@26.1.1):
+  vite@8.2.0(@types/node@26.6.5):
     dependencies:
       lightningcss: 1.33.0
       picomatch: 4.0.5
@@ -3883,13 +3886,13 @@ snapshots:
       rolldown: 1.2.3
       tinyglobby: 0.2.17
     optionalDependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
       fsevents: 2.3.3
 
-  vitest@4.1.10(@types/node@26.1.1)(vite@8.2.0(@types/node@26.1.1)):
+  vitest@4.1.10(@types/node@26.6.5)(vite@8.2.0(@types/node@26.6.5)):
     dependencies:
       '@vitest/expect': 4.1.10
-      '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@26.1.1))
+      '@vitest/mocker': 4.1.10(vite@8.2.0(@types/node@26.6.5))
       '@vitest/pretty-format': 4.1.10
       '@vitest/runner': 4.1.10
       '@vitest/snapshot': 4.1.10
@@ -3906,10 +3909,10 @@ snapshots:
       tinyexec: 1.3.0
       tinyglobby: 0.2.17
       tinyrainbow: 3.1.1
-      vite: 8.2.0(@types/node@26.1.1)
+      vite: 8.2.0(@types/node@26.6.5)
       why-is-node-running: 2.3.0
     optionalDependencies:
-      '@types/node': 26.1.1
+      '@types/node': 26.6.5
     transitivePeerDependencies:
       - msw
 
