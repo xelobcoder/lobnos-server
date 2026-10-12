@@ -1,6 +1,6 @@
 # CustomerBillingInit Class: Method Documentation
 
-This document explains the purpose and logic of each method in the `CustomerBillingInit` class, which is responsible for initializing and calculating billing for customers in the Lobnos system.
+This document explains the purpose and logic of each method in the `CustomerBillingInit` class, which is responsible for initializing and calculating billing for customers in the PLS system.
 
 ---
 

@@ -46,8 +46,11 @@ export class NotificationService {
                };
           }
 
-          const template = await this.templatesRepo.findActiveForEvent(event.id as number);
+          const template = settings?.default_template_id
+               ? await this.templatesRepo.findById(settings.default_template_id)
+               : await this.templatesRepo.findActiveForEvent(event.id as number);
           if (!template) throw new Error('No active template found for event');
+          if (!template.is_active || template.event_id !== event.id) throw new Error('Invalid configured template for event');
 
           const recipientRules = await this.recipientsRepo.findByEventId(event.id as number);
           const recipients = recipientRules.length > 0

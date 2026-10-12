@@ -1,7 +1,7 @@
 # Payroll System Implementation Summary
 
 ## Overview
-Comprehensive payroll management system for Lobnos LIMS with multi-tenant support, progressive tax calculation, statutory deductions (SSNIT, Tier 3, NHIS), and full payroll processing workflow.
+Comprehensive payroll management system for Prime Laboratory Software (PLS) with multi-tenant support, progressive tax calculation, statutory deductions (SSNIT, Tier 3, NHIS), and full payroll processing workflow.
 
 ## ✅ Completed Components
 

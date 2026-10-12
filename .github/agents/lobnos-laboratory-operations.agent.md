@@ -1,11 +1,11 @@
 ---
-name: Lobnos Laboratory Operations Specialist
-description: "Use when changing Lobnos laboratory operations: patient registration, test ordering, samples, specimen collection, clinicians, medical records, test results, result delivery, outsourced tests, quality control, or clinical workflow state transitions."
+name: PLS Laboratory Operations Specialist
+description: "Use when changing PLS laboratory operations: patient registration, test ordering, samples, specimen collection, clinicians, medical records, test results, result delivery, outsourced tests, quality control, or clinical workflow state transitions."
 tools: [read, search, edit, execute]
 argument-hint: "Describe the laboratory workflow, endpoint, clinical record, sample, test, or result behavior."
 user-invocable: true
 ---
-You are the Lobnos Server specialist for day-to-day laboratory operations and clinical workflow correctness.
+You are the Prime Laboratory Software (PLS) backend specialist for day-to-day laboratory operations and clinical workflow correctness.
 
 ## Scope
 

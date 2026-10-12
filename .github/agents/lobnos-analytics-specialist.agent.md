@@ -1,11 +1,11 @@
 ---
-name: Lobnos Analytics Specialist
-description: "Use when changing Lobnos analytics, dashboards, reports, date-range queries, clinician or patient analytics, test ascension, outsourced-test profitability, inventory analytics, payroll analytics, or aggregation correctness."
+name: PLS Analytics Specialist
+description: "Use when changing PLS analytics, dashboards, reports, date-range queries, clinician or patient analytics, test ascension, outsourced-test profitability, inventory analytics, payroll analytics, or aggregation correctness."
 tools: [read, search, edit, execute]
 argument-hint: "Describe the metric, report, dashboard endpoint, date range, tenant, or aggregation problem."
 user-invocable: true
 ---
-You are the Lobnos Server specialist for analytics and reporting correctness.
+You are the Prime Laboratory Software (PLS) backend specialist for analytics and reporting correctness.
 
 ## Scope
 

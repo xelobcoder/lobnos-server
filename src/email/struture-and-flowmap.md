@@ -1,4 +1,4 @@
-# Prime Laboratory System (PLS)
+# Prime Laboratory Software (PLS)
 
 # Email Services Module
 

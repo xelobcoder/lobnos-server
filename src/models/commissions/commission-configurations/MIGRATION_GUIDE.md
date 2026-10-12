@@ -249,9 +249,9 @@ mysql -u username -p database_name -e "DROP TABLE IF EXISTS commission_default, 
 
 5. **Multi-Tenancy:** These migrations create base tables. When using multi-tenancy, each tenant gets its own database with these tables replicated.
 
-## Integration with Lobnos
+## Integration with PLS
 
-The commission engine integrates with Lobnos billing workflow:
+The commission engine integrates with PLS billing workflow:
 
 1. **Service Insertion:** When a service is billed (`dboservices` table), commission calculation is triggered
 2. **Automatic Calculation:** CommissionEngineService runs async after billing commit

@@ -1,4 +1,4 @@
-# Prime Lab System (PLS)
+# Prime Laboratory Software (PLS)
 
 **High Performance Laboratory Information Management System**
 
@@ -438,6 +438,14 @@ All API endpoints (except login) require JWT token in `pls-prime-tenant-session`
 - `/api/v1/inventory/` - Inventory management
 - `/api/v1/clinicians/` - Clinician management
 - `/api/v1/analytics/` - Analytics & reporting
+- `/api/v1/appointments/` - Appointment scheduling, calendar, and practitioner availability
+
+Appointment CRUD, calendar, patient-history, and practitioner-slot endpoints use the
+`tenantId` query parameter (for example,
+`/api/v1/appointments/practioner/slots?employeeid=1&tenantId=957782`).
+The legacy `tenant` alias is still accepted when `tenantId` is absent; `tenantId`
+takes precedence when both are supplied. Missing or invalid tenant IDs return
+HTTP 400 before database access.
 
 See code documentation in `src/controllers/` for detailed endpoint specifications.
 
@@ -640,7 +648,7 @@ For issues, questions, or support:
 
 ---
 
-**Prime Lab System v0.0.1**  
+**Prime Laboratory Software v0.0.1**\
 _High Performance Laboratory Information Management System_
 
 Built with ❤️ for healthcare professionals

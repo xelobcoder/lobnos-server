@@ -2,7 +2,7 @@
 
 ## 📋 Overview
 
-This guide walks through the complete commission engine implementation for the Lobnos LIMS. The system automatically calculates clinician and organization commissions based on configured rules when services are billed.
+This guide walks through the complete commission engine implementation for the Prime Laboratory Software (PLS). The system automatically calculates clinician and organization commissions based on configured rules when services are billed.
 
 ## 🏗️ Architecture
 

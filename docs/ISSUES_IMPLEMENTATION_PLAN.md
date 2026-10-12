@@ -1,6 +1,6 @@
 # Implementation Plan: Issues 1-11
 
-This document turns the requests in [`../issues.md`](../issues.md) into implementation tasks for the Lobnos Server backend and the sibling `lobnos` frontend. The frontend is located at `../../lobnos` relative to this document.
+This document turns the requests in [`../issues.md`](../issues.md) into implementation tasks for the Prime Laboratory Software (PLS) backend backend and the sibling `lobnos` frontend. The frontend is located at `../../lobnos` relative to this document.
 
 ## Delivery Rules
 

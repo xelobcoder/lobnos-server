@@ -21,6 +21,7 @@ import { bootstrapApplicationSettings } from '../models/application/appsettings/
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
+import { bootstrapAppointmentTables } from '../models/appointments/AppointmentBootstrapper';
 import { startOptionalRedisCache } from '../services/cache/testPanelCache';
 import { listServedTenants } from '../models/Tenancy/TenantRegistry';
 
@@ -88,6 +89,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapResultSettings(tenantId);
 	await bootstrapApplicationSettings(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
+	await bootstrapAppointmentTables(tenantId);
 	// Legacy seeds create checklist rows for demo order 1, not reference data.
 	// A new facility must start with no home-collection transactions.
 	if (!strict) await bootstrapHomeCollectionSeeds(tenantId);

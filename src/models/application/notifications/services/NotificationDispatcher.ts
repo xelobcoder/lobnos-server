@@ -7,6 +7,8 @@ export type NotificationDispatchResult = {
      notificationId?: number;
      notificationQueueId?: number;
      emailQueueId?: number;
+     smsJobId?: number;
+     channels?: Record<string, { status: 'queued' | 'skipped' | 'failed'; reason?: string }>;
      reason?: string;
      error?: string;
 };
@@ -43,14 +45,45 @@ export class NotificationDispatcher {
           createdBy?: number,
           overrides?: { context?: Record<string, unknown>; recipients?: { to?: string[]; cc?: string[]; bcc?: string[] } },
      ): Promise<NotificationDispatchResult> {
-          const reference = referenceFrom(references);
+          if (eventCode.startsWith('APPOINTMENT_')) {
+               if (!Number.isInteger(tenantId) || tenantId <= 0) {
+                    return { success: false, eventCode, reason: 'Valid tenant context is required' };
+               }
+               try {
+                    const { buildAppointmentNotificationService } = await import('./AppointmentNotificationServiceFactory');
+                    return await buildAppointmentNotificationService(tenantId).dispatch(
+                         eventCode, references, createdBy, overrides,
+                         () => this.dispatchInApp(tenantId, eventCode, references, createdBy, overrides),
+                    );
+               } catch (_error) {
+                    return { success: false, eventCode, reason: 'Appointment notification could not be queued' };
+               }
+          }
+          return this.dispatchInApp(tenantId, eventCode, references, createdBy, overrides);
+     }
+
+     private static async dispatchInApp(
+          tenantId: number,
+          eventCode: string,
+          references: NotificationDispatchReferences,
+          createdBy?: number,
+          overrides?: { context?: Record<string, unknown>; recipients?: { to?: string[]; cc?: string[]; bcc?: string[] } },
+     ): Promise<NotificationDispatchResult> {
           const contextMessage = typeof overrides?.context?.message === 'string' ? overrides.context.message : null;
+          const reference = referenceFrom(references);
+          const contextAppointmentId = overrides?.context?.appointment_id;
+          const normalizedAppointmentId = Number(contextAppointmentId);
+          const notificationReference: { type?: string; id?: number | string } = reference.id !== undefined
+               ? reference
+               : Number.isSafeInteger(normalizedAppointmentId) && normalizedAppointmentId > 0
+                    ? { type: 'appointment', id: normalizedAppointmentId }
+                    : {};
 
           try {
                const message = contextMessage ?? await new InAppNotificationContextService(tenantId).buildMessage(
                     eventCode,
                     formatEventName(eventCode),
-                    reference,
+                    notificationReference,
                     createdBy,
                );
                const notificationId = await InAppNotificationService.publish(tenantId, {
@@ -58,8 +91,8 @@ export class NotificationDispatcher {
                     module: eventCode.split('_')[0].toLowerCase(),
                     title: formatEventName(eventCode),
                     message,
-                    referenceType: reference.type,
-                    referenceId: typeof reference.id === 'number' ? reference.id : undefined,
+                    referenceType: notificationReference.type,
+                    referenceId: typeof notificationReference.id === 'number' ? notificationReference.id : undefined,
                     actorEmployeeId: createdBy,
                });
                return { success: true, eventCode, notificationId };
@@ -80,6 +113,6 @@ export class NotificationDispatcher {
           createdBy?: number,
           recipients?: { to?: string[]; cc?: string[]; bcc?: string[] },
      ): Promise<NotificationDispatchResult> {
-          return this.dispatch(tenantId, eventCode, {}, createdBy, { context });
+          return this.dispatch(tenantId, eventCode, {}, createdBy, { context, recipients });
      }
 }

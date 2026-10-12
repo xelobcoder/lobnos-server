@@ -1,6 +1,6 @@
 # Product Requirements Document (PRD)
 
-# Prime Laboratory System (PLS)
+# Prime Laboratory Software (PLS)
 
 ## Email Services Module
 
@@ -13,7 +13,7 @@
 
 # 1. Overview
 
-The Email Services Module enables Prime Laboratory System (PLS) to send transactional, operational, and marketing emails to patients, clinicians, organizations, laboratories, and system users.
+The Email Services Module enables Prime Laboratory Software (PLS) to send transactional, operational, and marketing emails to patients, clinicians, organizations, laboratories, and system users.
 
 The module will provide a centralized email infrastructure used by every module in the system instead of allowing each module to send emails independently.
 
@@ -571,4 +571,4 @@ Settings
 * DKIM/SPF/DMARC configuration assistant
 * Shared notification engine for Email, SMS, and WhatsApp
 
-This PRD is designed to integrate cleanly with the existing architecture of Prime Laboratory System, providing a centralized email service that every module can use through a common notification layer rather than implementing email logic independently.
+This PRD is designed to integrate cleanly with the existing architecture of Prime Laboratory Software, providing a centralized email service that every module can use through a common notification layer rather than implementing email logic independently.

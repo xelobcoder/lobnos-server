@@ -1,5 +1,5 @@
 # Commission Engine Implementation Plan
-**Project:** Lobnos Server - Commission Engine System  
+**Project:** Prime Laboratory Software (PLS) backend - Commission Engine System\
 **Version:** 1.0 (Final)  
 **Date:** May 6, 2026  
 **Status:** Ready for Implementation
@@ -8,7 +8,7 @@
 
 ## Executive Summary
 
-This plan consolidates three comprehensive AI specifications (ChatGPT, Claude, DeepSeek) into a single, unified implementation roadmap for a **service-driven, deterministic commission engine** for the Lobnos LIMS.
+This plan consolidates three comprehensive AI specifications (ChatGPT, Claude, DeepSeek) into a single, unified implementation roadmap for a **service-driven, deterministic commission engine** for the Prime Laboratory Software (PLS).
 
 ### Core Objectives
 - Calculate commissions per **individual service/test rendered**
@@ -587,7 +587,7 @@ GET    /api/v1/commission/ledger?clinicianId=X
 
 ---
 
-## 5. File Structure (Lobnos Server Integration)
+## 5. File Structure (Prime Laboratory Software (PLS) backend Integration)
 
 ```
 src/models/commissions/

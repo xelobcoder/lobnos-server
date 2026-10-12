@@ -1,6 +1,6 @@
-# Lobnos Server deployment checklist
+# Prime Laboratory Software (PLS) backend deployment checklist
 
-Reusable checklist for a self-hosted Lobnos Server release, primarily the
+Reusable checklist for a self-hosted Prime Laboratory Software (PLS) backend release, primarily the
 Windows/NSSM service deployment. Complete one copy per release. Mark steps
 not applicable only with an explanation; do not treat an unchecked item as
 implicitly complete.
@@ -47,6 +47,10 @@ implicitly complete.
 - [ ] Review database schema/bootstrap changes in the release. Identify whether
   startup bootstrap will create or alter tables, whether a separate migration
   is required, expected lock/downtime, and how it will be monitored.
+- [ ] For workspace-layout releases, confirm the tenant bootstrap will add the
+  `applicationsettings.workspaceLayout` column and default existing facilities
+  to `classic`; include this additive schema change in backup and rollback
+  planning.
 - [ ] **Do not rely on `npm run migrate-sql` without verification:** the README
   mentions this command, but `package.json` does not currently define it.
   Establish the approved migration procedure for this release before proceeding.
@@ -80,6 +84,9 @@ implicitly complete.
 - [ ] If this release includes schema/bootstrap changes, run only the approved
   migration procedure and record completion/errors. Do not improvise SQL or
   assume startup bootstrap is a reversible migration.
+- [ ] For workspace-layout releases, verify application-settings bootstrap
+  completed for every expected tenant before enabling the new API or UI; do not
+  assume a successful service start means every tenant bootstrapped.
 - [ ] For an already-installed Windows service, restart it using
   `npm run service:restart:win` (or the configured service name). Verify status
   with `npm run service:status:win`. Do not reinstall/uninstall a service as a
@@ -103,6 +110,10 @@ implicitly complete.
   configured required behavior.
 - [ ] Smoke-test authenticated sign-in and the release-affected user flows using
   approved test accounts and non-production/test records where possible.
+- [ ] For workspace-layout releases, verify an administrator can save each
+  supported facility layout, non-administrators cannot change it, and another
+  user sees the selected layout after sign-in or refresh. Confirm existing
+  facilities default to Classic.
 - [ ] At minimum, verify one representative patient registration, test
   ordering/result access, billing/payment, and report/notification flow as
   applicable to the changed modules.

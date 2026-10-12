@@ -1,6 +1,6 @@
-# Prime Lab System Runtime (Windows Service) Installation Guide
+# Prime Laboratory Software Runtime (Windows Service) Installation Guide
 
-This guide explains how to run the Lobnos backend as a Windows Service so it:
+This guide explains how to run the PLS backend as a Windows Service so it:
 - Starts automatically when the PC boots
 - Keeps running in the background (no terminal window to close)
 - Waits/retries until the database is available

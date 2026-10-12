@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide provides accurate, detailed instructions for setting up and managing commission configurations in the Lobnos Professional Version system. Commission configurations define how commissions are calculated when services are billed.
+This guide provides accurate, detailed instructions for setting up and managing commission configurations in the Prime Laboratory Software (PLS) system. Commission configurations define how commissions are calculated when services are billed.
 
 ## Commission Types
 

@@ -1,4 +1,4 @@
-# Running Lobnos Server as a Windows Service
+# Running Prime Laboratory Software (PLS) backend as a Windows Service
 
 Yes, this app can run in the background as a real Windows Service.
 
@@ -74,7 +74,7 @@ If your terminal is not elevated, start/stop/restart commands request UAC automa
 You can run installer directly if you want custom service name:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File ./scripts/windows/install-service.ps1 -ServiceName "LobnosServerProd" -DisplayName "Lobnos Server Prod" -BuildBeforeInstall -StartNow
+powershell -ExecutionPolicy Bypass -File ./scripts/windows/install-service.ps1 -ServiceName "LobnosServerProd" -DisplayName "PLS Backend Production" -BuildBeforeInstall -StartNow
 ```
 
 ## Notes

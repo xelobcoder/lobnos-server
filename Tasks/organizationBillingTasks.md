@@ -18,7 +18,7 @@ Give approved organizations and clinicians a dedicated workspace where they can 
 8. Pharmacy point-of-sale sales, prescription dispensing, and returns use the same existing inventory availability and immutable stock-movement controls.
 9. Pharmacy-only users can work without laboratory access; combined facilities may enable both pharmacy and laboratory workflows through capability and role configuration.
 10. `Pharmacy` is a mandatory inventory category. Every medicine available to pharmacy workflows is created as a standard inventory item in this category; it carries its quantity and pharmacy sale price in inventory, without a separate pharmacy drug catalogue.
-11. Pharmacy is an internal Lobnos module and uses the existing laboratory application shell, navigation, UI components, visual conventions, and accessibility behavior. The partner workspace remains the only separate product surface.
+11. Pharmacy is an internal PLS module and uses the existing laboratory application shell, navigation, UI components, visual conventions, and accessibility behavior. The partner workspace remains the only separate product surface.
 
 ## Documents
 

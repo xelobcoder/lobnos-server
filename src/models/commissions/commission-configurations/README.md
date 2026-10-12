@@ -2,7 +2,7 @@
 
 ## Overview
 
-This module implements a complete, production-ready commission engine for the Lobnos LIMS system. All classes follow the three-layer architecture defined in PLAN.md:
+This module implements a complete, production-ready commission engine for the Prime Laboratory Software (PLS) system. All classes follow the three-layer architecture defined in PLAN.md:
 
 - **Application Layer**: Services & Validation (CommissionEngineService, etc.)
 - **Data Access Layer**: Repositories
@@ -500,7 +500,7 @@ const result = await engine.executeCommissionCalculation({
 console.log(`Final commission: ${result.final_commission}`);
 ```
 
-## Integration with Lobnos
+## Integration with PLS
 
 ### 1. Add to Route Handler
 

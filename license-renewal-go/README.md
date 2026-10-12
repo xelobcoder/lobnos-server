@@ -1,6 +1,6 @@
 # License Renewal Go Application
 
-This Go application is designed to renew the license for the Lobnos Professional Version server by making an API call to the license add endpoint.
+This Go application is designed to renew the license for the Prime Laboratory Software (PLS) server by making an API call to the license add endpoint.
 
 ## Prerequisites
 

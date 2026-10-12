@@ -1,14 +1,14 @@
-Brother, the key is to position the Prime Laboratory System (PLS) website as more than a corporate website. It should become a centralized laboratory discovery, test-booking, and patient-service platform that integrates directly with PLS while also onboarding laboratories that do not yet use the software. The architecture should support a gradual migration from non-PLS facilities to full PLS integration.
+Brother, the key is to position the Prime Laboratory Software (PLS) website as more than a corporate website. It should become a centralized laboratory discovery, test-booking, and patient-service platform that integrates directly with PLS while also onboarding laboratories that do not yet use the software. The architecture should support a gradual migration from non-PLS facilities to full PLS integration.
 
 Here is a refined version of your requirements that you can use in your project documentation or give to your development team.
 
-Prime Laboratory System (PLS): Integrated Laboratory Discovery, Test Booking, and Patient Service Platform
+Prime Laboratory Software (PLS): Integrated Laboratory Discovery, Test Booking, and Patient Service Platform
 
-# Prime Laboratory System (PLS): Integrated Laboratory Discovery, Test Booking, and Patient Service Platform
+# Prime Laboratory Software (PLS): Integrated Laboratory Discovery, Test Booking, and Patient Service Platform
 
 ## 1. Project Vision
 
-Develop an enterprise-grade website and patient-facing platform for **Prime Laboratory System (PLS)** that serves as the central online gateway for discovering medical laboratories, exploring laboratory test catalogs, comparing test prices, requesting laboratory investigations, arranging sample collection, and tracking payment verification and service fulfillment.
+Develop an enterprise-grade website and patient-facing platform for **Prime Laboratory Software (PLS)** that serves as the central online gateway for discovering medical laboratories, exploring laboratory test catalogs, comparing test prices, requesting laboratory investigations, arranging sample collection, and tracking payment verification and service fulfillment.
 
 The platform must integrate directly with the existing PLS core laboratory management system while also supporting independent laboratories that do not currently use PLS.
 
@@ -26,7 +26,7 @@ The platform must support two distinct facility categories.
 
 ### A. PLS-Integrated Facilities
 
-These are laboratories that already use Prime Laboratory System.
+These are laboratories that already use Prime Laboratory Software.
 
 Each facility must be connected to the central platform through a secure integration mechanism based on its facility tenancy ID and the appropriate backend integration credentials.
 
@@ -56,7 +56,7 @@ The platform must not create a separate, conflicting source of truth for laborat
 
 ### B. Non-PLS Facilities
 
-These are independent laboratories that do not currently use Prime Laboratory System.
+These are independent laboratories that do not currently use Prime Laboratory Software.
 
 The platform must allow these facilities to register and establish a public laboratory profile without requiring them to purchase or install PLS first.
 
@@ -156,7 +156,7 @@ The system should be designed so that a future Mobile Money or payment gateway i
 
 ## 5. Integration with the Core PLS Platform
 
-The public website and marketplace must be integrated with the existing Prime Laboratory System backend rather than developed as a disconnected application.
+The public website and marketplace must be integrated with the existing Prime Laboratory Software backend rather than developed as a disconnected application.
 
 For PLS-integrated facilities, the platform should support the following operational flow:
 
@@ -264,7 +264,7 @@ The entire platform must be designed around the following principles:
 
 ## 9. Expected Outcome
 
-The final product should establish Prime Laboratory System as both a laboratory management platform and a gateway connecting patients to participating medical laboratories.
+The final product should establish Prime Laboratory Software as both a laboratory management platform and a gateway connecting patients to participating medical laboratories.
 
 Existing PLS customers gain an additional channel for attracting patients and managing digital bookings. Independent laboratories gain online visibility and booking capabilities without an immediate software migration requirement. Patients gain a convenient way to discover available investigations, compare published prices, choose a facility, arrange sample collection, and follow the progress of their requests.
 

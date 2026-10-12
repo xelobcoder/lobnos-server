@@ -3,7 +3,7 @@
 /**
  * Distribution Package Creator
  * Creates a complete, self-contained distribution folder with all necessary files
- * to run the PLS (Prime Lab System) application
+ * to run the PLS (Prime Laboratory Software) application
  */
 
 const fs = require("fs");
@@ -125,7 +125,7 @@ function createEnvTemplate() {
       fs.copyFileSync(envExamplePath, envPath);
     } else {
       // Create a minimal template
-      const envContent = `# Prime Lab System Environment Configuration
+      const envContent = `# Prime Laboratory Software Environment Configuration
 NODE_ENV=production
 PORT=5000
 DB_HOST=localhost
@@ -152,7 +152,7 @@ function createDeploymentGuide() {
     return; // Already exists, skip
   }
 
-  const content = `# Prime Lab System - Distribution Deployment Guide
+  const content = `# Prime Laboratory Software - Distribution Deployment Guide
 
 ## Overview
 This distribution package contains everything needed to run the PLS application.
@@ -224,7 +224,7 @@ SSL certificates should be in cert/ directory:
 5. Regularly backup your database
 
 ---
-Prime Lab System
+Prime Laboratory Software
 `;
 
   fs.writeFileSync(scriptPath, content);

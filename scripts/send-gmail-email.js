@@ -21,7 +21,7 @@ function parseArgs(argv) {
 }
 
 function normalizeCompanyName(value) {
-     if (!value) return 'Prime Laboratory System';
+     if (!value) return 'Prime Laboratory Software';
      return String(value).replace(/^`|`$/g, '').trim();
 }
 
@@ -55,8 +55,8 @@ async function main() {
      }
 
      const to = args.to || user;
-     const subject = args.subject || 'Prime Laboratory System Email Test';
-     const text = args.text || 'Hello from Prime Laboratory System';
+     const subject = args.subject || 'Prime Laboratory Software Email Test';
+     const text = args.text || 'Hello from Prime Laboratory Software';
      const html = args.html || `<p>${text}</p>`;
      const fromName = normalizeCompanyName(args.fromName || company);
 

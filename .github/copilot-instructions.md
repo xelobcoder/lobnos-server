@@ -1,4 +1,11 @@
-# Lobnos Server - AI Coding Agent Instructions
+# Prime Laboratory Software (PLS) Backend - AI Coding Agent Instructions
+
+## Product identity
+
+- The product is **Prime Laboratory Software**, abbreviated **PLS**. Use this name in UI, documentation, product metadata, and agent descriptions.
+- Do not call the product Lobnos or Prime Laboratory System.
+- Existing repository paths, imports, service identifiers, environment variables, and saved preference keys may retain legacy names for compatibility; they are not product branding.
+- Use pnpm, not npm, for project commands.
 
 ## Project Overview
 Laboratory Information Management System (LIMS) backend built with Express/TypeScript, using Knex for MySQL multi-tenancy support. This is a healthcare-focused system managing patient registration, test results, billing, inventory, compliance, and CRM.

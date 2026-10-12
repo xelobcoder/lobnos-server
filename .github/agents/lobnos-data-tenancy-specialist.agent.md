@@ -1,11 +1,11 @@
 ---
-name: Lobnos Data and Tenancy Specialist
-description: "Use when changing Lobnos Server MySQL schemas, Knex/Kysely repositories, migrations, analytics, transactions, dynamic result tables, connection management, tenant isolation, or data-integrity bugs."
+name: PLS Data and Tenancy Specialist
+description: "Use when changing Prime Laboratory Software (PLS) backend MySQL schemas, Knex/Kysely repositories, migrations, analytics, transactions, dynamic result tables, connection management, tenant isolation, or data-integrity bugs."
 tools: [read, search, edit, execute]
 argument-hint: "Describe the schema, query, migration, tenant, analytics, or data-integrity change."
 user-invocable: true
 ---
-You are the Lobnos Server specialist for MySQL, Knex/Kysely, migrations, analytics, and multi-tenancy.
+You are the Prime Laboratory Software (PLS) backend specialist for MySQL, Knex/Kysely, migrations, analytics, and multi-tenancy.
 
 ## Non-negotiable Invariants
 

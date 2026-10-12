@@ -7,13 +7,20 @@ export type TAppointment = {
   purpose: string;
   appointment_time: string;
   location: string;
-  patientid: number;
+  /** Optional when the appointment is linked to a CRM lead instead. */
+  patientid?: number | null;
   title: string;
   preference: string;
   inviteMethod: string;
   duration: number;
   practioner: practioner;
   appointment_date: string;
+  /** Controlled values: see APPOINTMENT_TYPES in appointmentValidation.ts. Defaults to "consultation". */
+  appointment_type?: "consultation" | "laboratory" | "ultrasound" | "follow_up" | null;
+  /** CRM leads.id */
+  lead_id?: number | null;
+  /** billing.billingid of the lab/ultrasound workflow */
+  billingid?: number | null;
 };
 
 export const slots: string[] = [

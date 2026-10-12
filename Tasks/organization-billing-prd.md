@@ -4,12 +4,12 @@
 
 **Status:** Draft for product and engineering review  
 **Owner:** Product / PrimeLab Systems  
-**Target product:** Lobnos LIMS  
+**Target product:** Prime Laboratory Software (PLS)\
 **Last updated:** 2026-09-01
 
 ## 1. Executive Summary
 
-Lobnos supports staff selecting an organization or clinician as a billing source, but those partners do not have a purpose-built workflow for creating and tracking their own orders. The proposed Partner Workspace gives each approved organization or clinician a secure, entity-scoped portal for patient registration, laboratory ordering, billing submission, sample handoff, and result retrieval.
+PLS supports staff selecting an organization or clinician as a billing source, but those partners do not have a purpose-built workflow for creating and tracking their own orders. The proposed Partner Workspace gives each approved organization or clinician a secure, entity-scoped portal for patient registration, laboratory ordering, billing submission, sample handoff, and result retrieval.
 
 The center remains the operational authority. It owns contract prices, approves or rejects submitted bills, receives or collects samples, performs testing, validates and signs results, and releases final reports. Laboratory processing is blocked at the API and UI levels until a bill is approved.
 
@@ -116,7 +116,7 @@ Every partner request derives `tenantId` and `billingEntityId` from the authenti
 4. **Progressive disclosure:** partners see simple operational language; center staff retain detailed LIMS stages.
 5. **Accessible by default:** keyboard operation, visible focus, semantic labels, and WCAG 2.2 AA contrast.
 6. **No hidden stock movement:** every reservation, issue, reversal, and adjustment is traceable.
-7. **One internal Lobnos experience:** pharmacy is an internal module and uses the same application shell, navigation, visual tokens, component patterns, command behavior, loading states, and accessibility standards as laboratory operations. Only the external partner workspace has a separate product surface.
+7. **One internal PLS experience:** pharmacy is an internal module and uses the same application shell, navigation, visual tokens, component patterns, command behavior, loading states, and accessibility standards as laboratory operations. Only the external partner workspace has a separate product surface.
 
 ## 7. Information Architecture and Routes
 
@@ -141,7 +141,7 @@ The session contains `partnerType: organization | clinician`, so the same route 
 
 ### Center Operations
 
-Pharmacy uses the existing internal Lobnos application shell and route layout used by laboratory operations. It must not introduce a separate portal shell, visual language, or navigation paradigm. Pharmacy-only users see only their authorized pharmacy navigation; combined-facility users see pharmacy alongside their existing laboratory navigation according to role and feature configuration.
+Pharmacy uses the existing internal PLS application shell and route layout used by laboratory operations. It must not introduce a separate portal shell, visual language, or navigation paradigm. Pharmacy-only users see only their authorized pharmacy navigation; combined-facility users see pharmacy alongside their existing laboratory navigation according to role and feature configuration.
 
 ```text
 /billing/partner-approvals
@@ -174,10 +174,10 @@ The partner portal must look and behave as a separate product surface, not as a 
 
 ### Visual Direction: Pharmacy Workspace
 
-The pharmacy workspace is an internal Lobnos module and must remain visually and behaviorally consistent with existing laboratory workspaces.
+The pharmacy workspace is an internal PLS module and must remain visually and behaviorally consistent with existing laboratory workspaces.
 
 - **Shell and navigation:** use the existing internal application shell, desktop/sidebar behavior, mobile navigation behavior, and role-aware navigation patterns; do not use the separate Partner Workspace shell.
-- **Components:** reuse established Lobnos table, form, modal, command, notification, loading, empty, error, and confirmation patterns before introducing pharmacy-specific components.
+- **Components:** reuse established PLS table, form, modal, command, notification, loading, empty, error, and confirmation patterns before introducing pharmacy-specific components.
 - **Visual system:** use the internal application typography, spacing scale, control sizes, panel treatment, icon library, focus treatment, and status semantics. Pharmacy-specific color can clarify stock or payment state, but it cannot replace the shared internal visual language.
 - **Workflow density:** match laboratory operations with compact queues, text-start tables, predictable filters, clear primary commands, and stable detail views suitable for repeated staff use.
 - **Responsive behavior:** pharmacy POS, stock, dispensing, and shift screens must follow the same mobile/tablet breakpoints and accessibility behavior as laboratory operational screens.

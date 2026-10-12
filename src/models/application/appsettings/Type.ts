@@ -1,3 +1,5 @@
+import { WorkspaceLayout } from './workspaceLayout';
+
 type numberBoolean = 0 | 1;
 
 export function jsonify<T>(value: string): T {
@@ -42,6 +44,7 @@ export type ApplicationSettingsData = {
      sidebarTextColor?: string | null;
      primaryColor?: string | null;
      secondaryColor?: string | null;
+     workspaceLayout?: WorkspaceLayout;
      DeactivateBilling24hrs: number;
      allowManagerToRefund: numberBoolean;
      makepdfprintingcompulsory: numberBoolean;

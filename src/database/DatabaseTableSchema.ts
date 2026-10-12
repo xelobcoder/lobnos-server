@@ -57,7 +57,7 @@ export type PrimeLimsTableapplicationsettings = {
 
 export type PrimeLimsTableappointments = {
   refid: number;
-  patientid: number;
+  patientid?: number | null;
   duration: number;
   status?: string;
   appointment_time: string;
@@ -69,6 +69,9 @@ export type PrimeLimsTableappointments = {
   practioner: number;
   location: string;
   notes?: string;
+  appointment_type?: string | null;
+  lead_id?: number | null;
+  billingid?: number | null;
 };
 
 export type PrimeLimsTableattendancecycles = {

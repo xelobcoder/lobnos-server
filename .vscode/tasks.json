@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "lobnos server",
+            "label": "PLS server",
             "type": "shell",
             "command": "pnpm dev",
             "problemMatcher": [],

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The distribution build creates a complete, self-contained folder with everything needed to run the PLS (Prime Lab System) application on a clean machine without requiring the source code or additional downloads.
+The distribution build creates a complete, self-contained folder with everything needed to run the PLS (Prime Laboratory Software) application on a clean machine without requiring the source code or additional downloads.
 
 ## What's Included in Distribution
 
@@ -291,4 +291,4 @@ For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE
 ---
 
 **Distribution Build v1.0**  
-Prime Lab System
+Prime Laboratory Software

@@ -20,6 +20,7 @@ import { AppError, ApplicationBillSettings, ApplicationSettingsData, AppSetting,
 import { promisifyQuery, rowAffected } from "../../../hooks/helper";
 import KnexConnection from "../../../database/KnexConnections";
 import RegionsDistrictsService from "./services/regions-districts-service";
+import { isWorkspaceLayout, WorkspaceLayout } from "./workspaceLayout";
 
 
 
@@ -31,6 +32,7 @@ export default class ApplicationSettings {
 		const result = await promisifyQuery(tenantId, q_application_setting);
 		if (result.length > 0) {
 			let record = result[0];
+			record.workspaceLayout = isWorkspaceLayout(record.workspaceLayout) ? record.workspaceLayout : 'classic';
 			record.services = record?.services != null ? jsonify
 				(record.services) : null
 			record.smsSettings = record?.smsSettings != null ? jsonify
@@ -40,6 +42,18 @@ export default class ApplicationSettings {
 			return record
 		}
 		return null
+	}
+
+	public async updateWorkspaceLayout(tenantId: number, workspaceLayout: WorkspaceLayout): Promise<boolean> {
+		if (!isWorkspaceLayout(workspaceLayout)) throw new Error('Invalid workspaceLayout');
+		const connection = await KnexConnection(tenantId);
+		return connection.transaction(async trx => {
+			const existing = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
+			// Settings require regional codes and SMS configuration; do not fabricate a partial row.
+			if (!existing) return false;
+			await trx('applicationsettings').where({ keyid: 1 }).update({ workspaceLayout });
+			return true;
+		});
 	}
 
 
@@ -328,4 +342,3 @@ export default class ApplicationSettings {
 		return result;
 	}
 }
-

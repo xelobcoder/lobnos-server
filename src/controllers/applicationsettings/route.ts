@@ -1,6 +1,7 @@
 import express from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireOwnerRole } from '../../middleware/authority';
+import { updateWorkspaceLayout } from './workspaceLayoutHandler';
 import {
   getApplicationSettings,
   getApplicationSettingsBilling,
@@ -30,6 +31,7 @@ import {
 
 const router = express.Router();
 
+router.patch("/api/v1/applicationsettings/workspace-layout", checkTokenExists, requireOwnerRole, updateWorkspaceLayout);
 router.get("/api/v1/applicationsettings", getApplicationSettings);
 router.put("/api/v1/applicationsettings/updates/billingsettings", updateApplicationBillSettingsHandler);
 router.get("/api/v1/applicationsettings/target/:target", getApplicationSettings);

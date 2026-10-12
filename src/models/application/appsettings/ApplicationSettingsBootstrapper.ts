@@ -1,7 +1,11 @@
 import KnexConnection from '../../../database/KnexConnections';
+import { up as migrateWorkspaceLayout } from '../../../cron/command-line-tool-database/migrations/20261012_workspace_layout';
+import { up as migrateWorkspaceRibbon } from '../../../cron/command-line-tool-database/migrations/20261012_workspace_ribbon';
 
 export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
+     await migrateWorkspaceLayout(connection);
+     await migrateWorkspaceRibbon(connection);
 
      if (await connection.schema.hasTable('applicationsettings')) {
           const columns: Array<{ name: string; add: (table: any) => void }> = [

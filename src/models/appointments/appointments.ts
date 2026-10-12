@@ -2,6 +2,17 @@
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { type TAppointment, type Tpagination, months, slots } from "./appointmentTypes";
 import { z } from "zod";
+import {
+	AppointmentLinks,
+	AppointmentValidationError,
+	APPOINTMENT_TYPES,
+	assertAppointmentLinks,
+	normalizeAppointmentRow,
+	normalizeAppointmentRows,
+	normalizeAppointmentType,
+	parseAppointmentMetadata,
+	resolveCreateLinks,
+} from "./appointmentValidation";
 
 class Appointment {
 	employeeid: number;
@@ -44,13 +55,14 @@ class Appointment {
 
 	public async createAppointment(tenantId: number, data: TAppointment) {
 		try {
-			const { patientid, duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
-			if (!patientid) throw new Error("patientid missing");
+			const { duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
+			const links = resolveCreateLinks(data as unknown as Record<string, unknown>);
+			await this.assertLinkedRecords(tenantId, links);
 			const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
 			if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time))) return false;
-			const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location) VALUES(?,?,?,?,?,?,?,?,?,?)";
+			const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location,appointment_type,lead_id,billingid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)";
 			const result = await this.connection(tenantId, createQuery, [
-				patientid,
+				links.patientid,
 				duration,
 				appointment_time,
 				normalizedAppointmentDate,
@@ -60,6 +72,9 @@ class Appointment {
 				preference,
 				practioner,
 				location,
+				links.appointment_type,
+				links.lead_id,
+				links.billingid,
 			]);
 
 			const insertId = Number((result as any)?.insertId ?? 0);
@@ -68,7 +83,27 @@ class Appointment {
 			}
 			return this._affectedRows(result);
 		} catch (error) {
+			if (error instanceof AppointmentValidationError) throw error;
 			throw new Error(`Failed to create appointment: ${error instanceof Error ? error.message : String(error)}`);
+		}
+	}
+
+	/**
+	 * Verifies that newly linked CRM leads / workflow billings exist in this tenant and that a
+	 * workflow billing belongs to the appointment patient.
+	 */
+	private async assertLinkedRecords(tenantId: number, links: AppointmentLinks, previous?: Partial<AppointmentLinks>) {
+		if (links.lead_id && links.lead_id !== previous?.lead_id) {
+			const leads = await this.connection(tenantId, "SELECT id FROM leads WHERE id = ? LIMIT 1", [links.lead_id]);
+			if (!(Array.isArray(leads) && leads.length > 0)) throw new AppointmentValidationError("lead_id does not reference an existing lead");
+		}
+		if (links.billingid && (links.billingid !== previous?.billingid || links.patientid !== previous?.patientid)) {
+			const billings = await this.connection(tenantId, "SELECT patientid FROM billing WHERE billingid = ? LIMIT 1", [links.billingid]);
+			const billing = Array.isArray(billings) ? billings[0] : undefined;
+			if (!billing) throw new AppointmentValidationError("billingid does not reference an existing billing");
+			if (Number(billing.patientid) !== Number(links.patientid)) {
+				throw new AppointmentValidationError("billingid belongs to a different patient");
+			}
 		}
 	}
 
@@ -83,11 +118,14 @@ class Appointment {
 	a.location,
 	a.title,
 	a.status,
+	a.appointment_type,
+	a.lead_id,
+	a.billingid,
 	r.username AS practione
 	FROM appointments AS a INNER JOIN roles AS r
 	ON a.practioner = r.employeeid
 	WHERE a.patientid = ? ORDER BY a.refid DESC LIMIT ? OFFSET ?`;
-		return await this.connection(tenantId, query, [patientid, count, page]);
+		return normalizeAppointmentRows(await this.connection(tenantId, query, [patientid, count, page]));
 	}
 
 	public async loadMonthAppointments(tenantId: number, month: number | string) {
@@ -96,9 +134,32 @@ class Appointment {
 			searchMonth = months[month];
 		}
 		if (searchMonth !== undefined) {
-			return await this.connection(tenantId, "SELECT ta.*, r.username AS practioner,r.employeeid AS practionerid FROM appointments AS ta INNER JOIN roles AS r ON ta.practioner = r.employeeid WHERE MONTH(appointment_date) = ?", [month]);
+			return normalizeAppointmentRows(await this.connection(tenantId, "SELECT ta.*, r.username AS practioner,r.employeeid AS practionerid FROM appointments AS ta INNER JOIN roles AS r ON ta.practioner = r.employeeid WHERE MONTH(appointment_date) = ?", [month]));
 		}
 		return [];
+	}
+
+	/** Inclusive, year-aware calendar query. Dates must already be validated YYYY-MM-DD strings. */
+	public async loadAppointmentsInRange(tenantId: number, startDate: string, endDate: string) {
+		const crmTables = await this.connection(
+			tenantId,
+			"SELECT 1 FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? LIMIT 1",
+			["leads"]
+		);
+		const hasLeadsTable = Array.isArray(crmTables) && crmTables.length > 0;
+		const leadColumns = hasLeadsTable
+			? ", l.firstname AS lead_firstname, l.lastname AS lead_lastname, l.company_name AS lead_company, l.contact_person AS lead_name"
+			: ", NULL AS lead_firstname, NULL AS lead_lastname, NULL AS lead_company, NULL AS lead_name";
+		const leadJoin = hasLeadsTable ? " LEFT JOIN leads AS l ON ta.lead_id = l.id" : "";
+		const query = `SELECT ta.*, r.username AS practioner, r.employeeid AS practionerid,
+			np.firstname AS firstname, np.middlename AS middlename, np.lastname AS lastname,
+			np.designation AS designation${leadColumns}
+			FROM appointments AS ta
+			INNER JOIN roles AS r ON ta.practioner = r.employeeid
+			LEFT JOIN new_patients AS np ON ta.patientid = np.patientid${leadJoin}
+			WHERE ta.appointment_date BETWEEN ? AND ?
+			ORDER BY ta.appointment_date ASC, ta.appointment_time ASC`;
+		return normalizeAppointmentRows(await this.connection(tenantId, query, [startDate, endDate]));
 	}
 
 	private getCurrentDateString(datestring: Date | string): string {
@@ -171,7 +232,7 @@ class Appointment {
 	public async getAppointmentDetails(tenantId: number, appointmentId: number) {
 		const query = "SELECT * FROM appointments WHERE refid = ?";
 		const result = await this.connection(tenantId, query, [appointmentId]);
-		return Array.isArray(result) && result.length > 0 ? result[0] : null;
+		return Array.isArray(result) && result.length > 0 ? normalizeAppointmentRow(result[0]) : null;
 	}
 
 	/**
@@ -184,7 +245,7 @@ class Appointment {
 		};
 
 		const updateSchema = z.object({
-			patientid: z.number().int(),
+			patientid: z.number().int().positive().nullable().optional(),
 			duration: z.number().int().optional(),
 			status: z.string().max(50).optional(),
 			appointment_time: z.string().max(10).optional(),
@@ -196,7 +257,15 @@ class Appointment {
 			practioner: z.number().int().optional(),
 			location: z.string().optional(),
 			notes: z.string().nullable().optional(),
+			appointment_type: z.enum(APPOINTMENT_TYPES).nullable().optional(),
+			lead_id: z.number().int().positive().nullable().optional(),
+			billingid: z.number().int().positive().nullable().optional(),
 		}).strict();
+
+		const metadata = parseAppointmentMetadata(normalizedData as Record<string, unknown>);
+		for (const key of ["patientid", "lead_id", "billingid", "appointment_type"] as const) {
+			if (metadata[key] !== undefined) (normalizedData as any)[key] = metadata[key];
+		}
 
 		const parseResult = updateSchema.safeParse(normalizedData);
 		if (!parseResult.success) {
@@ -205,9 +274,35 @@ class Appointment {
 		const validData = parseResult.data;
 		const fields = Object.keys(validData);
 		if (fields.length === 0) return false;
+
+		// Link/type columns are only written when supplied, so legacy clients never clear them.
+		const linkColumns = (["patientid", "appointment_type", "lead_id", "billingid"] as const)
+			.filter((key) => validData[key] !== undefined);
+		if (linkColumns.length > 0) {
+			const current = await this.getAppointmentDetails(tenantId, appointmentId);
+			if (!current) return false;
+			const previous: AppointmentLinks = {
+				patientid: current.patientid ?? null,
+				lead_id: current.lead_id ?? null,
+				billingid: current.billingid ?? null,
+				appointment_type: normalizeAppointmentType(current.appointment_type),
+			};
+			const merged = assertAppointmentLinks({
+				patientid: validData.patientid !== undefined ? validData.patientid : previous.patientid,
+				lead_id: validData.lead_id !== undefined ? validData.lead_id : previous.lead_id,
+				billingid: validData.billingid !== undefined ? validData.billingid : previous.billingid,
+				appointment_type: validData.appointment_type !== undefined
+					? normalizeAppointmentType(validData.appointment_type)
+					: previous.appointment_type,
+			});
+			await this.assertLinkedRecords(tenantId, merged, previous);
+			if (validData.appointment_type !== undefined) validData.appointment_type = merged.appointment_type;
+		}
+		const linkAssignments = linkColumns.map((key) => `,\n\t\t\t${key} = ?`).join("");
+		const linkValues = linkColumns.map((key) => validData[key] ?? null);
+
 		// Write the full SQL query with all fields explicitly
 		const query = `UPDATE appointments SET
-			patientid = ?,
 			duration = ?,
 			status = ?,
 			appointment_time = ?,
@@ -218,11 +313,10 @@ class Appointment {
 			preference = ?,
 			practioner = ?,
 			location = ?,
-			notes = ?
+			notes = ?${linkAssignments}
 		WHERE refid = ?`;
 		// Ensure all fields are present in the correct order, use null if missing
 		const values = [
-			validData.patientid ?? null,
 			validData.duration ?? null,
 			validData.status ?? null,
 			validData.appointment_time ?? null,
@@ -234,6 +328,7 @@ class Appointment {
 			validData.practioner ?? null,
 			validData.location ?? null,
 			validData.notes ?? null,
+			...linkValues,
 			appointmentId
 		];
 
@@ -251,13 +346,15 @@ class Appointment {
 
 	public async getAllAppointments(tenantId: number, page: number = 1, count: number = 10, sortby: 'ASC' | 'DESC' = 'DESC') {
 		const offset = (page - 1) * count;
+		const direction = String(sortby).toUpperCase() === "ASC" ? "ASC" : "DESC";
 		const query = `
-			SELECT a.*, np.*, r.username AS practioner_name FROM appointments AS a INNER JOIN new_patients AS np 
+			SELECT a.*, np.*, a.patientid AS patientid, a.appointment_type, a.lead_id, a.billingid, r.username AS practioner_name FROM appointments AS a LEFT JOIN new_patients AS np
 		 ON a.patientid = np.patientid
 		 INNER JOIN roles AS r ON a.practioner = r.employeeid   
-			ORDER BY refid ${sortby} LIMIT ? OFFSET ?
+			WHERE (np.patientid IS NOT NULL OR a.lead_id IS NOT NULL)
+			ORDER BY refid ${direction} LIMIT ? OFFSET ?
 		`
-		return await this.connection(tenantId, query, [count, offset]);
+		return normalizeAppointmentRows(await this.connection(tenantId, query, [count, offset]));
 	}
 }
 

@@ -1,8 +1,8 @@
-# Accounting System PRD for Lobnos Server
+# Accounting System PRD for Prime Laboratory Software (PLS) backend
 
 ## Purpose
 
-Enable a complete accounting subsystem within Lobnos Server so financial operations from billing,
+Enable a complete accounting subsystem within Prime Laboratory Software (PLS) backend so financial operations from billing,
 expenses, inventory, commissions, and supplier payments are recorded, reported, and auditable as a
 true double-entry general ledger, not a flat single-entry log.
 

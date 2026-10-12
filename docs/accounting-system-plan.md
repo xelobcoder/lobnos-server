@@ -1,4 +1,4 @@
-# Accounting System Plan for Lobnos Server
+# Accounting System Plan for Prime Laboratory Software (PLS) backend
 
 ## Current state (verified in code, August 2026)
 

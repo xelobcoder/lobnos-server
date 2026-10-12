@@ -10,7 +10,7 @@ This backlog is ordered by dependency. Each task ships behind tenant feature fla
 - [ ] **M0.4 Threat-model partner and pharmacy access:** entity isolation, IDOR prevention, session invalidation, CSRF, rate limiting, PHI logging, POS refund/void abuse, receipt sequencing, and cashier-shift tampering.
 - [ ] **M0.5 Approve state machines:** align backend, frontend, audit, and reporting vocabulary for orders, prescriptions, dispensing, POS sales, returns, and cashier shifts with the PRD.
 - [ ] **M0.6 Define API schemas:** requests, responses, errors, pagination, idempotency, optimistic concurrency, POS payments, receipts, returns, and shift reconciliation.
-- [ ] **M0.7 Produce UX prototypes:** mobile order creation, held-order correction, approval queue, consultation orders, dispensing, POS sale, receipt, return, and cashier shift close; pharmacy prototypes must reuse the internal laboratory shell and established Lobnos interaction patterns.
+- [ ] **M0.7 Produce UX prototypes:** mobile order creation, held-order correction, approval queue, consultation orders, dispensing, POS sale, receipt, return, and cashier shift close; pharmacy prototypes must reuse the internal laboratory shell and established PLS interaction patterns.
 
 **Exit:** Release 1 product decisions are closed and signed-off schemas exist.
 
@@ -267,10 +267,10 @@ This backlog is ordered by dependency. Each task ships behind tenant feature fla
 
 ### Frontend
 
-- [ ] **M10.8 Build pharmacy POS sale workspace** within the existing internal Lobnos/laboratory shell, reusing established navigation, tables, forms, dialogs, loading, error, and accessibility patterns for barcode/search entry, patient and prescription lookup, quantity editing, payment, receipt, and availability feedback.
+- [ ] **M10.8 Build pharmacy POS sale workspace** within the existing internal PLS/laboratory shell, reusing established navigation, tables, forms, dialogs, loading, error, and accessibility patterns for barcode/search entry, patient and prescription lookup, quantity editing, payment, receipt, and availability feedback.
 - [ ] **M10.9 Build cashier shift open/close and reconciliation views** with variance handling and supervisor review.
 - [ ] **M10.10 Build completed-sale detail, receipt, void, return, and refund workflows** with role-aware actions and immutable history.
-- [ ] **M10.11 Apply facility capability and role scope** so pharmacy-only users can operate the pharmacy without laboratory links, while combined facilities can use both workspaces in the same internal Lobnos shell.
+- [ ] **M10.11 Apply facility capability and role scope** so pharmacy-only users can operate the pharmacy without laboratory links, while combined facilities can use both workspaces in the same internal PLS shell.
 
 ### Validation
 

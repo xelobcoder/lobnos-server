@@ -79,7 +79,7 @@ The frontend confirmation form explicitly distinguishes this from deactivation.
 Registry caches are invalidated after commit. This is a testing cleanup action,
 not a database-drop operation or the existing soft deactivation.
 
-All three endpoints require the Lobnos staff session, supplied in the
+All three endpoints require the PLS staff session, supplied in the
 `pls-prime-tenant-session` cookie or the same-named request header. They do not
 require an `employeeid` or `tenantId` parameter. If `tenantId` is supplied, it must
 be the current registered default/control tenant ID.
@@ -214,7 +214,7 @@ column widths before a facility is reserved.
 
 ## Authority boundary
 
-`platform_users` is currently registry metadata, not a Lobnos authenticated user
+`platform_users` is currently registry metadata, not a PLS authenticated user
 directory: it has no password/token login architecture. Therefore these routes
 authorize **only** an authenticated, active staff account with the **exact stored
 role `super-admin` in `configuration.defaultTenantId`**. The tenant must be active;

@@ -135,6 +135,9 @@ function appointmentVariables(): EventVariableDefinition[] {
      return [
           ...patientVariables(),
           { variable_name: 'appointment_id', display_name: 'Appointment ID', data_type: 'number', description: 'Appointment ref id', example_value: '310', is_required: true },
+          { variable_name: 'appointment_contact_name', display_name: 'Appointment Contact', data_type: 'string', description: 'Patient or CRM lead linked to the appointment', example_value: 'John Doe', is_required: false },
+          { variable_name: 'appointment_contact_email', display_name: 'Appointment Contact Email', data_type: 'string', description: 'Email address for the patient or CRM lead linked to the appointment', example_value: 'contact@example.com', is_required: false },
+          { variable_name: 'appointment_contact_phone', display_name: 'Appointment Contact Phone', data_type: 'string', description: 'Phone number for the patient or CRM lead linked to the appointment', example_value: '+233200000000', is_required: false },
           { variable_name: 'appointment_date', display_name: 'Appointment Date', data_type: 'string', description: 'Appointment date', example_value: '2026-08-07', is_required: true },
           { variable_name: 'appointment_time', display_name: 'Appointment Time', data_type: 'string', description: 'Appointment time', example_value: '09:00', is_required: true },
           { variable_name: 'appointment_purpose', display_name: 'Appointment Purpose', data_type: 'string', description: 'Appointment purpose', example_value: 'Review', is_required: false },

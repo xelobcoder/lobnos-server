@@ -1,7 +1,7 @@
 # PLS Notification Expansion PRD
 
 ## Document Control
-- Product: Prime Laboratory System (PLS)
+- Product: Prime Laboratory Software (PLS)
 - Module: Notification Registry and Default Templates
 - Date: 2026-08-07
 - Status: Draft for implementation rollout
