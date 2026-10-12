@@ -1,6 +1,13 @@
 import ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 
+export class ExcelImportLimitError extends Error {
+	constructor(message: string) {
+		super(message);
+		this.name = 'ExcelImportLimitError';
+	}
+}
+
 export class ExcelHelper {
 	workbook: ExcelJS.Workbook;
 	worksheet: ExcelJS.Worksheet | null = null;
@@ -131,7 +138,11 @@ export class ExcelHelper {
 		return valid;
 	}
 
-	async parseBuffer(buffer: Buffer, minHeaderColumns = 2) {
+	async parseBuffer(
+		buffer: Buffer,
+		minHeaderColumns = 2,
+		limits?: { maxRows: number; maxColumns: number }
+	) {
 		const stream = new Readable();
 		stream.push(buffer);
 		stream.push(null);
@@ -139,6 +150,9 @@ export class ExcelHelper {
 		await this.workbook.xlsx.read(stream);
 		this.worksheet = this.workbook.worksheets[0];
 		if (!this.worksheet) throw new Error('Worksheet not found');
+		if (limits && (this.worksheet.rowCount > limits.maxRows || this.worksheet.columnCount > limits.maxColumns)) {
+			throw new ExcelImportLimitError(`Excel worksheet exceeds the limit of ${limits.maxRows} rows or ${limits.maxColumns} columns`);
+		}
 
 		let headerRowNum = 1;
 		let header: string[] = [];

@@ -12,8 +12,8 @@ already-installed desktop releases predate `dist/src/scripts/license.js` and can
 offline request/activation. Do not overwrite or silently mutate an installed customer
 release. Build the backend (`pnpm.cmd build`), verify the compiled CLI exists, then create
 and stage a new desktop release containing that `dist` output. Existing installations need
-the normal explicit desktop release/update procedure before the License menu can invoke the
-CLI. No signing certificate is provisioned by a build; the issuer must create one per
+the normal explicit desktop release/update procedure before file-based activation is
+available. No signing certificate is provisioned by a build; the issuer must create one per
 installation from its activation request.
 
 ### One-command signed Windows installer build
@@ -103,9 +103,11 @@ unrelated facility env values, which must be reviewed for distribution.
 
 ### Customer request signing
 
-Each installation must export its own request from the desktop License menu and deliver
-that file to the administrator through the organization's approved offline transfer path.
-After `pnpm.cmd build`, sign a request interactively. Place the request in the backend
+Each standalone signed desktop automatically creates its own activation request in
+`app.getPath("userData")/config/PLS-activation-request.json` on first launch. On Windows,
+the default folder is `%APPDATA%\Prime Laboratory System\config`. Transfer that request
+to the licensing administrator through the organization's approved offline path.
+After `pnpm.cmd build`, sign the request interactively. Place the request in the backend
 project directory with the default name `PLS-activation-request.json`, then run:
 
 ```powershell
@@ -136,10 +138,19 @@ grace period is zero.
 Use the approved existing license validity window for these signed dates, or explicitly
 approved terms; signed validity does not renew or extend the `prime_window_access` database
 window. Choose a duration that fits within the approved terms and that database window.
-Transfer the resulting certificate back to that
-installation for import in the License menu. The request and certificate are bound to the
+Transfer the resulting certificate back to the same installation. Place it in the
+per-user config folder as `PLS-signed-certificate.json`, then restart PLS. The desktop
+verifies and imports the signed file and removes it only after successful activation.
+The request and certificate are bound to the
 requesting tenant, installation identity, and device, so another customer machine needs a
 separate request and certificate.
+
+The desktop does not display License or Settings menus. A certificate's JSON fields,
+including its validity dates, are readable; this is intentional and is not what protects
+them. The Ed25519 signature is verified when activation occurs and whenever signed
+license status is checked. Editing a payload date or any other signed field makes the
+signature invalid. Hiding menus and keeping a certificate's dates out of view are not
+security boundaries; do not rely on obfuscation instead of signature verification.
 
 `--activate-local` is rejected for generic builds. It is an opt-in facility-specific
 build-machine convenience only (`--facility-specific`). It requires

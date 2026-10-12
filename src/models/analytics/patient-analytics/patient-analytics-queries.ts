@@ -31,7 +31,7 @@ SELECT
     DATE(date) AS registration_date,
     COUNT(*) AS patient_count
 FROM new_patients
-WHERE DATE(date) BETWEEN ? AND ?
+WHERE date >= DATE(?) AND date < DATE_ADD(DATE(?), INTERVAL 1 DAY)
 GROUP BY DATE(date)
 ORDER BY registration_date;
 `;
