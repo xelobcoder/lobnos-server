@@ -87,7 +87,7 @@ export class AuthController {
 	public async validateToken(req: Request, res: Response): Promise<any> {
 		try {
 			const cookies = parseCookies(req.headers['cookie'] as string);
-			const token = cookies['pls-prime-tenant-session'];
+			const token = req.get('pls-prime-tenant-session') || cookies['pls-prime-tenant-session'];
 			const tenantId = this.getTenantId(req);
 			if (!token) return res.status(401).json({ message: 'Token not provided', status: false });
 			const isValid = await this.tokenValidator.validateAccessToken(token);
