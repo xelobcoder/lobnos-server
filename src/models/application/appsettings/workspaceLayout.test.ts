@@ -71,6 +71,33 @@ describe('workspace layout settings', () => {
           expect(t.builder.update).toHaveBeenCalledOnce();
           expect(t.builder.update.mock.calls[0][0]).not.toHaveProperty('workspaceLayout');
      });
+     it('persists SMS activation and keeps the legacy services flag synchronized', async () => {
+          const t = tenant({ keyid: 1, smsActivated: 0, services: '{}' });
+          t.builder.update.mockResolvedValue(1);
+          mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42, {
+               smsActivated: 1,
+               services: { isConnectedInventory: 1 },
+          } as any);
+          const record = t.builder.update.mock.calls[0][0];
+          expect(record.smsActivated).toBe(1);
+          expect(JSON.parse(record.services)).toMatchObject({
+               isConnectedInventory: 1,
+               isSmsServicesConnected: 1,
+          });
+     });
+     it('preserves SMS activation when an older settings client omits the field', async () => {
+          const t = tenant({ keyid: 1, smsActivated: 1, services: '{"isConnectedInventory":1}' });
+          t.builder.update.mockResolvedValue(1);
+          mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42, {} as any);
+          const record = t.builder.update.mock.calls[0][0];
+          expect(record.smsActivated).toBe(1);
+          expect(JSON.parse(record.services)).toMatchObject({
+               isConnectedInventory: 1,
+               isSmsServicesConnected: 1,
+          });
+     });
      it('validates at the data boundary before resolving any connection', async () => {
           await expect(new ApplicationSettings().updateWorkspaceLayout(42, 'injected' as any)).rejects.toThrow('Invalid workspaceLayout');
           expect(mocks.connection).not.toHaveBeenCalled();

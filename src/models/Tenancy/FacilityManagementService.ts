@@ -13,6 +13,10 @@ import {
      PlanSegment, countPeriodsBefore, exactPeriod, maxAdvancePeriodStart, periodOf, planScheduleChange, scheduleWindow,
      segmentEndDate, segmentFor,
 } from './FacilitySubscriptionSchedule';
+import { SmsProviderSettingsDto } from '../application/sms/dtos/SmsProviderSettingsDto';
+import { SmsProviderSettingsRepo } from '../application/sms/repositories/SmsProviderSettingsRepo';
+import { SmsProviderSettingsService } from '../application/sms/services/SmsProviderSettingsService';
+import { bootstrapSmsProviderSettings } from '../application/sms/SmsProviderBootstrapper';
 
 export const PLANS_TABLE = 'facility_subscription_plans';
 export const PAYMENTS_TABLE = 'facility_subscription_payments';
@@ -321,6 +325,43 @@ export class FacilityManagementService {
           // Login and every tenant request re-read registry status; drop the cached "active" immediately.
           TenantRegistry.invalidate();
           return { ...result, isControlTenant: false };
+     }
+
+     /** Per-tenant SMS credentials live in the tenant database; the control plane never reads the raw key back. */
+     private async smsProvider(tenantId: number): Promise<SmsProviderSettingsService> {
+          await bootstrapSmsProviderSettings(tenantId);
+          return new SmsProviderSettingsService(new SmsProviderSettingsRepo(tenantId));
+     }
+
+     async getSmsProvider(tenantId: number) {
+          await TenantRegistry.ensureReady();
+          await this.ensureSchema();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          const settings = await (await this.smsProvider(tenantId)).getForAdministration();
+          return { tenantId, organizationIdentifier: tenant.id, status: String(tenant.status), settings };
+     }
+
+     async setSmsProvider(tenantId: number, input: SmsProviderSettingsDto, actor: FacilityActor) {
+          await TenantRegistry.ensureReady();
+          await this.ensureSchema();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          this.requireManageable(tenant, 'change SMS configuration');
+          const service = await this.smsProvider(tenantId);
+          const existing = await service.getForAdministration();
+          if (!existing.configured && !input.apiKey?.trim()) {
+               throw new FacilityError('An API key is required when configuring SMS for this facility for the first time');
+          }
+          await service.save(input, actor.employeeId);
+          const settings = await service.getForAdministration();
+          // Audit records what changed, never the credential itself.
+          await this.master.transaction(trx => this.event(trx, tenant, actor, {
+               action: 'sms_provider_updated',
+               details: JSON.stringify({
+                    providerType: input.providerType, senderId: input.senderId,
+                    baseUrl: input.baseUrl, isActive: input.isActive, apiKeyReplaced: Boolean(input.apiKey?.trim()),
+               }),
+          }));
+          return { tenantId, organizationIdentifier: tenant.id, status: String(tenant.status), settings };
      }
 
      async deleteTenant(tenantId: number, confirmation: unknown, reason: string, actor: FacilityActor) {

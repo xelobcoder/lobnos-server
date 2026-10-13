@@ -153,6 +153,7 @@ export default class ApplicationSettings {
 			show_watermark,
 			completeFlow,
 			approvalbeforeprinting,
+			smsActivated,
 			includeTax,
 			allowScientistToRegisterClient,
 			services,
@@ -196,6 +197,16 @@ export default class ApplicationSettings {
 		try {
 			const result = await connection.transaction(async (trx) => {
 				const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
+				const normalizedSmsActivated = smsActivated === undefined
+					? (Number(existing?.smsActivated) === 1 ? 1 : 0)
+					: (Number(smsActivated) === 1 ? 1 : 0);
+				const submittedServices = typeof services === 'string' ? JSON.parse(services) : services;
+				const persistedServices = typeof existing?.services === 'string'
+					? JSON.parse(existing.services)
+					: existing?.services;
+				const serviceSettings = submittedServices && typeof submittedServices === 'object'
+					? submittedServices
+					: (persistedServices && typeof persistedServices === 'object' ? persistedServices : {});
 				const record = {
 					bulkregistration,
 					fontsize,
@@ -214,10 +225,14 @@ export default class ApplicationSettings {
 					completeFlow,
 					allowCrmToPrintResult: allowCrmToPrintResult ?? existing?.allowCrmToPrintResult ?? 0,
 					approvalbeforeprinting,
+					smsActivated: normalizedSmsActivated,
 					emailNotification,
 					emailModuleActivated: emailModuleActivated ?? existing?.emailModuleActivated ?? 0,
 					includeTax,
-					services: JSON.stringify(services),
+					services: JSON.stringify({
+						...serviceSettings,
+						isSmsServicesConnected: normalizedSmsActivated,
+					}),
 					AllowCrmToGiveDisocunt,
 					withnessRefund: withnessRefund,
 					billingidPrefix,

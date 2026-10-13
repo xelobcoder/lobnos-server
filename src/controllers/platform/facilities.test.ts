@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      authority: vi.fn(), setStatus: vi.fn(), getSubscription: vi.fn(), setPlan: vi.fn(), recordPayment: vi.fn(), voidPayment: vi.fn(), listAudit: vi.fn(),
      list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
-     getPublicProfile: vi.fn(), putPublicProfile: vi.fn(),
+     getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
@@ -15,6 +15,7 @@ vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
           setStatus = mocks.setStatus; getSubscription = mocks.getSubscription; setPlan = mocks.setPlan;
           recordPayment = mocks.recordPayment; voidPayment = mocks.voidPayment; listAudit = mocks.listAudit;
           deleteTenant = mocks.deleteTenant;
+          getSmsProvider = mocks.getSmsProvider; setSmsProvider = mocks.setSmsProvider;
      },
 }));
 vi.mock('../../models/public/PublicFacilityRegistry', () => ({
@@ -51,6 +52,7 @@ describe('platform facility routes', () => {
                'patch /api/v1/platform/facilities/:tenantId/status', 'get /api/v1/platform/facilities/:tenantId/subscription',
                'put /api/v1/platform/facilities/:tenantId/subscription', 'post /api/v1/platform/facilities/:tenantId/payments',
                'get /api/v1/platform/facilities/:tenantId/audit',
+               'get /api/v1/platform/facilities/:tenantId/sms-provider', 'put /api/v1/platform/facilities/:tenantId/sms-provider',
                'delete /api/v1/platform/facilities/:tenantId/payments/:paymentId',
           ]);
           for (const route of routes) {
@@ -58,6 +60,7 @@ describe('platform facility routes', () => {
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
      });
+
 
      it('validates and retries a failed facility using the path tenant and authenticated actor', async () => {
           const body = {
@@ -173,5 +176,28 @@ describe('platform facility routes', () => {
           const badId = await invoke('get', '/api/v1/platform/facilities/:tenantId/audit', { params: { tenantId: '12' } });
           expect(badId.status).toHaveBeenCalledWith(400);
           expect(mocks.listAudit).toHaveBeenCalledTimes(1);
+     });
+
+     it('reads and writes per-facility SMS provider settings using the path tenant and authenticated actor', async () => {
+          const settings = { configured: true, providerType: 'arkesel', apiKey: '********3456', senderId: 'PRIMELAB' };
+          mocks.getSmsProvider.mockResolvedValue({ tenantId: 654321, settings });
+          const read = await invoke('get', '/api/v1/platform/facilities/:tenantId/sms-provider', { params: { tenantId: '654321' } });
+          expect(mocks.getSmsProvider).toHaveBeenCalledWith(654321);
+          expect(read.json).toHaveBeenCalledWith({ status: 'success', result: { tenantId: 654321, settings } });
+
+          mocks.setSmsProvider.mockResolvedValue({ tenantId: 654321, settings });
+          const body = { senderId: 'PRIMELAB', baseUrl: 'https://sms.arkesel.com/api/v2', apiKey: 'secret-key', isActive: true };
+          const saved = await invoke('put', '/api/v1/platform/facilities/:tenantId/sms-provider', { params: { tenantId: '654321' }, body });
+          expect(mocks.setSmsProvider).toHaveBeenCalledWith(654321,
+               { providerType: 'arkesel', senderId: 'PRIMELAB', baseUrl: 'https://sms.arkesel.com/api/v2', apiKey: 'secret-key', isActive: true },
+               { tenantId: 123456, employeeId: 9 });
+          expect(saved.json).toHaveBeenCalledWith({ status: 'success', result: { tenantId: 654321, settings } });
+
+          for (const invalid of [{ senderId: '', baseUrl: 'https://sms.arkesel.com' }, { senderId: 'A', baseUrl: 'http://sms.arkesel.com' },
+               { senderId: 'A', baseUrl: 'https://sms.attacker.test' }, { senderId: 'A' }]) {
+               const bad = await invoke('put', '/api/v1/platform/facilities/:tenantId/sms-provider', { params: { tenantId: '654321' }, body: invalid });
+               expect(bad.status).toHaveBeenCalledWith(400);
+          }
+          expect(mocks.setSmsProvider).toHaveBeenCalledTimes(1);
      });
 });

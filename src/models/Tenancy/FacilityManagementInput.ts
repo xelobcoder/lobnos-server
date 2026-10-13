@@ -1,4 +1,5 @@
 import { FacilityError } from './FacilityInput';
+import { SmsProviderSettingsDto, SmsProviderSettingsSchema } from '../application/sms/dtos/SmsProviderSettingsDto';
 
 export const SUBSCRIPTION_FREQUENCIES = ['daily', 'weekly', 'monthly', 'yearly'] as const;
 export type SubscriptionFrequency = typeof SUBSCRIPTION_FREQUENCIES[number];
@@ -194,6 +195,14 @@ export function parseTenantIdParam(value: unknown): number {
 export function parsePaymentIdParam(value: unknown): number {
      if (typeof value !== 'string' || !/^[1-9]\d{0,14}$/.test(value)) throw new FacilityError('paymentId must be a positive integer');
      return Number(value);
+}
+
+export function validateSmsProviderInput(body: unknown): SmsProviderSettingsDto {
+     try {
+          return SmsProviderSettingsSchema.parse(body);
+     } catch (error: any) {
+          throw new FacilityError(error?.issues?.[0]?.message || 'Invalid SMS provider settings');
+     }
 }
 
 export function parseAsOf(value: unknown, today: string): string {

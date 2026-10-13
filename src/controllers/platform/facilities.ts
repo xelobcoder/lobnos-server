@@ -8,7 +8,8 @@ import { FacilityManagementService } from '../../models/Tenancy/FacilityManageme
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
 import { PublicFacilityRegistry } from '../../models/public/PublicFacilityRegistry';
 import {
-     parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateStatusChange, validateSubscriptionPlan, validateVoidInput,
+     parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
+     validateSubscriptionPlan, validateVoidInput,
 } from '../../models/Tenancy/FacilityManagementInput';
 
 const router = Router();
@@ -78,6 +79,10 @@ router.post(`${base}/:tenantId/payments`, requirePlatformFacilityAuthority, hand
      management.recordPayment(parseTenantIdParam(req.params.tenantId), req.body, actor(res))));
 router.get(`${base}/:tenantId/audit`, requirePlatformFacilityAuthority, handle(req =>
      management.listAudit(parseTenantIdParam(req.params.tenantId), parseAuditQuery(req.query))));
+router.get(`${base}/:tenantId/sms-provider`, requirePlatformFacilityAuthority, handle(req =>
+     management.getSmsProvider(parseTenantIdParam(req.params.tenantId))));
+router.put(`${base}/:tenantId/sms-provider`, requirePlatformFacilityAuthority, handle((req, res) =>
+     management.setSmsProvider(parseTenantIdParam(req.params.tenantId), validateSmsProviderInput(req.body), actor(res))));
 router.delete(`${base}/:tenantId/payments/:paymentId`, requirePlatformFacilityAuthority, handle((req, res) =>
      management.voidPayment(parseTenantIdParam(req.params.tenantId), parsePaymentIdParam(req.params.paymentId),
           validateVoidInput(req.body), actor(res))));

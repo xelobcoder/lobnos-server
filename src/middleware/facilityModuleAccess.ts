@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import KnexConnection from '../database/KnexConnections';
+import { systemConfigConnection } from '../database/connection';
+import { configuration } from '../hooks/configuration';
 import { customError, responseError } from '../hooks/helper';
 import logger from '../hooks/logger';
-import { FacilityModule, validateModuleConfiguration } from '../models/Tenancy/FacilityModules';
+import { FacilityModule, MODULE_CONFIG_TABLE, validateModuleConfiguration } from '../models/Tenancy/FacilityModules';
 
 export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/pharmacy(?:\/|$)/i.test(path)) return 'pharmacy';
@@ -22,7 +24,37 @@ export async function facilityModuleAccess(req: Request, res: Response, next: Ne
      try {
           const db = await KnexConnection(tenantId);
           const settings = await db('applicationsettings').where({ keyid: 1 }).first();
-          if (!settings?.moduleConfiguration) { next(); return; }
+          if (module === 'sms') {
+               if (configuration.isMultiTenant) {
+                    const platformRow = await systemConfigConnection(MODULE_CONFIG_TABLE)
+                         .where({ tenant_id: tenantId }).first('configuration');
+                    if (!platformRow) {
+                         customError('sms module is not authorized for this tenant', 403, res);
+                         return;
+                    }
+                    const platformConfig = validateModuleConfiguration(JSON.parse(platformRow.configuration));
+                    if (!platformConfig?.modules.sms.enabled) {
+                         customError('sms module is not authorized for this tenant', 403, res);
+                         return;
+                    }
+               } else if (settings?.moduleConfiguration) {
+                    const localConfig = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
+                    if (!localConfig?.modules.sms.enabled) {
+                         customError('sms module is not authorized for this tenant', 403, res);
+                         return;
+                    }
+               }
+               if (Number(settings?.smsActivated) !== 1) {
+                    customError('sms module is not activated for this facility', 403, res);
+                    return;
+               }
+               next();
+               return;
+          }
+          if (!settings?.moduleConfiguration) {
+               next();
+               return;
+          }
           const config = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
           if (!config) throw new Error('Invalid stored module configuration');
           const enabled = module && (config.modules[module].enabled ||
