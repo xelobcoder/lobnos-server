@@ -2,6 +2,7 @@ import express from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireOwnerRole } from '../../middleware/authority';
 import { updateWorkspaceLayout } from './workspaceLayoutHandler';
+import { getSmsProviderSettings, updateSmsProviderSettings } from '../sms/SmsProviderSettingsController';
 import {
   getApplicationSettings,
   getApplicationSettingsBilling,
@@ -40,6 +41,8 @@ router.post("/api/v1/applicationsettings", checkTokenExists, requireOwnerRole, u
 router.get("/api/v1/application/sms/create/template/columns", getCategoryColumns);
 router.put("/api/v1/applicationsettings/smsupdate", updateSmsSettings);
 router.get("/api/v1/applicationsettings/smsupdate", getSmsSettings);
+router.get("/api/v1/applicationsettings/sms-provider", checkTokenExists, requireOwnerRole, getSmsProviderSettings);
+router.put("/api/v1/applicationsettings/sms-provider", checkTokenExists, requireOwnerRole, updateSmsProviderSettings);
 router.get("/api/v1/applicationssettings/emailpreference", getEmailPreference);
 router.get("/api/v1/applicationssettings/email/emailsettings", getGeneralEmailSettings);
 router.put("/api/v1/applicationssettings/email/emailsettings", updateGeneralEmailSettings);

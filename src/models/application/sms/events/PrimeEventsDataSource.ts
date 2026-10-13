@@ -33,7 +33,7 @@ export class PrimeEventsSMSDataSource {
                return { status: false };
           }
           try {
-               const sms = await new SmsService().sendSms([phonee164], smsconstent);
+               const sms = await new SmsService(this.tenantId).sendSms([phonee164], smsconstent);
                if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
                     await this.logSentSmsJob({
                          smsconstent,

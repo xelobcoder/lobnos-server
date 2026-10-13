@@ -24,7 +24,8 @@ function mapJobDtoToDb(dto: any) {
 export class SmsJobsService {
 	constructor(
 		private jobsRepo: PrimeSmsJobsRepo,
-		private jobRecipientsRepo: PrimeSmsJobRecipientsRepo
+		private jobRecipientsRepo: PrimeSmsJobRecipientsRepo,
+		private tenantId: number,
 	) { }
 
 	async createJob(dto: CreateSmsJobDto, tenantId: number) {
@@ -137,7 +138,7 @@ export class SmsJobsService {
 	}
 
 	private async processSingleOrMultipleJob(job: PrimeSmsJob, recipients: any[], isAll: boolean = false) {
-		const smsService = new SmsService()
+		const smsService = new SmsService(this.tenantId)
 		if (recipients.length === 1) {
 			// Single recipient
 			const recipient = recipients[0];
@@ -507,7 +508,7 @@ export class SmsJobsService {
 	public async processScheduledJobs(jobid: number, hasCustomBody: boolean, recipients: any[], custombody?: string, scheduledat?: Date, isAll: boolean = false) {
 		try {
 			if (hasCustomBody && custombody) {
-				const status = await new SmsService().scheduleSms(
+				const status = await new SmsService(this.tenantId).scheduleSms(
 					recipients.map(r => r.phonee164),
 					custombody,
 					scheduledat?.toISOString() || '',
@@ -542,7 +543,7 @@ export class SmsJobsService {
 				let allSent = true;
 				for (const recipient of recipients) {
 					if (recipient.personalizedbody) {
-						const status = await new SmsService().scheduleSms(
+						const status = await new SmsService(this.tenantId).scheduleSms(
 							[recipient.phonee164],
 							recipient.personalizedbody,
 							scheduledat?.toISOString() || '',
@@ -603,7 +604,7 @@ export class SmsJobsService {
 		}
 
 		// Send SMS
-		const smsService = new SmsService();
+		const smsService = new SmsService(this.tenantId);
 		try {
 			const result = await smsService.sendSms([recipient.phonee164], personalizedBody);
 			if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
@@ -634,5 +635,4 @@ export class SmsJobsService {
 		}
 	}
 }
-
 

@@ -25,7 +25,7 @@ import { PrimeSmsEventTemplatesRepo } from '../../../models/application/sms/repo
 
 
 const buildControllers = (tenantId: number) => ({
-	smsJobsController: new SmsJobsController(new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId))),
+	smsJobsController: new SmsJobsController(new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId), tenantId)),
 	smsTemplatesController: new SmsTemplatesController(new SmsTemplatesService(new PrimeSmsTemplatesRepo(tenantId))),
 	smsJobRecipientsController: new SmsJobRecipientsController(new SmsJobRecipientsService(new PrimeSmsJobRecipientsRepo(tenantId))),
 	smsCategoryMappingsController: new SmsCategoryMappingsController(new SmsCategoryMappingsService(new PrimeSmsCategoryMappingsRepo(tenantId))),

@@ -30,6 +30,8 @@ import { configuration } from '../hooks/configuration';
 import { systemConfigConnection } from '../database/connection';
 import logger from '../hooks/logger';
 import { bootstrapResultSettings } from '../models/application/appsettings/result-settings/ResultSettingsBootstrapper';
+import { bootstrapSmsProviderSettings } from '../models/application/sms/SmsProviderBootstrapper';
+import { bootstrapMasterControlDatabase } from './MasterControlBootstrap';
 
 /** Master test catalog every tenant imports tests from (lives in the master control database). */
 const MASTER_CATALOG_TABLES = ['test_panels', 'testdetails', 'testdetailcategory', 'testconditions', 'testcreationrules', 'sampletype', 'samplecontainer', 'departments'];
@@ -49,6 +51,7 @@ export async function verifyMasterCatalog(): Promise<string[]> {
 
 /** Prepares every served tenant database. A tenant that cannot be reached is logged and skipped. */
 export async function bootstrapTenants(): Promise<{ readyTenants: number[]; accountingTenants: number[] }> {
+	await bootstrapMasterControlDatabase();
 	await verifyMasterCatalog();
 	const readyTenants: number[] = [];
 	const accountingTenants: number[] = [];
@@ -84,6 +87,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapNotificationDefinitions(tenantId);
 	await bootstrapInAppNotificationTables(tenantId);
 	await bootstrapEmailTables(tenantId);
+	await bootstrapSmsProviderSettings(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId, strict);
 	await bootstrapTestReportSettingsTable(tenantId);
 	await bootstrapResultSettings(tenantId);

@@ -18,6 +18,9 @@ export const LOCAL_MIGRATIONS = [
      '20260901_pharmacy_item_profiles',
      '20260901_pharmacy_pos_sales',
      '20261004_commission_recipient_policy',
+     '20261012_workspace_layout',
+     '20261012_workspace_ribbon',
+     '20261013_sms_provider_settings',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

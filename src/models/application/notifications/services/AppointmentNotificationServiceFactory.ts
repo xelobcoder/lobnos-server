@@ -37,7 +37,7 @@ export function buildAppointmentNotificationService(tenantId: number): Appointme
      const email = new NotificationService(events, templates, settings, new NotificationEventRecipientsRepo(tenantId),
           new NotificationQueueRepo(tenantId), emailQueue, processor, new NotificationTemplateRenderer(),
           new RecipientResolver(), context, tenantId);
-     const sms = new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId));
+     const sms = new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId), tenantId);
      return new AppointmentNotificationService(events, settings, templates, context, email, sms, tenantId, async () => {
           const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
           if (!appSettings) return false;

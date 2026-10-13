@@ -149,7 +149,7 @@ export class PhoneCallsTrackersController {
                if (!isMobileValid.isValid) {
                     return res.status(400).json({ error: "Invalid mobile number format in appointmentDetails" });
                }
-               const smsMessages = await new SmsService().sendSms([mobile_number], purpose);
+               const smsMessages = await new SmsService(tenantId).sendSms([mobile_number], purpose);
                const { status, code, message } = smsMessages as any;
                if (status === "error") {
                     return res.status(code).json({ error: message });
@@ -161,4 +161,3 @@ export class PhoneCallsTrackersController {
           }
      }
 }
-

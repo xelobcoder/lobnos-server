@@ -1,8 +1,6 @@
-interface SmsConfig {
-    apiKey: string;
-    defaultSender: string;
-    baseUrl: string;
-}
+import { SmsProviderSettingsRepo } from '../sms/repositories/SmsProviderSettingsRepo';
+import { SmsProviderSettingsService } from '../sms/services/SmsProviderSettingsService';
+import { SmsProviderConfiguration } from '../sms/types/SmsProviderModels';
 
 interface SmsResponse {
     status: string;
@@ -24,28 +22,26 @@ interface PhoneValidationResult {
 }
 
 export class SmsService {
-    private readonly config: SmsConfig;
+    private resolvedProvider?: SmsProviderConfiguration;
+    constructor(private tenantId: number, private readonly configuredProvider?: SmsProviderConfiguration) { }
 
-    constructor(apiKey?: string) {
-        this.config = {
-            apiKey: apiKey || process.env.ARKESEL_SMS_API_KEY,
-            defaultSender: process.env.SMS_DEFAULT_SENDER,
-            baseUrl: process.env.ARKESEL_BASE_URL
-        };
-
-        if (!this.config.apiKey || this.config.apiKey.trim() === '' || !this.config.baseUrl) {
-            throw new Error('SMS API key is required');
+    private async getConfig(): Promise<SmsProviderConfiguration> {
+        if (this.configuredProvider) return this.configuredProvider;
+        if (!this.resolvedProvider) {
+            this.resolvedProvider = await new SmsProviderSettingsService(
+                new SmsProviderSettingsRepo(this.tenantId)
+            ).getActiveConfiguration();
         }
-
+        return this.resolvedProvider;
     }
 
-    private async sendRequest(endpoint: string, method: string, data?: object): Promise<SmsResponse> {
+    private async sendRequest(provider: SmsProviderConfiguration, endpoint: string, method: string, data?: object): Promise<SmsResponse> {
         try {
             const config = {
                 method: method,
-                url: `${this.config.baseUrl}${endpoint}`,
+                url: `${provider.baseUrl}${endpoint}`,
                 headers: {
-                    'api-key': this.config.apiKey,
+                    'api-key': provider.apiKey,
                     'Content-Type': 'application/json'
                 },
                 data: data
@@ -144,6 +140,7 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
+        const config = await this.getConfig();
         if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required')
         }
@@ -154,7 +151,7 @@ export class SmsService {
         if (validNumbers.length === 0) {
             throw new Error('No valid phone numbers provided')
         }
-        const sender = this.validateSender(options.sender || this.config.defaultSender);
+        const sender = this.validateSender(options.sender || config.defaultSender);
         const data = {
             sender: sender,
             message: message.trim(),
@@ -162,7 +159,7 @@ export class SmsService {
             ...(options.callbackUrl && { callback_url: options.callbackUrl }),
             ...(options.scheduledDate && { scheduled_date: options.scheduledDate })
         }
-        return this.sendRequest('/api/v2/sms/send', 'POST', data)
+        return this.sendRequest(config, '/api/v2/sms/send', 'POST', data)
     }
 
     async sendSingleSms(
@@ -170,6 +167,7 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
+        const config = await this.getConfig();
         if (!to || !message.trim()) {
             throw new Error('Recipient and message are required')
         }
@@ -179,12 +177,12 @@ export class SmsService {
         }
         const queryParams = new URLSearchParams({
             action: 'send-sms',
-            api_key: this.config.apiKey,
+            api_key: config.apiKey,
             to: validation.formattedNumber!,
             sms: message.trim(),
-            sender: options.sender || this.config.defaultSender
+            sender: options.sender || config.defaultSender
         })
-        return this.sendRequest(`/sms/api?${queryParams}`, 'GET')
+        return this.sendRequest(config, `/sms/api?${queryParams}`, 'GET')
     }
 
     private formatScheduledDate(date: string | Date): string {
@@ -226,4 +224,3 @@ export class SmsService {
         return this.sendSms(recipients, message, { callbackUrl, sender });
     }
 }
-

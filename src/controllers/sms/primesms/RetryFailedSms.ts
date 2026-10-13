@@ -18,7 +18,7 @@ export async function retryFailedTransactionHandler(req: Request, res: Response)
           const refid = req.params.refid;
           const jobsRepo = new PrimeSmsJobsRepo(tenantId);
           const jobRecipientsRepo = new PrimeSmsJobRecipientsRepo(tenantId);
-          const result = await new SmsJobsService(jobsRepo, jobRecipientsRepo).retryFailedTransaction(tenantId, jobid, refid as string);
+          const result = await new SmsJobsService(jobsRepo, jobRecipientsRepo, tenantId).retryFailedTransaction(tenantId, jobid, refid as string);
           res.status(200).json({ status: result.status === "success" ? 'success' : 'failed', message: result.message || 'Transaction retry initiated.' });
      } catch (err:any) {
           res.status(400).json({ error: err.message });

@@ -86,7 +86,7 @@ export class PhysicalSampleCommunicationService {
                     if (!communication.mobile_number) throw new Error('Patient has no mobile number');
                     const jobsRepo = new PrimeSmsJobsRepo(this.tenantId);
                     const recipientsRepo = new PrimeSmsJobRecipientsRepo(this.tenantId);
-                    const jobId = await new SmsJobsService(jobsRepo, recipientsRepo).createJob({
+                    const jobId = await new SmsJobsService(jobsRepo, recipientsRepo, this.tenantId).createJob({
                          customBody: communication.message,
                          category: 'patient',
                          recipientScope: 'single',

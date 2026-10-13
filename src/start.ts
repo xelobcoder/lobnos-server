@@ -83,10 +83,6 @@ async function waitForDbReady() {
                     conn.release();
                }
 
-               if (configuration.isMultiTenant) {
-                    await systemConfigConnection.raw('SELECT 1');
-               }
-
                logger.info(`Database is ready`, {
                     host: dbHost,
                     database: dbName,
