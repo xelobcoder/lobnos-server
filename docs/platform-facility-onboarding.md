@@ -1,5 +1,20 @@
 # Platform facility onboarding (backend)
 
+## Master-control location bootstrap recovery
+
+Location imports preserve facility region/district IDs and existing platform codes.
+Legacy district data can reuse a code within one state (for example, Tano North
+and Tano South both use `HT`). Missing districts are imported in ID order; a code
+collision receives an alphanumeric ID suffix such as `HTD61`, with a warning in the bootstrap
+log. These are platform disambiguators, not corrections to official district codes.
+Facility source data and existing organization identifiers are unchanged.
+
+Reference imports and their migration markers commit in one transaction. The
+`20261015_reconcile_platform_references` migration also fills missing IDs left by
+older interrupted imports, even if the initial bootstrap was marked complete.
+After deploying and building the fix, restart normally; no database deletion,
+manual migration-marker reset, or `INSERT IGNORE` workaround is needed.
+
 ## HTTP contract
 
 ### Facility branding

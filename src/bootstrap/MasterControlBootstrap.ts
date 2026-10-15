@@ -8,6 +8,7 @@ import { EXPORTED_SOURCE_DATABASE, loadFacilityStructureExports } from '../model
 
 const INITIAL_MIGRATION = '20261013_initial_master_control';
 const SANITIZE_CATALOG_AUTHORS_MIGRATION = '20261013_sanitize_catalog_authors';
+const PLATFORM_REFERENCES_MIGRATION = '20261015_reconcile_platform_references';
 const LOCK_NAME = 'pls-master-control-bootstrap-v1';
 
 function environmentDatabase(): string {
@@ -228,6 +229,44 @@ async function installPlatformSchema(connection: Connection, database: string): 
      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
 }
 
+interface FacilityDistrict {
+     id: number;
+     name: string;
+     code: string;
+     regionid: number;
+}
+
+interface PlatformDistrict {
+     id: number;
+     state_id: number;
+     district_code: string;
+}
+
+export function planPlatformDistrictSeeds(source: FacilityDistrict[], existing: PlatformDistrict[]): FacilityDistrict[] {
+     const key = (stateId: number, code: string) => `${stateId}:${code.trim().toUpperCase()}`;
+     const existingIds = new Set(existing.map(district => Number(district.id)));
+     const used = new Set(existing.map(district => key(district.state_id, district.district_code)));
+     // Reserve original codes so a generated suffix cannot take another district's code.
+     const reserved = new Set(source.map(district => key(district.regionid, district.code)));
+     return [...source].sort((a, b) => a.id - b.id)
+          .filter(district => !existingIds.has(Number(district.id)))
+          .map(district => {
+               const base = district.code.trim().toUpperCase();
+               if (!base || base.length > 20) throw new Error(`Invalid facility district code for district ${district.id}`);
+               let code = base;
+               let attempt = 0;
+               if (used.has(key(district.regionid, code))) {
+                    do {
+                         const suffix = `D${district.id}${attempt ? `X${attempt}` : ''}`;
+                         code = base.slice(0, 20 - suffix.length) + suffix;
+                         attempt++;
+                    } while (reserved.has(key(district.regionid, code)) || used.has(key(district.regionid, code)));
+               }
+               used.add(key(district.regionid, code));
+               return { ...district, code };
+          });
+}
+
 async function seedPlatformReferences(connection: Connection, database: string): Promise<void> {
      if (await tableIsEmpty(connection, database, 'platform_countries')) {
           const countryCode = String(process.env.TENANT_COUNTRY_CODE || 'GH').trim().toUpperCase();
@@ -238,20 +277,29 @@ async function seedPlatformReferences(connection: Connection, database: string):
      const [country] = await rows(connection, 'SELECT id FROM ??.platform_countries ORDER BY id LIMIT 1', [database]);
      if (!country) throw new Error('Master-control bootstrap requires at least one country');
 
-     if (await tableIsEmpty(connection, database, 'platform_states')) {
+     {
+          const existingStates = await rows(connection, 'SELECT id FROM ??.platform_states', [database]);
+          const existingIds = new Set(existingStates.map(state => Number(state.id)));
           const regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
           if (!regions.length) throw new Error('Facility regions are empty; master-control bootstrap cannot derive location data');
           for (const region of regions) {
+               if (existingIds.has(Number(region.id))) continue;
                await connection.query(
                     'INSERT INTO ??.platform_states (id, country_id, state_name, state_code) VALUES (?, ?, ?, ?)',
                     [database, region.id, country.id, region.name, String(region.regioncode).toUpperCase()],
                );
           }
      }
-     if (await tableIsEmpty(connection, database, 'platform_districts')) {
-          const districts = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
+     {
+          const existingDistricts = await rows(connection,
+               'SELECT id, state_id, district_code FROM ??.platform_districts', [database]) as PlatformDistrict[];
+          const districts: FacilityDistrict[] = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
           if (!districts.length) throw new Error('Facility districts are empty; master-control bootstrap cannot derive location data');
-          for (const district of districts) {
+          for (const district of planPlatformDistrictSeeds(districts, existingDistricts)) {
+               const original = districts.find(source => source.id === district.id)!;
+               if (district.code !== original.code.trim().toUpperCase()) {
+                    logger.warn(`[Bootstrap] District ${district.id} (${district.name}) in state ${district.regionid}: conflicting code ${original.code} imported as ${district.code}`);
+               }
                await connection.query(
                     'INSERT INTO ??.platform_districts (id, country_id, state_id, district_name, district_code) VALUES (?, ?, ?, ?, ?)',
                     [database, district.id, country.id, district.regionid, district.name, String(district.code).toUpperCase()],
@@ -302,9 +350,25 @@ export async function bootstrapMasterControlDatabase(): Promise<void> {
           const completed = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?', [database, INITIAL_MIGRATION]);
           if (!completed.length) {
                await seedControlCatalog(connection, database);
-               await seedPlatformReferences(connection, database);
-               await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)', [database, INITIAL_MIGRATION]);
-               logger.info(`[Bootstrap] Created and initialized master-control database ${database}`);
+          }
+          const references = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
+               [database, PLATFORM_REFERENCES_MIGRATION]);
+          if (!completed.length || !references.length) {
+               await connection.beginTransaction();
+               try {
+                    await seedPlatformReferences(connection, database);
+                    if (!completed.length) {
+                         await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)', [database, INITIAL_MIGRATION]);
+                    }
+                    if (!references.length) {
+                         await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)', [database, PLATFORM_REFERENCES_MIGRATION]);
+                    }
+                    await connection.commit();
+               } catch (error) {
+                    await connection.rollback();
+                    throw error;
+               }
+               logger.info(`[Bootstrap] Reconciled master-control location references in ${database}`);
           }
           const sanitized = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
                [database, SANITIZE_CATALOG_AUTHORS_MIGRATION]);
