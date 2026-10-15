@@ -14,7 +14,13 @@ vi.mock('../database/connection', () => {
           () => ({ whereNull: () => ({ update: mocks.backfill }) }),
           {
                fn: sql.fn,
-               raw: async () => [[...mocks.tables].flatMap(([table, ddl]) =>
+               raw: async (query: string) => [query.includes('INFORMATION_SCHEMA.STATISTICS')
+                    ? [...mocks.tables].flatMap(([table, ddl]) =>
+                         [...ddl.matchAll(/add (unique|index) `[^`]+`\(([^)]+)\)/g)].map(match => ({
+                              TABLE_NAME: table, NON_UNIQUE: match[1] === 'unique' ? 0 : 1,
+                              INDEX_COLUMNS: match[2].replace(/`/g, '').replace(/ /g, ''),
+                         })))
+                    : [...mocks.tables].flatMap(([table, ddl]) =>
                     [...ddl.matchAll(/foreign key \(`([^`]+)`\) references `([^`]+)` \(`([^`]+)`\)/g)]
                          .map(match => ({
                               TABLE_NAME: table, COLUMN_NAME: match[1],
@@ -37,6 +43,9 @@ vi.mock('../database/connection', () => {
                          if (mocks.tables.has(name)) throw new Error('Table already exists');
                          const statements = sql.schema.createTable(name, callback).toSQL();
                          const text = statements.map(statement => statement.sql).join('\n');
+                         for (const match of text.matchAll(/`([^`]+)`/g)) {
+                              if (match[1].length > 64) throw new Error(`Identifier exceeds MySQL limit: ${match[1]}`);
+                         }
                          mocks.tables.set(name, text);
                          mocks.writes.push(text);
                     },
@@ -50,6 +59,9 @@ vi.mock('../database/connection', () => {
                          consume();
                          if (!mocks.tables.has(name)) throw new Error('Table does not exist');
                          const text = sql.schema.alterTable(name, callback).toSQL().map(statement => statement.sql).join('\n');
+                         for (const match of text.matchAll(/`([^`]+)`/g)) {
+                              if (match[1].length > 64) throw new Error(`Identifier exceeds MySQL limit: ${match[1]}`);
+                         }
                          if (text.includes('foreign key')) mocks.constraintWrite(text);
                          mocks.tables.set(name, `${mocks.tables.get(name)}\n${text}`);
                          mocks.writes.push(text);
@@ -86,6 +98,57 @@ describe('marketplace schema bootstrap', () => {
           mocks.writes.length = 0;
           await bootstrapMarketplace();
           expect(mocks.writes).toHaveLength(0);
+     });
+
+     it('keeps every generated MySQL identifier within the 64-character limit', async () => {
+          expect('marketplace_catalog_mappings_facility_id_core_item_type_core_item_id_unique'.length).toBeGreaterThan(64);
+          expect('marketplace_catalog_price_history_facility_id_catalog_item_id_created_at_index'.length).toBeGreaterThan(64);
+          await bootstrapMarketplace();
+          const names = mocks.writes.flatMap(sql => [...sql.matchAll(/`([^`]+)`/g)].map(match => match[1]));
+          expect(names.length).toBeGreaterThan(0);
+          expect(names.every(name => name.length <= 64)).toBe(true);
+          expect(mocks.tables.get('marketplace_catalog_mappings')).toContain('add unique `uq_marketplace_mapping_core`');
+          expect(mocks.tables.get('marketplace_catalog_price_history')).toContain('add index `idx_marketplace_price_history_lookup`');
+     });
+
+     it('restores indexes omitted by interrupted DDL without recreating tables', async () => {
+          await bootstrapMarketplace();
+          for (const name of ['marketplace_catalog_mappings', 'marketplace_catalog_price_history']) {
+               mocks.tables.set(name, mocks.tables.get(name)!.split('\n')
+                    .filter(line => !line.includes('uq_marketplace_mapping_core') && !line.includes('idx_marketplace_price_history_lookup'))
+                    .join('\n'));
+          }
+          mocks.writes.length = 0;
+          await bootstrapMarketplace();
+          expect(mocks.writes).toEqual([
+               'alter table `marketplace_catalog_mappings` add unique `uq_marketplace_mapping_core`(`facility_id`, `core_item_type`, `core_item_id`)',
+               'alter table `marketplace_catalog_price_history` add index `idx_marketplace_price_history_lookup`(`facility_id`, `catalog_item_id`, `created_at`)',
+          ]);
+          mocks.writes.length = 0;
+          await bootstrapMarketplace();
+          expect(mocks.writes).toHaveLength(0);
+     });
+
+     it('accepts equivalent existing indexes regardless of their names', async () => {
+          await bootstrapMarketplace();
+          mocks.tables.set('marketplace_catalog_mappings', mocks.tables.get('marketplace_catalog_mappings')!
+               .replace('uq_marketplace_mapping_core', 'legacy_mapping_unique'));
+          mocks.tables.set('marketplace_catalog_price_history', mocks.tables.get('marketplace_catalog_price_history')!
+               .replace('idx_marketplace_price_history_lookup', 'legacy_price_lookup'));
+          mocks.writes.length = 0;
+          await bootstrapMarketplace();
+          expect(mocks.writes).toHaveLength(0);
+     });
+
+     it('does not mistake a nonunique mapping index for the required uniqueness constraint', async () => {
+          await bootstrapMarketplace();
+          mocks.tables.set('marketplace_catalog_mappings', mocks.tables.get('marketplace_catalog_mappings')!
+               .replace('add unique `uq_marketplace_mapping_core`', 'add index `legacy_mapping_lookup`'));
+          mocks.writes.length = 0;
+          await bootstrapMarketplace();
+          expect(mocks.writes).toEqual([
+               'alter table `marketplace_catalog_mappings` add unique `uq_marketplace_mapping_core`(`facility_id`, `core_item_type`, `core_item_id`)',
+          ]);
      });
 
      it('upgrades older existing profile and booking tables once', async () => {

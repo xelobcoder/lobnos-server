@@ -36,6 +36,15 @@ orphaned data still fail startup explicitly; no rows or tables are deleted.
 After the underlying issue is corrected, the next startup retries only missing
 constraints.
 
+Marketplace mapping uniqueness and price-history lookup indexes use explicit
+short names to respect MySQL's 64-character identifier limit. Startup also
+restores these indexes on tables left partially created by an earlier
+`ER_TOO_LONG_IDENT` failure. Equivalent existing indexes are retained regardless
+of name; mapping uniqueness still requires a unique index. No table deletion or
+manual index removal is required. Duplicate mapping data, if present, causes
+the unique-index repair to fail explicitly rather than deleting records.
+Regression tests compile all marketplace DDL and enforce the identifier limit.
+
 For the sibling website on the same machine, configure its server-only
 `CORE_PLATFORM_API_URL` and `CORE_PLATFORM_ALLOWED_ORIGIN` to
 `http://127.0.0.1:2300` (the current local backend port). Set

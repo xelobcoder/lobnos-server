@@ -1,6 +1,31 @@
 import { systemConfigConnection as db } from '../database/connection';
 import { bootstrapPublicFacilityRegistry } from '../models/public/PublicFacilityRegistry';
 
+const MAPPING_CORE_INDEX = 'uq_marketplace_mapping_core';
+const PRICE_HISTORY_INDEX = 'idx_marketplace_price_history_lookup';
+
+async function ensureMarketplaceIndexes(): Promise<void> {
+     const [existing] = await db.raw<Array<Array<{
+          TABLE_NAME: string; NON_UNIQUE: number; INDEX_COLUMNS: string;
+     }>>>(`SELECT TABLE_NAME, NON_UNIQUE,
+          GROUP_CONCAT(COLUMN_NAME ORDER BY SEQ_IN_INDEX SEPARATOR ',') AS INDEX_COLUMNS
+          FROM INFORMATION_SCHEMA.STATISTICS
+          WHERE TABLE_SCHEMA = DATABASE()
+          AND TABLE_NAME IN ('marketplace_catalog_mappings', 'marketplace_catalog_price_history')
+          GROUP BY TABLE_NAME, INDEX_NAME, NON_UNIQUE`);
+     for (const index of [
+          { table: 'marketplace_catalog_mappings', columns: ['facility_id', 'core_item_type', 'core_item_id'], name: MAPPING_CORE_INDEX, unique: true },
+          { table: 'marketplace_catalog_price_history', columns: ['facility_id', 'catalog_item_id', 'created_at'], name: PRICE_HISTORY_INDEX, unique: false },
+     ]) {
+          if (existing.some(row => row.TABLE_NAME === index.table && row.INDEX_COLUMNS === index.columns.join(',')
+               && (!index.unique || Number(row.NON_UNIQUE) === 0))) continue;
+          await db.schema.alterTable(index.table, table => {
+               if (index.unique) table.unique(index.columns, index.name);
+               else table.index(index.columns, index.name);
+          });
+     }
+}
+
 const MARKETPLACE_FOREIGN_KEYS: Array<{ table: string; column: string; parent: string; cascade?: boolean }> = [
      { table: 'marketplace_staff', column: 'facility_id', parent: 'marketplace_facilities', cascade: true },
      { table: 'marketplace_sessions', column: 'staff_id', parent: 'marketplace_staff', cascade: true },
@@ -133,7 +158,7 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.integer('core_item_id').unsigned().notNullable();
                table.string('core_item_type', 20).notNullable();
                table.primary(['facility_id', 'marketplace_item_id']);
-               table.unique(['facility_id', 'core_item_type', 'core_item_id']);
+               table.unique(['facility_id', 'core_item_type', 'core_item_id'], MAPPING_CORE_INDEX);
           });
      }
      if (!(await db.schema.hasTable('marketplace_catalog_price_history'))) {
@@ -146,7 +171,7 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.string('actor_type', 20).notNullable();
                table.string('actor_id', 254).notNullable();
                table.timestamp('created_at').notNullable().defaultTo(db.fn.now());
-               table.index(['facility_id', 'catalog_item_id', 'created_at']);
+               table.index(['facility_id', 'catalog_item_id', 'created_at'], PRICE_HISTORY_INDEX);
           });
      }
      if (!(await db.schema.hasTable('marketplace_bookings'))) {
@@ -237,6 +262,7 @@ export async function bootstrapMarketplace(): Promise<void> {
           });
      }
 
+     await ensureMarketplaceIndexes();
      await ensureMarketplaceForeignKeys();
 
      // Idempotent upgrades for installations that bootstrapped before these public
