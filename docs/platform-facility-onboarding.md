@@ -88,18 +88,36 @@ total. Existing schedule frequencies, recorded payments and access status are
 unchanged. Legacy API callers omitting configuration retain their existing seed
 defaults; the provisioning UI explicitly sends the selections.
 
-### Temporary test-tenant deletion
+### Tenant deletion and failed provisioning cleanup
 
 `DELETE /api/v1/platform/facilities/:tenantId` requires the same platform
 super-admin authority and `{confirmation: "<exact organization identifier>",
-reason: "<3–500 characters>"}`. It permanently removes only the registry record,
-preserves the tenant database and subscription/payment/facility audit records,
-and writes a `tenant_deleted` audit event in the deletion transaction. Legacy
+reason: "<3–500 characters>"}`. For a facility whose registry status is `failed`,
+it releases cached tenant connections, permanently drops the partial database
+with `DROP DATABASE IF EXISTS`, and removes the registry record so provisioning
+can start fresh with the same company email. Cleanup requires multi-tenant mode,
+the exact generated database name, and a database distinct from the control and
+local application databases. Failed marketplace application links are cleared in
+the same registry transaction; the application remains `provision_failed` and its
+retry endpoint can start a fresh reservation.
+
+For all other deletable statuses, only the registry record is removed and the
+database is preserved. All deletions preserve subscription/payment/facility audit
+records and write a `tenant_deleted` audit event in the deletion transaction, with
+`details.databasePreserved` indicating whether the database was kept. The response
+includes `{tenantId,organizationIdentifier,deleted:true,databasePreserved}`. Legacy
 registry-linked migration/provisioning records follow their existing FK cascades.
 The platform-home tenant and tenants still provisioning cannot be deleted.
-The frontend confirmation form explicitly distinguishes this from deactivation.
-Registry caches are invalidated after commit. This is a testing cleanup action,
-not a database-drop operation or the existing soft deactivation.
+The frontend confirmation form warns that deleting a failed facility permanently
+deletes its named database and labels the action "Delete database and tenant".
+The success message uses the returned `databasePreserved` value, rather than
+assuming the database was kept. An open retry form is reset to a fresh attempt
+when its failed tenant is deleted. This is distinct from deactivation. Registry caches are
+invalidated after commit. Database cleanup errors are returned explicitly and
+retain the failed registry reservation. MySQL DDL cannot be rolled back: if a
+later registry transaction/commit fails, the failed reservation may remain with
+its database already removed. Repeating the confirmed deletion safely handles an
+already-missing database. No active or suspended database is dropped.
 
 All three endpoints require the PLS staff session, supplied in the
 `pls-prime-tenant-session` cookie or the same-named request header. They do not

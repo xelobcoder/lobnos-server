@@ -1,7 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ invalidate: vi.fn(), ready: vi.fn() }));
-vi.mock('../../database/connection', () => ({ systemConfigConnection: {} }));
+const mocks = vi.hoisted(() => ({
+     invalidate: vi.fn(), ready: vi.fn(), connect: vi.fn(), release: vi.fn(), query: vi.fn(), end: vi.fn(),
+}));
+vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
+vi.mock('./tenantConnections', () => ({ releaseTenantConnection: mocks.release }));
+vi.mock('../../database/connection', () => ({
+     systemConfigConnection: {},
+     singleTenantKnexInstance: { client: { config: { connection: { database: 'control_db' } } } },
+}));
 vi.mock('./TenantRegistry', () => ({
      TENANTS_TABLE: 'prime_tenants',
      TenantRegistry: class { static ensureReady = mocks.ready; static invalidate = mocks.invalidate; },
@@ -117,12 +124,28 @@ const tenant = (tenant_number: number, id: string, status: string) => ({ id, ten
 describe('platform facility status and subscription management', () => {
      let db: any;
      let service: FacilityManagementService;
+     const originalMultiTenant = configuration.isMultiTenant;
+     const originalMasterDatabase = configuration.masterControlDatabase;
+     afterEach(() => {
+          configuration.isMultiTenant = originalMultiTenant;
+          configuration.masterControlDatabase = originalMasterDatabase;
+          vi.unstubAllEnvs();
+     });
      beforeEach(() => {
           vi.clearAllMocks();
+          mocks.query.mockReset().mockResolvedValue([[]]);
+          mocks.release.mockReset().mockResolvedValue(undefined);
+          mocks.end.mockReset().mockResolvedValue(undefined);
+          mocks.connect.mockReset().mockResolvedValue({ query: mocks.query, end: mocks.end });
           configuration.defaultTenantId = CONTROL;
+          configuration.isMultiTenant = true;
+          vi.stubEnv('DB_HOST', 'localhost');
+          vi.stubEnv('DB_PORT', '3306');
+          vi.stubEnv('DB_USERNAME', 'test');
           db = memoryMaster({
                prime_tenants: [
-                    tenant(CONTROL, 'CTRL1', 'active'), tenant(CLIENT, 'NRAM11', 'active'), tenant(222222, 'NRAM12', 'failed'),
+                    tenant(CONTROL, 'CTRL1', 'active'), tenant(CLIENT, 'NRAM11', 'active'),
+                    { ...tenant(222222, 'NRAM12', 'failed'), database_name: 'pls_nram12_222222' },
                     tenant(333333, 'NRAM13', 'provisioning'), tenant(444444, 'NRAM14', 'suspended'),
                     { ...tenant(555555, 'NRAM15', 'active'), deleted_at: '2026-01-01' },
                ],
@@ -145,17 +168,79 @@ describe('platform facility status and subscription management', () => {
                     await db(PAYMENTS_TABLE).insert({ tenant_id: id, reference: 'Preserve payment' });
                     await db(PLANS_TABLE).insert({ tenant_id: id });
                     const result = await service.deleteTenant(id, confirmation, 'Testing cleanup', actor);
-                    expect(result).toMatchObject({ deleted: true, databasePreserved: true, tenantId: id });
+                    expect(result).toMatchObject({ deleted: true, databasePreserved: id !== 222222, tenantId: id });
                     expect(db.table('prime_tenants').some((row: any) => row.tenant_number === id)).toBe(false);
                     expect(db.table('prime_tenants').some((row: any) => row.tenant_number === CONTROL)).toBe(true);
                     expect(db.table(EVENTS_TABLE)[0]).toMatchObject({
                          action: 'tenant_deleted', reason: 'Testing cleanup', actor_tenant_id: CONTROL, actor_employee_id: 9,
+                         details: JSON.stringify({ databasePreserved: id !== 222222 }),
                     });
+                    if (id === 222222) {
+                         expect(mocks.release).toHaveBeenCalledWith(id);
+                         expect(mocks.query).toHaveBeenCalledExactlyOnceWith('DROP DATABASE IF EXISTS ??', ['pls_nram12_222222']);
+                         expect(mocks.release.mock.invocationCallOrder[0]).toBeLessThan(mocks.query.mock.invocationCallOrder[0]);
+                         expect(mocks.end).toHaveBeenCalledOnce();
+                    } else {
+                         expect(mocks.connect).not.toHaveBeenCalled();
+                         expect(mocks.release).not.toHaveBeenCalled();
+                    }
                     expect(mocks.invalidate).toHaveBeenCalledOnce();
                     expect(db.table(PAYMENTS_TABLE)).toHaveLength(1);
                     expect(db.table(PLANS_TABLE)).toHaveLength(1);
                },
           );
+          it('clears only failed marketplace links so fresh provisioning can reserve a new tenant', async () => {
+               await db('marketplace_facilities').insert({ linked_tenant_id: 222222, integration_state: 'provision_failed' });
+               await db('marketplace_facilities').insert({ linked_tenant_id: CLIENT, integration_state: 'linked' });
+               await service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor);
+               expect(db.table('marketplace_facilities')[0]).toMatchObject({
+                    linked_tenant_id: null, integration_state: 'provision_failed',
+               });
+               expect(db.table('marketplace_facilities')[1]).toMatchObject({ linked_tenant_id: CLIENT });
+          });
+          it('allows retrying confirmed deletion after a cleanup failure', async () => {
+               mocks.query.mockRejectedValueOnce(new Error('Cleanup unavailable'));
+               await expect(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor)).rejects.toThrow('Cleanup unavailable');
+               const result = await service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor);
+               expect(result).toMatchObject({ deleted: true, databasePreserved: false });
+               expect(mocks.query).toHaveBeenCalledTimes(2);
+               expect(mocks.query).toHaveBeenLastCalledWith('DROP DATABASE IF EXISTS ??', ['pls_nram12_222222']);
+          });
+          it('protects the master database even if its name matches the failed reservation', async () => {
+               configuration.masterControlDatabase = 'PLS_NRAM12_222222';
+               await expectError(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor), 409);
+               expect(mocks.connect).not.toHaveBeenCalled();
+          });
+          it.each(['drop', 'release', 'connect', 'audit'])('retains the failed reservation and reports a %s failure', async failure => {
+               if (failure === 'drop') mocks.query.mockRejectedValueOnce(new Error('Cleanup unavailable'));
+               if (failure === 'release') mocks.release.mockRejectedValueOnce(new Error('Cleanup unavailable'));
+               if (failure === 'connect') mocks.connect.mockRejectedValueOnce(new Error('Cleanup unavailable'));
+               if (failure === 'audit') db.failNextEventInsert = true;
+               await expect(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor)).rejects.toThrow(
+                    failure === 'audit' ? 'Audit unavailable' : 'Cleanup unavailable',
+               );
+               expect(db.table('prime_tenants').find((row: any) => row.tenant_number === 222222).status).toBe('failed');
+               expect(db.table(EVENTS_TABLE)).toHaveLength(0);
+               expect(mocks.invalidate).not.toHaveBeenCalled();
+               if (failure === 'audit' || failure === 'connect') expect(mocks.query).not.toHaveBeenCalled();
+               if (failure === 'drop' || failure === 'release') expect(mocks.end).toHaveBeenCalledOnce();
+          });
+          it.each(['control_db', 'other_tenant', 'pls_nram12_222222;DROP DATABASE mysql', null])(
+               'refuses unsafe failed database %s without deleting the reservation', async databaseName => {
+                    await db('prime_tenants').where({ tenant_number: 222222 }).update({ database_name: databaseName });
+                    await expectError(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor), 409);
+                    expect(mocks.connect).not.toHaveBeenCalled();
+                    expect(db.table('prime_tenants')).toHaveLength(6);
+               },
+          );
+          it('refuses failed database cleanup in single-tenant mode or without connection settings', async () => {
+               configuration.isMultiTenant = false;
+               await expectError(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor), 409);
+               configuration.isMultiTenant = true;
+               vi.stubEnv('DB_HOST', '');
+               await expectError(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor), 503);
+               expect(mocks.connect).not.toHaveBeenCalled();
+          });
           it('keeps the tenant if recording the audit fails', async () => {
                db.failNextEventInsert = true;
                await expect(service.deleteTenant(CLIENT, 'NRAM11', 'Testing cleanup', actor)).rejects.toThrow('Audit unavailable');
@@ -166,6 +251,8 @@ describe('platform facility status and subscription management', () => {
                await expectError(service.deleteTenant(CONTROL, 'CTRL1', 'Testing cleanup', actor), 403);
                await expectError(service.deleteTenant(333333, 'NRAM13', 'Testing cleanup', actor), 409);
                await expectError(service.deleteTenant(CLIENT, 'nram11', 'Testing cleanup', actor), 400);
+               await expectError(service.deleteTenant(222222, 'nram12', 'Testing cleanup', actor), 400);
+               expect(mocks.connect).not.toHaveBeenCalled();
                expect(db.table('prime_tenants')).toHaveLength(6);
                expect(db.table(EVENTS_TABLE)).toHaveLength(0);
                expect(mocks.invalidate).not.toHaveBeenCalled();

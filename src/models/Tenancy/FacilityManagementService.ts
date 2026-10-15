@@ -1,5 +1,6 @@
 import { Knex } from 'knex';
-import { systemConfigConnection } from '../../database/connection';
+import mysql from 'mysql2/promise';
+import { singleTenantKnexInstance, systemConfigConnection } from '../../database/connection';
 import { configuration } from '../../hooks/configuration';
 import { TENANTS_TABLE, TenantRegistry } from './TenantRegistry';
 import { FacilityError } from './FacilityInput';
@@ -17,6 +18,8 @@ import { SmsProviderSettingsDto } from '../application/sms/dtos/SmsProviderSetti
 import { SmsProviderSettingsRepo } from '../application/sms/repositories/SmsProviderSettingsRepo';
 import { SmsProviderSettingsService } from '../application/sms/services/SmsProviderSettingsService';
 import { bootstrapSmsProviderSettings } from '../application/sms/SmsProviderBootstrapper';
+import { releaseTenantConnection } from './tenantConnections';
+import { safeDatabaseIdentifier } from './FacilitySchema';
 
 export const PLANS_TABLE = 'facility_subscription_plans';
 export const PAYMENTS_TABLE = 'facility_subscription_payments';
@@ -280,7 +283,7 @@ export class FacilityManagementService {
 
      private async tenantRow(db: Knex | Knex.Transaction, tenantId: number, lock: boolean) {
           const query = db(TENANTS_TABLE).where({ tenant_number: tenantId });
-          const row = await (lock ? query.forUpdate() : query).first('id', 'tenant_number', 'status', 'deleted_at');
+          const row = await (lock ? query.forUpdate() : query).first('id', 'tenant_number', 'status', 'deleted_at', 'database_name');
           if (!row || row.deleted_at) throw new FacilityError('Facility not found', 404);
           return row;
      }
@@ -372,13 +375,48 @@ export class FacilityManagementService {
                const tenant = await this.tenantRow(trx, tenantId, true);
                if (tenant.status === 'provisioning') throw new FacilityError('Facility is provisioning; wait for it to finish before deleting', 409);
                if (confirmation !== tenant.id) throw new FacilityError('Enter the exact organization identifier to confirm deletion', 400);
+               const databasePreserved = tenant.status !== 'failed';
+               if (!databasePreserved) {
+                    const localConnection = singleTenantKnexInstance.client.config.connection;
+                    const localDatabase = typeof localConnection === 'object' && localConnection && 'database' in localConnection
+                         ? localConnection.database : undefined;
+                    const databaseName = tenant.database_name;
+                    if (!configuration.isMultiTenant || typeof databaseName !== 'string' ||
+                         databaseName !== `pls_${String(tenant.id).toLowerCase()}_${tenantId}` ||
+                         databaseName.toLowerCase() === configuration.masterControlDatabase.toLowerCase() ||
+                         (typeof localDatabase === 'string' && databaseName.toLowerCase() === localDatabase.toLowerCase())) {
+                         throw new FacilityError('Failed facility database cannot be safely deleted', 409);
+                    }
+                    safeDatabaseIdentifier(databaseName);
+                    if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PORT) {
+                         throw new FacilityError('Tenant database connection settings are incomplete', 503);
+                    }
+               }
                await this.event(trx, tenant, actor, {
                     action: 'tenant_deleted', from_status: tenant.status, to_status: 'deleted', reason,
-                    details: JSON.stringify({ databasePreserved: true }),
+                    details: JSON.stringify({ databasePreserved }),
                });
+               if (!databasePreserved) {
+                    // DDL uses a separate connection so MySQL cannot implicitly commit the registry transaction.
+                    const admin = await mysql.createConnection({
+                         host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
+                         user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, multipleStatements: false,
+                    });
+                    try {
+                         await releaseTenantConnection(tenantId);
+                         await admin.query('DROP DATABASE IF EXISTS ??', [tenant.database_name]);
+                    } finally {
+                         await admin.end();
+                    }
+                    if (await trx.schema.hasTable('marketplace_facilities')) {
+                         await trx('marketplace_facilities').where({
+                              linked_tenant_id: tenantId, integration_state: 'provision_failed',
+                         }).update({ linked_tenant_id: null, updated_at: trx.fn.now() });
+                    }
+               }
                const deleted = await trx(TENANTS_TABLE).where({ tenant_number: tenantId, id: tenant.id }).delete();
                if (deleted !== 1) throw new FacilityError('Facility changed concurrently; reload and retry', 409);
-               return { tenantId, organizationIdentifier: tenant.id, deleted: true, databasePreserved: true };
+               return { tenantId, organizationIdentifier: tenant.id, deleted: true, databasePreserved };
           });
           TenantRegistry.invalidate();
           return result;

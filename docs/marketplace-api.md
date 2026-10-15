@@ -186,6 +186,10 @@ Marketplace routes derive tenancy from that session and reject query `tenantId`.
   final activation transaction. If preflight failed before reservation, it
   safely starts a fresh provisioning attempt. Retry claims prevent concurrent
   attempts, and another failure remains visible as `provision_failed`.
+  Alternatively, the core platform Delete action can remove the failed tenant
+  and its partial database with exact organization-identifier confirmation and
+  a reason. This clears the application's failed tenant link without approving
+  or publishing it; retry-provisioning then makes a fresh reservation.
 - `POST /platform/facilities/:facilityId/link-tenant` remains the reviewed
   existing-tenant/catalog-mapping migration path.
 

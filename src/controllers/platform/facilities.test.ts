@@ -88,12 +88,13 @@ describe('platform facility routes', () => {
           expect(res.json).toHaveBeenCalledWith({ status: 'success', result: { profile: body } });
      });
 
-     it('validates deletion reason and passes confirmation with the authenticated actor', async () => {
-          mocks.deleteTenant.mockResolvedValue({ deleted: true, databasePreserved: true });
-          await invoke('delete', '/api/v1/platform/facilities/:tenantId', {
+     it.each([true, false])('validates deletion reason and returns databasePreserved=%s with the authenticated actor', async databasePreserved => {
+          mocks.deleteTenant.mockResolvedValue({ deleted: true, databasePreserved });
+          const res = await invoke('delete', '/api/v1/platform/facilities/:tenantId', {
                params: { tenantId: '654321' }, body: { confirmation: 'NRAM11', reason: ' Test cleanup ', employeeid: 1 },
           });
           expect(mocks.deleteTenant).toHaveBeenCalledWith(654321, 'NRAM11', 'Test cleanup', { tenantId: 123456, employeeId: 9 });
+          expect(res.json).toHaveBeenCalledWith({ status: 'success', result: { deleted: true, databasePreserved } });
           mocks.deleteTenant.mockClear();
           const bad = await invoke('delete', '/api/v1/platform/facilities/:tenantId', {
                params: { tenantId: '654321' }, body: { confirmation: 'NRAM11', reason: '' },
