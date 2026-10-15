@@ -33,12 +33,13 @@ export async function bootstrapLoginUsernames(tenantId: number): Promise<void> {
                     .orWhere(account.id, '<=', 0).orWhere(account.id, '>', 999999999).first();
                if (invalid) throw new Error(`Cannot migrate ${account.table}: invalid ${account.id}`);
                const needsMigration = await trx(account.table)
-                    .whereRaw(`login_username IS NULL OR login_username <> ${generatedLogin}`, [prefix, account.id, account.id])
+                    .whereRaw(`login_username IS NULL OR CAST(login_username AS BINARY) <> CAST(${generatedLogin} AS BINARY)`, [prefix, account.id, account.id])
                     .first(account.id);
                if (!needsMigration) return;
                await trx(account.table).whereNull('legacy_login_username').update({
                     legacy_login_username: hasPrevious
-                         ? trx.raw('COALESCE(??, ??)', ['login_username', account.previous])
+                         ? trx.raw('COALESCE(CONVERT(?? USING utf8mb4) COLLATE utf8mb4_bin, CONVERT(?? USING utf8mb4) COLLATE utf8mb4_bin)',
+                              ['login_username', account.previous])
                          : trx.ref('login_username'),
                });
                // Clear old unique login values before assigning the deterministic new IDs.

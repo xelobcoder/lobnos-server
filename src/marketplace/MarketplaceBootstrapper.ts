@@ -1,6 +1,39 @@
 import { systemConfigConnection as db } from '../database/connection';
 import { bootstrapPublicFacilityRegistry } from '../models/public/PublicFacilityRegistry';
 
+const MARKETPLACE_FOREIGN_KEYS: Array<{ table: string; column: string; parent: string; cascade?: boolean }> = [
+     { table: 'marketplace_staff', column: 'facility_id', parent: 'marketplace_facilities', cascade: true },
+     { table: 'marketplace_sessions', column: 'staff_id', parent: 'marketplace_staff', cascade: true },
+     { table: 'marketplace_catalog_items', column: 'facility_id', parent: 'marketplace_facilities', cascade: true },
+     { table: 'marketplace_catalog_mappings', column: 'facility_id', parent: 'marketplace_facilities', cascade: true },
+     { table: 'marketplace_catalog_mappings', column: 'marketplace_item_id', parent: 'marketplace_catalog_items', cascade: true },
+     { table: 'marketplace_catalog_price_history', column: 'facility_id', parent: 'marketplace_facilities', cascade: true },
+     { table: 'marketplace_catalog_price_history', column: 'catalog_item_id', parent: 'marketplace_catalog_items', cascade: true },
+     { table: 'marketplace_bookings', column: 'facility_id', parent: 'marketplace_facilities' },
+     { table: 'marketplace_booking_items', column: 'booking_id', parent: 'marketplace_bookings', cascade: true },
+     { table: 'marketplace_payment_claims', column: 'booking_id', parent: 'marketplace_bookings' },
+     { table: 'marketplace_refunds', column: 'booking_id', parent: 'marketplace_bookings' },
+     { table: 'marketplace_core_booking_links', column: 'booking_id', parent: 'marketplace_bookings' },
+];
+
+async function ensureMarketplaceForeignKeys(): Promise<void> {
+     const [existing] = await db.raw<Array<Array<{
+          TABLE_NAME: string; COLUMN_NAME: string; REFERENCED_TABLE_NAME: string; REFERENCED_COLUMN_NAME: string;
+     }>>>(`SELECT TABLE_NAME, COLUMN_NAME, REFERENCED_TABLE_NAME, REFERENCED_COLUMN_NAME
+          FROM INFORMATION_SCHEMA.KEY_COLUMN_USAGE
+          WHERE TABLE_SCHEMA = DATABASE() AND REFERENCED_TABLE_SCHEMA = DATABASE()
+          AND REFERENCED_TABLE_NAME IS NOT NULL`);
+     for (const reference of MARKETPLACE_FOREIGN_KEYS) {
+          if (existing.some(row => row.TABLE_NAME === reference.table && row.COLUMN_NAME === reference.column
+               && row.REFERENCED_TABLE_NAME === reference.parent && row.REFERENCED_COLUMN_NAME === 'id')) continue;
+          // MySQL can commit CREATE TABLE before Knex's separate ADD CONSTRAINT fails.
+          await db.schema.alterTable(reference.table, table => {
+               const foreign = table.foreign(reference.column).references('id').inTable(reference.parent);
+               if (reference.cascade) foreign.onDelete('CASCADE');
+          });
+     }
+}
+
 /**
  * The marketplace is shared across tenants, so its registry and bookings live in
  * the control database. This idempotent startup bootstrap performs no tenant or
@@ -55,7 +88,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_staff'))) {
           await db.schema.createTable('marketplace_staff', table => {
                table.bigIncrements('id').primary();
-               table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
+               table.bigInteger('facility_id').unsigned().notNullable();
                table.string('email', 254).notNullable();
                table.string('password_hash', 100).notNullable();
                table.string('role', 20).notNullable().defaultTo('admin');
@@ -67,7 +100,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_sessions'))) {
           await db.schema.createTable('marketplace_sessions', table => {
                table.bigIncrements('id').primary();
-               table.bigInteger('staff_id').unsigned().notNullable().references('id').inTable('marketplace_staff').onDelete('CASCADE');
+               table.bigInteger('staff_id').unsigned().notNullable();
                table.string('token_hash', 64).notNullable().unique();
                table.timestamp('expires_at').notNullable();
                table.timestamp('revoked_at').nullable();
@@ -78,7 +111,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_catalog_items'))) {
           await db.schema.createTable('marketplace_catalog_items', table => {
                table.bigIncrements('id').primary();
-               table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
+               table.bigInteger('facility_id').unsigned().notNullable();
                table.string('item_type', 12).notNullable();
                table.string('name', 160).notNullable();
                table.text('description').notNullable();
@@ -95,8 +128,8 @@ export async function bootstrapMarketplace(): Promise<void> {
      }
      if (!(await db.schema.hasTable('marketplace_catalog_mappings'))) {
           await db.schema.createTable('marketplace_catalog_mappings', table => {
-               table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
-               table.bigInteger('marketplace_item_id').unsigned().notNullable().references('id').inTable('marketplace_catalog_items').onDelete('CASCADE');
+               table.bigInteger('facility_id').unsigned().notNullable();
+               table.bigInteger('marketplace_item_id').unsigned().notNullable();
                table.integer('core_item_id').unsigned().notNullable();
                table.string('core_item_type', 20).notNullable();
                table.primary(['facility_id', 'marketplace_item_id']);
@@ -106,8 +139,8 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_catalog_price_history'))) {
           await db.schema.createTable('marketplace_catalog_price_history', table => {
                table.bigIncrements('id').primary();
-               table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities').onDelete('CASCADE');
-               table.bigInteger('catalog_item_id').unsigned().notNullable().references('id').inTable('marketplace_catalog_items').onDelete('CASCADE');
+               table.bigInteger('facility_id').unsigned().notNullable();
+               table.bigInteger('catalog_item_id').unsigned().notNullable();
                table.decimal('previous_price', 12, 2).nullable();
                table.decimal('new_price', 12, 2).notNullable();
                table.string('actor_type', 20).notNullable();
@@ -119,7 +152,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_bookings'))) {
           await db.schema.createTable('marketplace_bookings', table => {
                table.string('id', 36).primary();
-               table.bigInteger('facility_id').unsigned().notNullable().references('id').inTable('marketplace_facilities');
+               table.bigInteger('facility_id').unsigned().notNullable();
                table.string('tracking_token_hash', 64).notNullable().unique();
                table.text('patient_name').notNullable();
                table.text('patient_phone').notNullable();
@@ -140,7 +173,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_booking_items'))) {
           await db.schema.createTable('marketplace_booking_items', table => {
                table.bigIncrements('id').primary();
-               table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings').onDelete('CASCADE');
+               table.string('booking_id', 36).notNullable();
                table.bigInteger('catalog_item_id').unsigned().nullable();
                table.integer('core_item_id').unsigned().nullable();
                table.string('item_type', 20).notNullable();
@@ -152,7 +185,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_payment_claims'))) {
           await db.schema.createTable('marketplace_payment_claims', table => {
                table.bigIncrements('id').primary();
-               table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings');
+               table.string('booking_id', 36).notNullable();
                table.text('reference').notNullable();
                table.string('reference_hash', 64).notNullable().unique();
                table.decimal('claimed_amount', 12, 2).notNullable();
@@ -168,7 +201,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      if (!(await db.schema.hasTable('marketplace_refunds'))) {
           await db.schema.createTable('marketplace_refunds', table => {
                table.bigIncrements('id').primary();
-               table.string('booking_id', 36).notNullable().references('id').inTable('marketplace_bookings');
+               table.string('booking_id', 36).notNullable();
                table.text('external_reference').notNullable();
                table.string('reference_hash', 64).notNullable().unique();
                table.decimal('amount', 12, 2).notNullable();
@@ -191,7 +224,7 @@ export async function bootstrapMarketplace(): Promise<void> {
      }
      if (!(await db.schema.hasTable('marketplace_core_booking_links'))) {
           await db.schema.createTable('marketplace_core_booking_links', table => {
-               table.string('booking_id', 36).primary().references('id').inTable('marketplace_bookings');
+               table.string('booking_id', 36).primary();
                table.integer('tenant_id').unsigned().notNullable();
                table.integer('patient_id').unsigned().notNullable();
                table.integer('billing_id').unsigned().notNullable();
@@ -203,6 +236,8 @@ export async function bootstrapMarketplace(): Promise<void> {
                table.index(['tenant_id', 'patient_id']);
           });
      }
+
+     await ensureMarketplaceForeignKeys();
 
      // Idempotent upgrades for installations that bootstrapped before these public
      // profile fields were introduced.

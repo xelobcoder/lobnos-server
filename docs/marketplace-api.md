@@ -9,6 +9,33 @@ builder accumulates previous queries and can skip table creation or check column
 on a missing table. Fresh-install, repeat-run and legacy-column upgrades are
 covered by `src/marketplace/MarketplaceBootstrapper.test.ts`.
 
+### Startup database privileges and interrupted schema creation
+
+The `SYSTEM_CONFIG_DB_USERNAME` account (or the configured application account
+when that override is absent) needs `REFERENCES` on the shared control schema,
+in addition to its existing schema-creation and runtime privileges. Do not
+remove foreign keys or disable marketplace initialization to bypass this.
+
+For the reported `primelab`@`localhost` installation, a MySQL administrator can
+apply this narrowly scoped grant:
+
+```sql
+GRANT REFERENCES ON `primelabmaster_control`.* TO 'primelab'@'localhost';
+SHOW GRANTS FOR 'primelab'@'localhost';
+```
+
+Use the actual control schema and matched account/host for other installations;
+`SELECT CURRENT_USER(), DATABASE()` through the control connection identifies
+them. Do not grant global privileges or `GRANT OPTION` to the runtime account.
+Restart the application after deploying/building the fix and applying the grant.
+
+MySQL can retain a table when the subsequent `ADD CONSTRAINT` fails. Startup
+therefore reconciles all twelve marketplace foreign keys even for existing
+tables, retaining the original cascade/restrict behavior. Missing privileges or
+orphaned data still fail startup explicitly; no rows or tables are deleted.
+After the underlying issue is corrected, the next startup retries only missing
+constraints.
+
 For the sibling website on the same machine, configure its server-only
 `CORE_PLATFORM_API_URL` and `CORE_PLATFORM_ALLOWED_ORIGIN` to
 `http://127.0.0.1:2300` (the current local backend port). Set

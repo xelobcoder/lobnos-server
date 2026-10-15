@@ -15,6 +15,13 @@ older interrupted imports, even if the initial bootstrap was marked complete.
 After deploying and building the fix, restart normally; no database deletion,
 manual migration-marker reset, or `INSERT IGNORE` workaround is needed.
 
+Login-username reconciliation supports legacy tenant tables whose column
+collations differ from the connection default (for example,
+`utf8mb4_general_ci` versus `utf8mb4_unicode_ci`). Canonical login IDs are
+compared as binary strings; historical username copies explicitly use a shared
+UTF-8 collation. No database-wide collation conversion or password reset is
+required.
+
 ## HTTP contract
 
 ### Facility branding
