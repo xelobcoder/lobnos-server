@@ -102,19 +102,37 @@ async function resetCatalogAuthors(connection: Connection, controlDatabase: stri
      }
 }
 
+export function missingControlCatalogTables(catalogTables: string[], existingTables: string[]): string[] {
+     const existing = new Set(existingTables.map(table => table.toLowerCase()));
+     return catalogTables.filter(table => !existing.has(table.toLowerCase()));
+}
+
 async function installControlCatalogSchema(connection: Connection, controlDatabase: string): Promise<void> {
      const structure = loadFacilityStructureExports();
      const catalogTables = structure.tables.filter(table => CONTROL_TABLES.includes(table.name));
      if (catalogTables.length !== CONTROL_TABLES.length) throw new Error('The reviewed master-control catalog schema is incomplete');
+     const existing = await rows(connection, `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
+          WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'`, [controlDatabase]);
+     const missing = new Set(missingControlCatalogTables(catalogTables.map(table => table.name),
+          existing.map(row => String(row.TABLE_NAME))));
+     if (!missing.size) return;
      await connection.query('USE ??', [controlDatabase]);
      await connection.query('SET FOREIGN_KEY_CHECKS = 0');
      try {
           for (const table of catalogTables) {
-               await connection.query(isolateReferenceDdl(
-                    table.ddl.replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS '),
-                    EXPORTED_SOURCE_DATABASE,
-                    controlDatabase,
-               ));
+               if (!missing.has(table.name)) continue;
+               try {
+                    await connection.query(isolateReferenceDdl(
+                         table.ddl.replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS '),
+                         EXPORTED_SOURCE_DATABASE,
+                         controlDatabase,
+                    ));
+               } catch (error) {
+                    if ((error as { code?: string })?.code === 'ER_TABLEACCESS_DENIED_ERROR') {
+                         throw new Error(`Cannot provision missing master-control table ${table.name}; grant REFERENCES on ${controlDatabase} to the configured system database user`);
+                    }
+                    throw error;
+               }
           }
      } finally {
           await connection.query('SET FOREIGN_KEY_CHECKS = 1');

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compatibleColumnMapping } from './MasterControlBootstrap';
+import { compatibleColumnMapping, missingControlCatalogTables } from './MasterControlBootstrap';
 
 describe('compatibleColumnMapping', () => {
      it('maps facility and master columns case-insensitively and ignores legacy-only fields', () => {
@@ -26,5 +26,18 @@ describe('compatibleColumnMapping', () => {
                ],
                'catalog',
           )).toThrow('required columns are missing: required_name');
+     });
+});
+
+describe('master-control catalog schema reconciliation', () => {
+     it('creates only tables absent from the existing schema, ignoring identifier case', () => {
+          expect(missingControlCatalogTables(
+               ['roles', 'test_panels', 'testconditiondefinitions'],
+               ['ROLES', 'test_panels'],
+          )).toEqual(['testconditiondefinitions']);
+     });
+
+     it('does not request DDL for an already complete catalog schema', () => {
+          expect(missingControlCatalogTables(['roles', 'test_panels'], ['roles', 'test_panels'])).toEqual([]);
      });
 });
