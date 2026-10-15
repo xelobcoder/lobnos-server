@@ -107,6 +107,14 @@ export function missingControlCatalogTables(catalogTables: string[], existingTab
      return catalogTables.filter(table => !existing.has(table.toLowerCase()));
 }
 
+export function removeCatalogForeignKeys(ddl: string): string {
+     // The application DB account may not have REFERENCES on the master-control schema.
+     return ddl.replace(
+          /,\s*CONSTRAINT\s+`[^`]+`\s+FOREIGN KEY\s*\([^)]*\)\s+REFERENCES\s+`[^`]+`\s*\([^)]*\)(?:\s+ON DELETE\s+\w+)?(?:\s+ON UPDATE\s+\w+)?/gi,
+          '',
+     );
+}
+
 async function installControlCatalogSchema(connection: Connection, controlDatabase: string): Promise<void> {
      const structure = loadFacilityStructureExports();
      const catalogTables = structure.tables.filter(table => CONTROL_TABLES.includes(table.name));
@@ -121,18 +129,9 @@ async function installControlCatalogSchema(connection: Connection, controlDataba
      try {
           for (const table of catalogTables) {
                if (!missing.has(table.name)) continue;
-               try {
-                    await connection.query(isolateReferenceDdl(
-                         table.ddl.replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS '),
-                         EXPORTED_SOURCE_DATABASE,
-                         controlDatabase,
-                    ));
-               } catch (error) {
-                    if ((error as { code?: string })?.code === 'ER_TABLEACCESS_DENIED_ERROR') {
-                         throw new Error(`Cannot provision missing master-control table ${table.name}; grant REFERENCES on ${controlDatabase} to the configured system database user`);
-                    }
-                    throw error;
-               }
+               const ddl = removeCatalogForeignKeys(table.ddl)
+                    .replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS ');
+               await connection.query(isolateReferenceDdl(ddl, EXPORTED_SOURCE_DATABASE, controlDatabase));
           }
      } finally {
           await connection.query('SET FOREIGN_KEY_CHECKS = 1');

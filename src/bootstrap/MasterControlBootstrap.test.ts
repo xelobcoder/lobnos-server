@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { compatibleColumnMapping, missingControlCatalogTables } from './MasterControlBootstrap';
+import { compatibleColumnMapping, missingControlCatalogTables, removeCatalogForeignKeys } from './MasterControlBootstrap';
 
 describe('compatibleColumnMapping', () => {
      it('maps facility and master columns case-insensitively and ignores legacy-only fields', () => {
@@ -39,5 +39,18 @@ describe('master-control catalog schema reconciliation', () => {
 
      it('does not request DDL for an already complete catalog schema', () => {
           expect(missingControlCatalogTables(['roles', 'test_panels'], ['roles', 'test_panels'])).toEqual([]);
+     });
+
+     it('removes only foreign-key constraints from newly provisioned master catalog tables', () => {
+          const ddl = `CREATE TABLE \`testconditiondefinitions\` (
+               \`id\` int NOT NULL,
+               KEY \`idx_createdBy\` (\`createdBy\`),
+               CONSTRAINT \`fk_createdby\` FOREIGN KEY (\`createdBy\`) REFERENCES \`roles\` (\`employeeid\`),
+               CONSTRAINT \`fk_updatedby\` FOREIGN KEY (\`updatedBy\`) REFERENCES \`roles\` (\`employeeid\`)
+          ) ENGINE=InnoDB`;
+          const result = removeCatalogForeignKeys(ddl);
+          expect(result).toContain('KEY `idx_createdBy` (`createdBy`)');
+          expect(result).not.toMatch(/FOREIGN KEY|REFERENCES/);
+          expect(result).toContain(') ENGINE=InnoDB');
      });
 });
