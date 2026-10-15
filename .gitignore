@@ -9,8 +9,8 @@ asserts
 backups/
 *.sql
 # Master schema export + test panel seed data used by onboarding new clients - must stay tracked
-!db-exports/primelabmaster/primelabmaster.sql
-!db-exports/primelabmaster/seeds/*.sql
+# !db-exports/primelabmaster/primelabmaster.sql
+# !db-exports/primelabmaster/seeds/*.sql
 *.tar.gz
 *.encrypted
 *.bin

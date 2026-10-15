@@ -102,7 +102,7 @@ async function resetCatalogAuthors(connection: Connection, controlDatabase: stri
      }
 }
 
-async function installControlCatalog(connection: Connection, controlDatabase: string): Promise<void> {
+async function installControlCatalogSchema(connection: Connection, controlDatabase: string): Promise<void> {
      const structure = loadFacilityStructureExports();
      const catalogTables = structure.tables.filter(table => CONTROL_TABLES.includes(table.name));
      if (catalogTables.length !== CONTROL_TABLES.length) throw new Error('The reviewed master-control catalog schema is incomplete');
@@ -116,15 +116,18 @@ async function installControlCatalog(connection: Connection, controlDatabase: st
                     controlDatabase,
                ));
           }
-          // Master catalog author rows are disabled placeholders; staff credentials and PII never leave the facility DB.
-          await connection.query('DELETE FROM ??.roles', [controlDatabase]);
-          for (const table of CONTROL_TABLES.filter(table => table !== 'roles')) {
-               await copyFacilityTable(connection, controlDatabase, table);
-          }
-          await seedCatalogAuthors(connection, controlDatabase);
      } finally {
           await connection.query('SET FOREIGN_KEY_CHECKS = 1');
      }
+}
+
+async function seedControlCatalog(connection: Connection, controlDatabase: string): Promise<void> {
+     // Master catalog author rows are disabled placeholders; staff credentials and PII never leave the facility DB.
+     await connection.query('DELETE FROM ??.roles', [controlDatabase]);
+     for (const table of CONTROL_TABLES.filter(table => table !== 'roles')) {
+          await copyFacilityTable(connection, controlDatabase, table);
+     }
+     await seedCatalogAuthors(connection, controlDatabase);
 }
 
 async function installPlatformSchema(connection: Connection, database: string): Promise<void> {
@@ -275,10 +278,13 @@ export async function bootstrapMasterControlDatabase(): Promise<void> {
                name VARCHAR(150) NOT NULL PRIMARY KEY,
                completed_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+          // Reconcile required tables on every startup so a missing master-control database or
+          // an incomplete schema is repaired from reviewed assets, without a legacy master DB.
+          await installPlatformSchema(connection, database);
+          await installControlCatalogSchema(connection, database);
           const completed = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?', [database, INITIAL_MIGRATION]);
           if (!completed.length) {
-               await installPlatformSchema(connection, database);
-               await installControlCatalog(connection, database);
+               await seedControlCatalog(connection, database);
                await seedPlatformReferences(connection, database);
                await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)', [database, INITIAL_MIGRATION]);
                logger.info(`[Bootstrap] Created and initialized master-control database ${database}`);
