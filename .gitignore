@@ -7,7 +7,7 @@ asserts
 
 # Backup files and directories
 backups/
-*.sql
+# *.sql
 # Master schema export + test panel seed data used by onboarding new clients - must stay tracked
 # !db-exports/primelabmaster/primelabmaster.sql
 # !db-exports/primelabmaster/seeds/*.sql
