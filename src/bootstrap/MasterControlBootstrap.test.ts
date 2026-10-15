@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { compatibleColumnMapping, missingControlCatalogTables, removeCatalogForeignKeys } from './MasterControlBootstrap';
+import { loadFacilityStructureExports } from '../models/Tenancy/FacilityStructureExports';
+import { CONTROL_TABLES } from './standaloneProvisioning';
 
 describe('compatibleColumnMapping', () => {
      it('maps facility and master columns case-insensitively and ignores legacy-only fields', () => {
@@ -52,5 +54,15 @@ describe('master-control catalog schema reconciliation', () => {
           expect(result).toContain('KEY `idx_createdBy` (`createdBy`)');
           expect(result).not.toMatch(/FOREIGN KEY|REFERENCES/);
           expect(result).toContain(') ENGINE=InnoDB');
+     });
+
+     it('keeps every reviewed master catalog table DDL valid without REFERENCES constraints', () => {
+          const structure = loadFacilityStructureExports();
+          for (const name of CONTROL_TABLES) {
+               const ddl = structure.tables.find(table => table.name === name)!.ddl;
+               const result = removeCatalogForeignKeys(ddl);
+               expect(result, name).not.toMatch(/FOREIGN KEY|REFERENCES/i);
+               expect(result, name).not.toMatch(/,\s*,|\(\s*,|\b,\s*\)/);
+          }
      });
 });
