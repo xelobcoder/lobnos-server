@@ -42,11 +42,11 @@ fi
 
 echo
 echo "Installing dependencies..."
-npm install
+pnpm install
 
 echo
 echo "Building the application..."
-npm run build
+pnpm run build
 
 echo
 echo "Restarting PM2..."

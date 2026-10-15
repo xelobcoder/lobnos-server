@@ -60,7 +60,8 @@ export default class Outsourcing implements IOutSourcing {
     async updateOutsourceOrganization(tenantId: number, outsource: OutSourcingOrganization): Promise<boolean | string> {
         const { billingAddress, address, email, outsourceid, name, organizationType, employeeid, contactNumber, contactPerson } = outsource;
         const values = [name, organizationType, email, address, billingAddress, contactNumber, contactPerson, employeeid, outsourceid];
-        const hasOrganization = await this.checkForExistenceOutsourceOrganizationid(tenantId, parseInt(outsourceid.toString()));
+        if (outsourceid === undefined || outsourceid === null) return OperationsFailures.unfoundID;
+        const hasOrganization = await this.checkForExistenceOutsourceOrganizationid(tenantId, parseInt(outsourceid.toString(), 10));
         if (!hasOrganization) return OperationsFailures.unfoundID;
         const result = await promisifyQuery(tenantId, q_update_an_outsource_organization_basic, values);
         return rowAffected(result);
@@ -86,7 +87,7 @@ export default class Outsourcing implements IOutSourcing {
                 }
             }
             return true;
-        } catch (error) {
+        } catch (error:any) {
             if (error.code === "ER_DUP_ENTRY") {
               
             }
@@ -100,7 +101,7 @@ export default class Outsourcing implements IOutSourcing {
         }
         const services_data = await this.getOrganizationServicesInformation(tenantId, outsourceid);
         if (services_data.length == 0) return [];
-        const allTest = await new CustomTest(tenantId, null).getAllCustomTestList(tenantId);
+        const allTest = await new CustomTest(tenantId, "").getAllCustomTestList(tenantId);
         if (allTest.length === 0) return [];
         let testList = [];
         for (const service of services_data) {

@@ -13,12 +13,9 @@ router.use(checkTokenExists);
 // (they are the ordering party, not pharmacy staff). Sales, stock and dispensing
 // remain restricted to pharmacy roles below.
 router.get('/catalogue', PharmacyCatalogueController.getCatalogue);
-
 router.use(pharmacyAccess);
-
 router.get('/stock', PharmacyCatalogueController.getStock);
 router.get('/dashboard', PharmacyDashboardController.getDashboard);
-
 router.get('/sales-history', PharmacySaleController.getSalesHistory);
 router.get('/sales/reversals', PharmacySaleController.getReversedSales);
 router.post('/sales/held', PharmacySaleController.holdSale);

@@ -30,7 +30,7 @@ export async function requirePlatformFacilityAuthority(req: Request, res: Respon
           return customError('Invalid or expired staff session', 401, res);
      }
      try {
-          await TenantRegistry.ensureReady(); // May resolve/migrate the configured local tenant ID.
+          await TenantRegistry.ensureReady(); 
           const controlTenantId = configuration.defaultTenantId;
           if (req.query.tenantId !== undefined && (typeof req.query.tenantId !== 'string'
                || !/^[1-9]\d*$/.test(req.query.tenantId) || Number(req.query.tenantId) !== controlTenantId)) {
