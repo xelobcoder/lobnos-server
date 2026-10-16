@@ -346,6 +346,15 @@ export class FacilityManagementService {
           });
      }
 
+     /** Write plan lifecycle events into the existing facility audit stream within the caller's transaction. */
+     async recordPlanLifecycleEvent(
+          trx: Knex.Transaction, tenantId: number, actor: FacilityActor, action: string,
+          details: Record<string, unknown>, reason: string | null = null,
+     ): Promise<void> {
+          const tenant = await this.tenantRow(trx, tenantId, false);
+          await this.event(trx, tenant, actor, { action, details: JSON.stringify(details), reason });
+     }
+
      private requireClient(tenantId: number, action: string) {
           if (this.isControl(tenantId)) throw new FacilityError(`The control tenant cannot ${action}`, 403);
      }
@@ -545,17 +554,31 @@ export class FacilityManagementService {
            * failure between databases can leave access more restrictive, but cannot grant a requested
            * module before both stores are ready.
            */
-          async setModuleConfiguration(tenantId: number, input: FacilityModuleConfiguration, actor: FacilityActor) {
+          async setModuleConfiguration(
+               tenantId: number, input: FacilityModuleConfiguration, actor: FacilityActor,
+               planAssignment?: { code: string; name: string; monthlyPrice: string },
+          ) {
                await TenantRegistry.ensureReady();
                await this.ensureSchema();
 
                const initialTenant = await this.tenantRow(this.master, tenantId, false);
                this.requireManageable(initialTenant, 'change module configuration');
                const tenantDb = await KnexConnection(tenantId);
-               const submitted = validateModuleConfiguration(input);
+               const customInput: any = { ...input };
+               delete customInput.plan;
+               delete customInput.monthlyTotal;
+               const submitted = validateModuleConfiguration(customInput);
                if (!submitted) throw new FacilityError('moduleConfiguration is required');
-               const requested = applyFacilityModulePricing(submitted,
-                    await new FacilityModulePricingCatalog(this.master).get(submitted.currency));
+               const requested = planAssignment
+                    ? validateModuleConfiguration({
+                         ...submitted, plan: { code: planAssignment.code, name: planAssignment.name },
+                         monthlyTotal: planAssignment.monthlyPrice,
+                         modules: Object.fromEntries(FACILITY_MODULES.map(module => [module, {
+                              enabled: submitted.modules[module].enabled, monthlyPrice: '0.00',
+                         }])),
+                    })!
+                    : applyFacilityModulePricing(submitted,
+                         await new FacilityModulePricingCatalog(this.master).get(submitted.currency));
 
                await tenantDb.transaction(async trx => {
                     const settings = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();

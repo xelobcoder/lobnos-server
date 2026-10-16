@@ -29,7 +29,7 @@ import {
 import { parseAuditQuery, validateSubscriptionPlan } from './FacilityManagementInput';
 import { FacilityError } from './FacilityInput';
 import { configuration } from '../../hooks/configuration';
-import { FACILITY_MODULES } from './FacilityModules';
+import { FACILITY_MODULES, validateModuleConfiguration } from './FacilityModules';
 
 const CONTROL = 123456;
 const CLIENT = 654321;
@@ -253,6 +253,7 @@ describe('platform facility status and subscription management', () => {
                mocks.getModulePricing.mockResolvedValue({
                     currency: 'GHS',
                     modules: {
+                         ...Object.fromEntries(FACILITY_MODULES.map(module => [module, '0.00'])),
                          pharmacy: '100.00', email: '25.50', sms: '50.00', inventory: '10.00', deviceInterfacing: '4.25',
                          commissions: '0.00', analytics: '0.00', appointments: '0.00', expenses: '0.00',
                          consultations: '0.00', imaging: '0.00',
@@ -262,7 +263,7 @@ describe('platform facility status and subscription management', () => {
 
           it('synchronizes both databases, preserves unrelated JSON and audits the authenticated actor', async () => {
                const result = await service.setModuleConfiguration(CLIENT, requested as any, actor);
-               const expected = { ...requested, monthlyTotal: '29.75' };
+               const expected = { ...validateModuleConfiguration(requested)!, monthlyTotal: '29.75' };
                expect(result).toEqual({ tenantId: CLIENT, moduleConfiguration: expected, monthlyTotal: '29.75' });
                expect(JSON.parse(db.table('facility_module_configuration')[0].configuration)).toEqual(expected);
                const settings = tenantDb.table('applicationsettings')[0];
@@ -292,6 +293,27 @@ describe('platform facility status and subscription management', () => {
                expect(result.moduleConfiguration.modules.email).toEqual({ enabled: true, monthlyPrice: '25.50' });
                expect(result.monthlyTotal).toBe('29.75');
                expect(mocks.getModulePricing).toHaveBeenCalledWith('GHS');
+          });
+
+          it('stores plan metadata and single tier pricing, then drops plan metadata on a custom module save', async () => {
+               const planConfig = {
+                    ...requested, branchMode: 'multiple', monthlyTotal: '0.00',
+                    plan: { code: 'professional', name: 'Professional' },
+               };
+               const assignment = { code: 'professional', name: 'Professional', monthlyPrice: '125.00' };
+               const assigned = await service.setModuleConfiguration(CLIENT, planConfig as any, actor, assignment);
+               expect(assigned.moduleConfiguration).toMatchObject({
+                    plan: { code: 'professional', name: 'Professional' }, monthlyTotal: '125.00',
+               });
+               expect(Object.values(assigned.moduleConfiguration.modules).every(module =>
+                    module.monthlyPrice === '0.00')).toBe(true);
+               expect(JSON.parse(db.table('facility_module_configuration')[0].configuration)).toMatchObject({
+                    plan: { code: assignment.code, name: assignment.name }, monthlyTotal: '125.00',
+               });
+
+               const custom = await service.setModuleConfiguration(CLIENT, requested as any, actor);
+               expect(custom.moduleConfiguration).not.toHaveProperty('plan');
+               expect(JSON.parse(db.table('facility_module_configuration')[0].configuration)).not.toHaveProperty('plan');
           });
 
           it('requires an explicit catalog for a non-GHS currency before writing either database', async () => {

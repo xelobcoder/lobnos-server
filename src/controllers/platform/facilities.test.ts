@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
      list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
      getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(), setModuleConfiguration: vi.fn(),
      getModulePricing: vi.fn(), getAllModulePricing: vi.fn(), putModulePricing: vi.fn(),
+     listPlans: vi.fn(), upsertPlan: vi.fn(), platformUpgradeRequests: vi.fn(), decideUpgradeRequest: vi.fn(), assignPlan: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
@@ -26,6 +27,13 @@ vi.mock('../../models/public/PublicFacilityRegistry', () => ({
 vi.mock('../../models/Tenancy/FacilityModulePricingCatalog', () => ({
      FacilityModulePricingCatalog: class {
           get = mocks.getModulePricing; getAll = mocks.getAllModulePricing; put = mocks.putModulePricing;
+     },
+}));
+vi.mock('../../models/Tenancy/FacilitySubscriptionTiers', () => ({
+     FacilitySubscriptionTierService: class {
+          listPlans = mocks.listPlans; upsertPlan = mocks.upsertPlan;
+          platformUpgradeRequests = mocks.platformUpgradeRequests; decideUpgradeRequest = mocks.decideUpgradeRequest;
+          assignPlan = mocks.assignPlan;
      },
 }));
 
@@ -54,6 +62,11 @@ describe('platform facility routes', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
                'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities',
                'get /api/v1/platform/facilities/module-pricing', 'put /api/v1/platform/facilities/module-pricing',
+               'get /api/v1/platform/facilities/plans', 'put /api/v1/platform/facilities/plans/:code',
+               'get /api/v1/platform/facilities/upgrade-requests',
+               'post /api/v1/platform/facilities/upgrade-requests/:id/approve',
+               'post /api/v1/platform/facilities/upgrade-requests/:id/reject',
+               'put /api/v1/platform/facilities/:tenantId/plan',
                'post /api/v1/platform/facilities',
                'post /api/v1/platform/facilities/:tenantId/retry',
                'get /api/v1/platform/facilities/:tenantId/public-profile', 'put /api/v1/platform/facilities/:tenantId/public-profile',
@@ -97,6 +110,43 @@ describe('platform facility routes', () => {
           expect(mocks.getAllModulePricing).toHaveBeenCalledOnce();
           expect(mocks.getModulePricing).toHaveBeenCalledTimes(2);
           expect(all.json).toHaveBeenCalledWith({ status: 'success', result: allCatalogs });
+     });
+
+     it('routes tier edits, facility assignment and upgrade decisions with the authenticated platform actor', async () => {
+          const actor = { tenantId: 123456, employeeId: 9 };
+          const tier = { code: 'basic', name: 'Basic', monthlyPrice: '10.00' };
+          mocks.listPlans.mockResolvedValue([tier]);
+          const listed = await invoke('get', '/api/v1/platform/facilities/plans', {});
+          expect(listed.json).toHaveBeenCalledWith({ status: 'success', result: [tier] });
+
+          mocks.upsertPlan.mockResolvedValue(tier);
+          const saved = await invoke('put', '/api/v1/platform/facilities/plans/:code', {
+               params: { code: 'basic' }, body: { name: 'Basic' },
+          });
+          expect(mocks.upsertPlan).toHaveBeenCalledWith('basic', { name: 'Basic' }, actor);
+          expect(saved.json).toHaveBeenCalledWith({ status: 'success', result: tier });
+
+          mocks.assignPlan.mockResolvedValue({ tenantId: 654321, plan: { code: 'basic', name: 'Basic' } });
+          const assigned = await invoke('put', '/api/v1/platform/facilities/:tenantId/plan', {
+               params: { tenantId: '654321' }, body: { planCode: 'basic' },
+          });
+          expect(mocks.assignPlan).toHaveBeenCalledWith(654321, 'basic', actor);
+          expect(assigned.json).toHaveBeenCalledWith({ status: 'success', result: {
+               tenantId: 654321, plan: { code: 'basic', name: 'Basic' },
+          } });
+
+          mocks.decideUpgradeRequest.mockResolvedValue({ id: 17, status: 'approved' });
+          const approved = await invoke('post', '/api/v1/platform/facilities/upgrade-requests/:id/approve', {
+               params: { id: '17' },
+          });
+          expect(mocks.decideUpgradeRequest).toHaveBeenCalledWith('17', 'approve', actor);
+          expect(approved.json).toHaveBeenCalledWith({ status: 'success', result: { id: 17, status: 'approved' } });
+          mocks.decideUpgradeRequest.mockResolvedValue({ id: 17, status: 'rejected' });
+          const rejected = await invoke('post', '/api/v1/platform/facilities/upgrade-requests/:id/reject', {
+               params: { id: '17' }, body: { reason: 'Not eligible' },
+          });
+          expect(mocks.decideUpgradeRequest).toHaveBeenLastCalledWith('17', 'reject', actor, 'Not eligible');
+          expect(rejected.json).toHaveBeenCalledWith({ status: 'success', result: { id: 17, status: 'rejected' } });
      });
 
 

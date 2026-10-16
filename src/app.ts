@@ -47,6 +47,7 @@ import { ValidateTenancyAgreement } from "./middleware/validateTenancy";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
 import publicFacilitiesRouter from "./controllers/public/facilities";
+import subscriptionRouter from "./controllers/subscription/route";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
 import smsAnalytics from './controllers/analytics/sms-analytics/route';
@@ -106,6 +107,7 @@ app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
+app.use(subscriptionRouter);
 // app.use(checkTokenExists)
 app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)

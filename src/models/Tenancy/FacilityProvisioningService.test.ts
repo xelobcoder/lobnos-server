@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      connect: vi.fn(), tenantConnection: vi.fn(), release: vi.fn(), bootstrap: vi.fn(), seeds: vi.fn(),
      createWindow: vi.fn(), validateLicense: vi.fn(), hash: vi.fn(), logError: vi.fn(),
-     getModulePricing: vi.fn(),
+     getModulePricing: vi.fn(), getPlan: vi.fn(),
 }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, warn: vi.fn() } }));
 vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
@@ -21,6 +21,13 @@ vi.mock('./FacilityModulePricingCatalog', async importOriginal => {
      return {
           ...actual,
           FacilityModulePricingCatalog: class { get = mocks.getModulePricing; },
+     };
+});
+vi.mock('./FacilitySubscriptionTiers', async importOriginal => {
+     const actual: any = await importOriginal();
+     return {
+          ...actual,
+          FacilitySubscriptionTierService: class { getPlan = mocks.getPlan; },
      };
 });
 vi.mock('../settings/users/PrimeWindowAccessRepository', () => ({
@@ -237,6 +244,7 @@ describe('complete facility provisioning lifecycle', () => {
                     consultations: '0.00', imaging: '0.00',
                },
           });
+
           const configured = validateFacilityInput({ ...input, street: 'New Street', gpsAddress: 'XX-123',
                moduleConfiguration: {
                     branchMode: 'multiple', currency: 'GHS', modules: {
@@ -268,6 +276,34 @@ describe('complete facility provisioning lifecycle', () => {
           expect(writes.findIndex(write => write.table === 'facility_module_configuration')).toBeLessThan(
                writes.findIndex(write => write.table === 'prime_tenants' && write.value.status === 'active'),
           );
+     });
+
+     it('uses an active plan snapshot instead of submitted module selections and prices during provisioning', async () => {
+          const { db, writes } = databaseHarness();
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          mocks.getPlan.mockResolvedValue({
+               code: 'professional', name: 'Professional', description: 'Tier', currency: 'GHS',
+               monthlyPrice: '125.00', modules: ['inventory', 'email', 'appointments'],
+               branchMode: 'multiple', rank: 2, active: true,
+          });
+          const configured = validateFacilityInput({
+               ...input, planCode: 'professional',
+               moduleConfiguration: { invalid: 'ignored because planCode is authoritative' },
+          });
+          const result = await new FacilityProvisioningService(db).provision(configured, actor);
+          const settings = writes.find(write => write.table === 'applicationsettings' && write.value.moduleConfiguration)!.value;
+          const snapshot = JSON.parse(settings.moduleConfiguration);
+          expect(mocks.getPlan).toHaveBeenCalledWith('professional', true);
+          expect(snapshot).toMatchObject({
+               plan: { code: 'professional', name: 'Professional' },
+               monthlyTotal: '125.00', currency: 'GHS', branchMode: 'multiple',
+          });
+          expect(snapshot.modules.email).toEqual({ enabled: true, monthlyPrice: '0.00' });
+          expect(snapshot.modules.pharmacy).toEqual({ enabled: false, monthlyPrice: '0.00' });
+          const masterSnapshot = JSON.parse(writes.find(write => write.table === 'facility_module_configuration')!.value.configuration);
+          expect(masterSnapshot).toEqual(snapshot);
+          expect(result.tenantId).toBeGreaterThan(0);
      });
 
      it.each(['clone', 'seeds', 'bootstrap', 'license', 'objects'])('marks failed, audits and never returns success after %s failure', async failure => {

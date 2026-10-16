@@ -77,9 +77,14 @@ export async function ensureFacilityModulePricingCatalog(db: Knex): Promise<void
                if (error?.code !== 'ER_TABLE_EXISTS_ERROR') throw error;
           }
      }
-     await db(MODULE_PRICING_CATALOG_TABLE).insert(FACILITY_MODULES.map(module => ({
-          currency: 'GHS', module, monthly_price: '0.00',
-     }))).onConflict(['currency', 'module']).ignore();
+     const existingPrices = await db(MODULE_PRICING_CATALOG_TABLE).select('currency');
+     const currencies = new Set<string>(['GHS']);
+     for (const row of existingPrices) {
+          if (typeof row.currency === 'string' && CURRENCY_PATTERN.test(row.currency)) currencies.add(row.currency);
+     }
+     await db(MODULE_PRICING_CATALOG_TABLE).insert([...currencies].flatMap(currency =>
+          FACILITY_MODULES.map(module => ({ currency, module, monthly_price: '0.00' })),
+     )).onConflict(['currency', 'module']).ignore();
 }
 
 export async function readFacilityModulePricing(

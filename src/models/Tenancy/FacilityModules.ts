@@ -5,6 +5,7 @@ import { formatCents } from './FacilityManagementInput';
 export const LEGACY_FACILITY_MODULES = ['pharmacy', 'email', 'sms', 'inventory', 'deviceInterfacing'] as const;
 export const ADDITIONAL_FACILITY_MODULES = [
      'commissions', 'analytics', 'appointments', 'expenses', 'consultations', 'imaging',
+     'billing', 'registration', 'laboratoryOperations',
 ] as const;
 export const FACILITY_MODULES = [...LEGACY_FACILITY_MODULES, ...ADDITIONAL_FACILITY_MODULES] as const;
 export type FacilityModule = typeof FACILITY_MODULES[number];
@@ -13,6 +14,7 @@ export interface FacilityModuleConfiguration {
      currency: string;
      modules: Record<FacilityModule, { enabled: boolean; monthlyPrice: string }>;
      monthlyTotal: string;
+     plan?: { code: string; name: string };
 }
 export const MODULE_CONFIG_TABLE = 'facility_module_configuration';
 
@@ -25,6 +27,18 @@ export function validateModuleConfiguration(value: unknown): FacilityModuleConfi
      if (!input.modules || typeof input.modules !== 'object' || Array.isArray(input.modules)) throw new FacilityError('Module selections are required');
      const entries = input.modules as Record<string, unknown>;
      if (Object.keys(entries).some(key => !(FACILITY_MODULES as readonly string[]).includes(key))) throw new FacilityError('Unknown facility module');
+     let plan: FacilityModuleConfiguration['plan'];
+     if (input.plan !== undefined) {
+          if (!input.plan || typeof input.plan !== 'object' || Array.isArray(input.plan)) {
+               throw new FacilityError('plan must contain a valid code and name');
+          }
+          const value = input.plan as Record<string, unknown>;
+          if (typeof value.code !== 'string' || !/^[a-z][a-z0-9_-]{1,31}$/.test(value.code) ||
+               typeof value.name !== 'string' || !value.name.trim() || value.name.trim().length > 60) {
+               throw new FacilityError('plan must contain a valid code and name');
+          }
+          plan = { code: value.code, name: value.name.trim() };
+     }
      const modules = {} as FacilityModuleConfiguration['modules'];
      let total = 0;
      for (const module of FACILITY_MODULES) {
@@ -47,7 +61,19 @@ export function validateModuleConfiguration(value: unknown): FacilityModuleConfi
           if (item.enabled) total += cents;
      }
      if (total > 999_999_999_999) throw new FacilityError('Total module price exceeds the supported monthly amount');
-     return { branchMode: input.branchMode, currency: input.currency, modules, monthlyTotal: formatCents(total) };
+     let monthlyTotal = formatCents(total);
+     if (plan) {
+          if (typeof input.monthlyTotal !== 'string' || !/^(0|[1-9]\d{0,9})(?:\.\d{1,2})?$/.test(input.monthlyTotal)) {
+               throw new FacilityError('A plan configuration requires a valid monthlyTotal');
+          }
+          const [whole, fraction = ''] = input.monthlyTotal.split('.');
+          const planCents = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+          if (!Number.isSafeInteger(planCents) || planCents > 999_999_999_999) {
+               throw new FacilityError('Total module price exceeds the supported monthly amount');
+          }
+          monthlyTotal = formatCents(planCents);
+     }
+     return { branchMode: input.branchMode, currency: input.currency, modules, monthlyTotal, ...(plan ? { plan } : {}) };
 }
 
 export async function ensureFacilityModuleTable(db: Knex): Promise<void> {

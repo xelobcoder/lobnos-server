@@ -9,6 +9,7 @@ import { FacilityError, validateFacilityInput } from '../../models/Tenancy/Facil
 import { validateModuleConfiguration } from '../../models/Tenancy/FacilityModules';
 import { PublicFacilityRegistry } from '../../models/public/PublicFacilityRegistry';
 import { FacilityModulePricingCatalog } from '../../models/Tenancy/FacilityModulePricingCatalog';
+import { FacilitySubscriptionTierService } from '../../models/Tenancy/FacilitySubscriptionTiers';
 import {
      parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
      validateSubscriptionPlan, validateVoidInput,
@@ -19,6 +20,7 @@ const service = new FacilityProvisioningService();
 const management = new FacilityManagementService();
 const publicRegistry = new PublicFacilityRegistry();
 const modulePricing = new FacilityModulePricingCatalog();
+const subscriptionTiers = new FacilitySubscriptionTierService();
 const base = '/api/v1/platform/facilities';
 
 const SCHEMA_CODES = new Set(['ER_BAD_FIELD_ERROR', 'ER_NO_SUCH_TABLE', 'ER_CANT_AGGREGATE_2COLLATIONS', 'ER_CANT_AGGREGATE_NCOLLATIONS',
@@ -64,6 +66,19 @@ router.get(`${base}/module-pricing`, requirePlatformFacilityAuthority, handle(re
      req.query.all === 'true' ? modulePricing.getAll() : modulePricing.get(req.query.currency)));
 router.put(`${base}/module-pricing`, requirePlatformFacilityAuthority, handle(req =>
      modulePricing.put(req.body)));
+router.get(`${base}/plans`, requirePlatformFacilityAuthority, handle(() => subscriptionTiers.listPlans()));
+router.put(`${base}/plans/:code`, requirePlatformFacilityAuthority, handle((req, res) =>
+     subscriptionTiers.upsertPlan(req.params.code, req.body, actor(res))));
+router.get(`${base}/upgrade-requests`, requirePlatformFacilityAuthority, handle(req =>
+     subscriptionTiers.platformUpgradeRequests(req.query.status)));
+router.post(`${base}/upgrade-requests/:id/approve`, requirePlatformFacilityAuthority, handle((_req, res) =>
+     subscriptionTiers.decideUpgradeRequest(_req.params.id, 'approve', actor(res))));
+router.post(`${base}/upgrade-requests/:id/reject`, requirePlatformFacilityAuthority, handle((req, res) =>
+     subscriptionTiers.decideUpgradeRequest(req.params.id, 'reject', actor(res), req.body?.reason)));
+router.put(`${base}/:tenantId/plan`, requirePlatformFacilityAuthority, handle((req, res) => {
+     if (!req.body || typeof req.body.planCode !== 'string') throw new FacilityError('planCode is required');
+     return subscriptionTiers.assignPlan(parseTenantIdParam(req.params.tenantId), req.body.planCode, actor(res));
+}));
 router.post(base, requirePlatformFacilityAuthority, handle((req, res) =>
      service.provision(validateFacilityInput(req.body), actor(res))));
 router.post(`${base}/:tenantId/retry`, requirePlatformFacilityAuthority, handle((req, res) =>

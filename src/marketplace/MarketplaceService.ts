@@ -1090,9 +1090,7 @@ export class MarketplaceService {
 
      async retryFacilityProvisioning(facilityIdInput: unknown, input: unknown, actor: FacilityActor) {
           const facilityId = positiveId(facilityIdInput, 'facility id');
-          if (!isRecord(input) || input.identityConfirmed !== true) {
-               throw new MarketplaceError('Explicit facility identity confirmation is required', 400);
-          }
+          if (!isRecord(input)) throw new MarketplaceError('Facility details are required', 400);
           let validated;
           try { validated = validateFacilityInput(input); }
           catch (error) {
@@ -1105,7 +1103,14 @@ export class MarketplaceService {
                if (facility.status !== 'approved' || facility.integration_state !== 'provision_failed') {
                     throw new MarketplaceError('Only an approved application with failed provisioning may be retried', 409);
                }
-               if (facility.contact_email !== validated.email || facility.name !== validated.companyName) {
+               const expectedAdminEmail = String(facility.admin_email || facility.contact_email || '').trim().toLowerCase();
+               const applicationCurrency = String(facility.currency || '').trim().toUpperCase();
+               if (String(facility.contact_email || '').trim().toLowerCase() !== validated.email ||
+                    String(facility.name || '').trim() !== validated.companyName ||
+                    String(facility.phone || '').trim() !== validated.phone ||
+                    String(facility.address || '').trim() !== validated.address ||
+                    expectedAdminEmail !== validated.adminEmail ||
+                    (applicationCurrency && !validated.planCode && validated.moduleConfiguration?.currency !== applicationCurrency)) {
                     throw new MarketplaceError('Retry details must match the approved website application', 409);
                }
                if (await trx('marketplace_catalog_items').where({ facility_id: facilityId }).first('id') ||
@@ -1134,7 +1139,7 @@ export class MarketplaceService {
                await trx('marketplace_audit').insert({
                     facility_id: facilityId, event_type: 'facility_provisioning_retry_started', actor_type: 'platform',
                     actor_id: String(actor.employeeId), details_json: JSON.stringify({
-                         identityConfirmed: true, ...(tenantId ? { tenantId } : {}),
+                         approvedApplicationMatched: true, ...(tenantId ? { tenantId } : {}),
                     }),
                });
                return { slug: facility.slug, tenantId };
@@ -1154,7 +1159,7 @@ export class MarketplaceService {
                     await trx('marketplace_audit').insert({
                          facility_id: facilityId, event_type: 'facility_provisioning_retry_linked', actor_type: 'platform',
                          actor_id: String(actor.employeeId), details_json: JSON.stringify({
-                              tenantId: tenant.tenantId, identityConfirmed: true,
+                              tenantId: tenant.tenantId, approvedApplicationMatched: true,
                          }),
                     });
                };

@@ -39,18 +39,27 @@ vi.mock('../models/Tenancy/FacilityProvisioningService', () => ({
 import { MarketplaceService } from './MarketplaceService';
 import { systemConfigConnection } from '../database/connection';
 import { FacilityError } from '../models/Tenancy/FacilityInput';
+import { FACILITY_MODULES } from '../models/Tenancy/FacilityModules';
 
+const modules = Object.fromEntries(FACILITY_MODULES.map(module => [
+     module, { enabled: false, monthlyPrice: '0.00' },
+]));
 const input = {
      identityConfirmed: true, companyName: 'Synthetic lab', email: 'lab@example.test',
      phone: '0201234567', address: 'Synthetic address', countryId: 1, stateId: 2, districtId: 3,
      adminName: 'Synthetic admin', adminEmail: 'admin@example.test', adminPassword: 'synthetic-long-password',
+     moduleConfiguration: { branchMode: 'single', currency: 'GHS', modules },
 };
 const actor = { tenantId: 99, employeeId: 9 };
 const provisioned = { tenantId: 1234, organizationIdentifier: 'SYN1', databaseName: 'primetenant1234', adminUsername: 'syn-admin' };
 
 beforeEach(() => {
      state.tables = {
-          marketplace_facilities: [{ id: 1, slug: 'synthetic-lab', status: 'approved', integration_state: 'independent', linked_tenant_id: null }],
+          marketplace_facilities: [{
+               id: 1, slug: 'synthetic-lab', name: input.companyName, contact_email: input.email,
+               phone: input.phone, address: input.address, admin_email: input.adminEmail, currency: 'GHS',
+               status: 'approved', integration_state: 'independent', linked_tenant_id: null,
+          }],
           marketplace_catalog_items: [], marketplace_bookings: [], marketplace_audit: [],
      };
      state.profiles = [];
@@ -74,6 +83,13 @@ describe('controlled marketplace provisioning', () => {
           expect(state.tables.marketplace_facilities[0]).toMatchObject({ status: 'approved', integration_state: 'linked', linked_tenant_id: 1234 });
           expect(state.tables.marketplace_audit.map(row => row.event_type)).toEqual(['facility_provisioning_started', 'facility_provisioned_and_linked']);
           expect(JSON.stringify(state.tables.marketplace_audit)).not.toContain(input.adminPassword);
+     });
+     it('passes an explicit plan selection through marketplace facility provisioning', async () => {
+          const selected = { ...input, planCode: 'professional', moduleConfiguration: { invalid: 'ignored by plan selection' } };
+          await new MarketplaceService().provisionFacility('1', selected, actor);
+          expect(state.provision).toHaveBeenCalledWith(expect.objectContaining({
+               planCode: 'professional', moduleConfiguration: null,
+          }), actor, expect.any(Function));
      });
      it.each(['pending', 'suspended'])('never approves or provisions a %s application', async status => {
           state.tables.marketplace_facilities[0].status = status;
@@ -112,19 +128,31 @@ describe('controlled marketplace provisioning', () => {
      it('retries and relinks the failed tenant reserved by the original attempt', async () => {
           state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
           state.tables.marketplace_facilities[0].linked_tenant_id = 1234;
-          state.tables.marketplace_facilities[0].name = input.companyName;
-          state.tables.marketplace_facilities[0].contact_email = input.email;
           state.tables.prime_tenants = [{
                tenant_number: 1234, status: 'failed', company_name: input.companyName, email: input.email,
           }];
-          const result = await new MarketplaceService().retryFacilityProvisioning(1, input, actor);
-          expect(state.retry).toHaveBeenCalledWith(1234, expect.objectContaining({ companyName: input.companyName }),
+          const retryInput: Record<string, unknown> = { ...input, planCode: 'professional' };
+          delete retryInput.identityConfirmed;
+          const result = await new MarketplaceService().retryFacilityProvisioning(1, retryInput, actor);
+          expect(state.retry).toHaveBeenCalledWith(1234, expect.objectContaining({
+               companyName: input.companyName, planCode: 'professional', moduleConfiguration: null,
+          }),
                actor, expect.any(Function));
           expect(state.provision).not.toHaveBeenCalled();
           expect(result).toMatchObject({ facilityId: 1, integrationState: 'linked', tenantId: 1234 });
           expect(state.tables.marketplace_facilities[0]).toMatchObject({
                integration_state: 'linked', linked_tenant_id: 1234,
           });
+     });
+     it('does not require an identity checkbox for retry, but rejects details that differ from the approved application', async () => {
+          state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
+          const retryInput: Record<string, unknown> = { ...input, phone: '0207654321' };
+          delete retryInput.identityConfirmed;
+          await expect(new MarketplaceService().retryFacilityProvisioning(1, retryInput, actor))
+               .rejects.toMatchObject({ statusCode: 409, message: 'Retry details must match the approved website application' });
+          expect(state.retry).not.toHaveBeenCalled();
+          expect(state.provision).not.toHaveBeenCalled();
+          expect(state.tables.marketplace_facilities[0].integration_state).toBe('provision_failed');
      });
      it('restarts provisioning when the failed attempt ended before reserving a tenant', async () => {
           state.tables.marketplace_facilities[0].integration_state = 'provision_failed';

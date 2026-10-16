@@ -100,6 +100,20 @@ describe('facility module pricing catalog', () => {
           await catalog.put({ ...prices({ email: '5.00' }), currency: 'EUR' });
           expect(await catalog.get('EUR')).toEqual({ ...prices({ email: '5.00' }), currency: 'EUR' });
      });
+     it('adds newly supported module prices to existing currency catalogs', async () => {
+          await catalog.get();
+          const newlySupported = new Set(['billing', 'registration', 'laboratoryOperations']);
+          master.table(MODULE_PRICING_CATALOG_TABLE).push(...FACILITY_MODULES
+               .filter(module => !newlySupported.has(module))
+               .map(module => ({ currency: 'USD', module, monthly_price: '1.00' })));
+
+          expect(await catalog.get('USD')).toEqual({
+               currency: 'USD',
+               modules: Object.fromEntries(FACILITY_MODULES.map(module => [
+                    module, newlySupported.has(module) ? '0.00' : '1.00',
+               ])),
+          });
+     });
 
      it.each([
           null,

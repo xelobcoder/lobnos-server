@@ -4,6 +4,13 @@ import { systemConfigConnection } from '../database/connection';
 import { configuration } from '../hooks/configuration';
 import { customError, responseError } from '../hooks/helper';
 import logger from '../hooks/logger';
+import TokenValidator from '../models/settings/users/TokenValidator';
+import { isSuperAdminRole } from './roles';
+
+const readCookie = (cookieHeader: unknown, name: string): string | undefined => {
+     const match = String(cookieHeader || '').split(';').map((part) => part.trim()).find((part) => part.startsWith(`${name}=`));
+     return match ? match.slice(name.length + 1) : undefined;
+};
 import {
      ADDITIONAL_FACILITY_MODULES, FacilityModule, MODULE_CONFIG_TABLE, validateModuleConfiguration,
 } from '../models/Tenancy/FacilityModules';
@@ -26,12 +33,29 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      return null;
 }
 
+/** The super admin may use every module regardless of facility activation. Requires a valid, unexpired session token. */
+async function isSuperAdminRequest(req: Request): Promise<boolean> {
+     try {
+          const headers = req.headers || {};
+          const token = headers['pls-prime-tenant-session'] || readCookie(headers['cookie'], 'pls-prime-tenant-session');
+          if (!token) return false;
+          const validator = new TokenValidator();
+          const status = await validator.validateAccessToken(token.toString()) as { expired?: boolean };
+          if (status?.expired !== false) return false;
+          const decoded = await validator.decodeAccessToken(token.toString());
+          return isSuperAdminRole(decoded?.role);
+     } catch {
+          return false;
+     }
+}
+
 export async function facilityModuleAccess(req: Request, res: Response, next: NextFunction): Promise<void> {
      const module = moduleForApiPath(req.path);
      const creatingBranch = req.method === 'POST' && /^\/api\/v1\/branches\/?$/i.test(req.path);
      if (!module && !creatingBranch) { next(); return; }
      const tenantId = Number(req.query.tenantId);
      if (!Number.isSafeInteger(tenantId) || tenantId <= 0) { customError('Invalid tenantId', 400, res); return; }
+     if (await isSuperAdminRequest(req)) { next(); return; }
      try {
           const db = await KnexConnection(tenantId);
           const settings = await db('applicationsettings').where({ keyid: 1 }).first();

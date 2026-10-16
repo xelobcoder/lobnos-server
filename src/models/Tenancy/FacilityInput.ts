@@ -19,6 +19,7 @@ export interface FacilityInput {
      licenseDays: number;
      street: string;
      gpsAddress: string;
+     planCode: string | null;
      moduleConfiguration: FacilityModuleConfiguration | null;
 }
 
@@ -61,6 +62,21 @@ export function validateFacilityInput(body: unknown): FacilityInput {
           if (typeof text !== 'string' || text.trim().length > 100) throw new FacilityError(`${field} must be at most 100 characters`);
           result[field] = text.trim();
      }
-     result.moduleConfiguration = validateModuleConfiguration(value.moduleConfiguration);
+     if (value.planCode === undefined || value.planCode === null) result.planCode = null;
+     else if (typeof value.planCode !== 'string' || !/^[a-z][a-z0-9_-]{1,31}$/.test(value.planCode)) {
+          throw new FacilityError('planCode must be a valid plan code');
+     } else result.planCode = value.planCode;
+     // An explicit plan is authoritative and intentionally ignores any custom module payload.
+     if (result.planCode) result.moduleConfiguration = null;
+     else {
+          const customModules = value.moduleConfiguration && typeof value.moduleConfiguration === 'object' &&
+               !Array.isArray(value.moduleConfiguration)
+               ? { ...(value.moduleConfiguration as Record<string, unknown>) }
+               : value.moduleConfiguration;
+          if (customModules && typeof customModules === 'object' && !Array.isArray(customModules)) {
+               delete (customModules as Record<string, unknown>).plan;
+          }
+          result.moduleConfiguration = validateModuleConfiguration(customModules);
+     }
      return result;
 }

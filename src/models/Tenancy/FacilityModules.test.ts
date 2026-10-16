@@ -14,6 +14,9 @@ export const moduleConfig = {
           expenses: { enabled: false, monthlyPrice: '0.00' },
           consultations: { enabled: false, monthlyPrice: '0.00' },
           imaging: { enabled: false, monthlyPrice: '0.00' },
+          billing: { enabled: false, monthlyPrice: '0.00' },
+          registration: { enabled: false, monthlyPrice: '0.00' },
+          laboratoryOperations: { enabled: false, monthlyPrice: '0.00' },
      },
 };
 describe('facility module prices and selections', () => {
@@ -24,18 +27,24 @@ describe('facility module prices and selections', () => {
      });
      it('normalizes legacy configs without the additional modules to disabled entitlements', () => {
           const legacyModules = Object.fromEntries(Object.entries(moduleConfig.modules).filter(([key]) =>
-               !['commissions', 'analytics', 'appointments', 'expenses', 'consultations', 'imaging'].includes(key)));
+               !['commissions', 'analytics', 'appointments', 'expenses', 'consultations', 'imaging',
+                    'billing', 'registration', 'laboratoryOperations'].includes(key)));
           const legacy = validateModuleConfiguration({ ...moduleConfig, modules: legacyModules });
           expect(legacy?.modules.analytics).toEqual({ enabled: false, monthlyPrice: '0.00' });
           expect(legacy?.modules.consultations.enabled).toBe(false);
           expect(legacy?.monthlyTotal).toBe('30.03');
      });
-     it('validates and includes prices for each additional module', () => {
+     it('validates and includes prices for billing, registration and laboratory operations', () => {
           const config = validateModuleConfiguration({ ...moduleConfig, modules: {
-               ...moduleConfig.modules, imaging: { enabled: true, monthlyPrice: '2.50' },
+               ...moduleConfig.modules,
+               billing: { enabled: true, monthlyPrice: '100.00' },
+               registration: { enabled: true, monthlyPrice: '2.00' },
+               laboratoryOperations: { enabled: true, monthlyPrice: '3.00' },
           } });
-          expect(config?.modules.imaging).toEqual({ enabled: true, monthlyPrice: '2.50' });
-          expect(config?.monthlyTotal).toBe('32.53');
+          expect(config?.modules.billing).toEqual({ enabled: true, monthlyPrice: '100.00' });
+          expect(config?.modules.registration).toEqual({ enabled: true, monthlyPrice: '2.00' });
+          expect(config?.modules.laboratoryOperations).toEqual({ enabled: true, monthlyPrice: '3.00' });
+          expect(config?.monthlyTotal).toBe('135.03');
      });
      it.each([null, {}, { ...moduleConfig, currency: 'ghs' }, { ...moduleConfig, branchMode: 'unlimited' },
           { ...moduleConfig, modules: { ...moduleConfig.modules, unknown: {} } },

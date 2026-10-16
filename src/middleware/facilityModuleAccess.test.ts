@@ -13,6 +13,13 @@ vi.mock('../hooks/configuration', () => ({
 }));
 vi.mock('../hooks/helper', () => ({ customError: mocks.error, responseError: mocks.responseError }));
 vi.mock('../hooks/logger', () => ({ default: { error: mocks.log } }));
+const tokens = vi.hoisted(() => ({ role: null as string | null }));
+vi.mock('../models/settings/users/TokenValidator', () => ({
+     default: class {
+          async validateAccessToken() { return { expired: false }; }
+          async decodeAccessToken() { return { role: tokens.role }; }
+     },
+}));
 import { facilityModuleAccess, moduleForApiPath } from './facilityModuleAccess';
 
 const config = { branchMode: 'single', currency: 'GHS', modules: {
@@ -46,6 +53,19 @@ describe('facility activation enforcement', () => {
           const next = await invoke(path);
           expect(mocks.error).toHaveBeenCalledWith(expect.stringMatching(/not (?:activated|authorized)/), 403, expect.anything());
           expect(next).not.toHaveBeenCalled();
+     });
+     it('lets a super admin use a module that is not activated, but not an admin', async () => {
+          const call = async (role: string, withToken = true) => {
+               tokens.role = role;
+               mocks.connection.mockResolvedValue(() => ({ where: () => ({ first: async () => ({ moduleConfiguration: JSON.stringify(config), smsActivated: 1 }) }) }));
+               const next = vi.fn();
+               const headers = withToken ? { 'pls-prime-tenant-session': 'token' } : {};
+               await facilityModuleAccess({ path: '/api/v1/operations/imaging/ultrasound', method: 'GET', headers, query: { tenantId: '654321' } } as unknown as Request, {} as Response, next);
+               return next;
+          };
+          expect(await call('Super Admin')).toHaveBeenCalledOnce();
+          expect(await call('admin')).not.toHaveBeenCalled();
+          expect(await call('Super Admin', false)).not.toHaveBeenCalled();
      });
      it('allows enabled modules and preserves legacy facilities with no explicit config', async () => {
           const enabled = { ...config, modules: { ...config.modules, inventory: { enabled: true, monthlyPrice: '1' } } };

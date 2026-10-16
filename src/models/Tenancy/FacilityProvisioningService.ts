@@ -18,6 +18,7 @@ import { loadFacilityStructureExports } from './FacilityStructureExports';
 import logger from '../../hooks/logger';
 import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE } from './FacilityModules';
 import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
+import { buildPlanModuleConfiguration, FacilitySubscriptionTierService } from './FacilitySubscriptionTiers';
 
 import { PROVISIONING_EVENTS_TABLE } from './FacilityManagementService';
 
@@ -235,10 +236,12 @@ export class FacilityProvisioningService {
           if (!Number.isSafeInteger(createdBy) || createdBy <= 0) {
                throw new FacilityError('FACILITY_PROVISIONING_PLATFORM_USER_ID must be configured by the operator', 503);
           }
-          const moduleConfiguration = input.moduleConfiguration
-               ? applyFacilityModulePricing(input.moduleConfiguration,
-                    await new FacilityModulePricingCatalog(this.master).get(input.moduleConfiguration.currency))
-               : null;
+          const moduleConfiguration = input.planCode
+               ? buildPlanModuleConfiguration(await new FacilitySubscriptionTierService(this.master).getPlan(input.planCode, true))
+               : input.moduleConfiguration
+                    ? applyFacilityModulePricing(input.moduleConfiguration,
+                         await new FacilityModulePricingCatalog(this.master).get(input.moduleConfiguration.currency))
+                    : null;
           const creator = await this.master('platform_users').where({ id: createdBy, status: 'active' }).whereNull('deleted_at').first('role');
           if (!creator || !['system', 'platform_admin'].includes(creator.role)) throw new FacilityError('The configured platform provisioning identity is not active', 503);
           if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PORT) {
