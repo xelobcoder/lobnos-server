@@ -11,6 +11,7 @@ import {
 } from '../interfaces/IFinancialDayCloseService';
 import { parsePaging } from '../utils/pagination';
 import { AuthorityService, OWNER_ONLY_ROLES } from './AuthorityService';
+import { isSuperAdminRole, roleAllowed } from '../../middleware/roles';
 import { FinancialPinVerificationService } from './FinancialPinVerificationService';
 import { FinancialSnapshotService } from './FinancialSnapshotService';
 
@@ -89,7 +90,7 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
      }
 
      async finalize(actor: AuthUser, closureId: number, input: FinancialCloseActionInput): Promise<any> {
-          if (!OWNER_ONLY_ROLES.includes(this.role(actor))) throw new AccountingError('Only a facility owner may finalize a financial day', 'OWNER_REQUIRED', 403);
+          if (!roleAllowed(this.role(actor), OWNER_ONLY_ROLES)) throw new AccountingError('Only a facility owner may finalize a financial day', 'OWNER_REQUIRED', 403);
           const db = this.connectionOverride || await KnexConnection(this.tenantId);
           return db.transaction(async (trx: any) => {
                const closure = await this.requireClosure(trx, closureId);
@@ -170,7 +171,7 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
 
      private assertActorBranch(actor: AuthUser, branchId: number): void {
           if (!Number.isInteger(branchId) || branchId <= 0) throw new AccountingError('Valid branch ID is required', 'INVALID_BRANCH', 400);
-          if (actor.branch === null || Number(actor.branch) !== branchId) throw new AccountingError('Financial day authority is restricted to your branch', 'BRANCH_SCOPE_DENIED', 403);
+          if (!isSuperAdminRole(actor.role) && (actor.branch === null || Number(actor.branch) !== branchId)) throw new AccountingError('Financial day authority is restricted to your branch', 'BRANCH_SCOPE_DENIED', 403);
      }
 
      private assertVersion(closure: any, expectedVersion?: number): void {

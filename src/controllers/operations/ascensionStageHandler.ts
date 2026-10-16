@@ -5,6 +5,7 @@ import { TestApprovalClass } from "../../models/operations/testApprovalClass";
 import User from "../../LobnosAuth/user";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import ApplicationSettings from "../../models/application/appsettings/appset";
+import { roleAllowed } from "../../middleware/roles";
 
 
 export async function ascensionStagingHandler(request: Request, response: Response) {
@@ -68,7 +69,7 @@ async function validatedResultEmployeeGetter(item: any, tenantId: number) {
 
 async function canViewResultData(employeeId: number, tenantId: number): Promise<boolean> {
 	const userRole = await new User().getUserRole(employeeId, tenantId);
-	const isAdminOrManager = ['admin', 'manager', 'scientist'].includes(userRole?.toLowerCase() || '');
+	const isAdminOrManager = roleAllowed(userRole, ['admin', 'manager', 'scientist']);
 	if (isAdminOrManager) return true;
 	if (userRole == "customer service representative") {
 		const appsettings = await new ApplicationSettings().getAllAppSettings(tenantId);

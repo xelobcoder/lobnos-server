@@ -1,6 +1,14 @@
 import { CreateEmailProviderDto } from '../dtos/CreateEmailProviderDto';
 import { EmailProvidersRepo } from '../repositories/EmailProvidersRepo';
 import { ProviderFactory } from './ProviderFactory';
+import { EmailProviderRecord } from '../types/EmailModels';
+
+/** API shape: the password is never returned, only whether one is stored. */
+export function toPublicProvider(record: EmailProviderRecord | null) {
+     if (!record) return null;
+     const { password, ...rest } = record;
+     return { ...rest, hasPassword: Boolean(password) };
+}
 
 function mapProviderDto(dto: CreateEmailProviderDto) {
      return {
@@ -38,7 +46,7 @@ export class EmailProvidersService {
                ...(dto.port !== undefined ? { port: dto.port } : {}),
                ...(dto.secure !== undefined ? { secure: dto.secure } : {}),
                ...(dto.username !== undefined ? { username: dto.username } : {}),
-               ...(dto.password !== undefined ? { password: dto.password } : {}),
+               ...(dto.password ? { password: dto.password } : {}),
                ...(dto.fromEmail !== undefined ? { from_email: dto.fromEmail } : {}),
                ...(dto.fromName !== undefined ? { from_name: dto.fromName } : {}),
                ...(dto.isDefault !== undefined ? { is_default: dto.isDefault } : {}),
@@ -50,11 +58,12 @@ export class EmailProvidersService {
      }
 
      async getById(id: number) {
-          return this.providersRepo.findById(id);
+          return toPublicProvider(await this.providersRepo.findById(id));
      }
 
      async getAll(page?: number, count?: number) {
-          return this.providersRepo.findAll(page, count);
+          const rows = await this.providersRepo.findAll(page, count);
+          return rows.map((row) => toPublicProvider(row));
      }
 
      async delete(id: number) {
@@ -69,5 +78,30 @@ export class EmailProvidersService {
 
           const instance = this.providerFactory.create(provider);
           return instance.testConnection();
+     }
+
+     /** Sends one real message through this facility's provider. Delivery failures are reported, not thrown. */
+     async sendTestEmail(id: number, to: string) {
+          const provider = await this.providersRepo.findById(id);
+          if (!provider) {
+               throw new Error('Provider not found');
+          }
+
+          const instance = this.providerFactory.create(provider);
+          const result = await instance.send({
+               queueId: 0,
+               providerId: provider.id ?? null,
+               fromEmail: provider.from_email,
+               fromName: provider.from_name,
+               to: [to],
+               cc: [],
+               bcc: [],
+               subject: 'Prime Laboratory Software test email',
+               htmlBody: '<p>This is a test email confirming your facility email settings work.</p>',
+               plainTextBody: 'This is a test email confirming your facility email settings work.',
+               attachments: [],
+          });
+
+          return { delivered: result.success, message: result.success ? 'Test email sent' : (result.failureReason ?? 'Test email failed') };
      }
 }

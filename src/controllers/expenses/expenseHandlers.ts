@@ -40,6 +40,7 @@ import { ExpenseData } from "../../models/Expenses/interfaces/types";
 import { PayrollReversalService } from "../../services/payroll/PayrollReversalService";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { getAuthUser } from "../../middleware/authority";
+import { roleAllowed } from "../../middleware/roles";
 import { ExpenseDecisionInput, ExpenseWorkflowService } from "../../models/Expenses/ExpenseWorkflowService";
 import { ExpensePaymentWorkflowService } from "../../models/Expenses/ExpensePaymentWorkflowService";
 
@@ -867,9 +868,9 @@ export const reverseExpensePayment = async (request: Request, response: Response
 
 		const userdata = await new User().getUserRole(pEmployeeid, pTenantId);
 		const role = userdata ? userdata.toLowerCase().trim() : '';
-		const allowedRoles = ['admin', 'super-admin'];
+		const allowedRoles = ['admin'];
 
-		if (!allowedRoles.includes(role)) {
+		if (!roleAllowed(role, allowedRoles)) {
 			return customError("Only administrators can reverse payments", 403, response);
 		}
 

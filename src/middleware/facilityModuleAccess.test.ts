@@ -19,6 +19,9 @@ const config = { branchMode: 'single', currency: 'GHS', modules: {
      pharmacy: { enabled: false, monthlyPrice: '0' }, email: { enabled: false, monthlyPrice: '0' },
      sms: { enabled: false, monthlyPrice: '0' }, inventory: { enabled: false, monthlyPrice: '0' },
      deviceInterfacing: { enabled: false, monthlyPrice: '0' },
+     commissions: { enabled: false, monthlyPrice: '0' }, analytics: { enabled: false, monthlyPrice: '0' },
+     appointments: { enabled: false, monthlyPrice: '0' }, expenses: { enabled: false, monthlyPrice: '0' },
+     consultations: { enabled: false, monthlyPrice: '0' }, imaging: { enabled: false, monthlyPrice: '0' },
 } };
 describe('facility activation enforcement', () => {
      beforeEach(() => {
@@ -85,5 +88,55 @@ describe('facility activation enforcement', () => {
           expect(mocks.responseError).toHaveBeenCalledOnce();
           expect(moduleForApiPath('/api/v1/prime/login')).toBeNull();
           expect(await invoke('/api/v1/patients')).toHaveBeenCalledOnce();
+     });
+     it.each([
+          ['/api/v1/commission-payments/tracking/12', 'commissions'],
+          ['/api/v1/commission/configs', 'commissions'],
+          ['/api/v1/patient-analytics/dashboards', 'analytics'],
+          ['/api/v1/clinician/anal/monthly/15', 'analytics'],
+          ['/api/v1/appointments/month', 'appointments'],
+          ['/api/v1/appointment/reminder', 'appointments'],
+          ['/api/v1/expenses/analytics/daily', 'expenses'],
+          ['/api/v1/expense/merchant', 'expenses'],
+          ['/api/v1/records/consulation', 'consultations'],
+          ['/api/v1/records/consultation/get/consultation', 'consultations'],
+          ['/api/v1/operations/imaging/audit', 'imaging'],
+          ['/api/v1/ultrasound/images/upload', 'imaging'],
+     ])('maps %s to %s entitlement', (path, module) => {
+          expect(moduleForApiPath(path)).toBe(module);
+     });
+     it.each([
+          ['/api/v1/commission-payments/tracking/12', 'commissions'],
+          ['/api/v1/patient-analytics/dashboards', 'analytics'],
+          ['/api/v1/appointments/month', 'appointments'],
+          ['/api/v1/expenses/records', 'expenses'],
+          ['/api/v1/records/consulation', 'consultations'],
+          ['/api/v1/operations/imaging/audit', 'imaging'],
+     ] as const)('enforces the %s %s entitlement in both configuration stores', async (path, module) => {
+          const enabledModules = { ...config.modules, [module]: { enabled: true, monthlyPrice: '1.00' } };
+          const enabled = { ...config, modules: enabledModules };
+          mocks.platformConfiguration.value = JSON.stringify(enabled);
+          expect(await invoke(path, JSON.stringify(enabled))).toHaveBeenCalledOnce();
+
+          mocks.platformConfiguration.value = JSON.stringify(config);
+          expect(await invoke(path, JSON.stringify(enabled))).not.toHaveBeenCalled();
+          expect(mocks.error).toHaveBeenCalledWith(expect.stringMatching(/not authorized/), 403, expect.anything());
+     });
+     it('fails closed for additional modules on missing or legacy tenant configuration', async () => {
+          const oldModules = Object.fromEntries(Object.entries(config.modules).filter(([key]) =>
+               !['commissions', 'analytics', 'appointments', 'expenses', 'consultations', 'imaging'].includes(key)));
+          const legacy = { ...config, modules: oldModules };
+          const platformEnabled = { ...config, modules: {
+               ...config.modules, appointments: { enabled: true, monthlyPrice: '1.00' },
+          } };
+          mocks.platformConfiguration.value = JSON.stringify(platformEnabled);
+          expect(await invoke('/api/v1/appointments', null)).not.toHaveBeenCalled();
+          expect(mocks.error).toHaveBeenCalledWith(expect.stringMatching(/not activated/), 403, expect.anything());
+          mocks.platformConfiguration.value = JSON.stringify(legacy);
+          expect(await invoke('/api/v1/appointments', JSON.stringify(legacy))).not.toHaveBeenCalled();
+     });
+     it('keeps legacy access behavior for existing modules when no module config exists', async () => {
+          expect(await invoke('/api/v1/pharmacy/sales', null)).toHaveBeenCalledOnce();
+          expect(await invoke('/api/v1/inventory/items', null)).toHaveBeenCalledOnce();
      });
 });

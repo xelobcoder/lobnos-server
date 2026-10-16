@@ -23,6 +23,7 @@ export interface IEmployee {
 	staff_designation?: string | null;
 }
 import KnexConnection from "../../../database/KnexConnections";
+import { roleAllowed } from "../../../middleware/roles";
 import logger from "../../../hooks/logger";
 
 
@@ -108,7 +109,7 @@ export default class RolesRepository {
 	async getEmployeeRole(employeeId: number): Promise<IEmployee['role'] | undefined> {
 		const employee = await this.getRoleById(employeeId);
 		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
-		return employee && allowedRoles.includes(employee.role) ? employee.role as IEmployee['role'] : undefined;
+		return employee && roleAllowed(employee.role, allowedRoles) ? employee.role as IEmployee['role'] : undefined;
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {
 		const employee = await this.getRoleById(employeeId);

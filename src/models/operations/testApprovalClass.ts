@@ -15,6 +15,7 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import RolesRepository from "../settings/users/RolesRepository";
 import ApplicationSettings from "../application/appsettings/appset";
 import KnexConnection from "../../database/KnexConnections";
+import ImagingResultAuditRepository from "./imaging/ImagingResultAuditRepository";
 
 interface dbotestresultapproval {
 	id?: number,
@@ -32,6 +33,7 @@ export class TestApprovalClass extends Operations {
 	}
 
 	public static async updateTestApprovalStatus(ascensionid: number, approvedBy: number, tenantId: number): Promise<boolean | string> {
+		const validatedBy = approvedBy;
 		if (ascensionid && approvedBy) {
 			const approvedDetails = await new TestApprovalClass(ascensionid).getAscensionApprovedList(tenantId);
 
@@ -73,8 +75,26 @@ export class TestApprovalClass extends Operations {
 
 		async function updateQueryExecutor(approvedBy: string, isApproved: number, ascensionid: number, tenantId: number) {
 			try {
-				const result = await promisifyQuery(tenantId, q_updateTestApprovalStatus, [isApproved, approvedBy, ascensionid]);
-				return rowAffected(result);
+				const connection = await KnexConnection(tenantId);
+				const ascension = await connection('test_ascension').select('testid', 'billingid').where({ id: ascensionid }).first();
+				const auditImaging = ascension?.testid ? await ImagingResultAuditRepository.isImagingTest(connection, ascension.testid) : false;
+				// DDL implicitly commits, so ensure the audit table before opening the transaction.
+				if (auditImaging) await ImagingResultAuditRepository.ensureTable(tenantId);
+
+				return await connection.transaction(async (trx: any) => {
+					const previous = auditImaging ? await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first() : null;
+					const result = await trx.raw(q_updateTestApprovalStatus, [isApproved, approvedBy, ascensionid]);
+					const updated = Number((Array.isArray(result) ? result[0] : result)?.affectedRows || 0) > 0;
+					if (auditImaging && updated) {
+						const action = isApproved === 1 ? 'FINALIZE' : 'UPDATE';
+						const base = { ascensionid, testid: ascension.testid, billingid: ascension.billingid, entityType: 'APPROVAL' as const, entityId: ascensionid, action: action as 'FINALIZE' | 'UPDATE', employeeid: validatedBy };
+						await ImagingResultAuditRepository.record(trx, [
+							{ ...base, fieldName: 'approvedBy', oldValue: previous?.approvedBy == null ? null : String(previous.approvedBy), newValue: approvedBy },
+							{ ...base, fieldName: 'isapproved', oldValue: previous?.isapproved == null ? null : String(previous.isapproved), newValue: String(isApproved) },
+						]);
+					}
+					return updated;
+				});
 			} catch (error) {
 				console.log(error)
 			}

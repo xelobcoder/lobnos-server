@@ -98,6 +98,11 @@ describe('workspace layout settings', () => {
                isSmsServicesConnected: 1,
           });
      });
+     it('treats an unchanged application settings update as successful', async () => {
+          const t = tenant({ keyid: 1, smsActivated: 0, services: '{}' });
+          mocks.connection.mockResolvedValue(t.db);
+          await expect(new ApplicationSettings().updateApplicationSettings(42, {} as any)).resolves.toBe(true);
+     });
      it('validates at the data boundary before resolving any connection', async () => {
           await expect(new ApplicationSettings().updateWorkspaceLayout(42, 'injected' as any)).rejects.toThrow('Invalid workspaceLayout');
           expect(mocks.connection).not.toHaveBeenCalled();

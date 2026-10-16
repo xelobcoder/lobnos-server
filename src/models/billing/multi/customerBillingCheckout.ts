@@ -8,6 +8,7 @@ import { PackageBillingHelper } from "./packageBillingHelper";
 import { PrimeBillingEnterprise } from "./PrimeBillingEnterprise";
 import { applyDboservicesAfterUpdate } from "../../../database/appLevelTriggers";
 import User from "../../../LobnosAuth/user";
+import { roleAllowed } from "../../../middleware/roles";
 import DiscountLimitService from "../billing-services/discount-limit";
 import { StaffFocService } from "../../foc/services/StaffFocService";
 import logger from "../../../hooks/logger";
@@ -197,7 +198,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
 
           const role = await new User().getUserRole(employeeid, tenantId);
           const computedAdjustments = computeAdjustmentTotals(adjustmentItems);
-          if (employeeid && !isFreeMode && role && typeof role == "string" && role != "admin") {
+          if (employeeid && !isFreeMode && role && !roleAllowed(role, ['admin'])) {
                try {
                     await DiscountLimitService.enforceOnly({
                          tenantId,

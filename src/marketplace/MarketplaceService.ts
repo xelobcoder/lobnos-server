@@ -7,6 +7,7 @@ import { PublicFacilityRegistry } from '../models/public/PublicFacilityRegistry'
 import { FacilityError, validateFacilityInput } from '../models/Tenancy/FacilityInput';
 import type { FacilityActor } from '../models/Tenancy/FacilityProvisioningService';
 import { TENANTS_TABLE } from '../models/Tenancy/TenantRegistry';
+import { roleAllowed } from '../middleware/roles';
 
 const SESSION_TTL_HOURS = 12;
 const STAFF_TOKEN_BYTES = 32;
@@ -712,7 +713,7 @@ export class MarketplaceService {
                     'b.collection_method', 'b.total_amount', 'b.currency', 'b.branch_id', 'b.scheduled_at',
                     'b.schedule_instructions', 'b.created_at');
           if (facility.tenantId && facility.branchId) {
-               if (['admin', 'manager', 'super-admin', 'super_admin'].includes(facility.role)) {
+               if (roleAllowed(facility.role, ['admin', 'manager'])) {
                     bookingQuery.andWhere(function (this: any) {
                          this.whereNull('b.branch_id').orWhere('b.branch_id', facility.branchId);
                     });
@@ -727,7 +728,7 @@ export class MarketplaceService {
           const claims = ids.length ? await db('marketplace_payment_claims').whereIn('booking_id', ids)
                .select('id', 'booking_id', 'reference', 'claimed_amount', 'status', 'decision_reason', 'created_at') : [];
           const refunds = ids.length ? await db('marketplace_refunds').whereIn('booking_id', ids).select('booking_id', 'id') : [];
-          const canViewPaymentReferences = ['admin', 'manager', 'super-admin', 'super_admin'].includes(facility.role);
+          const canViewPaymentReferences = roleAllowed(facility.role, ['admin', 'manager']);
           const itemsByBooking = new Map<string, any[]>();
           for (const item of items as any[]) {
                const group = itemsByBooking.get(item.booking_id) || [];
@@ -886,7 +887,7 @@ export class MarketplaceService {
                if (!transitions[input.action].includes(booking.status)) throw new MarketplaceError('Booking cannot make that status transition', 409);
                if (staff.tenantId && staff.branchId && input.action !== 'schedule' &&
                     Number(booking.branch_id || 0) !== staff.branchId) {
-                    const managerCanReviewUnassigned = ['admin', 'manager', 'super-admin', 'super_admin'].includes(staff.role) &&
+                    const managerCanReviewUnassigned = roleAllowed(staff.role, ['admin', 'manager']) &&
                          booking.branch_id == null && ['accept', 'reject', 'cancel'].includes(input.action);
                     if (!managerCanReviewUnassigned) {
                          throw new MarketplaceError('PLS staff may act only on bookings assigned to their branch', 403);

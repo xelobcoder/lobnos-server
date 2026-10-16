@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import Creator from '../../models/creator/creator';
 import User from '../../LobnosAuth/user';
 import { OperationsFailures } from '../../models/operations/types';
+import { roleAllowed } from '../roles';
 
 export const billingIdChecker = (request: Request, response: Response, next: NextFunction) => {
      const { csvid, ptid, target, testid } = request.query;
@@ -33,7 +34,7 @@ export const handleAuthenticationEmployee = async (
 
      try {
           const role = await new User(null, null, null, null, null).getUserRole(employeeid, parseInt(tenantId));
-          if (role !== "admin") {
+          if (!roleAllowed(role, ["admin"])) {
                return response.status(403).json({ status: "error", message: OperationsFailures.dontHaveAccessPermission });
           }
 

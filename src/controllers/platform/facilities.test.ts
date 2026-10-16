@@ -3,7 +3,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      authority: vi.fn(), setStatus: vi.fn(), getSubscription: vi.fn(), setPlan: vi.fn(), recordPayment: vi.fn(), voidPayment: vi.fn(), listAudit: vi.fn(),
      list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
-     getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(),
+     getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(), setModuleConfiguration: vi.fn(),
+     getModulePricing: vi.fn(), getAllModulePricing: vi.fn(), putModulePricing: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
@@ -11,15 +12,21 @@ vi.mock('../../models/Tenancy/FacilityProvisioningService', () => ({
      FacilityProvisioningService: class { list = mocks.list; options = mocks.options; provision = mocks.provision; retry = mocks.retry; },
 }));
 vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
-     FacilityManagementService: class {
+     FacilityManagementService:      class {
           setStatus = mocks.setStatus; getSubscription = mocks.getSubscription; setPlan = mocks.setPlan;
           recordPayment = mocks.recordPayment; voidPayment = mocks.voidPayment; listAudit = mocks.listAudit;
           deleteTenant = mocks.deleteTenant;
           getSmsProvider = mocks.getSmsProvider; setSmsProvider = mocks.setSmsProvider;
+          setModuleConfiguration = mocks.setModuleConfiguration;
      },
 }));
 vi.mock('../../models/public/PublicFacilityRegistry', () => ({
      PublicFacilityRegistry: class { get = mocks.getPublicProfile; put = mocks.putPublicProfile; },
+}));
+vi.mock('../../models/Tenancy/FacilityModulePricingCatalog', () => ({
+     FacilityModulePricingCatalog: class {
+          get = mocks.getModulePricing; getAll = mocks.getAllModulePricing; put = mocks.putModulePricing;
+     },
 }));
 
 import router, { facilityDiagnosticCode } from './facilities';
@@ -45,12 +52,15 @@ describe('platform facility routes', () => {
 
      it('guards every facility route, existing and new, with the platform authority as the first handler', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
-               'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities', 'post /api/v1/platform/facilities',
+               'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities',
+               'get /api/v1/platform/facilities/module-pricing', 'put /api/v1/platform/facilities/module-pricing',
+               'post /api/v1/platform/facilities',
                'post /api/v1/platform/facilities/:tenantId/retry',
                'get /api/v1/platform/facilities/:tenantId/public-profile', 'put /api/v1/platform/facilities/:tenantId/public-profile',
                'delete /api/v1/platform/facilities/:tenantId',
                'patch /api/v1/platform/facilities/:tenantId/status', 'get /api/v1/platform/facilities/:tenantId/subscription',
-               'put /api/v1/platform/facilities/:tenantId/subscription', 'post /api/v1/platform/facilities/:tenantId/payments',
+               'put /api/v1/platform/facilities/:tenantId/subscription', 'put /api/v1/platform/facilities/:tenantId/modules',
+               'post /api/v1/platform/facilities/:tenantId/payments',
                'get /api/v1/platform/facilities/:tenantId/audit',
                'get /api/v1/platform/facilities/:tenantId/sms-provider', 'put /api/v1/platform/facilities/:tenantId/sms-provider',
                'delete /api/v1/platform/facilities/:tenantId/payments/:paymentId',
@@ -59,6 +69,34 @@ describe('platform facility routes', () => {
                expect(route.stack).toHaveLength(2);
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
+     });
+
+     it('serves and updates the platform pricing catalog through its authorized routes', async () => {
+          const catalog = { currency: 'GHS', modules: { pharmacy: '1.00' } };
+          mocks.getModulePricing.mockResolvedValue(catalog);
+          const defaultRead = await invoke('get', '/api/v1/platform/facilities/module-pricing', {});
+          expect(mocks.getModulePricing).toHaveBeenCalledWith(undefined);
+          expect(defaultRead.json).toHaveBeenCalledWith({ status: 'success', result: catalog });
+
+          const read = await invoke('get', '/api/v1/platform/facilities/module-pricing', {
+               query: { currency: 'GHS' },
+          });
+          expect(mocks.getModulePricing).toHaveBeenCalledWith('GHS');
+          expect(read.json).toHaveBeenCalledWith({ status: 'success', result: catalog });
+
+          mocks.putModulePricing.mockResolvedValue(catalog);
+          const saved = await invoke('put', '/api/v1/platform/facilities/module-pricing', { body: catalog });
+          expect(mocks.putModulePricing).toHaveBeenCalledWith(catalog);
+          expect(saved.json).toHaveBeenCalledWith({ status: 'success', result: catalog });
+
+          const allCatalogs = [catalog, { currency: 'USD', modules: { pharmacy: '2.00' } }];
+          mocks.getAllModulePricing.mockResolvedValue(allCatalogs);
+          const all = await invoke('get', '/api/v1/platform/facilities/module-pricing', {
+               query: { all: 'true' },
+          });
+          expect(mocks.getAllModulePricing).toHaveBeenCalledOnce();
+          expect(mocks.getModulePricing).toHaveBeenCalledTimes(2);
+          expect(all.json).toHaveBeenCalledWith({ status: 'success', result: allCatalogs });
      });
 
 
@@ -127,6 +165,39 @@ describe('platform facility routes', () => {
           });
           expect(id.status).toHaveBeenCalledWith(400);
           expect(mocks.voidPayment).not.toHaveBeenCalled();
+     });
+
+     it('validates module configuration and uses the path tenant plus authenticated actor', async () => {
+          const body = {
+               branchMode: 'multiple', currency: 'GHS', modules: {
+                    pharmacy: { enabled: true, monthlyPrice: '100.25' },
+                    email: { enabled: true, monthlyPrice: '20.25' },
+                    sms: { enabled: false, monthlyPrice: '50.00' },
+                    inventory: { enabled: true, monthlyPrice: '10.00' },
+                    deviceInterfacing: { enabled: false, monthlyPrice: '0.00' },
+               },
+          };
+          const result = { tenantId: 654321, moduleConfiguration: { ...body, monthlyTotal: '130.50' }, monthlyTotal: '130.50' };
+          mocks.setModuleConfiguration.mockResolvedValue(result);
+          const saved = await invoke('put', '/api/v1/platform/facilities/:tenantId/modules', {
+               params: { tenantId: '654321' }, body,
+          });
+          expect(mocks.setModuleConfiguration).toHaveBeenCalledWith(654321,
+               expect.objectContaining({
+                    ...body, modules: expect.objectContaining(body.modules), monthlyTotal: '130.50',
+               }), saved.locals.facilityActor);
+          expect(saved.json).toHaveBeenCalledWith({ status: 'success', result });
+
+          const invalid = await invoke('put', '/api/v1/platform/facilities/:tenantId/modules', {
+               params: { tenantId: '654321' }, body: { ...body, branchMode: 'unlimited' },
+          });
+          expect(invalid.status).toHaveBeenCalledWith(400);
+          expect(mocks.setModuleConfiguration).toHaveBeenCalledOnce();
+          const invalidTenant = await invoke('put', '/api/v1/platform/facilities/:tenantId/modules', {
+               params: { tenantId: '12' }, body,
+          });
+          expect(invalidTenant.status).toHaveBeenCalledWith(400);
+          expect(mocks.setModuleConfiguration).toHaveBeenCalledOnce();
      });
 
      it('passes asOf through and maps explicit errors; hides internal errors', async () => {

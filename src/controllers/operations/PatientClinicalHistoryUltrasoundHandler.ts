@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import PatientClinicalHistoryUltrasoundRepository from '../../models/operations/Repositories/PatientClinicalHistoryUltrasoundRepo';
+import { resolveActorEmployeeId } from '../../models/operations/imaging/ImagingResultAuditRepository';
 
 function getRepository(req: Request): PatientClinicalHistoryUltrasoundRepository {
     const tenantId = Number(req.query.tenantId);
@@ -12,8 +13,9 @@ function getRepository(req: Request): PatientClinicalHistoryUltrasoundRepository
 export async function createHistory(req: Request, res: Response) {
     try {
         const repository = getRepository(req);
-        const historyData = req.body;
-        const status = await repository.createHistory(historyData);
+        // Whitelist columns: the body also carries the acting employeeid, which is not a table column.
+        const historyData = { ascensionid: req.body.ascensionid, clinical_history: req.body.clinical_history };
+        const status = await repository.createHistory(historyData, resolveActorEmployeeId(req));
         res.status(201).json({ status, message: status ? 'History created successfully' : 'Failed to create history' });
     } catch (error) {
         if (error instanceof Error && error.message.includes('tenantId')) {
@@ -61,8 +63,8 @@ export async function updateHistory(req: Request, res: Response) {
     try {
         const repository = getRepository(req);
         const { id } = req.params;
-        const updateData = req.body;
-        const affectedRows = await repository.updateHistory(Number(id), updateData);
+        const updateData = { clinical_history: req.body.clinical_history };
+        const affectedRows = await repository.updateHistory(Number(id), updateData, resolveActorEmployeeId(req));
         if (affectedRows === 0) {
             return res.status(404).json({ message: 'Clinical history not found or no changes made' });
         }
@@ -79,7 +81,7 @@ export async function deleteHistory(req: Request, res: Response) {
     try {
         const repository = getRepository(req);
         const { id } = req.params;
-        const affectedRows = await repository.deleteHistory(Number(id));
+        const affectedRows = await repository.deleteHistory(Number(id), resolveActorEmployeeId(req));
         if (affectedRows === 0) {
             return res.status(404).json({ message: 'Clinical history not found' });
         }
@@ -129,7 +131,7 @@ export async function upsertHistory(req: Request, res: Response) {
         if (!ascensionid || clinical_history === undefined) {
             return res.status(400).json({ message: 'ascensionid and clinical_history are required' });
         }
-        const result = await repository.upsertHistory(Number(ascensionid), clinical_history);
+        const result = await repository.upsertHistory(Number(ascensionid), clinical_history, resolveActorEmployeeId(req));
         res.json({ id: result, message: 'Clinical history upserted successfully' });
     } catch (error) {
         if (error instanceof Error && error.message.includes('tenantId')) {

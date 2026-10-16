@@ -11,6 +11,7 @@ import { OperationsFailures } from "../operations/types";
 import { PrimeEventsSMSDataSource } from "../application/sms/events/PrimeEventsDataSource";
 import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
 import User from "../../LobnosAuth/user";
+import { roleAllowed } from "../../middleware/roles";
 import DiscountLimitService from "./billing-services/discount-limit";
 import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
@@ -240,9 +241,9 @@ export class SubmitCustomerBilling {
                 const newSurchargeTotal = isAddition ? previousSurcharges + effectiveSurchargeTotal : effectiveSurchargeTotal;
                 const deltaDiscount = Math.max(0, newDiscountTotal - previousDiscount);
                 const deltaSurcharge = Math.max(0, newSurchargeTotal - previousSurcharges);
-                const role = new User().getUserRole(employeeid, tenantId);
+                const role = await new User().getUserRole(employeeid, tenantId);
 
-                if (role && typeof role == 'string' && role != 'admin') {
+                if (role && !roleAllowed(role, ['admin'])) {
                     await DiscountLimitService.enforceAndRecord({
                         tenantId: this.tenantId,
                         trx,

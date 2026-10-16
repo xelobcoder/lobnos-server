@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { AuthorityService, ACCOUNTING_ROLES, OWNER_ONLY_ROLES } from '../accountingModule/services/AuthorityService';
 import { AuthorityPermission } from '../accountingModule/interfaces/IAuthorityService';
+import { roleAllowed } from './roles';
 
 export interface AuthUser {
      employeeid: number;
@@ -23,7 +24,7 @@ export const requireAccountingRole = (request: Request, response: Response, next
      const user = getAuthUser(request);
      if (!user) return deny(response, 'Authentication required', 401);
 
-     if (!ACCOUNTING_ROLES.includes(user.role)) {
+     if (!roleAllowed(user.role, ACCOUNTING_ROLES)) {
           return deny(response, 'Only administrators and accountants may access the accounting module');
      }
 
@@ -38,7 +39,7 @@ export const requireOwnerRole = (request: Request, response: Response, next: Nex
      const user = getAuthUser(request);
      if (!user) return deny(response, 'Authentication required', 401);
 
-     if (!OWNER_ONLY_ROLES.includes(user.role)) {
+     if (!roleAllowed(user.role, OWNER_ONLY_ROLES)) {
           return deny(response, 'Only an administrator may delegate or revoke authority');
      }
 

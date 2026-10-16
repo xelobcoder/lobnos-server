@@ -17,6 +17,11 @@ import { EmailTemplatesService } from '../../models/application/email/services/E
 import { ProviderFactory } from '../../models/application/email/services/ProviderFactory';
 import { TemplateRenderer } from '../../models/application/email/services/TemplateRenderer';
 import { emailModuleMiddleware } from '../../middleware/emailModuleMiddleware';
+import { checkTokenExists } from '../../middleware/validateTenancy';
+import { requireOwnerRole } from '../../middleware/authority';
+
+/** Provider credentials are administrator-only: authenticated session + owner/admin role. */
+const providerAdmin = [handleOverLoad(checkTokenExists as any), requireOwnerRole];
 
 function buildControllers(tenantId: number) {
      const providerFactory = new ProviderFactory();
@@ -70,12 +75,13 @@ router.put('/api/v1/email/templates/:id', withEmailControllers((req, res) => req
 router.delete('/api/v1/email/templates/:id', withEmailControllers((req, res) => req.emailControllers.templates.delete(req, res)));
 router.post('/api/v1/email/templates/:id/preview', withEmailControllers((req, res) => req.emailControllers.templates.preview(req, res)));
 
-router.post('/api/v1/email/providers', withEmailControllers((req, res) => req.emailControllers.providers.create(req, res)));
-router.get('/api/v1/email/providers', withEmailControllers((req, res) => req.emailControllers.providers.getAll(req, res)));
-router.get('/api/v1/email/providers/:id', withEmailControllers((req, res) => req.emailControllers.providers.getById(req, res)));
-router.put('/api/v1/email/providers/:id', withEmailControllers((req, res) => req.emailControllers.providers.update(req, res)));
-router.delete('/api/v1/email/providers/:id', withEmailControllers((req, res) => req.emailControllers.providers.delete(req, res)));
-router.post('/api/v1/email/providers/:id/test', withEmailControllers((req, res) => req.emailControllers.providers.testConnection(req, res)));
+router.post('/api/v1/email/providers', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.create(req, res)));
+router.get('/api/v1/email/providers', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.getAll(req, res)));
+router.get('/api/v1/email/providers/:id', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.getById(req, res)));
+router.put('/api/v1/email/providers/:id', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.update(req, res)));
+router.delete('/api/v1/email/providers/:id', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.delete(req, res)));
+router.post('/api/v1/email/providers/:id/test', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.testConnection(req, res)));
+router.post('/api/v1/email/providers/:id/test-email', providerAdmin, withEmailControllers((req, res) => req.emailControllers.providers.sendTestEmail(req, res)));
 
 router.get('/api/v1/email/settings', withEmailControllers((req, res) => req.emailControllers.settings.get(req, res)));
 router.put('/api/v1/email/settings', withEmailControllers((req, res) => req.emailControllers.settings.update(req, res)));

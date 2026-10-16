@@ -14,6 +14,7 @@ import User from "../../LobnosAuth/user";
 import { drugCategoryInformation, DrugInfo } from "./types";
 import { OperationsFailures } from '../operations/types';
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
+import { roleAllowed } from "../../middleware/roles";
 
 export class DrugManagementService {
 	private async hasDrug(tenantId: number, drugName: string, category: string): Promise<boolean> {
@@ -42,7 +43,7 @@ export class DrugManagementService {
 		let userData = await user.getUserDataById(id, tenantId);
 		if (userData.length == 0) return false;
 		const { role } = userData[0];
-		if (role && ['manager', 'admin'].includes(role.toLowerCase())) return true;
+		if (roleAllowed(role, ['manager', 'admin'])) return true;
 		return false;
 	}
 

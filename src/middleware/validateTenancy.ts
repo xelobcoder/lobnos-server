@@ -9,6 +9,7 @@ import { ApplicationLoginLog } from "../models/security/repositories/loginlog.re
 import { LOGIN_ROUTES } from "./resolveLoginTenant";
 import { JwtPayload } from "jsonwebtoken";
 import crypto from "crypto";
+import { roleAllowed } from "./roles";
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -196,7 +197,7 @@ export const isAuthorizedRoleScientistPhelobotomist = async (request: Request<{}
                'scientist'
           ];
 
-          if (!allowedRoles.includes(role)) {
+          if (!roleAllowed(role, allowedRoles)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
 
@@ -217,7 +218,7 @@ export const isAuthorizedRoleAdmin = async (request: Request<{}, {}, { employeeI
           const userdata = await new RolesRepository(tenantIdP).getRoleById(parsedEmployeeid);
           const role = userdata ? userdata['role'].toLowerCase().trim() : ''
           const allowedRoles = ['admin', 'super-admin'];
-          if (!allowedRoles.includes(role)) {
+          if (!roleAllowed(role, allowedRoles)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
           }
           next();
@@ -248,7 +249,7 @@ export const isAuthorizedRoleAdminOrAccountant = async (request: Request, respon
                'accountant'
           ];
 
-          if (!allowedRoles.includes(role)) {
+          if (!roleAllowed(role, allowedRoles)) {
                return customError(OperationsFailures.dontHaveAccessPermission, 403, response);
           }
 

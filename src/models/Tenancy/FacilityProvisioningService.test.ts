@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      connect: vi.fn(), tenantConnection: vi.fn(), release: vi.fn(), bootstrap: vi.fn(), seeds: vi.fn(),
      createWindow: vi.fn(), validateLicense: vi.fn(), hash: vi.fn(), logError: vi.fn(),
+     getModulePricing: vi.fn(),
 }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, warn: vi.fn() } }));
 vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
@@ -15,6 +16,13 @@ vi.mock('../../database/KnexConnections', () => ({ default: mocks.tenantConnecti
 vi.mock('./tenantConnections', () => ({ releaseTenantConnection: mocks.release }));
 vi.mock('../../bootstrap/applicationStartup', () => ({ runApplicationBootstrappers: mocks.bootstrap }));
 vi.mock('./FacilityReferenceSeeds', () => ({ seedFacilityReferences: mocks.seeds }));
+vi.mock('./FacilityModulePricingCatalog', async importOriginal => {
+     const actual: any = await importOriginal();
+     return {
+          ...actual,
+          FacilityModulePricingCatalog: class { get = mocks.getModulePricing; },
+     };
+});
 vi.mock('../settings/users/PrimeWindowAccessRepository', () => ({
      default: class {
           createWindow = mocks.createWindow;
@@ -221,6 +229,14 @@ describe('complete facility provisioning lifecycle', () => {
           const { db, writes } = databaseHarness();
           mocks.connect.mockResolvedValue(schemaConnection());
           mocks.tenantConnection.mockResolvedValue(db);
+          mocks.getModulePricing.mockResolvedValue({
+               currency: 'GHS',
+               modules: {
+                    pharmacy: '12.50', email: '8.25', sms: '50.00', inventory: '3.25', deviceInterfacing: '0.00',
+                    commissions: '0.00', analytics: '0.00', appointments: '0.00', expenses: '0.00',
+                    consultations: '0.00', imaging: '0.00',
+               },
+          });
           const configured = validateFacilityInput({ ...input, street: 'New Street', gpsAddress: 'XX-123',
                moduleConfiguration: {
                     branchMode: 'multiple', currency: 'GHS', modules: {
@@ -240,9 +256,15 @@ describe('complete facility provisioning lifecycle', () => {
           const settings = writes.find(write => write.table === 'applicationsettings' && write.value.moduleConfiguration)!.value;
           expect(settings).toMatchObject({ emailModuleActivated: 1, smsActivated: 0 });
           expect(JSON.parse(settings.services)).toMatchObject({ isConnectedInventory: 1, isEmailServicesConnected: 1, isSmsServicesConnected: 0 });
+          expect(JSON.parse(settings.moduleConfiguration).modules).toMatchObject({
+               pharmacy: { enabled: true, monthlyPrice: '12.50' },
+               email: { enabled: true, monthlyPrice: '8.25' },
+               inventory: { enabled: true, monthlyPrice: '3.25' },
+          });
           const modules = writes.find(write => write.table === 'facility_module_configuration')!.value;
           expect(modules.tenant_id).toBe(result.tenantId);
-          expect(JSON.parse(modules.configuration)).toMatchObject({ monthlyTotal: '130.50', branchMode: 'multiple' });
+          expect(JSON.parse(modules.configuration)).toMatchObject({ monthlyTotal: '24.00', branchMode: 'multiple' });
+          expect(mocks.getModulePricing).toHaveBeenCalledWith('GHS');
           expect(writes.findIndex(write => write.table === 'facility_module_configuration')).toBeLessThan(
                writes.findIndex(write => write.table === 'prime_tenants' && write.value.status === 'active'),
           );

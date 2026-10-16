@@ -2,9 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      invalidate: vi.fn(), ready: vi.fn(), connect: vi.fn(), release: vi.fn(), query: vi.fn(), end: vi.fn(),
+     tenantConnection: vi.fn(), getModulePricing: vi.fn(),
 }));
 vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
 vi.mock('./tenantConnections', () => ({ releaseTenantConnection: mocks.release }));
+vi.mock('../../database/KnexConnections', () => ({ default: mocks.tenantConnection }));
 vi.mock('../../database/connection', () => ({
      systemConfigConnection: {},
      singleTenantKnexInstance: { client: { config: { connection: { database: 'control_db' } } } },
@@ -13,6 +15,13 @@ vi.mock('./TenantRegistry', () => ({
      TENANTS_TABLE: 'prime_tenants',
      TenantRegistry: class { static ensureReady = mocks.ready; static invalidate = mocks.invalidate; },
 }));
+vi.mock('./FacilityModulePricingCatalog', async importOriginal => {
+     const actual: any = await importOriginal();
+     return {
+          ...actual,
+          FacilityModulePricingCatalog: class { get = mocks.getModulePricing; },
+     };
+});
 
 import {
      FacilityManagementService, EVENTS_TABLE, PAYMENTS_TABLE, PLANS_TABLE, PROVISIONING_EVENTS_TABLE, sanitizeAuditDetails,
@@ -20,6 +29,7 @@ import {
 import { parseAuditQuery, validateSubscriptionPlan } from './FacilityManagementInput';
 import { FacilityError } from './FacilityInput';
 import { configuration } from '../../hooks/configuration';
+import { FACILITY_MODULES } from './FacilityModules';
 
 const CONTROL = 123456;
 const CLIENT = 654321;
@@ -119,10 +129,44 @@ function memoryMaster(seed: Record<string, any[]>) {
      return db;
 }
 
+function memoryFacilityTenant(seed: Record<string, any[]>) {
+     let tables: Record<string, any[]> = JSON.parse(JSON.stringify(seed));
+     let transactionCount = 0;
+     const db: any = (name: string) => {
+          const filters: Array<(row: any) => boolean> = [];
+          const rows = () => (tables[name] ||= []).filter(row => filters.every(filter => filter(row)));
+          const query: any = {
+               where(criteria: Record<string, unknown>) {
+                    filters.push(row => Object.entries(criteria).every(([key, value]) => String(row[key]) === String(value)));
+                    return query;
+               },
+               forUpdate() { return query; },
+               async first() { const row = rows()[0]; return row ? { ...row } : undefined; },
+               async update(value: any) {
+                    for (const row of rows()) Object.assign(row, value);
+                    return rows().length;
+               },
+          };
+          return query;
+     };
+     db.transactionCount = () => transactionCount;
+     db.failTransactionAt = 0;
+     db.transaction = async (work: any) => {
+          transactionCount++;
+          if (transactionCount === db.failTransactionAt) throw new Error('Tenant database unavailable');
+          const snapshot = JSON.stringify(tables);
+          try { return await work(db); }
+          catch (error) { tables = JSON.parse(snapshot); throw error; }
+     };
+     db.table = (name: string) => tables[name] || [];
+     return db;
+}
+
 const tenant = (tenant_number: number, id: string, status: string) => ({ id, tenant_number, status, deleted_at: null, suspended_at: null });
 
 describe('platform facility status and subscription management', () => {
      let db: any;
+     let tenantDb: any;
      let service: FacilityManagementService;
      const originalMultiTenant = configuration.isMultiTenant;
      const originalMasterDatabase = configuration.masterControlDatabase;
@@ -150,6 +194,31 @@ describe('platform facility status and subscription management', () => {
                     { ...tenant(555555, 'NRAM15', 'active'), deleted_at: '2026-01-01' },
                ],
           });
+          const currentConfiguration = {
+               branchMode: 'multiple', currency: 'GHS',
+               modules: {
+                    pharmacy: { enabled: true, monthlyPrice: '100' },
+                    email: { enabled: true, monthlyPrice: '20' },
+                    sms: { enabled: true, monthlyPrice: '50' },
+                    inventory: { enabled: true, monthlyPrice: '10' },
+                    deviceInterfacing: { enabled: false, monthlyPrice: '0' },
+               },
+          };
+          tenantDb = memoryFacilityTenant({
+               applicationsettings: [{
+                    keyid: 1, moduleConfiguration: JSON.stringify(currentConfiguration),
+                    smsActivated: 1, emailModuleActivated: 1,
+                    services: JSON.stringify({
+                         retainedServiceSetting: 'keep', isConnectedInventory: 1,
+                         isSmsServicesConnected: 1, isEmailServicesConnected: 1,
+                    }),
+               }],
+               companyprofile: [{
+                    ID: 1, NAME: 'Existing Facility',
+                    additionalInfo: JSON.stringify({ preservedProfileField: 'keep', branchMode: 'multiple' }),
+               }],
+          });
+          mocks.tenantConnection.mockResolvedValue(tenantDb);
           service = new FacilityManagementService(db, () => NOW);
      });
      const plan = (body: any, tenantId = CLIENT) => service.setPlan(tenantId, validateSubscriptionPlan(body), actor);
@@ -161,6 +230,116 @@ describe('platform facility status and subscription management', () => {
           expect(error.statusCode).toBe(statusCode);
           if (message) expect(error.message).toMatch(message);
      };
+
+     describe('post-provision module configuration', () => {
+          const requested = {
+               branchMode: 'single', currency: 'GHS',
+               modules: {
+                    pharmacy: { enabled: false, monthlyPrice: '100.00' },
+                    email: { enabled: true, monthlyPrice: '25.50' },
+                    sms: { enabled: false, monthlyPrice: '50.00' },
+                    inventory: { enabled: false, monthlyPrice: '10.00' },
+                    deviceInterfacing: { enabled: true, monthlyPrice: '4.25' },
+                    commissions: { enabled: false, monthlyPrice: '0.00' },
+                    analytics: { enabled: false, monthlyPrice: '0.00' },
+                    appointments: { enabled: false, monthlyPrice: '0.00' },
+                    expenses: { enabled: false, monthlyPrice: '0.00' },
+                    consultations: { enabled: false, monthlyPrice: '0.00' },
+                    imaging: { enabled: false, monthlyPrice: '0.00' },
+               },
+          };
+
+          beforeEach(() => {
+               mocks.getModulePricing.mockResolvedValue({
+                    currency: 'GHS',
+                    modules: {
+                         pharmacy: '100.00', email: '25.50', sms: '50.00', inventory: '10.00', deviceInterfacing: '4.25',
+                         commissions: '0.00', analytics: '0.00', appointments: '0.00', expenses: '0.00',
+                         consultations: '0.00', imaging: '0.00',
+                    },
+               });
+          });
+
+          it('synchronizes both databases, preserves unrelated JSON and audits the authenticated actor', async () => {
+               const result = await service.setModuleConfiguration(CLIENT, requested as any, actor);
+               const expected = { ...requested, monthlyTotal: '29.75' };
+               expect(result).toEqual({ tenantId: CLIENT, moduleConfiguration: expected, monthlyTotal: '29.75' });
+               expect(JSON.parse(db.table('facility_module_configuration')[0].configuration)).toEqual(expected);
+               const settings = tenantDb.table('applicationsettings')[0];
+               expect(JSON.parse(settings.moduleConfiguration)).toEqual(expected);
+               expect(settings).toMatchObject({ smsActivated: 0, emailModuleActivated: 1 });
+               expect(JSON.parse(settings.services)).toEqual({
+                    retainedServiceSetting: 'keep', isConnectedInventory: 0,
+                    isSmsServicesConnected: 0, isEmailServicesConnected: 1,
+               });
+               expect(JSON.parse(tenantDb.table('companyprofile')[0].additionalInfo)).toEqual({
+                    preservedProfileField: 'keep', branchMode: 'single',
+               });
+               expect(db.table(EVENTS_TABLE).map((event: any) => [
+                    event.action, event.actor_tenant_id, event.actor_employee_id,
+               ])).toEqual([
+                    ['module_configuration_sync_started', CONTROL, actor.employeeId],
+                    ['module_configuration_updated', CONTROL, actor.employeeId],
+               ]);
+          });
+
+          it('replaces submitted rates with catalog rates only when the module configuration is explicitly saved', async () => {
+               const modified = {
+                    ...requested,
+                    modules: { ...requested.modules, email: { enabled: true, monthlyPrice: '999.99' } },
+               };
+               const result = await service.setModuleConfiguration(CLIENT, modified as any, actor);
+               expect(result.moduleConfiguration.modules.email).toEqual({ enabled: true, monthlyPrice: '25.50' });
+               expect(result.monthlyTotal).toBe('29.75');
+               expect(mocks.getModulePricing).toHaveBeenCalledWith('GHS');
+          });
+
+          it('requires an explicit catalog for a non-GHS currency before writing either database', async () => {
+               mocks.getModulePricing.mockRejectedValueOnce(new FacilityError('No complete module pricing catalog exists for USD', 404));
+               const usd = { ...requested, currency: 'USD' };
+               await expectError(service.setModuleConfiguration(CLIENT, usd as any, actor), 404, /USD/);
+               expect(db.table('facility_module_configuration')).toHaveLength(0);
+               expect(db.table(EVENTS_TABLE)).toHaveLength(0);
+          });
+
+          it('keeps tenant access restrictive and records partial sync if the final tenant write fails', async () => {
+               tenantDb.failTransactionAt = 2;
+               await expect(service.setModuleConfiguration(CLIENT, requested as any, actor))
+                    .rejects.toThrow('Tenant database unavailable');
+
+               const local = tenantDb.table('applicationsettings')[0];
+               const intermediate = JSON.parse(local.moduleConfiguration);
+               expect(intermediate.branchMode).toBe('single');
+               expect(FACILITY_MODULES.filter(module => intermediate.modules[module].enabled)).toEqual(['email']);
+               expect(local).toMatchObject({ smsActivated: 0, emailModuleActivated: 1 });
+               expect(JSON.parse(tenantDb.table('companyprofile')[0].additionalInfo).branchMode).toBe('single');
+               expect(JSON.parse(db.table('facility_module_configuration')[0].configuration).monthlyTotal).toBe('29.75');
+               expect(db.table(EVENTS_TABLE).map((event: any) => event.action)).toEqual([
+                    'module_configuration_sync_started', 'module_configuration_sync_failed',
+               ]);
+               expect(db.table(EVENTS_TABLE)[1]).toMatchObject({
+                    actor_tenant_id: CONTROL, actor_employee_id: actor.employeeId,
+               });
+          });
+
+          it('retains restrictive tenant state when the platform write fails', async () => {
+               db.failNextEventInsert = true;
+               await expect(service.setModuleConfiguration(CLIENT, requested as any, actor)).rejects.toThrow('Audit unavailable');
+
+               const local = tenantDb.table('applicationsettings')[0];
+               const intermediate = JSON.parse(local.moduleConfiguration);
+               expect(FACILITY_MODULES.filter(module => intermediate.modules[module].enabled)).toEqual(['email']);
+               expect(db.table('facility_module_configuration')).toHaveLength(0);
+               expect(db.table(EVENTS_TABLE).map((event: any) => event.action)).toEqual(['module_configuration_sync_failed']);
+               expect(db.table(EVENTS_TABLE)[0].details).toContain('platform_copy_unchanged');
+          });
+
+          it('rejects unmanageable facilities before connecting to their tenant database', async () => {
+               await expectError(service.setModuleConfiguration(222222, requested as any, actor), 409, /only active or suspended/);
+               expect(mocks.tenantConnection).not.toHaveBeenCalled();
+               expect(db.table('facility_module_configuration')).toHaveLength(0);
+          });
+     });
 
      describe('registry deletion', () => {
           it.each([[CLIENT, 'NRAM11'], [222222, 'NRAM12'], [444444, 'NRAM14']] as const)(

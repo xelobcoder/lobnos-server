@@ -8,7 +8,7 @@ export const CreateEmailProviderSchema = z.object({
      port: z.number().int().positive(),
      secure: z.boolean().optional().default(false),
      username: z.string().min(1).max(255),
-     password: z.string().min(1).max(255),
+     password: z.string().min(1).max(128),
      fromEmail: z.string().email(),
      fromName: z.string().min(1).max(150),
      isDefault: z.boolean().optional().default(false),

@@ -8,6 +8,7 @@ import { EmailSettingsRepo } from '../repositories/EmailSettingsRepo';
 import { EmailTemplatesRepo } from '../repositories/EmailTemplatesRepo';
 import { EmailDispatchResult, ResolvedEmailJob } from '../types/EmailModels';
 import { ensureEmailModuleActivated } from '../helpers/emailModuleActivation';
+import { getEnvEmailProvider } from '../helpers/envEmailProvider';
 import { ProviderFactory } from './ProviderFactory';
 import { TemplateRenderer } from './TemplateRenderer';
 import { requireOperationalLicense } from '../../../../licensing/enforcement';
@@ -157,14 +158,17 @@ export class EmailQueueService {
                failure_reason: null,
           });
 
-          const provider = await this.providersRepo.findById(resolved.providerId);
+          // providerId is null only when the facility has no provider of its own and the .env sender is used.
+          const provider = resolved.providerId === null
+               ? getEnvEmailProvider()
+               : await this.providersRepo.findById(resolved.providerId);
           if (!provider) {
                throw new Error('Provider not found');
           }
 
           const driver = this.providerFactory.create(provider);
           const result = await driver.send(resolved);
-          return this.finalizeDispatch(queueItem.id as number, provider.id as number, result, Date.now() - startedAt, queueItem.retry_count);
+          return this.finalizeDispatch(queueItem.id as number, resolved.providerId, result, Date.now() - startedAt, queueItem.retry_count);
      }
 
      private async resolveJob(queueId: number): Promise<ResolvedEmailJob> {
@@ -178,18 +182,20 @@ export class EmailQueueService {
                ?? settings?.default_provider_id
                ?? (await this.providersRepo.findDefault())?.id;
 
-          if (!providerId) {
+          // Facility has nothing configured: fall back to the platform .env sender, if present.
+          const envProvider = providerId ? null : getEnvEmailProvider();
+          if (!providerId && !envProvider) {
                throw new Error('No active email provider configured');
           }
 
-          const provider = await this.providersRepo.findById(providerId);
+          const provider = envProvider ?? await this.providersRepo.findById(providerId as number);
           if (!provider || !provider.is_active) {
                throw new Error('Configured provider is unavailable');
           }
 
           return {
                queueId,
-               providerId,
+               providerId: envProvider ? null : (providerId as number),
                fromEmail: provider.from_email,
                fromName: provider.from_name,
                to: JSON.parse(queueItem.recipients_json || '[]'),
@@ -204,7 +210,7 @@ export class EmailQueueService {
 
      private async finalizeDispatch(
           queueId: number,
-          providerId: number,
+          providerId: number | null,
           result: EmailDispatchResult,
           durationMs: number,
           retryCount: number,

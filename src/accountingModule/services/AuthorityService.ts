@@ -1,4 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
+import { isSuperAdminRole, roleAllowed } from '../../middleware/roles';
 import RolesRepository from '../../models/settings/users/RolesRepository';
 import {
      AuthorityDecision,
@@ -38,6 +39,11 @@ export class AuthorityService implements IAuthorityService {
                return { allowed: false, reason: 'No employee identified on the request', delegationId: null, source: 'denied' };
           }
 
+          const role = await resolveRole(this.tenantId, employeeid);
+          if (isSuperAdminRole(role)) {
+               return { allowed: true, reason: 'Granted by role', delegationId: null, source: 'role' };
+          }
+
           const db = await this.connection();
           const delegations = await db('authority_delegations')
                .where({ employeeid, permission, is_active: true })
@@ -52,8 +58,7 @@ export class AuthorityService implements IAuthorityService {
           const delegation = delegations[0];
 
           if (!delegation) {
-               const role = await resolveRole(this.tenantId, employeeid);
-               if (OWNER_ROLES.includes(role) && !EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission)) {
+               if (roleAllowed(role, OWNER_ROLES) && !EXPLICIT_BRANCH_SCOPED_PERMISSIONS.includes(permission)) {
                     return { allowed: true, reason: 'Granted by role', delegationId: null, source: 'role' };
                }
                return {

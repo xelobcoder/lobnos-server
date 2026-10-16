@@ -7,13 +7,14 @@ import { TenantRegistry } from '../models/Tenancy/TenantRegistry';
 import KnexConnection from '../database/KnexConnections';
 import { requireOperationalLicense } from '../licensing/enforcement';
 import { LicenseError } from '../licensing/certificate';
+import { isSuperAdminRole } from './roles';
 
 /** This installation has no platform-user login. Authority is exclusively the live control-tenant role. */
 export function hasPlatformFacilityAuthority(claims: JwtPayload, row: any, controlTenantId: number): boolean {
      return Number.isSafeInteger(claims.tid) && claims.tid === controlTenantId
           && Number.isSafeInteger(claims.employeeid) && claims.employeeid > 0
           && row?.employeeid === claims.employeeid && Number(row.activation) === 1
-          && row.role === 'super-admin' && row.email === claims.email;
+          && isSuperAdminRole(row?.role) && row.email === claims.email;
 }
 
 export async function requirePlatformFacilityAuthority(req: Request, res: Response, next: NextFunction) {

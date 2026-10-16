@@ -1,4 +1,5 @@
 import { NextFunction, Request, response, Response } from "express";
+import { isSuperAdminRole } from "../../middleware/roles";
 import Registration from "../../models/registration/registration";
 import { Clinician, ClinicianFilterParams } from "../../models/clincians/types";
 import { responseError, customError } from "../../hooks/helper";
@@ -242,7 +243,7 @@ export async function getClinicianPortalRequestsHandler(req: Request<{}, {}, {},
 	try {
 		const authUser = (req as any).authUser;
 		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
-		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+		if (!clinicianid || (authUser?.role !== 'clinician' && !isSuperAdminRole(authUser?.role))) return customError("Clinician token required", 403, res);
 
 		const tenantId = parseInt(req.query.tenantId.toString());
 		const page = Math.max(1, parseInt(req.query.page || '1', 10) || 1);
@@ -302,7 +303,7 @@ export async function getClinicianPortalRequestDetailsHandler(req: Request<{ asc
 	try {
 		const authUser = (req as any).authUser;
 		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
-		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+		if (!clinicianid || (authUser?.role !== 'clinician' && !isSuperAdminRole(authUser?.role))) return customError("Clinician token required", 403, res);
 
 		const tenantId = parseInt(req.query.tenantId.toString());
 		const ascensionid = parseInt(req.params.ascensionid.toString(), 10);
@@ -372,7 +373,7 @@ export async function updateClinicianPortalRequestCommentHandler(req: Request<{ 
 	try {
 		const authUser = (req as any).authUser;
 		const clinicianid = Number(authUser?.clinicianid || authUser?.employeeid);
-		if (!clinicianid || authUser?.role !== 'clinician') return customError("Clinician token required", 403, res);
+		if (!clinicianid || (authUser?.role !== 'clinician' && !isSuperAdminRole(authUser?.role))) return customError("Clinician token required", 403, res);
 
 		const tenantId = parseInt(req.query.tenantId.toString());
 		const ascensionid = parseInt(req.params.ascensionid.toString(), 10);

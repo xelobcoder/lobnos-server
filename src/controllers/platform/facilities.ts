@@ -6,7 +6,9 @@ import { requirePlatformFacilityAuthority } from '../../middleware/platformFacil
 import { FacilityProvisioningService } from '../../models/Tenancy/FacilityProvisioningService';
 import { FacilityManagementService } from '../../models/Tenancy/FacilityManagementService';
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
+import { validateModuleConfiguration } from '../../models/Tenancy/FacilityModules';
 import { PublicFacilityRegistry } from '../../models/public/PublicFacilityRegistry';
+import { FacilityModulePricingCatalog } from '../../models/Tenancy/FacilityModulePricingCatalog';
 import {
      parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
      validateSubscriptionPlan, validateVoidInput,
@@ -16,6 +18,7 @@ const router = Router();
 const service = new FacilityProvisioningService();
 const management = new FacilityManagementService();
 const publicRegistry = new PublicFacilityRegistry();
+const modulePricing = new FacilityModulePricingCatalog();
 const base = '/api/v1/platform/facilities';
 
 const SCHEMA_CODES = new Set(['ER_BAD_FIELD_ERROR', 'ER_NO_SUCH_TABLE', 'ER_CANT_AGGREGATE_2COLLATIONS', 'ER_CANT_AGGREGATE_NCOLLATIONS',
@@ -57,6 +60,10 @@ const actor = (res: Response) => res.locals.facilityActor;
 
 router.get(`${base}/options`, requirePlatformFacilityAuthority, handle(() => service.options()));
 router.get(base, requirePlatformFacilityAuthority, handle(() => service.list()));
+router.get(`${base}/module-pricing`, requirePlatformFacilityAuthority, handle(req =>
+     req.query.all === 'true' ? modulePricing.getAll() : modulePricing.get(req.query.currency)));
+router.put(`${base}/module-pricing`, requirePlatformFacilityAuthority, handle(req =>
+     modulePricing.put(req.body)));
 router.post(base, requirePlatformFacilityAuthority, handle((req, res) =>
      service.provision(validateFacilityInput(req.body), actor(res))));
 router.post(`${base}/:tenantId/retry`, requirePlatformFacilityAuthority, handle((req, res) =>
@@ -75,6 +82,11 @@ router.get(`${base}/:tenantId/subscription`, requirePlatformFacilityAuthority, h
      management.getSubscription(parseTenantIdParam(req.params.tenantId), req.query.asOf)));
 router.put(`${base}/:tenantId/subscription`, requirePlatformFacilityAuthority, handle((req, res) =>
      management.setPlan(parseTenantIdParam(req.params.tenantId), validateSubscriptionPlan(req.body), actor(res))));
+router.put(`${base}/:tenantId/modules`, requirePlatformFacilityAuthority, handle((req, res) => {
+     const moduleConfiguration = validateModuleConfiguration(req.body);
+     if (!moduleConfiguration) throw new FacilityError('moduleConfiguration is required');
+     return management.setModuleConfiguration(parseTenantIdParam(req.params.tenantId), moduleConfiguration, actor(res));
+}));
 router.post(`${base}/:tenantId/payments`, requirePlatformFacilityAuthority, handle((req, res) =>
      management.recordPayment(parseTenantIdParam(req.params.tenantId), req.body, actor(res))));
 router.get(`${base}/:tenantId/audit`, requirePlatformFacilityAuthority, handle(req =>

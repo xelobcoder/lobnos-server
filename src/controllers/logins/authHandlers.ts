@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
+import { roleAllowed } from '../../middleware/roles';
 import logger from "../../hooks/logger";
 import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
@@ -166,7 +167,7 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 
 		const connection = await KnexConnection(tenantId);
 		const actorRole = String(authUser?.role || '').toLowerCase();
-		if (!['admin', 'manager'].includes(actorRole)) {
+		if (!roleAllowed(actorRole, ['admin', 'manager'])) {
 			return customError("Only admin or manager can reset staff passwords", 403, res);
 		}
 

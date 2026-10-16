@@ -16,6 +16,8 @@ import {
 import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { TestApprovalClass } from "./testApprovalClass";
+import ImagingResultAuditRepository from "./imaging/ImagingResultAuditRepository";
+import KnexConnection from "../../database/KnexConnections";
 
 export default class Operations {
 	private billingid: number;
@@ -759,12 +761,19 @@ export default class Operations {
 		}
 	}
 
-	public static async uploadUltrasoundImages(tenantId: number, data: { ascensionid: number, testid: number, patientid: number, filename: string }): Promise<boolean> {
+	public static async uploadUltrasoundImages(tenantId: number, data: { ascensionid: number, testid: number, patientid: number, filename: string }, actor?: number | null): Promise<boolean> {
 		try {
 			const { ascensionid, testid, patientid, filename } = data;
-			const query = `INSERT INTO ultrasound_images (ascensionid, testid, patientid, filename, created_at) VALUES (?, ?, ?, ?, NOW())`;
-			const result = await promisifyQuery(tenantId, query, [ascensionid, testid, patientid, filename]);
-			return rowAffected(result);
+			await ImagingResultAuditRepository.ensureTable(tenantId);
+			const connection = await KnexConnection(tenantId);
+			return await connection.transaction(async (trx: any) => {
+				const [insertedId] = await trx('ultrasound_images').insert({ ascensionid, testid, patientid, filename, created_at: trx.fn.now() });
+				await ImagingResultAuditRepository.record(trx, [{
+					ascensionid, testid, patientid, entityType: 'IMAGE', entityId: insertedId as any,
+					action: 'CREATE', fieldName: 'image', oldValue: null, newValue: filename, employeeid: actor ?? null,
+				}]);
+				return true;
+			});
 		} catch (err) {
 			console.log('Error in uploadUltrasoundImages:', err);
 			return false;
@@ -795,11 +804,22 @@ export default class Operations {
 		}
 	}
 
-	public static async deleteUltrasoundImage(tenantId: number, id: number): Promise<boolean> {
+	public static async deleteUltrasoundImage(tenantId: number, id: number, actor?: number | null): Promise<boolean> {
 		try {
-			const query = `DELETE FROM ultrasound_images WHERE id = ?`;
-			const result = await promisifyQuery(tenantId, query, [id]);
-			return rowAffected(result);
+			await ImagingResultAuditRepository.ensureTable(tenantId);
+			const connection = await KnexConnection(tenantId);
+			return await connection.transaction(async (trx: any) => {
+				const image = await trx('ultrasound_images').where({ id }).forUpdate().first();
+				if (!image) return false;
+				const affected = await trx('ultrasound_images').where({ id }).del();
+				if (affected > 0) {
+					await ImagingResultAuditRepository.record(trx, [{
+						ascensionid: image.ascensionid, testid: image.testid, patientid: image.patientid, entityType: 'IMAGE', entityId: id,
+						action: 'DELETE', fieldName: 'image', oldValue: image.filename, newValue: null, employeeid: actor ?? null,
+					}]);
+				}
+				return affected > 0;
+			});
 		} catch (err) {
 			console.log('Error in deleteUltrasoundImage:', err);
 			return false;

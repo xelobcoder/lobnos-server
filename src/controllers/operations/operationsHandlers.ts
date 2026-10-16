@@ -5,6 +5,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
+import { resolveActorEmployeeId } from "../../models/operations/imaging/ImagingResultAuditRepository";
 
 // Configure multer for ultrasound images
 const ultrasoundStorage = multer.diskStorage({
@@ -56,13 +57,14 @@ export const uploadUltrasoundImagesHandler = handleOverLoad(async (req: Request,
 		}
 
 		const tId = parseInt(tenantId as string, 10);
+		const actor = resolveActorEmployeeId(req);
 		const uploadPromises = files.map(file =>
 			Operations.uploadUltrasoundImages(tId, {
 				ascensionid: parseInt(ascensionid),
 				testid: parseInt(testid),
 				patientid: parseInt(patientid),
 				filename: file.filename
-			})
+			}, actor)
 		);
 
 		const results = await Promise.all(uploadPromises);
@@ -142,7 +144,7 @@ export const deleteUltrasoundImageHandler = handleOverLoad(async (req: Request, 
 		}
 
 		// 2. Delete from database
-		const deleted = await Operations.deleteUltrasoundImage(tId, imageId);
+		const deleted = await Operations.deleteUltrasoundImage(tId, imageId, resolveActorEmployeeId(req));
 		if (!deleted) {
 			return customError("Failed to delete image from database", 500, res);
 		}

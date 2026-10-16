@@ -7,6 +7,7 @@ import Security from "../models/security/securityClass";
 import { convertKeysToLowerCase, customError, promisifyQuery } from "../hooks/helper";
 import { TiifuWorkingClass } from "../database/TiifuWorkingClass";
 import { OperationsFailures } from "../models/operations/types";
+import { isSuperAdminRole, roleAllowed } from '../middleware/roles';
 import ApplicationSettings from "../models/application/appsettings/appset";
 import ResultSettings from "../models/application/appsettings/result-settings/resultSettings";
 
@@ -80,10 +81,10 @@ class User {
 		if (activation !== 1) {
 			return `Access Denied!!. User not activated to have access`;
 		}
-		if (permissions === "{}") {
+		if (permissions === "{}" && !isSuperAdminRole(role)) {
 			return `Access Denied!!. Permissions not set`;
 		}
-		if (configuration.configurations.strictBranchCheck) {
+		if (configuration.configurations.strictBranchCheck && !isSuperAdminRole(role)) {
 			if (!branch || branch <= 0) {
 				return "Access Denied!!.User not assigned to a branch";
 			}
@@ -227,9 +228,9 @@ class User {
 		const role = await this.getUserRole(parsedEmployeeid, tenantId);
 		if (role === null) return null;
 		if (Array.isArray(expected)) {
-			return expected.includes(role.toLowerCase());
+			return roleAllowed(role, expected);
 		} else {
-			return role.toLowerCase() === expected.toLowerCase();
+			return roleAllowed(role, [expected]);
 		}
 	}
 

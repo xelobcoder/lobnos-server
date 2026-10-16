@@ -59,7 +59,8 @@ import {
   updateTestConditionDefinition
 } from "./testCreationMultipleCondtionHandlers"
 import TestDetailCategoryController from "./TestDetailCategoryController"
-import { isAuthorizedRoleScientistPhelobotomist } from "../../middleware/validateTenancy"
+import { isAuthorizedRoleScientistPhelobotomist, checkTokenExists } from "../../middleware/validateTenancy"
+import ImagingAnalyticsController, { ImagingAuditController } from "./ImagingAnalyticsController"
 import { createHistory, deleteHistory, getAllHistories, getHistoriesByAscensionIds, getHistoryByAscensionId, getHistoryById, updateHistory, upsertHistory } from "./PatientClinicalHistoryUltrasoundHandler"
 import { handleOverLoad } from "../../hooks/helper"
 import { validateDtoMiddleware } from "../../middleware/validateDto.middleware"
@@ -70,6 +71,10 @@ import { CreateTestConditionDefinitionDto } from "../../models/operations/dto/Mu
 
 
 const router = express.Router();
+
+// Imaging analytics + audit trail: static paths registered before any parameterized route.
+router.get(`/api/v1/operations/imaging/analytics`, handleOverLoad(ImagingAnalyticsController.getImagingAnalytics));
+router.get(`/api/v1/operations/imaging/audit`, handleOverLoad(checkTokenExists), ImagingAuditController.requireAdmin, handleOverLoad(ImagingAuditController.list));
 
 router.get(`/api/v1/operations/collection`, getAllCollections);
 router.get(`/api/v1/operations/laboratory/search`, handleOverLoad(searchLaboratoryOperations));

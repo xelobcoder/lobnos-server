@@ -28,6 +28,7 @@ import { primeTenancyConnector } from '../../models/Tenancy/tenantConnections';
 import { databaseConnectionPool } from '../../database/connection';
 import { configuration } from '../../hooks/configuration';
 import KnexConnection from "../../database/KnexConnections";
+import { roleAllowed } from "../../middleware/roles";
 import { enqueueExpenseAccrual, enqueueExpenseAccrualReversal } from "../../accountingModule/integrations/ExpenseAccounting";
 
 export default class Expenses implements IExpenseRepository {
@@ -196,7 +197,7 @@ export default class Expenses implements IExpenseRepository {
 
           const role = record[0]['role'];
 
-          const isAdmin = (role === 'admin' || role === 'manager' || role == "accountant");
+          const isAdmin = roleAllowed(role, ['admin', 'manager', 'accountant']);
 
           if (!isAdmin) {
                query += ` WHERE er.employeeid = ?`;

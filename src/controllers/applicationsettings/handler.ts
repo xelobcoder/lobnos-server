@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import logger from "../../hooks/logger";
 import User from "../../LobnosAuth/user";
+import { roleAllowed } from "../../middleware/roles";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { categoryColumnMapper, smsTemplatePlaceholdersOptions, TableFilteringType } from "../../database/interface";
 import Tax from "../../models/application/Tax";
@@ -66,10 +67,12 @@ export const updateApplicationSettings = async (request: Request<{}, {}, Applica
 	try {
 		const tenantId = parseInt(request.query.tenantId.toString())
 		const is_updated = await appsettings.updateApplicationSettings(tenantId, request.body);
-		is_updated && response.send({ message: "Applications settings updated successfully", statusCode: 200, status: "success" });
+		if (!is_updated) {
+			return response.status(500).send({ message: "Application settings could not be saved", statusCode: 500, status: "error" });
+		}
+		return response.status(200).send({ message: "Application settings updated successfully", statusCode: 200, status: "success" });
 	} catch (err) {
-		console.log(response)
-		responseError(response)
+		responseError(response, err)
 	}
 };
 
@@ -219,7 +222,7 @@ export const validateUserRole = async (employeeid: string | string[], tenantId: 
 	const parsedTenantId = parseInt(tenantId.toString());
 	const role = await new User(null, null, null, null, null).getUserRole(parsedEmployeeid, parsedTenantId);
 	const validRoles = ["manager", "admin", "scientist"];
-	return validRoles.includes(role.toLowerCase());
+	return roleAllowed(role, validRoles);
 };
 
 const handleInvalidRequest = (response: Response) => {

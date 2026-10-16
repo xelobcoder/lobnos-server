@@ -26,6 +26,7 @@ import KnexConnection from "../../database/KnexConnections";
 import ResultDeliveryClass from "./resultDelivery";
 import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
+import { roleAllowed } from "../../middleware/roles";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -255,7 +256,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		const numAscensionId = parseInt(ascensionId.toString());
 		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
-		if (userRole && ['admin', 'manager', 'super-admin', 'crm'].includes(userRole.role.toLowerCase()) == false) {
+		if (userRole && !roleAllowed(userRole.role, ['admin', 'manager', 'crm'])) {
 			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
 		} else {
 			isWithinWindow = true
@@ -431,7 +432,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 			let accessPermissionTest = []
 			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId) as IEmployee;
-			const isPriviledgedUser = currentRole && ['admin', 'manager', 'super-admin'].includes(currentRole.role.toLowerCase());
+			const isPriviledgedUser = currentRole && roleAllowed(currentRole.role, ['admin', 'manager']);
 
 			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
 				const item = qualifiedForPrintOut[i];

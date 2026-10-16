@@ -1,4 +1,5 @@
 import { Request, Response, Router } from 'express';
+import { roleAllowed } from '../../middleware/roles';
 import { customError, handleOverLoad, responseError } from '../../hooks/helper';
 import { parseTenantId } from '../../models/application/email/helpers/parseTenantId';
 import {
@@ -96,7 +97,7 @@ type AuthenticatedNotificationRequest = Request & { authUser: { employeeid: numb
 
 const inAppNotificationViewer = (req: AuthenticatedNotificationRequest, res: Response, next: () => void) => {
      const allowedRoles = ['admin', 'manager', 'super-admin', 'super admin'];
-     if (!allowedRoles.includes(req.authUser.role)) {
+     if (!roleAllowed(req.authUser.role, allowedRoles)) {
           return customError('You do not have permission to view notifications', 403, res);
      }
      next();

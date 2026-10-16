@@ -6,6 +6,7 @@ import {
 	getLoggedUsersCount,
 	getLoginHistory,
 	getRolesAuditLog,
+	forceLogoutSession,
 } from "./handlers";
 import { AuthController } from "./authController";
 import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
@@ -59,6 +60,7 @@ router.get("/api/v1/security/getloggedsessions/update", handleOverLoad(checkToke
 router.get("/api/v1/security/user/logout", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(logoutUser));
 router.get("/api/v1/security/users/logged/count", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, getLoggedUsersCount);
 router.get("/api/v1/security/users/getlogin/history", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(getLoginHistory));
+router.post("/api/v1/security/sessions/:sessionKey/force-logout", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(forceLogoutSession));
 router.get("/api/v1/security/roles/audit-log", handleOverLoad(checkTokenExists), isAuthorizedRoleAdmin, handleOverLoad(getRolesAuditLog));
 
 

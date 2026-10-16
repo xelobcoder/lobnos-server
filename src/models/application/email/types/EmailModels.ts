@@ -104,7 +104,8 @@ export interface EmailDispatchResult {
 
 export interface ResolvedEmailJob {
      queueId: number;
-     providerId: number;
+     /** null when dispatching through the .env fallback sender (facility has no provider of its own). */
+     providerId: number | null;
      fromEmail: string;
      fromName: string;
      to: string[];

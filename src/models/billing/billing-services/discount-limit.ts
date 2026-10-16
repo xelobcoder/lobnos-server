@@ -1,5 +1,6 @@
 import KnexConnection from "../../../database/KnexConnections";
 import User from "../../../LobnosAuth/user";
+import { isSuperAdminRole, roleAllowed } from "../../../middleware/roles";
 
 export default class DiscountLimitService {
      private static allowedRoles(): Set<string> {
@@ -56,7 +57,7 @@ export default class DiscountLimitService {
           const conn = trx || (await KnexConnection(tenantId));
           const roleRaw = await new User().getUserRole(employeeid, tenantId);
           const role = DiscountLimitService.normalizeRole(roleRaw);
-          const allowedRole = role ? DiscountLimitService.allowedRoles().has(role) : false;
+          const allowedRole = role ? isSuperAdminRole(role) || DiscountLimitService.allowedRoles().has(role) : false;
           const usageDate = DiscountLimitService.todayLocalISODate();
 
           if (!role || !allowedRole) {
@@ -131,13 +132,14 @@ export default class DiscountLimitService {
           const roleRaw = await new User().getUserRole(employeeid, tenantId);
           const role = DiscountLimitService.normalizeRole(roleRaw);
           if (!role) throw new Error('Unable to determine employee role for discount validation.');
-          if (!DiscountLimitService.allowedRoles().has(role)) throw new Error('Your role is not permitted to apply discounts or surcharges.');
+          if (isSuperAdminRole(role)) return;
+          if (!isSuperAdminRole(role) && !DiscountLimitService.allowedRoles().has(role)) throw new Error('Your role is not permitted to apply discounts or surcharges.');
 
           const rule = await trx('discount_limit_rules')
                .where({ role, is_active: 1 })
                .first();
 
-          if (!rule && role !== 'admin') throw new Error('No discount limit rule configured for your role. Please contact admin.');
+          if (!rule && !roleAllowed(role, ['admin'])) throw new Error('No discount limit rule configured for your role. Please contact admin.');
 
           const baseAmount = typeof subtotal === 'number' ? subtotal : (typeof payable === 'number' ? payable : null);
           const minDiscountTotal = rule.min_transaction_total_for_discount != null ? Number(rule.min_transaction_total_for_discount) : null;
@@ -239,12 +241,13 @@ export default class DiscountLimitService {
           const roleRaw = await new User().getUserRole(employeeid, tenantId);
           const role = DiscountLimitService.normalizeRole(roleRaw);
           if (!role) throw new Error('Unable to determine employee role for discount validation.');
-          if (!DiscountLimitService.allowedRoles().has(role)) throw new Error('Your role is not permitted to apply discounts or surcharges.');
+          if (isSuperAdminRole(role)) return;
+          if (!isSuperAdminRole(role) && !DiscountLimitService.allowedRoles().has(role)) throw new Error('Your role is not permitted to apply discounts or surcharges.');
 
           const rule = await conn('discount_limit_rules')
                .where({ role, is_active: 1 })
                .first();
-          if (!rule) throw new Error('No discount limit rule configured for your role. Please contact admin.');
+          if (!rule && !roleAllowed(role, ['admin'])) throw new Error('No discount limit rule configured for your role. Please contact admin.');
 
           const baseAmount = typeof subtotal === 'number' ? subtotal : (typeof payable === 'number' ? payable : null);
           const minDiscountTotal = rule.min_transaction_total_for_discount != null ? Number(rule.min_transaction_total_for_discount) : null;

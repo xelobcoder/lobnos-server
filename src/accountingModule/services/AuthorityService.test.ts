@@ -67,6 +67,16 @@ describe('AuthorityService explicit delegation precedence', () => {
           expect(decision.delegationId).toBe(7);
      });
 
+     it.each(['super-admin', 'super_admin', 'superadmin', 'super admin'])('allows super-admin %s to bypass delegated scope and amount limits', async role => {
+          mocks.role = role;
+          mocks.delegations = [grant({ max_amount: 1, branchid: null }), grant({ id: 8 })];
+
+          await expect(new AuthorityService(3).can(3, 'expense.pay', 999999, null)).resolves.toMatchObject({
+               allowed: true,
+               source: 'role',
+          });
+     });
+
      it('allows Admin role fallback when no explicit approval grant exists', async () => {
           mocks.role = 'admin';
           mocks.delegations = [];

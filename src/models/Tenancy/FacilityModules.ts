@@ -2,7 +2,11 @@ import { Knex } from 'knex';
 import { FacilityError } from './FacilityInput';
 import { formatCents } from './FacilityManagementInput';
 
-export const FACILITY_MODULES = ['pharmacy', 'email', 'sms', 'inventory', 'deviceInterfacing'] as const;
+export const LEGACY_FACILITY_MODULES = ['pharmacy', 'email', 'sms', 'inventory', 'deviceInterfacing'] as const;
+export const ADDITIONAL_FACILITY_MODULES = [
+     'commissions', 'analytics', 'appointments', 'expenses', 'consultations', 'imaging',
+] as const;
+export const FACILITY_MODULES = [...LEGACY_FACILITY_MODULES, ...ADDITIONAL_FACILITY_MODULES] as const;
 export type FacilityModule = typeof FACILITY_MODULES[number];
 export interface FacilityModuleConfiguration {
      branchMode: 'single' | 'multiple';
@@ -25,6 +29,12 @@ export function validateModuleConfiguration(value: unknown): FacilityModuleConfi
      let total = 0;
      for (const module of FACILITY_MODULES) {
           const raw = entries[module];
+          // Older facility records predate the additional subscription modules.
+          // Treat absent new entitlements as disabled; retain required legacy keys.
+          if (raw === undefined && (ADDITIONAL_FACILITY_MODULES as readonly string[]).includes(module)) {
+               modules[module] = { enabled: false, monthlyPrice: '0.00' };
+               continue;
+          }
           if (!raw || typeof raw !== 'object' || Array.isArray(raw)) throw new FacilityError(`${module} configuration is required`);
           const item = raw as Record<string, unknown>;
           if (typeof item.enabled !== 'boolean') throw new FacilityError(`${module}.enabled must be a boolean`);

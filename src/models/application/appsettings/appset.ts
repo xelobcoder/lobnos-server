@@ -268,13 +268,12 @@ export default class ApplicationSettings {
 					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null,
 					makepdfprintingcompulsory: makepdfprintingcompulsory ?? 0,
 				};
-				let affectedRows = 0;
 				if (existing) {
-					affectedRows = await trx('applicationsettings').where({ keyid: 1 }).update(record);
-				} else {
-					affectedRows = await trx('applicationsettings').insert({ ...record, keyid: 1 });
+					await trx('applicationsettings').where({ keyid: 1 }).update(record);
+					return true;
 				}
-				return affectedRows > 0;
+				await trx('applicationsettings').insert({ ...record, keyid: 1 });
+				return true;
 			});
 			return result;
 		} catch (err) {

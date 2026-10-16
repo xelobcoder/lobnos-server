@@ -17,6 +17,7 @@ import { loadFacilityCatalogSeeds } from './FacilityCatalogSeeds';
 import { loadFacilityStructureExports } from './FacilityStructureExports';
 import logger from '../../hooks/logger';
 import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE } from './FacilityModules';
+import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
 
 import { PROVISIONING_EVENTS_TABLE } from './FacilityManagementService';
 
@@ -37,6 +38,13 @@ export function assertNotControlAssignment(tenantId: number, databaseName: strin
      if (tenantId === configuration.defaultTenantId || (local && databaseName.toLowerCase() === local)) {
           throw new FacilityError('A new facility cannot use the control tenant ID or database', 409);
      }
+}
+
+/** Operator-safe error class name only; raw driver messages can contain SQL and are never logged or returned. */
+function diagnosticDetail(error: unknown): string {
+     if (error instanceof FacilityError) return '';
+     const name = (error as any)?.name;
+     return typeof name === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(name) && name !== 'Error' ? name : '';
 }
 
 export class FacilityProvisioningService {
@@ -227,6 +235,10 @@ export class FacilityProvisioningService {
           if (!Number.isSafeInteger(createdBy) || createdBy <= 0) {
                throw new FacilityError('FACILITY_PROVISIONING_PLATFORM_USER_ID must be configured by the operator', 503);
           }
+          const moduleConfiguration = input.moduleConfiguration
+               ? applyFacilityModulePricing(input.moduleConfiguration,
+                    await new FacilityModulePricingCatalog(this.master).get(input.moduleConfiguration.currency))
+               : null;
           const creator = await this.master('platform_users').where({ id: createdBy, status: 'active' }).whereNull('deleted_at').first('role');
           if (!creator || !['system', 'platform_admin'].includes(creator.role)) throw new FacilityError('The configured platform provisioning identity is not active', 503);
           if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PORT) {
@@ -333,15 +345,15 @@ export class FacilityProvisioningService {
                          NAME: input.companyName, EMAIL: input.email, PHONENUMBER: input.phone, ADDRESS: input.address,
                          MOTTO: '', STREET: input.street, additionalInfo: JSON.stringify({
                               countryId: input.countryId, stateId: input.stateId, districtId: input.districtId,
-                              gpsAddress: input.gpsAddress, branchMode: input.moduleConfiguration?.branchMode ?? 'single',
+                              gpsAddress: input.gpsAddress, branchMode: moduleConfiguration?.branchMode ?? 'single',
                          }),
                     });
-                    if (input.moduleConfiguration) {
-                         const modules = input.moduleConfiguration.modules;
+                    if (moduleConfiguration) {
+                         const modules = moduleConfiguration.modules;
                          const settings = await trx('applicationsettings').where({ keyid: 1 }).first('services');
                          const services = typeof settings?.services === 'string' ? JSON.parse(settings.services) : settings?.services ?? {};
                          await trx('applicationsettings').where({ keyid: 1 }).update({
-                              moduleConfiguration: JSON.stringify(input.moduleConfiguration),
+                              moduleConfiguration: JSON.stringify(moduleConfiguration),
                               emailModuleActivated: Number(modules.email.enabled),
                               smsActivated: Number(modules.sms.enabled),
                               services: JSON.stringify({ ...services,
@@ -368,11 +380,11 @@ export class FacilityProvisioningService {
                     if (!(await license.validateLicense())) throw new Error('Initial license verification failed');
                });
                await this.event(this.master, reservation, actor, 'initialized');
-               if (input.moduleConfiguration) await ensureFacilityModuleTable(this.master);
+               if (moduleConfiguration) await ensureFacilityModuleTable(this.master);
                stage = 'activation';
                await this.master.transaction(async trx => {
-                    if (input.moduleConfiguration) await trx(MODULE_CONFIG_TABLE).insert({
-                         tenant_id: reservation.tenantId, configuration: JSON.stringify(input.moduleConfiguration),
+                    if (moduleConfiguration) await trx(MODULE_CONFIG_TABLE).insert({
+                         tenant_id: reservation.tenantId, configuration: JSON.stringify(moduleConfiguration),
                     });
                     const updated = await trx(TENANTS_TABLE).where({ id: reservation.organizationIdentifier, status: 'provisioning' })
                          .update({ status: 'active', provisioned_at: trx.fn.now(), updated_by: createdBy });
@@ -389,12 +401,13 @@ export class FacilityProvisioningService {
           } catch (error) {
                const code = error && typeof error === 'object' && 'code' in error &&
                     typeof error.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(error.code) ? error.code : 'FACILITY_PROVISIONING_ERROR';
+               const detail = diagnosticDetail(error);
                logger.error('Facility onboarding failed', {
-                    stage, code, organizationIdentifier: reservation?.organizationIdentifier, tenantId: reservation?.tenantId,
+                    stage, code, detail, organizationIdentifier: reservation?.organizationIdentifier, tenantId: reservation?.tenantId,
                });
                if (!reservation) {
                     if (error instanceof FacilityError) throw error;
-                    throw new FacilityError(`Facility onboarding is unavailable during ${stage}`, 503);
+                    throw new FacilityError(`Facility onboarding is unavailable during ${stage} (${code}${detail ? `: ${detail}` : ''})`, 503);
                }
                // MySQL DDL cannot be rolled back. Retain the database for operator diagnosis; never drop it.
                // Mark nonactive independently of audit availability; provisioning itself is also nonactive.
@@ -408,7 +421,7 @@ export class FacilityProvisioningService {
                     TenantRegistry.invalidate();
                     await releaseTenantConnection(reservation.tenantId);
                }
-               throw new FacilityError(`Facility ${reservation.organizationIdentifier} onboarding failed during ${stage}; it is not active. Contact the platform operator before retrying.`, 500);
+               throw new FacilityError(`Facility ${reservation.organizationIdentifier} onboarding failed during ${stage} (${code}${detail ? `: ${detail}` : ''}); it is not active. Review the cause, then use Retry provisioning on this facility.`, 500);
           } finally {
                await admin.end().catch(() => undefined);
           }

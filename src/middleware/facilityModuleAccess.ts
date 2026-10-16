@@ -4,7 +4,9 @@ import { systemConfigConnection } from '../database/connection';
 import { configuration } from '../hooks/configuration';
 import { customError, responseError } from '../hooks/helper';
 import logger from '../hooks/logger';
-import { FacilityModule, MODULE_CONFIG_TABLE, validateModuleConfiguration } from '../models/Tenancy/FacilityModules';
+import {
+     ADDITIONAL_FACILITY_MODULES, FacilityModule, MODULE_CONFIG_TABLE, validateModuleConfiguration,
+} from '../models/Tenancy/FacilityModules';
 
 export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/pharmacy(?:\/|$)/i.test(path)) return 'pharmacy';
@@ -12,6 +14,15 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/email(?:\/|$)/i.test(path)) return 'email';
      if (/^\/api\/v1\/(?:sms(?:\/|$)|prime\/sms(?:[-/]|$))/i.test(path)) return 'sms';
      if (/^\/api\/v1\/(?:interfacing\/devices|devices\/interfacing)(?:\/|$)/i.test(path)) return 'deviceInterfacing';
+     if (/^\/api\/v1\/(?:commission(?:-payments)?)(?:\/|$)/i.test(path)) return 'commissions';
+     if (/^\/api\/v1\/appointments?(?:\/|$)/i.test(path)) return 'appointments';
+     if (/^\/api\/v1\/expenses?(?:\/|$)/i.test(path) ||
+          /^\/api\/v1\/(?:outsourced\/cases\/mark-expense|supplier-payments\/mark-expense)(?:\/|$)/i.test(path)) return 'expenses';
+     if (/^\/api\/v1\/records\/consul(?:t)?ations?(?:\/|$)/i.test(path)) return 'consultations';
+     if (/^\/api\/v1\/(?:operations\/imaging|ultrasound|testpanel\/list\/ultrasound|result\/entry\/ultrasound)(?:\/|$)/i.test(path)) return 'imaging';
+     if (/^\/api\/v1\/(?:analytics|patient-analytics|clinician\/anal|testascension|ascension\/analytics|ascension\/phelobotomistAnalyticsSummary)(?:\/|$)/i.test(path) ||
+          /^\/api\/v1\/financials\/billing\/summary(?:\/|$)/i.test(path) ||
+          /^\/api\/v1\/outsourced\/(?:profit-per-test|profit-by-case|cases(?:-profit)?)(?:\/|$)/i.test(path)) return 'analytics';
      return null;
 }
 
@@ -46,6 +57,34 @@ export async function facilityModuleAccess(req: Request, res: Response, next: Ne
                }
                if (Number(settings?.smsActivated) !== 1) {
                     customError('sms module is not activated for this facility', 403, res);
+                    return;
+               }
+               next();
+               return;
+          }
+          if (module && (ADDITIONAL_FACILITY_MODULES as readonly string[]).includes(module)) {
+               // New module routes do not inherit the permissive no-config behavior
+               // used to keep pre-subscription legacy facilities working.
+               if (configuration.isMultiTenant) {
+                    const platformRow = await systemConfigConnection(MODULE_CONFIG_TABLE)
+                         .where({ tenant_id: tenantId }).first('configuration');
+                    if (!platformRow) {
+                         customError(`${module} module is not authorized for this tenant`, 403, res);
+                         return;
+                    }
+                    const platformConfig = validateModuleConfiguration(JSON.parse(platformRow.configuration));
+                    if (!platformConfig?.modules[module].enabled) {
+                         customError(`${module} module is not authorized for this tenant`, 403, res);
+                         return;
+                    }
+               }
+               if (!settings?.moduleConfiguration) {
+                    customError(`${module} module is not activated for this facility`, 403, res);
+                    return;
+               }
+               const localConfig = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
+               if (!localConfig?.modules[module].enabled) {
+                    customError(`${module} module is not activated for this facility`, 403, res);
                     return;
                }
                next();

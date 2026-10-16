@@ -3,6 +3,9 @@ import { customError, responseError } from '../../hooks/helper';
 import { parsePagination } from '../../hooks/pagination';
 import { CreateEmailProviderSchema } from '../../models/application/email/dtos/CreateEmailProviderDto';
 import { EmailProvidersService } from '../../models/application/email/services/EmailProvidersService';
+import { z } from 'zod';
+
+const SendTestEmailSchema = z.object({ to: z.string().trim().email() });
 
 const BAD_REQUEST_STATUS = Number('400');
 
@@ -72,6 +75,16 @@ export class EmailProvidersController {
           try {
                const connected = await this.service.testProvider(Number(req.params.id));
                res.send({ status: 'success', statusCode: 200, connected });
+          } catch (error) {
+               this.badRequest(res, error);
+          }
+     }
+
+     async sendTestEmail(req: Request, res: Response) {
+          try {
+               const { to } = SendTestEmailSchema.parse(req.body);
+               const result = await this.service.sendTestEmail(Number(req.params.id), to);
+               res.send({ status: 'success', statusCode: 200, ...result });
           } catch (error) {
                this.badRequest(res, error);
           }

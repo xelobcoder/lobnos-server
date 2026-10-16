@@ -3,6 +3,10 @@ import User from "../../LobnosAuth/user";
 import Security from "../../models/security/securityClass";
 import { Request, Response } from "express";
 import KnexConnection from "../../database/KnexConnections";
+import logger from "../../hooks/logger";
+import { parseCookies } from "../../middleware/validateTenancy";
+import TokenValidator from "../../models/settings/users/TokenValidator";
+import { SessionRevocation, SessionRevocationError } from "../../models/security/SessionRevocation";
 
 export const getLoggedSessions = async (request: Request<{}, {}, {}, { email: string; tenantId: string }>, response: Response) => {
      try {
@@ -67,13 +71,36 @@ export const getLoginHistory = async (request: Request<{}, {}, {}, { page: strin
           const security = new Security(tenantId);
           if (!isNaN(Number(page)) && !isNaN(Number(count))) {
                const tenantId = parseInt(request.query.tenantId.toString(), 10);
-               const history = await security.getGeneralLoginHistory(tenantId, Number(page), Number(count), interestedid ? parseInt(interestedid.toString(), 10) : null);
+               const pageNumber = Math.max(1, Number(page));
+               const pageSize = Math.min(200, Math.max(1, Number(count)));
+               const interested = interestedid ? parseInt(interestedid.toString(), 10) : null;
+               const history = await new SessionRevocation(tenantId).history(pageNumber, pageSize, interested && !isNaN(interested) ? interested : null);
                response.send(history);
           } else {
                return customError("bad request", 400, response);
           }
      } catch (err) {
           console.log(err);
+          responseError(response);
+     }
+};
+
+export const forceLogoutSession = async (request: Request, response: Response) => {
+     try {
+          const tenantId = parseInt(String(request.query.tenantId), 10);
+          if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
+          const cookies = parseCookies(request.headers['cookie'] as string);
+          const token = String(request.headers['pls-prime-tenant-session'] || cookies['pls-prime-tenant-session'] || '');
+          const decoded: any = await new TokenValidator().decodeAccessToken(token);
+          const actor = parseInt(String(decoded?.employeeid), 10);
+          if (isNaN(actor)) return customError('Invalid token', 401, response);
+          const reason = typeof request.body?.reason === 'string' ? request.body.reason : undefined;
+          const result = await new SessionRevocation(tenantId).forceLogout(parseInt(String(request.params.sessionKey), 10), actor, reason);
+          logger.info(`[security] session ${result.sessionKey} of employee ${result.employeeid} signed out by administrator ${actor}`);
+          response.send({ status: 'success', statusCode: 200, message: 'User signed out', result });
+     } catch (err: any) {
+          if (err instanceof SessionRevocationError) return customError(err.message, err.statusCode, response);
+          logger.error(err);
           responseError(response);
      }
 };

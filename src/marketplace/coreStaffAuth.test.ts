@@ -41,7 +41,7 @@ vi.mock('../middleware/validateTenancy', () => ({
      verifyStaffSession: async () => ({ ok: true }),
 }));
 
-import { requireCoreFacilityStaff } from './coreStaffAuth';
+import { requireCoreFacilityStaff, requireCoreRole } from './coreStaffAuth';
 import * as licenseEnforcement from '../licensing/enforcement';
 import { LicenseError } from '../licensing/certificate';
 
@@ -92,6 +92,23 @@ describe('integrated marketplace staff authorization boundary', () => {
           await requireCoreFacilityStaff(req, res, next);
           expect(next).toHaveBeenCalledOnce();
           expect(res.locals.marketplaceCoreStaff).toMatchObject({ tenantId: 9, employeeId: 5, role: 'manager', facilityId: 3 });
+     });
+
+     it.each(['super-admin', 'super_admin', 'superadmin', 'super admin'])('allows super-admin %s without a branch through core role gates', async role => {
+          state.claims = { email: 'staff@example.invalid', tid: 9 } as any;
+          state.roleRow = { employeeid: 5, role, activation: 1, branch: null };
+          state.liveEmployee = { employeeid: 5, email: 'staff@example.invalid', role, activation: 1, branch: null };
+          state.facility = { ...state.facility, linked_tenant_id: 9 };
+          const license = vi.spyOn(licenseEnforcement, 'requireOperationalLicense').mockResolvedValue(undefined);
+          try {
+               const res = response();
+               const next = vi.fn();
+               await requireCoreFacilityStaff(request(), res, next);
+               expect(next).toHaveBeenCalledOnce();
+               const roleNext = vi.fn();
+               requireCoreRole(['role-not-otherwise-allowed'])(request(), res, roleNext);
+               expect(roleNext).toHaveBeenCalledOnce();
+          } finally { license.mockRestore(); }
      });
 
      it('rejects a client-selected tenant before authenticating or querying facility access', async () => {

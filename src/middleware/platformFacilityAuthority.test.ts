@@ -69,8 +69,13 @@ describe('platform facility HTTP authority', () => {
           expect(next).not.toHaveBeenCalled();
           expect(res.status).toHaveBeenCalledWith(403);
      });
-     it.each(['admin', 'super_admin', 'superadmin'])('does not trust the token role after live role changes to %s', async role => {
+     it.each(['super-admin', 'super_admin', 'superadmin', 'super admin'])('accepts normalized live super-admin role %s', async role => {
           row.role = role;
+          const { next } = await call();
+          expect(next).toHaveBeenCalledOnce();
+     });
+     it('does not trust the token role after live role changes to admin', async () => {
+          row.role = 'admin';
           const { res, next } = await call();
           expect(next).not.toHaveBeenCalled();
           expect(res.status).toHaveBeenCalledWith(403);

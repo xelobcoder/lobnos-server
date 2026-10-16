@@ -10,6 +10,7 @@ import { parseCookies, verifyStaffSession } from '../middleware/validateTenancy'
 import { MarketplaceError } from './MarketplaceService';
 import { requireOperationalLicense } from '../licensing/enforcement';
 import { LicenseError } from '../licensing/certificate';
+import { roleAllowed } from '../middleware/roles';
 
 const allowedStaffRoles = new Set([
      'admin', 'super-admin', 'super_admin', 'manager', 'scientist', 'phelobotomist', 'phlebotomist',
@@ -46,7 +47,7 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
           const roleRow = await new RolesRepository(tenantId).getRoleByEmail(claims.email);
           const employeeId = Number(roleRow?.employeeid);
           const role = String(roleRow?.role || '').toLowerCase().trim();
-          if (!Number.isSafeInteger(employeeId) || employeeId <= 0 || Number(roleRow?.activation) !== 1 || !allowedStaffRoles.has(role)) {
+          if (!Number.isSafeInteger(employeeId) || employeeId <= 0 || Number(roleRow?.activation) !== 1 || !roleAllowed(role, Array.from(allowedStaffRoles))) {
                return res.status(403).json({ status: 'error', message: 'PLS staff role is not authorized for marketplace operations' });
           }
           const session = await verifyStaffSession(claims, employeeId, tenantId, req);
@@ -63,13 +64,13 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
           const liveEmployee = await connection('roles').where({ employeeid: employeeId })
                .first('employeeid', 'email', 'role', 'activation', 'branch');
           if (!liveEmployee || Number(liveEmployee.activation) !== 1 || liveEmployee.email !== claims.email ||
-               !allowedStaffRoles.has(String(liveEmployee.role || '').toLowerCase().trim())) {
+               !roleAllowed(liveEmployee.role, Array.from(allowedStaffRoles))) {
                return res.status(403).json({ status: 'error', message: 'PLS staff authorization is no longer active' });
           }
           const liveRole = String(liveEmployee.role).toLowerCase().trim();
           const liveBranchId = Number.isSafeInteger(Number(roleRow.branch)) && Number(roleRow.branch) > 0
                ? Number(roleRow.branch) : null;
-          if (!['admin', 'manager', 'super-admin', 'super_admin'].includes(liveRole) && !liveBranchId) {
+          if (!roleAllowed(liveRole, ['admin', 'manager']) && !liveBranchId) {
                return res.status(403).json({ status: 'error', message: 'PLS staff must have an assigned branch for marketplace access' });
           }
           await requireOperationalLicense(tenantId);
@@ -100,7 +101,7 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
 export function requireCoreRole(roles: string[]) {
      return (req: Request, res: Response, next: NextFunction) => {
           const actor = res.locals.marketplaceCoreStaff;
-          if (!actor || !roles.includes(actor.role)) {
+          if (!actor || !roleAllowed(actor.role, roles)) {
                return res.status(403).json({ status: 'error', message: 'PLS staff role is not authorized for this action' });
           }
           next();

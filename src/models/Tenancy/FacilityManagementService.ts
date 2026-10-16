@@ -1,11 +1,15 @@
 import { Knex } from 'knex';
 import mysql from 'mysql2/promise';
 import { singleTenantKnexInstance, systemConfigConnection } from '../../database/connection';
+import KnexConnection from '../../database/KnexConnections';
 import { configuration } from '../../hooks/configuration';
 import { TENANTS_TABLE, TenantRegistry } from './TenantRegistry';
 import { FacilityError } from './FacilityInput';
 import type { FacilityActor } from './FacilityProvisioningService';
-import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE, FacilityModuleConfiguration } from './FacilityModules';
+import {
+     ensureFacilityModuleTable, FACILITY_MODULES, MODULE_CONFIG_TABLE, FacilityModuleConfiguration,
+     validateModuleConfiguration,
+} from './FacilityModules';
 import {
      AuditQuery, FacilityStatusTarget, PaymentInput, SubscriptionFrequency, SubscriptionPlanInput,
      formatCents, normalizeStoredAmount, parseAsOf, storedDateToIso, storedTimestampToIso, utcToday, validatePaymentInput,
@@ -20,6 +24,7 @@ import { SmsProviderSettingsService } from '../application/sms/services/SmsProvi
 import { bootstrapSmsProviderSettings } from '../application/sms/SmsProviderBootstrapper';
 import { releaseTenantConnection } from './tenantConnections';
 import { safeDatabaseIdentifier } from './FacilitySchema';
+import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
 
 export const PLANS_TABLE = 'facility_subscription_plans';
 export const PAYMENTS_TABLE = 'facility_subscription_payments';
@@ -73,6 +78,52 @@ export interface FacilityAuditEvent {
 export interface FacilityAuditPage { events: FacilityAuditEvent[]; page: number; pageSize: number; total: number; }
 
 const periodKey = (start: string, end: string) => `${start}/${end}`;
+
+function storedObject(value: unknown, field: string): Record<string, unknown> {
+     if (value === null || value === undefined || value === '') return {};
+     let parsed = value;
+     if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); }
+          catch { throw new FacilityError(`Stored ${field} is invalid`, 409); }
+     }
+     if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+          throw new FacilityError(`Stored ${field} is invalid`, 409);
+     }
+     return parsed as Record<string, unknown>;
+}
+
+function storedModuleConfiguration(value: unknown): FacilityModuleConfiguration | null {
+     if (value === null || value === undefined || value === '') return null;
+     let parsed = value;
+     if (typeof parsed === 'string') {
+          try { parsed = JSON.parse(parsed); }
+          catch { throw new FacilityError('Stored module configuration is invalid', 409); }
+     }
+     return validateModuleConfiguration(parsed);
+}
+
+function moduleSettingsPatch(existing: any, config: FacilityModuleConfiguration, final: boolean) {
+     const services = storedObject(existing.services, 'service settings');
+     const enabled = (name: keyof FacilityModuleConfiguration['modules']) => config.modules[name].enabled;
+     const smsEnabled = enabled('sms') && (final || Number(existing.smsActivated) === 1);
+     const emailEnabled = enabled('email') && (final || Number(existing.emailModuleActivated) === 1);
+     return {
+          moduleConfiguration: JSON.stringify(config),
+          smsActivated: Number(smsEnabled),
+          emailModuleActivated: Number(emailEnabled),
+          services: JSON.stringify({
+               ...services,
+               isConnectedInventory: Number(enabled('inventory')),
+               isSmsServicesConnected: Number(smsEnabled),
+               isEmailServicesConnected: Number(emailEnabled),
+          }),
+     };
+}
+
+function branchModePatch(existing: any, branchMode: FacilityModuleConfiguration['branchMode']) {
+     const additionalInfo = storedObject(existing.additionalInfo, 'company profile additionalInfo');
+     return { additionalInfo: JSON.stringify({ ...additionalInfo, branchMode }) };
+}
 
 const UNSAFE_DETAIL_KEY = /pass|secret|token|hash|credential|connection|dsn|private|api[-_]?key|pin$/i;
 const MAX_DETAIL_DEPTH = 4;
@@ -488,8 +539,109 @@ export class FacilityManagementService {
           return view;
      }
 
-     /** Any registered facility, including the default/control tenant, can carry a subscription. */
-     async setPlan(tenantId: number, input: SubscriptionPlanInput, actor: FacilityActor) {
+          /**
+           * Updates both the platform entitlement and tenant operational settings. The tenant is first
+           * moved to the intersection of its current modules and the requested modules; therefore a
+           * failure between databases can leave access more restrictive, but cannot grant a requested
+           * module before both stores are ready.
+           */
+          async setModuleConfiguration(tenantId: number, input: FacilityModuleConfiguration, actor: FacilityActor) {
+               await TenantRegistry.ensureReady();
+               await this.ensureSchema();
+
+               const initialTenant = await this.tenantRow(this.master, tenantId, false);
+               this.requireManageable(initialTenant, 'change module configuration');
+               const tenantDb = await KnexConnection(tenantId);
+               const submitted = validateModuleConfiguration(input);
+               if (!submitted) throw new FacilityError('moduleConfiguration is required');
+               const requested = applyFacilityModulePricing(submitted,
+                    await new FacilityModulePricingCatalog(this.master).get(submitted.currency));
+
+               await tenantDb.transaction(async trx => {
+                    const settings = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
+                    const profile = await trx('companyprofile').forUpdate().first();
+                    if (!settings || !profile || profile.ID === undefined) throw new FacilityError('Facility settings are unavailable', 409);
+                    const previous = storedModuleConfiguration(settings.moduleConfiguration);
+                    const modules = {} as FacilityModuleConfiguration['modules'];
+                    for (const module of FACILITY_MODULES) {
+                         modules[module] = {
+                              enabled: Boolean(previous?.modules[module].enabled && requested.modules[module].enabled),
+                              monthlyPrice: requested.modules[module].monthlyPrice,
+                         };
+                    }
+                    const intermediate = validateModuleConfiguration({
+                         ...requested,
+                         branchMode: previous?.branchMode === 'single' || requested.branchMode === 'single' ? 'single' : 'multiple',
+                         modules,
+                    });
+                    if (!intermediate) throw new Error('Failed to construct restrictive module configuration');
+                    await trx('applicationsettings').where({ keyid: 1 }).update(moduleSettingsPatch(settings, intermediate, false));
+                    await trx('companyprofile').where({ ID: profile.ID }).update(branchModePatch(profile, intermediate.branchMode));
+               });
+
+               let masterTenant: any;
+               let platformUpdated = false;
+               let tenantFinalized = false;
+               const auditDetails = JSON.stringify({
+                    moduleConfiguration: requested,
+                    enabledModules: FACILITY_MODULES.filter(module => requested.modules[module].enabled),
+                    syncStatus: 'pending',
+               });
+               try {
+                    masterTenant = await this.master.transaction(async trx => {
+                         const tenant = await this.tenantRow(trx, tenantId, true);
+                         this.requireManageable(tenant, 'change module configuration');
+                         const existing = await trx(MODULE_CONFIG_TABLE).where({ tenant_id: tenantId }).first('tenant_id');
+                         const record = { configuration: JSON.stringify(requested) };
+                         if (existing) await trx(MODULE_CONFIG_TABLE).where({ tenant_id: tenantId }).update(record);
+                         else await trx(MODULE_CONFIG_TABLE).insert({ tenant_id: tenantId, ...record });
+                         await this.event(trx, tenant, actor, {
+                              action: 'module_configuration_sync_started',
+                              details: auditDetails,
+                         });
+                         return tenant;
+                    });
+                    platformUpdated = true;
+
+                    await tenantDb.transaction(async trx => {
+                         const settings = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
+                         const profile = await trx('companyprofile').forUpdate().first();
+                         if (!settings || !profile || profile.ID === undefined) throw new FacilityError('Facility settings are unavailable', 409);
+                         await trx('applicationsettings').where({ keyid: 1 }).update(moduleSettingsPatch(settings, requested, true));
+                         await trx('companyprofile').where({ ID: profile.ID }).update(branchModePatch(profile, requested.branchMode));
+                    });
+                    tenantFinalized = true;
+
+                    await this.master.transaction(trx => this.event(trx, masterTenant, actor, {
+                         action: 'module_configuration_updated',
+                         details: JSON.stringify({
+                              moduleConfiguration: requested,
+                              enabledModules: FACILITY_MODULES.filter(module => requested.modules[module].enabled),
+                              syncStatus: 'complete',
+                         }),
+                    }));
+               } catch (error) {
+                    // The restrictive tenant write is intentionally retained. Record partial sync when
+                    // possible; never roll it back into a state that could grant a module.
+                    const auditTenant = masterTenant || initialTenant;
+                    if (auditTenant) {
+                         await this.master.transaction(trx => this.event(trx, auditTenant, actor, {
+                              action: 'module_configuration_sync_failed',
+                              details: JSON.stringify({
+                                   enabledModules: FACILITY_MODULES.filter(module => requested.modules[module].enabled),
+                                   syncStatus: !platformUpdated ? 'platform_copy_unchanged'
+                                        : tenantFinalized ? 'tenant_copy_synced_audit_failed' : 'tenant_copy_restricted',
+                              }),
+                         })).catch(() => undefined);
+                    }
+                    throw error;
+               }
+
+               return { tenantId, moduleConfiguration: requested, monthlyTotal: requested.monthlyTotal };
+          }
+
+          /** Any registered facility, including the default/control tenant, can carry a subscription. */
+          async setPlan(tenantId: number, input: SubscriptionPlanInput, actor: FacilityActor) {
           await TenantRegistry.ensureReady();
           await this.ensureSchema();
           const next = { frequency: input.frequency, amount: formatCents(input.amountCents), currency: input.currency, startDate: input.startDate };

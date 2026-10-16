@@ -2,13 +2,14 @@ import { NextFunction, Request, Response } from 'express';
 import { getAuthUser } from '../../middleware/authority';
 import { PhysicalSampleService, PhysicalSampleStatus } from '../../models/samples/PhysicalSampleService';
 import { PhysicalSampleCommunicationService } from '../../models/samples/PhysicalSampleCommunicationService';
+import { roleAllowed } from '../../middleware/roles';
 
 const ALLOWED_ROLES = ['admin', 'manager', 'scientist', 'phelobotomist', 'phlebotomist'];
 
 export function requireSampleCollectionRole(request: Request, response: Response, next: NextFunction) {
      const actor = getAuthUser(request);
      if (!actor) return response.status(401).json({ success: false, message: 'Authentication required' });
-     if (!ALLOWED_ROLES.includes(String(actor.role || '').toLowerCase())) return response.status(403).json({ success: false, message: 'You are not authorized to manage physical samples' });
+     if (!roleAllowed(actor.role, ALLOWED_ROLES)) return response.status(403).json({ success: false, message: 'You are not authorized to manage physical samples' });
      return next();
 }
 
@@ -75,11 +76,11 @@ export class PhysicalSampleController {
                const status = request.body?.status as PhysicalSampleStatus;
                const validationRoles = ['admin', 'manager', 'scientist'];
                const receptionRoles = [...validationRoles, 'phelobotomist', 'phlebotomist'];
-               if (['accepted', 'rejected'].includes(status) && !validationRoles.includes(actor.role)) {
+               if (['accepted', 'rejected'].includes(status) && !roleAllowed(actor.role, validationRoles)) {
                     response.status(403).json({ success: false, message: 'Only an authorized scientist may validate a sample' });
                     return;
                }
-               if (status === 'received' && !receptionRoles.includes(actor.role)) {
+               if (status === 'received' && !roleAllowed(actor.role, receptionRoles)) {
                     response.status(403).json({ success: false, message: 'You are not authorized to receive samples' });
                     return;
                }
@@ -125,7 +126,7 @@ export class PhysicalSampleController {
      static async decideReview(request: Request, response: Response): Promise<void> {
           try {
                const actor = getAuthUser(request)!;
-               if (!['admin', 'manager', 'scientist'].includes(actor.role)) {
+               if (!roleAllowed(actor.role, ['admin', 'manager', 'scientist'])) {
                     response.status(403).json({ success: false, message: 'Only an authorized scientist may decide a sample review' });
                     return;
                }

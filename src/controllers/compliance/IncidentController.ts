@@ -9,6 +9,7 @@ import {
 import { IncidentValidation } from '../../models/settings/compliance/validation';
 import User from '../../LobnosAuth/user';
 import RolesRepository from '../../models/settings/users/RolesRepository';
+import { roleAllowed } from '../../middleware/roles';
 
 export class IncidentController {
      private getTenantId(req: Request): number {
@@ -41,7 +42,7 @@ export class IncidentController {
                if (requesterEmployeeId && requesterEmployeeId !== 0) {
                     const user = new User(null, null, null, null, null);
                     const role = await new RolesRepository(tenantId).getEmployeeRole(requesterEmployeeId);
-                    if (['admin','super-admin'].includes(role ? role : "") == false) {
+                    if (!roleAllowed(role, ['admin'])) {
                          filters.reportedBy = requesterEmployeeId;
                     }
                } 

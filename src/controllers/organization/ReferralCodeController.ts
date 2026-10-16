@@ -1,6 +1,7 @@
 import { NextFunction, Request, Response } from 'express';
 import { ReferralCodingRepo } from '../../models/referral/repositories/ReferralCodingRepo';
 import { getAuthUser } from '../../middleware/authority';
+import { roleAllowed } from '../../middleware/roles';
 
 export class ReferralCodeController {
      static authorizeRead(request: Request, response: Response, next: NextFunction): void {
@@ -11,7 +12,7 @@ export class ReferralCodeController {
           }
 
           const role = user.role.toLowerCase().trim().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
-          const allowedRoles = new Set([
+          const allowedRoles = [
                'admin',
                'super admin',
                'superadmin',
@@ -22,8 +23,8 @@ export class ReferralCodeController {
                'customer representative',
                'front desk',
                'frontdesk',
-          ]);
-          if (!allowedRoles.has(role)) {
+          ];
+          if (!roleAllowed(role, allowedRoles)) {
                response.status(403).json({ status: 'error', statusCode: 403, message: 'You do not have permission to view referral codes.' });
                return;
           }

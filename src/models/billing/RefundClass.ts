@@ -8,6 +8,7 @@
 import { q_initiate_refund_first_witness } from './queries';
 import { TiifuWorkingClass } from '../../database/TiifuWorkingClass';
 import User from '../../LobnosAuth/user';
+import { roleAllowed } from '../../middleware/roles';
 import { OperationsFailures } from '../operations/types';
 import {
 	hasAmountRefunded,
@@ -103,7 +104,7 @@ export class Refund {
 		const user = new User(null, null, null, null, null);
 		const role = await user.getUserRole(employeeid, tenantId);
 		const stringRole = (role || '').toString().toLowerCase();
-		const isAdminRole = ['admin', 'superadmin', 'super-admin', 'manager', 'crm', 'accountant', 'customer service representative'].includes(stringRole);
+		const isAdminRole = roleAllowed(stringRole, ['admin', 'manager', 'crm', 'accountant', 'customer service representative']);
 
 		let values: any[] = [];
 		let query = '';
@@ -144,7 +145,7 @@ export class Refund {
 		return result.map(async (item: any) => {
 			const responseData = await Refund.prepareResponseData(tenantId, accessoriesBillingInformation, item);
 
-			if (role !== 'admin') {
+			if (!roleAllowed(role, ['admin'])) {
 				return responseData;
 			}
 			return { ...responseData, isRefundCompleted: item.isRefundCompleted };
@@ -185,7 +186,7 @@ export class Refund {
 		let witnesses: witnessedType[] = await Refund.getWithnessFromServiceItem(tenantId, item, user, employeeid);
 		item.canEdit = false;
 		item.canwitness = false;
-		if (role !== 'admin') {
+		if (!roleAllowed(role, ['admin'])) {
 			witnesses = Refund.processNonAdminServiceItem(witnesses, employeeid, status, item);
 		}
 
@@ -355,7 +356,7 @@ export class Refund {
 			const allowManagerToRefund = applicationsettings?.allowManagerToRefund || 0;
 
 			if (
-				['admin', 'superadmin', 'super-admin'].includes(stringifyRole) ||
+				roleAllowed(stringifyRole, ['admin']) ||
 				(stringifyRole === 'manager' && parseInt(allowManagerToRefund.toString(), 10) === 1)
 			) {
 				const result = await promisifyQuery(tenantId, q_services_refund_status_change_admin_approve, [1, new Date(), employeeid, serviceid]);

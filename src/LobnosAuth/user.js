@@ -58,13 +58,14 @@ class User {
 	processUserData = async (data) => {
 		let user = convertKeysToLowerCase(data)
 		const { permissions, email, activation, username, role, employeeid, branch } = user
+		const { isSuperAdminRole } = require("../middleware/roles")
 		if (activation != 1) {
 			return `Access Denied!!. User not activated to have access`
 		}
-		if (permissions == "{}") {
+		if (permissions == "{}" && !isSuperAdminRole(role)) {
 			return `Access Denied!!. Permissions not set`
 		}
-		if (configuration.configurations.strictBranchCheck) {
+		if (configuration.configurations.strictBranchCheck && !isSuperAdminRole(role)) {
 			if (branch <= 0 || branch == undefined) {
 				return "Acess Denied!!.User not assigned to a branch"
 			}

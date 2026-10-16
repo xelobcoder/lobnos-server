@@ -38,6 +38,7 @@ import { buildStaleDrugReactionDelete } from './resultDrugReactions';
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
+import ImagingResultAuditRepository from "../operations/imaging/ImagingResultAuditRepository";
 import ApplicationSettings from "../application/appsettings/appset";
 import { applyDemographicLimits, getAgeGroup } from "./demographic-limits";
 
@@ -407,9 +408,45 @@ export default class Creator {
 		}
 
 
+		// Imaging results get a field-level audit trail. Classified server-side (never from the client's isScan flag).
+		// ensureTable runs DDL, so it must happen before the transaction opens.
+		const auditImaging = await ImagingResultAuditRepository.isImagingTest(connection, testid);
+		if (auditImaging) await ImagingResultAuditRepository.ensureTable(tenantId);
+
 		try {
 			await connection.transaction(async (trx) => {
+				let previousImagingValues: Record<string, string> = {};
+				if (auditImaging) {
+					const previousRows = await trx("test_results").select("fieldid", "value").where({ ascensionid, testid });
+					previousRows.forEach((row: any) => {
+						previousImagingValues[String(row.fieldid)] = ImagingResultAuditRepository.decryptStoredValue(row.value);
+					});
+				}
+
 				await insertUpdate(trx, tenantId, entryFields, testid);
+
+				if (auditImaging) {
+					const nextValues: Record<string, string> = {};
+					const fieldNames: Record<string, string> = {};
+					(entryFields as any[]).forEach((item) => {
+						if (!item?.fieldid || item.value === null || item.value === undefined || item.originalvalue === null || item.originalvalue === undefined) return;
+						nextValues[String(item.fieldid)] = String(item.value);
+						fieldNames[String(item.fieldid)] = String(item.field || `field#${item.fieldid}`);
+					});
+					await ImagingResultAuditRepository.record(
+						trx,
+						ImagingResultAuditRepository.diffFields(previousImagingValues, nextValues).map((change) => ({
+							ascensionid, testid, patientid, billingid,
+							entityType: "RESULT_FIELD" as const,
+							entityId: change.fieldName,
+							action: change.action,
+							fieldName: fieldNames[change.fieldName] ?? change.fieldName,
+							oldValue: change.oldValue,
+							newValue: change.newValue,
+							employeeid,
+						}))
+					);
+				}
 				await calculationService.recordCalculatedResults(trx, calculatedEntry.auditRecords, {
 					testId: testid,
 					billingId: billingid,

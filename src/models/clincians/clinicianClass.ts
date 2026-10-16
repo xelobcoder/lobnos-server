@@ -11,6 +11,7 @@ import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import KnexConnection from "../../database/KnexConnections";
 import { applyClinicianAfterDelete, applyClinicianAfterInsert } from "../../database/appLevelTriggers";
+import { roleAllowed } from "../../middleware/roles";
 
 export default class ClinicianClass {
 
@@ -132,7 +133,7 @@ export default class ClinicianClass {
 
 		// If no filters, use the original logic
 		if (!hasFilters) {
-			if (role && role.toString().trim() === "admin") {
+			if (role && roleAllowed(role, ["admin"])) {
 				return (count && page) ? await paginationQuery({ page: parseInt(page.toString()), count: parseInt(count.toString()) }, SQLQueries.getCliniciansWithExtendedPagination, [], tenantId) :
 					await promisifyQuery(tenantId, SQLQueries.getAllCliniciansWithPaymentInfo);
 			}
@@ -150,7 +151,7 @@ export default class ClinicianClass {
 		let baseQuery = "SELECT * FROM clinicianbasicinfo" + whereClause;
 
 		// Add payment info for admin users
-		if (role && role.toString().trim() === "admin") {
+		if (role && roleAllowed(role, ["admin"])) {
 			baseQuery = `SELECT cbi.*, cbi.id as clinicianid,cpi.id as clinicianpaymentid, cpi.* FROM clinicianbasicinfo AS cbi
 				LEFT JOIN clinicianpaymentinfo AS cpi ON cbi.id = cpi.clinicianid${whereClause}`;
 		}

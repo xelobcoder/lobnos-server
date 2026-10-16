@@ -1,4 +1,5 @@
 const User = require("../../LobnosAuth/user");
+const { roleAllowed } = require("../../middleware/roles");
 const { readdir, unlink } = require("node:fs/promises");
 
 class Expenses {
@@ -63,7 +64,7 @@ class Expenses {
             if (record.length > 0) {
                   role = record[0]['role'];
             }
-            if (!['admin', 'manager'].includes(role)) {
+            if (!roleAllowed(role, ['admin', 'manager'])) {
                   query += ` WHERE er.employeeid = ? AND er.branchid = ?`;
                   values = [employeeid, branchid];
             } else {

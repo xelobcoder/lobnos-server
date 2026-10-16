@@ -5,6 +5,7 @@ import ExpenseService from "./ExpenseService";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
 import { enqueueExpensePayment, enqueueExpensePaymentReversal } from "../../accountingModule/integrations/ExpenseAccounting";
+import { roleAllowed } from "../../middleware/roles";
 
 export default class ExpenseInvoiceRepo {
      private employeeid: number;
@@ -78,7 +79,7 @@ export default class ExpenseInvoiceRepo {
           }
 
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           const { invoice_date, expense_ids } = invoiceData;
           if (!invoice_date || !expense_ids || expense_ids.length === 0) {
@@ -186,7 +187,7 @@ export default class ExpenseInvoiceRepo {
           }
 
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           let baseQuery = connection('invoices as i')
                .leftJoin('expense_merchants as em', 'i.merchant_id', 'em.id')
@@ -289,7 +290,7 @@ export default class ExpenseInvoiceRepo {
           }
 
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           const query = `
             SELECT i.*, em.name as merchant_name
@@ -324,7 +325,7 @@ export default class ExpenseInvoiceRepo {
           }
 
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           const invoiceQuery = 'SELECT employee_id FROM invoices WHERE id = ?';
           const invoice = await promisifyQuery(this.tenantId, invoiceQuery, [invoiceId]);
@@ -403,7 +404,7 @@ export default class ExpenseInvoiceRepo {
                }
 
                const role = record[0]['role'];
-               const isAdminOrManager = role === 'admin' || role === 'manager';
+               const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
                const { expense_id, payment_date, amount, method } = paymentData;
                if (!expense_id || !payment_date || !amount || !method) {
@@ -493,7 +494,7 @@ export default class ExpenseInvoiceRepo {
                throw new Error('User not found');
           }
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           let query = 'SELECT * FROM expense_payments';
           let values: (number | string)[] = [];
@@ -630,7 +631,7 @@ export default class ExpenseInvoiceRepo {
           }
 
           const role = record[0]['role'];
-          const isAdminOrManager = role === 'admin' || role === 'manager';
+          const isAdminOrManager = roleAllowed(role, ['admin', 'manager']);
 
           const invoiceQuery = 'SELECT id, employee_id, merchant_id FROM invoices WHERE id = ?';
           const invoice = await promisifyQuery(this.tenantId, invoiceQuery, [invoiceId]);
