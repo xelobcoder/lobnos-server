@@ -13,11 +13,11 @@ vi.mock('../hooks/configuration', () => ({
 }));
 vi.mock('../hooks/helper', () => ({ customError: mocks.error, responseError: mocks.responseError }));
 vi.mock('../hooks/logger', () => ({ default: { error: mocks.log } }));
-const tokens = vi.hoisted(() => ({ role: null as string | null }));
+const tokens = vi.hoisted(() => ({ role: null as string | null, clientType: undefined as string | undefined }));
 vi.mock('../models/settings/users/TokenValidator', () => ({
      default: class {
           async validateAccessToken() { return { expired: false }; }
-          async decodeAccessToken() { return { role: tokens.role }; }
+          async decodeAccessToken() { return { role: tokens.role, clientType: tokens.clientType }; }
      },
 }));
 import { facilityModuleAccess, moduleForApiPath } from './facilityModuleAccess';
@@ -33,6 +33,8 @@ const config = { branchMode: 'single', currency: 'GHS', modules: {
 describe('facility activation enforcement', () => {
      beforeEach(() => {
           vi.clearAllMocks();
+          tokens.role = null;
+          tokens.clientType = undefined;
           mocks.multiTenant.value = true;
           mocks.platformConfiguration.value = JSON.stringify(config);
           mocks.platform.mockReturnValue({
@@ -71,6 +73,18 @@ describe('facility activation enforcement', () => {
           const enabled = { ...config, modules: { ...config.modules, inventory: { enabled: true, monthlyPrice: '1' } } };
           expect(await invoke('/api/v1/inventory/items', JSON.stringify(enabled))).toHaveBeenCalledOnce();
           expect(await invoke('/api/v1/pharmacy/sales', null)).toHaveBeenCalledOnce();
+     });
+     it('does not let Device Manager borrow the super-admin module override', async () => {
+          tokens.role = 'super-admin';
+          tokens.clientType = 'device-manager';
+          mocks.connection.mockResolvedValue(() => ({ where: () => ({ first: async () => ({ moduleConfiguration: JSON.stringify(config) }) }) }));
+          const next = vi.fn();
+          await facilityModuleAccess({
+               path: '/api/v1/interfacing/devices', method: 'GET',
+               headers: { 'pls-prime-tenant-session': 'manager-token' }, query: { tenantId: '654321' },
+          } as unknown as Request, {} as Response, next);
+          expect(next).not.toHaveBeenCalled();
+          expect(mocks.error).toHaveBeenCalledWith(expect.stringMatching(/not (?:activated|authorized)/), 403, expect.anything());
      });
      it('uses the application setting as the operational SMS switch', async () => {
           const enabled = { ...config, modules: { ...config.modules, sms: { enabled: true, monthlyPrice: '1' } } };

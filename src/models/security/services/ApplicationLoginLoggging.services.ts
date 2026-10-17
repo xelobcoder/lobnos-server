@@ -2,6 +2,7 @@ import { logger } from "../../commissions/commission-configurations";
 import KnexConnection from "../../../database/KnexConnections";
 import { ILoginLog } from "../entities/loginlogs.entities";
 import { ApplicationLoginLog } from "../repositories/loginlog.repo";
+import { StaffClientType } from "../deviceManagerSession";
 
 export class ApplicationLoginLoggingService {
      private loginLogs: ILoginLog[] = [];
@@ -18,15 +19,16 @@ export class ApplicationLoginLoggingService {
      }
 
      /**
-      * Starts the only valid session for this user: every other open session (other browsers/devices)
-      * is closed in the same transaction, so their tokens are rejected on the next request.
+      * Browser logins replace other browser sessions. Restricted device-manager sessions
+      * coexist with them; administrative revocation still closes either session type.
       */
-     async initUserLoginSession(browserInformation: unknown, deviceFingerprint?: string | null): Promise<ILoginLog | undefined> {
+     async initUserLoginSession(browserInformation: unknown, deviceFingerprint?: string | null, clientType: StaffClientType = 'standard'): Promise<ILoginLog | undefined> {
           const service = this.ApplicationLoginLogRepo;
           const connection = await KnexConnection(this.tenantId);
           const logId = await connection.transaction(async (trx) => {
-               await service.destroyUserSessions(this.employeeid, trx);
-               return service.createHistoryLog(this.employeeid, browserInformation as string, trx, deviceFingerprint);
+               await trx('roles').where('employeeid', this.employeeid).forUpdate().first('employeeid');
+               if (clientType === 'standard') await service.destroyUserSessions(this.employeeid, trx, true);
+               return service.createHistoryLog(this.employeeid, browserInformation as string, trx, deviceFingerprint, clientType);
           });
           return service.findHistoryLogById(logId);
      }

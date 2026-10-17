@@ -123,8 +123,6 @@ abstract class DeviceProcessorBase<TPayload> {
                hasDrugs: false
           };
 
-          console.log("Data Before insertion", finalData);
-          
           const resultEntry = await new Creator(knownTestId).resultEntry(this.tenantId, finalData as any);
 
           return {
@@ -158,9 +156,17 @@ abstract class DeviceProcessorBase<TPayload> {
      // TEMPLATE METHOD
      // ------------------------------------------------------------------
 
-     async process(payload: TPayload): Promise<IDeviceProcessResult & { ascensionInformation?: any }> {
+     /**
+      * @param actorEmployeeId the authenticated PLS employee saving the result. The employee part of
+      * the specimen barcode (ascensionId-employeeId) is still format-validated for compatibility but is
+      * never used as the result author.
+      */
+     async process(payload: TPayload, actorEmployeeId: number): Promise<IDeviceProcessResult & { ascensionInformation?: any }> {
           try {
-               const { ascensionId, employeeid } = this.validatePatientId(this.extractPatientId(payload));
+               if (!Number.isSafeInteger(actorEmployeeId) || actorEmployeeId <= 0) {
+                    throw new Error("Authenticated employee is required to save device results");
+               }
+               const { ascensionId } = this.validatePatientId(this.extractPatientId(payload));
 
                const ascensionInformation = await this.resolveAscension(ascensionId);
                const knownTestId = ascensionInformation.testid;
@@ -177,7 +183,7 @@ abstract class DeviceProcessorBase<TPayload> {
                const result = await this.saveProcessedResult(
                     knownTestId,
                     ascensionId,
-                    employeeid,
+                    actorEmployeeId,
                     obxResults,
                     billingid,
                     deviceInterfaceMapping

@@ -10,6 +10,7 @@ import { LOGIN_ROUTES } from "./resolveLoginTenant";
 import { JwtPayload } from "jsonwebtoken";
 import crypto from "crypto";
 import { roleAllowed } from "./roles";
+import { DEVICE_MANAGER_SESSION_PREFIX, deviceManagerRouteAllowed } from "../models/security/deviceManagerSession";
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -34,6 +35,13 @@ export const hashDeviceFingerprint = (deviceId: unknown): string | null => {
 export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid: number, tenantId: number, request: Request): Promise<SessionCheck> => {
      const sid = decoded?.sid ? String(decoded.sid) : '';
      if (!sid) return sessionFailure(401, 'SESSION_INVALID', 'Session expired. Please sign in again.');
+     const managerSession = sid.startsWith(DEVICE_MANAGER_SESSION_PREFIX);
+     if (managerSession !== (decoded?.clientType === 'device-manager')) {
+          return sessionFailure(401, 'SESSION_INVALID', 'Invalid session type.');
+     }
+     if (managerSession && !deviceManagerRouteAllowed(request.method, request.path.replace(/\/$/, ''))) {
+          return sessionFailure(403, 'SESSION_SCOPE_DENIED', 'Device Manager sessions may only access device integration APIs.');
+     }
 
      if (decoded?.employeeid !== undefined && Number(decoded.employeeid) !== employeeid) {
           return sessionFailure(401, 'SESSION_INVALID', 'Session expired. Please sign in again.');
@@ -52,6 +60,9 @@ export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid:
      }
 
      const presentedFingerprint = hashDeviceFingerprint(request.headers['x-device-id']);
+     if (managerSession && (!decoded?.fph || !presentedFingerprint)) {
+          return sessionFailure(401, 'DEVICE_MISMATCH', 'Device Manager identity is required.');
+     }
      if (decoded?.fph && presentedFingerprint && presentedFingerprint !== decoded.fph) {
           return sessionFailure(401, 'DEVICE_MISMATCH', 'This session belongs to another device. Please sign in again.');
      }
@@ -81,8 +92,6 @@ export const checkTokenExists = async (request: Request, response: Response, nex
      if (bypassRoutes.some(route => request.path.startsWith(route))) return next();
      if ((request.method === 'GET' || request.method === 'HEAD') && request.path === '/api/v1/settings/companyprofile/images') return next();
 
-     if (request.method === 'GET' && request.path === '/api/v1/interfacing/devices') return next();
-
      const headers = request.headers;
 
      const cookies = parseCookies(headers['cookie'] as string);
@@ -105,6 +114,10 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (status.expired == true) return customError('Token expired', 500, response);
 
           const decoded = await new TokenValidator().decodeAccessToken(tokenValue);
+          if (decoded?.clientType === 'device-manager' &&
+               !deviceManagerRouteAllowed(request.method, request.path.replace(/\/$/, ''))) {
+               return customError('Device Manager sessions may only access device integration APIs', 403, response);
+          }
           const role = decoded?.role ? String(decoded.role).toLowerCase().trim() : '';
 
           if (role === 'clinician' || role === 'patient') {
@@ -126,6 +139,9 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (!email) return customError('Invalid token', 401, response);
 
           const roleRow = await new RolesRepository(tenantId).getRoleByEmail(email);
+          if (decoded?.clientType === 'device-manager' && Number(roleRow?.activation) === 0) {
+               return customError('User account is deactivated', 403, response);
+          }
           const employeeid = roleRow?.employeeid ? parseInt(roleRow.employeeid.toString(), 10) : NaN;
           if (!employeeid || isNaN(employeeid)) return customError('Invalid token', 401, response);
 

@@ -15,6 +15,7 @@ vi.mock('../../models/security/repositories/loginlog.repo', () => ({
 import { formatLoginUsername, parseLoginUsername } from './TenantLoginDirectory';
 import { facilityCodeBase, facilityCodeCandidates, isValidFacilityCode } from '../Tenancy/TenantRegistry';
 import { hashDeviceFingerprint, verifyStaffSession } from '../../middleware/validateTenancy';
+import { deviceManagerRouteAllowed } from '../security/deviceManagerSession';
 
 describe('login usernames', () => {
      it('formats the public organization identifier + tenant-local account number', () => {
@@ -80,5 +81,33 @@ describe('verifyStaffSession', () => {
                .resolves.toEqual({ ok: true });
           const mismatch = await verifyStaffSession({ sid: 'cur', employeeid: 1, tid: 3, fph }, 1, 3, { headers: { 'x-device-id': 'device-b' } } as any);
           expect(mismatch.body).toMatchObject({ code: 'DEVICE_MISMATCH' });
+     });
+
+     it('binds Device Manager sessions to a signed scope, tenant, and required device identity', async () => {
+          mocks.findSessionById.mockResolvedValue({ loggedout: 0, logoutTime: future });
+          const token = { sid: 'device-manager:abc', clientType: 'device-manager', employeeid: 1, tid: 3, fph: hashDeviceFingerprint('manager') };
+          const req = { method: 'GET', path: '/api/v1/interfacing/devices', headers: { 'x-device-id': 'manager' } } as any;
+          await expect(verifyStaffSession(token, 1, 3, req)).resolves.toEqual({ ok: true });
+          expect((await verifyStaffSession({ ...token, clientType: undefined }, 1, 3, req)).body).toMatchObject({ code: 'SESSION_INVALID' });
+          expect((await verifyStaffSession(token, 1, 3, { ...req, headers: {} })).body).toMatchObject({ code: 'DEVICE_MISMATCH' });
+          expect((await verifyStaffSession(token, 1, 3, { ...req, headers: { 'x-device-id': 'other' } })).body).toMatchObject({ code: 'DEVICE_MISMATCH' });
+          expect((await verifyStaffSession(token, 1, 4, req)).body).toMatchObject({ code: 'TENANT_MISMATCH' });
+          expect((await verifyStaffSession(token, 1, 3, { ...req, path: '/api/v1/logins' })).body).toMatchObject({ code: 'SESSION_SCOPE_DENIED' });
+          mocks.findSessionById.mockResolvedValueOnce({ loggedout: 1, logoutTime: future });
+          expect((await verifyStaffSession(token, 1, 3, req)).body).toMatchObject({ code: 'SESSION_REPLACED' });
+     });
+
+     it('allows only exact Device Manager operations, not CRUD, license administration, or arbitrary APIs', () => {
+          expect(deviceManagerRouteAllowed('GET', '/api/v1/interfacing/devices')).toBe(true);
+          expect(deviceManagerRouteAllowed('GET', '/api/v1/interfacing/devices/license')).toBe(true);
+          expect(deviceManagerRouteAllowed('POST', '/api/v1/interfacing/devices/receiving/data')).toBe(true);
+          expect(deviceManagerRouteAllowed('POST', '/api/v1/logins/logout')).toBe(true);
+          for (const [method, path] of [
+               ['POST', '/api/v1/interfacing/devices'],
+               ['DELETE', '/api/v1/interfacing/devices/1'],
+               ['GET', '/api/v1/interfacing/devices/1'],
+               ['POST', '/api/v1/security/license/activate'],
+               ['GET', '/api/v1/platform/facilities'],
+          ]) expect(deviceManagerRouteAllowed(method, path)).toBe(false);
      });
 });

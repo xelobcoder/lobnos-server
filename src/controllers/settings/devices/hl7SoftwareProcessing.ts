@@ -6,6 +6,8 @@ import { testpanel } from "../../../testpanel/testpanelList";
 
 import { Request, Response } from 'express';
 import DeviceModelsVersionProcessing from "./DeviceDataProcessing";
+import { IDeviceProcessResult } from "./DevicePrecessorBase";
+import { getAuthUser } from "../../../middleware/authority";
 export interface IMshSegment {
      DATE_TIME_OF_MESSAGE: string;
      FIELD_SEPARATOR: string;
@@ -235,23 +237,40 @@ export async function handleReceivedIntefacingData(req: Request<{}, {}, IInterfa
 
 export async function handleReceivedIntefacingDataProcessor(req: Request<{}, {}, { payload: any; name: string }>, res: Response) {
      try {
+          // The result author is always the authenticated session actor. Any employeeid in the
+          // envelope or the specimen barcode is ignored for authorship.
+          const actor = getAuthUser(req);
+          const actorEmployeeId = Number(actor?.employeeid);
+          if (!actor || !Number.isSafeInteger(actorEmployeeId) || actorEmployeeId <= 0) {
+               return res.status(401).json({ error: "Authentication required" });
+          }
+          if (['clinician', 'patient'].includes(String(actor.role || '').toLowerCase())) {
+               return res.status(403).json({ error: "Device results may only be saved by facility staff" });
+          }
           const { payload, name } = req.body;
           if (!payload || !name) {
                return res.status(400).json({ error: "Payload and name are required" });
           }
-  
 
           const tenantId = req.query.tenantId;
+          let result: IDeviceProcessResult;
           switch (name) {
                case "MindRay":
-                    return await DeviceModelsVersionProcessing.MindRayDeviceBClassProcessor(Number(tenantId), { data: payload } as any);
+                    result = await DeviceModelsVersionProcessing.MindRayDeviceBClassProcessor(Number(tenantId), { data: payload } as any, actorEmployeeId);
+                    break;
                case "AgileS20":
-                    return await DeviceModelsVersionProcessing.AgileS20DeviceProcessor(Number(tenantId), { data: payload } as any);
+                    result = await DeviceModelsVersionProcessing.AgileS20DeviceProcessor(Number(tenantId), { data: payload } as any, actorEmployeeId);
+                    break;
                case "BioeLab":
-                    return await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload);
+                    result = await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload, actorEmployeeId);
+                    break;
                default:
-                    return await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload);
+                    result = await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload, actorEmployeeId);
           }
+          return res.status(result.status === 'success' ? 200 : 500).json({
+               status: result.status,
+               message: result.status === 'success' ? result.message : 'Device result could not be saved',
+          });
      } catch (err) {
           console.log("Error processing interfacing data:", err);
           res.status(500).json({ error: "Internal server error" });

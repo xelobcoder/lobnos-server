@@ -43,6 +43,7 @@ async function isSuperAdminRequest(req: Request): Promise<boolean> {
           const status = await validator.validateAccessToken(token.toString()) as { expired?: boolean };
           if (status?.expired !== false) return false;
           const decoded = await validator.decodeAccessToken(token.toString());
+          if (decoded?.clientType === 'device-manager') return false;
           return isSuperAdminRole(decoded?.role);
      } catch {
           return false;

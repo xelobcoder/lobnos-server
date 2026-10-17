@@ -1,29 +1,15 @@
 import DeviceProcessorBase, { IObxResult } from "./DevicePrecessorBase";
-import { IInterfacingDevicePayload, IObxSegment } from "./hl7SoftwareProcessing";
+import { IInterfacingDevicePayload } from "./hl7SoftwareProcessing";
+import { extractPidPatientId, normalizeObxSegments } from "./hl7SegmentHelpers";
 
 
 class MindRayDeviceProcessor extends DeviceProcessorBase<IInterfacingDevicePayload> {
+     /**
+      * Specimen barcode from PID.PATIENT_ID. The handler wraps the agent's parsed segment array as
+      * { data: segments }; the agent emits no top-level PatientID, so none is read.
+      */
      protected extractPatientId(payload: IInterfacingDevicePayload): string {
-          return (payload as any).PatientID;
-     }
-
-     private normalizeObxSegments(payload: IInterfacingDevicePayload): IObxSegment[] {
-          return payload.data.filter(seg => {
-               if (seg.SEGMENT !== 'OBX') return false;
-
-               if (!seg.OBSERVATION_SUB_ID || seg.OBSERVATION_SUB_ID.trim() === "") {
-                    seg.OBSERVATION_SUB_ID = seg.OBSERVATION_ID;
-               }
-
-               if (typeof seg.OBSERVATION_SUB_ID === 'string' && seg.OBSERVATION_SUB_ID.includes('^')) {
-                    const parts = seg.OBSERVATION_SUB_ID.split('^');
-                    if (parts.length >= 2) {
-                         seg.OBSERVATION_SUB_ID = parts[1];
-                    }
-               }
-
-               return true;
-          }) as IObxSegment[];
+          return extractPidPatientId(payload);
      }
 
      protected buildObxResults(
@@ -31,7 +17,7 @@ class MindRayDeviceProcessor extends DeviceProcessorBase<IInterfacingDevicePaylo
           deviceInterfaceMapping: Record<string, any> | null,
           testCreationRules: any[]
      ): IObxResult[] {
-          const obxSegments = this.normalizeObxSegments(payload);
+          const obxSegments = normalizeObxSegments(payload);
           const obxResults: IObxResult[] = [];
 
           if (deviceInterfaceMapping && typeof deviceInterfaceMapping === 'object') {
@@ -47,7 +33,9 @@ class MindRayDeviceProcessor extends DeviceProcessorBase<IInterfacingDevicePaylo
 
                     if (!matchedSegment) continue;
 
-                    const value = (matchedSegment as any).VALUE;
+                    const value = matchedSegment.OBSERVATION_VALUE;
+                    // A matched OBX without an observation value is not a result; never save undefined.
+                    if (value === undefined || value === null) continue;
 
                     obxResults.push({
                          fieldid: fieldIdNumber,

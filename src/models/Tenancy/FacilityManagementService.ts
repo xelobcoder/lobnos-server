@@ -25,6 +25,8 @@ import { bootstrapSmsProviderSettings } from '../application/sms/SmsProviderBoot
 import { releaseTenantConnection } from './tenantConnections';
 import { safeDatabaseIdentifier } from './FacilitySchema';
 import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
+import MedicalInterfacingDevicesRepository from '../settings/devices/MedicalInterfacingDevicesRepository';
+import type { MedicalDeviceConfiguration } from './FacilityMedicalDeviceInput';
 
 export const PLANS_TABLE = 'facility_subscription_plans';
 export const PAYMENTS_TABLE = 'facility_subscription_payments';
@@ -404,6 +406,50 @@ export class FacilityManagementService {
           const tenant = await this.tenantRow(this.master, tenantId, false);
           const settings = await (await this.smsProvider(tenantId)).getForAdministration();
           return { tenantId, organizationIdentifier: tenant.id, status: String(tenant.status), settings };
+     }
+
+     async getMedicalDevices(tenantId: number) {
+          await TenantRegistry.ensureReady();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          this.requireManageable(tenant, 'configure medical devices');
+          return new MedicalInterfacingDevicesRepository(tenantId).getAllDevices();
+     }
+
+     async saveMedicalDevice(tenantId: number, deviceId: number | null, input: MedicalDeviceConfiguration, actor: FacilityActor) {
+          await TenantRegistry.ensureReady();
+          await this.ensureSchema();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          this.requireManageable(tenant, 'configure medical devices');
+          const connection = await KnexConnection(tenantId);
+          const id = await connection.transaction(async trx => {
+               if (deviceId !== null) {
+                    const existing = await trx('medicalinterfacingdevices').where({ id: deviceId }).forUpdate().first('id');
+                    if (!existing) throw new FacilityError('Medical device not found', 404);
+                    await trx('medicalinterfacingdevices').where({ id: deviceId }).update(input);
+                    return deviceId;
+               }
+               const [createdId] = await trx('medicalinterfacingdevices').insert(input);
+               return Number(createdId);
+          });
+          await this.master.transaction(trx => this.event(trx, tenant, actor, {
+               action: deviceId === null ? 'medical_device_created' : 'medical_device_updated',
+               details: JSON.stringify({ deviceId: id, name: input.name, active: input.active }),
+          }));
+          return { id };
+     }
+
+     async deleteMedicalDevice(tenantId: number, deviceId: number, actor: FacilityActor) {
+          await TenantRegistry.ensureReady();
+          await this.ensureSchema();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          this.requireManageable(tenant, 'configure medical devices');
+          const connection = await KnexConnection(tenantId);
+          const deleted = await connection('medicalinterfacingdevices').where({ id: deviceId }).del();
+          if (!deleted) throw new FacilityError('Medical device not found', 404);
+          await this.master.transaction(trx => this.event(trx, tenant, actor, {
+               action: 'medical_device_deleted', details: JSON.stringify({ deviceId }),
+          }));
+          return { deleted };
      }
 
      async setSmsProvider(tenantId: number, input: SmsProviderSettingsDto, actor: FacilityActor) {

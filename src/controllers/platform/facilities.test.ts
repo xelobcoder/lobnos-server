@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
      getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(), setModuleConfiguration: vi.fn(),
      getModulePricing: vi.fn(), getAllModulePricing: vi.fn(), putModulePricing: vi.fn(),
      listPlans: vi.fn(), upsertPlan: vi.fn(), platformUpgradeRequests: vi.fn(), decideUpgradeRequest: vi.fn(), assignPlan: vi.fn(),
+     getMedicalDevices: vi.fn(), saveMedicalDevice: vi.fn(), deleteMedicalDevice: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
@@ -19,6 +20,7 @@ vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
           deleteTenant = mocks.deleteTenant;
           getSmsProvider = mocks.getSmsProvider; setSmsProvider = mocks.setSmsProvider;
           setModuleConfiguration = mocks.setModuleConfiguration;
+          getMedicalDevices = mocks.getMedicalDevices; saveMedicalDevice = mocks.saveMedicalDevice; deleteMedicalDevice = mocks.deleteMedicalDevice;
      },
 }));
 vi.mock('../../models/public/PublicFacilityRegistry', () => ({
@@ -75,6 +77,10 @@ describe('platform facility routes', () => {
                'put /api/v1/platform/facilities/:tenantId/subscription', 'put /api/v1/platform/facilities/:tenantId/modules',
                'post /api/v1/platform/facilities/:tenantId/payments',
                'get /api/v1/platform/facilities/:tenantId/audit',
+               'get /api/v1/platform/facilities/:tenantId/medical-devices',
+               'post /api/v1/platform/facilities/:tenantId/medical-devices',
+               'put /api/v1/platform/facilities/:tenantId/medical-devices/:id',
+               'delete /api/v1/platform/facilities/:tenantId/medical-devices/:id',
                'get /api/v1/platform/facilities/:tenantId/sms-provider', 'put /api/v1/platform/facilities/:tenantId/sms-provider',
                'delete /api/v1/platform/facilities/:tenantId/payments/:paymentId',
           ]);
@@ -82,6 +88,38 @@ describe('platform facility routes', () => {
                expect(route.stack).toHaveLength(2);
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
+     });
+
+     it('uses the path facility and verified actor for medical-device CRUD, not the control-tenant query or body ID', async () => {
+          const base = '/api/v1/platform/facilities/:tenantId/medical-devices';
+          const params = { tenantId: '654321', id: '12' };
+          const input = { name: 'MindRay', ip: '192.168.1.20', dial_port: '5000', listen_port: '',
+               connection_mode: 'server', use_tls: 0, active: 1, testid: '11,12', last_known_ip: '', device_info: '' };
+          mocks.getMedicalDevices.mockResolvedValue([{ id: 12, ...input }]);
+          const listed = await invoke('get', base, { params, query: { tenantId: '123456' } });
+          expect(mocks.getMedicalDevices).toHaveBeenCalledWith(654321);
+          expect(listed.json).toHaveBeenCalledWith({ status: 'success', result: [{ id: 12, ...input }] });
+          mocks.saveMedicalDevice.mockResolvedValue({ id: 12 });
+          await invoke('post', base, { params, body: input });
+          expect(mocks.saveMedicalDevice).toHaveBeenLastCalledWith(654321, null, input, { tenantId: 123456, employeeId: 9 });
+          await invoke('put', `${base}/:id`, { params, body: { ...input, id: 99 } });
+          expect(mocks.saveMedicalDevice).toHaveBeenLastCalledWith(654321, 12, input, { tenantId: 123456, employeeId: 9 });
+          await invoke('delete', `${base}/:id`, { params });
+          expect(mocks.deleteMedicalDevice).toHaveBeenCalledWith(654321, 12, { tenantId: 123456, employeeId: 9 });
+     });
+
+     it('rejects invalid device and facility identifiers and configuration before invoking the service', async () => {
+          const base = '/api/v1/platform/facilities/:tenantId/medical-devices';
+          for (const [method, path, params, body] of [
+               ['get', base, { tenantId: 'bad' }, {}],
+               ['put', `${base}/:id`, { tenantId: '654321', id: '0' }, {}],
+               ['post', base, { tenantId: '654321' }, { tenantId: 123456 }],
+          ] as const) {
+               const result = await invoke(method, path, { params, body });
+               expect(result.status).toHaveBeenCalledWith(400);
+          }
+          expect(mocks.getMedicalDevices).not.toHaveBeenCalled();
+          expect(mocks.saveMedicalDevice).not.toHaveBeenCalled();
      });
 
      it('serves and updates the platform pricing catalog through its authorized routes', async () => {

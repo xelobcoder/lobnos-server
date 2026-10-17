@@ -33,6 +33,15 @@ export class AuthController {
 			const tenantId = this.getTenantId(req);
 			const authRepo = new AuthenticationRepository(tenantId);
 			const { username, identifier, password, browserInfo } = req.body;
+			const clientType = req.body.clientType ?? 'standard';
+			if (clientType !== 'standard' && clientType !== 'device-manager') {
+				res.status(400).json({ status: false, message: 'Invalid clientType' });
+				return;
+			}
+			if (clientType === 'device-manager' && !String(req.get('x-device-id') || '').trim()) {
+				res.status(400).json({ status: false, message: 'X-Device-Id is required for Device Manager' });
+				return;
+			}
 			const loginIdentifier = username || identifier;
 			const user = await authRepo.validatePassword(loginIdentifier, password);
 			if (!user) {
@@ -50,11 +59,11 @@ export class AuthController {
 
 			const numericEmployeeId = parseInt(String(employeeid), 10);
 			const resolvedTenantId = effectiveTenantId(tenantId);
-			const deviceFingerprint = hashDeviceFingerprint(browserInfo?.deviceId ?? req.get('x-device-id'));
-			const sessionBrowserInfo = { ...(browserInfo ?? {}), userAgent: req.get('user-agent') || browserInfo?.userAgent, ip: req.ip };
+			const deviceFingerprint = hashDeviceFingerprint(clientType === 'device-manager' ? req.get('x-device-id') : browserInfo?.deviceId ?? req.get('x-device-id'));
+			const sessionBrowserInfo = { ...(browserInfo ?? {}), clientType, userAgent: req.get('user-agent') || browserInfo?.userAgent, ip: req.ip };
 
 			const applicationLoginLoggingService = new ApplicationLoginLoggingService(numericEmployeeId, tenantId);
-			const session = await applicationLoginLoggingService.initUserLoginSession(sessionBrowserInfo, deviceFingerprint);
+			const session = await applicationLoginLoggingService.initUserLoginSession(sessionBrowserInfo, deviceFingerprint, clientType);
 			if (!session) throw new SessionCreationError(numericEmployeeId, tenantId);
 
 			const sessionExpiryTime = session.logoutTime;
@@ -63,8 +72,15 @@ export class AuthController {
 				employeeid: numericEmployeeId,
 				tid: resolvedTenantId,
 				sid: loginsessionId,
+				...(clientType === 'device-manager' ? { clientType } : {}),
 				...(deviceFingerprint ? { fph: deviceFingerprint } : {}),
 			});
+			let accessTokenExpiresAt: string | undefined;
+			if (clientType === 'device-manager') {
+				const signed = await this.tokenValidator.decodeAccessToken(accessToken);
+				if (!signed || typeof signed.exp !== 'number') throw new Error('Unable to determine access token expiry');
+				accessTokenExpiresAt = new Date(signed.exp * 1000).toISOString();
+			}
 
 			const applicationSettings = new ApplicationSettings();
 			const settings = await applicationSettings.getAllAppSettings(tenantId);
@@ -72,6 +88,8 @@ export class AuthController {
 				status: true,
 				accessToken,
 				tenantId: resolvedTenantId,
+				clientType,
+				...(accessTokenExpiresAt ? { accessTokenExpiresAt } : {}),
 				user: { role, employeeid, username: displayUsername, email: userEmail, tenantId: resolvedTenantId },
 				sessionExpiryTime,
 				loginsessionId,

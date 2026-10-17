@@ -24,6 +24,44 @@ required.
 
 ## HTTP contract
 
+### Tenant medical device administration
+
+In the PLS frontend, open **Platform Administration > Medical Device Interfacing**
+(`/settings/facilities/devices`) and select a facility. The page reuses the existing
+medical-device settings editor, but targets the selected facility rather than
+the control tenant. It supports listing, adding, editing, activating/deactivating,
+and deleting analyzer definitions.
+
+All endpoints require `requirePlatformFacilityAuthority`: a live, active
+super-admin session from the default/control tenant in multi-tenant mode.
+The optional `tenantId` query continues to identify the authenticated control
+tenant; **the URL path selects the facility being managed**:
+
+| Method | Path | Result |
+| --- | --- | --- |
+| GET | `/api/v1/platform/facilities/:tenantId/medical-devices` | Device array |
+| POST | `/api/v1/platform/facilities/:tenantId/medical-devices` | `{id}` |
+| PUT | `/api/v1/platform/facilities/:tenantId/medical-devices/:id` | `{id}` |
+| DELETE | `/api/v1/platform/facilities/:tenantId/medical-devices/:id` | `{deleted}` |
+
+Responses use `{status:"success",result:...}`. Writes accept `name`, `ip`,
+`dial_port`, optional `listen_port`, `connection_mode` (`pull`, `feed`, `hybrid`,
+`server`), `use_tls` and `active` (booleans or 0/1), optional `testid`
+(comma-separated positive IDs or an array), `last_known_ip`, and `device_info`.
+The name, IP, dial port, mode, and flags are required. Test IDs refer to the
+selected tenant's test panels. The route ID is authoritative for updates;
+caller-supplied tenant or staff identity fields are not accepted.
+
+The facility must exist, not be deleted, and be active or suspended. Device
+definitions use its existing `medicalinterfacingdevices` table. Missing devices
+return 404. Successful mutations add `medical_device_created`,
+`medical_device_updated`, or `medical_device_deleted` events to the platform
+facility audit stream with the verified platform actor and target tenant.
+
+Configuration does not enable device interfacing, change the tenant's license,
+or bypass operational access checks. Device Manager discovers the same
+tenant-local definitions through its authenticated device API.
+
 ### Facility branding
 
 Company logos are stored and read per tenant. A newly provisioned facility does

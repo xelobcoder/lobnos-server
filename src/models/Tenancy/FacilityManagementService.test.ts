@@ -30,6 +30,7 @@ import { parseAuditQuery, validateSubscriptionPlan } from './FacilityManagementI
 import { FacilityError } from './FacilityInput';
 import { configuration } from '../../hooks/configuration';
 import { FACILITY_MODULES, validateModuleConfiguration } from './FacilityModules';
+import { validateMedicalDeviceInput } from './FacilityMedicalDeviceInput';
 
 const CONTROL = 123456;
 const CLIENT = 654321;
@@ -64,6 +65,7 @@ function memoryMaster(seed: Record<string, any[]>) {
                     return query;
                },
                whereNull(column: string) { filters.push(row => row[column] === null || row[column] === undefined); return query; },
+               whereIn(column: string, values: unknown[]) { filters.push(row => values.some(value => same(row[column], value))); return query; },
                orderBy(column: string, direction = 'asc') { order.push([column, direction]); return query; },
                limit(n: number) { limit = n; return query; },
                forUpdate() { db.locks.push(name); return query; },
@@ -99,6 +101,7 @@ function memoryMaster(seed: Record<string, any[]>) {
                     tables[name] = (tables[name] || []).filter(row => !matched.has(row));
                     return matched.size;
                },
+               async del() { return query.delete(); },
           };
           return query;
      };
@@ -230,6 +233,62 @@ describe('platform facility status and subscription management', () => {
           expect(error.statusCode).toBe(statusCode);
           if (message) expect(error.message).toMatch(message);
      };
+
+     describe('facility medical devices', () => {
+          const input = () => validateMedicalDeviceInput({
+               name: 'MindRay', ip: '192.168.1.20', dial_port: '5000', listen_port: '5001',
+               connection_mode: 'server', use_tls: false, active: true, testid: '11,12',
+          });
+          it('lists, creates, updates and deletes only in the selected tenant database and audits the platform actor', async () => {
+               const target = memoryMaster({
+                    medicalinterfacingdevices: [{ id: 20, name: 'Existing', testid: '' }],
+               });
+               mocks.tenantConnection.mockResolvedValue(target);
+               expect(await service.getMedicalDevices(CLIENT)).toMatchObject([{ id: 20, name: 'Existing' }]);
+               const created = await service.saveMedicalDevice(CLIENT, null, input(), actor);
+               expect(created.id).toBe(1);
+               await service.saveMedicalDevice(CLIENT, created.id, { ...input(), active: 0 }, actor);
+               expect(target.table('medicalinterfacingdevices').find((row: any) => row.id === created.id)).toMatchObject({
+                    name: 'MindRay', active: 0, testid: '11,12',
+               });
+               await service.deleteMedicalDevice(CLIENT, created.id, actor);
+               expect(target.table('medicalinterfacingdevices')).toHaveLength(1);
+               expect(db.table('medicalinterfacingdevices')).toHaveLength(0);
+               expect(mocks.tenantConnection.mock.calls.every(([id]) => id === CLIENT)).toBe(true);
+               expect(db.table(EVENTS_TABLE).map((event: any) => event.action)).toEqual([
+                    'medical_device_created', 'medical_device_updated', 'medical_device_deleted',
+               ]);
+               for (const event of db.table(EVENTS_TABLE)) expect(event).toMatchObject({
+                    tenant_id: CLIENT, actor_tenant_id: CONTROL, actor_employee_id: 9,
+               });
+          });
+          it('does not open a database for absent, deleted, failed or provisioning tenants', async () => {
+               for (const id of [999999, 555555, 222222, 333333]) {
+                    await expect(service.getMedicalDevices(id)).rejects.toBeInstanceOf(FacilityError);
+                    await expect(service.saveMedicalDevice(id, null, input(), actor)).rejects.toBeInstanceOf(FacilityError);
+                    await expect(service.deleteMedicalDevice(id, 1, actor)).rejects.toBeInstanceOf(FacilityError);
+               }
+               expect(mocks.tenantConnection).not.toHaveBeenCalled();
+          });
+          it('reports a missing device instead of acknowledging a successful mutation', async () => {
+               mocks.tenantConnection.mockResolvedValue(memoryMaster({}));
+               await expectError(service.saveMedicalDevice(CLIENT, 99, input(), actor), 404);
+               await expectError(service.deleteMedicalDevice(CLIENT, 99, actor), 404);
+               expect(db.table(EVENTS_TABLE)).toHaveLength(0);
+          });
+          it('keeps identical device IDs isolated when the platform administrator switches facilities', async () => {
+               const first = memoryMaster({ medicalinterfacingdevices: [{ id: 12, name: 'First lab', testid: '' }] });
+               const second = memoryMaster({ medicalinterfacingdevices: [{ id: 12, name: 'Second lab', testid: '' }] });
+               mocks.tenantConnection.mockImplementation(async id => id === CLIENT ? first : second);
+               await service.saveMedicalDevice(444444, 12, input(), actor);
+               expect(first.table('medicalinterfacingdevices')[0].name).toBe('First lab');
+               expect(second.table('medicalinterfacingdevices')[0].name).toBe('MindRay');
+               await service.deleteMedicalDevice(444444, 12, actor);
+               expect(first.table('medicalinterfacingdevices')).toHaveLength(1);
+               expect(second.table('medicalinterfacingdevices')).toHaveLength(0);
+               expect(db.table(EVENTS_TABLE).every((event: any) => event.tenant_id === 444444)).toBe(true);
+          });
+     });
 
      describe('post-provision module configuration', () => {
           const requested = {

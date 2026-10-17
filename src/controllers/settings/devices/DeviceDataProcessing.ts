@@ -5,16 +5,16 @@ import { IInterfacingDevicePayload } from "./hl7SoftwareProcessing";
 import AgileS20DeviceProcessor from "./AgileS20DeviceProcessor";
 
 class DeviceModelsVersionProcessing {
-     static bioLabDeviceProcessor(tenantId: number, payload: BioLabInterfacingMessage) {
-          return new BioLabDeviceProcessor(tenantId).process(payload);
+     static bioLabDeviceProcessor(tenantId: number, payload: BioLabInterfacingMessage, actorEmployeeId: number) {
+          return new BioLabDeviceProcessor(tenantId).process(payload, actorEmployeeId);
      }
 
-     static MindRayDeviceBClassProcessor(tenantId: number, payload: IInterfacingDevicePayload) {
-          return new MindRayDeviceProcessor(tenantId).process(payload);
+     static MindRayDeviceBClassProcessor(tenantId: number, payload: IInterfacingDevicePayload, actorEmployeeId: number) {
+          return new MindRayDeviceProcessor(tenantId).process(payload, actorEmployeeId);
      }
 
-     static AgileS20DeviceProcessor(tenantId: number, payload: IInterfacingDevicePayload) {
-          return new AgileS20DeviceProcessor(tenantId).process(payload);
+     static AgileS20DeviceProcessor(tenantId: number, payload: IInterfacingDevicePayload, actorEmployeeId: number) {
+          return new AgileS20DeviceProcessor(tenantId).process(payload, actorEmployeeId);
      }
 }
 

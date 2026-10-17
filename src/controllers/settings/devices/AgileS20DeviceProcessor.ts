@@ -1,31 +1,11 @@
 import DeviceProcessorBase, { IObxResult } from "./DevicePrecessorBase";
-import { IInterfacingDevicePayload, IObxSegment } from "./hl7SoftwareProcessing";
+import { IInterfacingDevicePayload } from "./hl7SoftwareProcessing";
+import { extractPidPatientId, normalizeObxSegments } from "./hl7SegmentHelpers";
 
 
 class AgileS20DeviceProcessor extends DeviceProcessorBase<IInterfacingDevicePayload> {
      protected extractPatientId(payload: IInterfacingDevicePayload): string {
-          const pidSegment = payload.data?.find((seg: any) =>
-               typeof seg?.SEGMENT === 'string' && seg.SEGMENT.toUpperCase() === 'PID'
-          );
-          return String((pidSegment as any)?.PATIENT_ID ?? '').trim();
-     }
-
-     private normalizeObxSegments(payload: IInterfacingDevicePayload): IObxSegment[] {
-          return payload.data.filter(seg => seg.SEGMENT === 'OBX').map(seg => {
-               const normalized = { ...seg } as IObxSegment;
-
-               if (!normalized.OBSERVATION_SUB_ID || normalized.OBSERVATION_SUB_ID.trim() === "") {
-                    normalized.OBSERVATION_SUB_ID = normalized.OBSERVATION_ID;
-               }
-
-               if (typeof normalized.OBSERVATION_SUB_ID === 'string' && normalized.OBSERVATION_SUB_ID.includes('^')) {
-                    const parts = normalized.OBSERVATION_SUB_ID.split('^');
-                    if (parts.length >= 2) {
-                         normalized.OBSERVATION_SUB_ID = parts[1];
-                    }
-               }
-               return normalized;
-          }) as IObxSegment[];
+          return extractPidPatientId(payload);
      }
 
      protected buildObxResults(
@@ -33,7 +13,7 @@ class AgileS20DeviceProcessor extends DeviceProcessorBase<IInterfacingDevicePayl
           deviceInterfaceMapping: Record<string, any> | null,
           testCreationRules: any[]
      ): IObxResult[] {
-          const obxSegments = this.normalizeObxSegments(payload);
+          const obxSegments = normalizeObxSegments(payload);
           const obxResults: IObxResult[] = [];
 
           if (deviceInterfaceMapping && typeof deviceInterfaceMapping === 'object') {

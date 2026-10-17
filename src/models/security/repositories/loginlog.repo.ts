@@ -2,6 +2,7 @@ import KnexConnection from "../../../database/KnexConnections";
 import { IApplicationLoginLog } from "../interface/IApplicationLoginLog";
 import { ILoginLog } from "../entities/loginlogs.entities";
 import crypto from 'node:crypto';
+import { DEVICE_MANAGER_SESSION_PREFIX, StaffClientType } from '../deviceManagerSession';
 
 export class ApplicationLoginLog implements IApplicationLoginLog {
      private employeeid: number;
@@ -22,11 +23,11 @@ export class ApplicationLoginLog implements IApplicationLoginLog {
           return crypto.randomUUID();
      }
 
-     async createHistoryLog(employeeid: number, browserInformation: string, trx?: any, deviceFingerprint?: string | null): Promise<number> {
+     async createHistoryLog(employeeid: number, browserInformation: string, trx?: any, deviceFingerprint?: string | null, clientType: StaffClientType = 'standard'): Promise<number> {
           const connection = trx ? await trx : await this.connection;
           const row: Record<string, unknown> = {
                employeeid,
-               loginSessionId: this.createLogOutTime(),
+               loginSessionId: (clientType === 'device-manager' ? DEVICE_MANAGER_SESSION_PREFIX : '') + this.createLogOutTime(),
                browserInformation: typeof browserInformation === 'string' ? browserInformation : JSON.stringify(browserInformation),
                logoutTime: new Date(Date.now() + this.loginDuration * 60 * 60 * 1000),
           };
@@ -147,12 +148,13 @@ export class ApplicationLoginLog implements IApplicationLoginLog {
 
 
 
-     async destroyUserSessions(employeeid: number, trx?: any): Promise<boolean | undefined> {
+     async destroyUserSessions(employeeid: number, trx?: any, preserveDeviceManager = false): Promise<boolean | undefined> {
           const connection = trx ? await trx : await this.connection;
-          const query = await connection(this.tableName)
+          const query = connection(this.tableName)
                .update({ logoutTime: new Date(), loggedout: true })
                .where('employeeid', employeeid)
                .andWhere('logoutTime', '>', new Date());
+          if (preserveDeviceManager) query.whereNot('loginSessionId', 'like', `${DEVICE_MANAGER_SESSION_PREFIX}%`);
           const result = await query;
           return result > 0;
      }

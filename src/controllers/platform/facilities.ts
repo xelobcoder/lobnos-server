@@ -10,6 +10,7 @@ import { validateModuleConfiguration } from '../../models/Tenancy/FacilityModule
 import { PublicFacilityRegistry } from '../../models/public/PublicFacilityRegistry';
 import { FacilityModulePricingCatalog } from '../../models/Tenancy/FacilityModulePricingCatalog';
 import { FacilitySubscriptionTierService } from '../../models/Tenancy/FacilitySubscriptionTiers';
+import { parseMedicalDeviceId, validateMedicalDeviceInput } from '../../models/Tenancy/FacilityMedicalDeviceInput';
 import {
      parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
      validateSubscriptionPlan, validateVoidInput,
@@ -106,6 +107,14 @@ router.post(`${base}/:tenantId/payments`, requirePlatformFacilityAuthority, hand
      management.recordPayment(parseTenantIdParam(req.params.tenantId), req.body, actor(res))));
 router.get(`${base}/:tenantId/audit`, requirePlatformFacilityAuthority, handle(req =>
      management.listAudit(parseTenantIdParam(req.params.tenantId), parseAuditQuery(req.query))));
+router.get(`${base}/:tenantId/medical-devices`, requirePlatformFacilityAuthority, handle(req =>
+     management.getMedicalDevices(parseTenantIdParam(req.params.tenantId))));
+router.post(`${base}/:tenantId/medical-devices`, requirePlatformFacilityAuthority, handle((req, res) =>
+     management.saveMedicalDevice(parseTenantIdParam(req.params.tenantId), null, validateMedicalDeviceInput(req.body), actor(res))));
+router.put(`${base}/:tenantId/medical-devices/:id`, requirePlatformFacilityAuthority, handle((req, res) =>
+     management.saveMedicalDevice(parseTenantIdParam(req.params.tenantId), parseMedicalDeviceId(req.params.id), validateMedicalDeviceInput(req.body), actor(res))));
+router.delete(`${base}/:tenantId/medical-devices/:id`, requirePlatformFacilityAuthority, handle((req, res) =>
+     management.deleteMedicalDevice(parseTenantIdParam(req.params.tenantId), parseMedicalDeviceId(req.params.id), actor(res))));
 router.get(`${base}/:tenantId/sms-provider`, requirePlatformFacilityAuthority, handle(req =>
      management.getSmsProvider(parseTenantIdParam(req.params.tenantId))));
 router.put(`${base}/:tenantId/sms-provider`, requirePlatformFacilityAuthority, handle((req, res) =>
