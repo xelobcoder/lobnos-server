@@ -57,10 +57,13 @@ function databaseHarness(firstOverrides: Record<string, any> = {}) {
      const writes: Array<{ table: string; action: string; value: any }> = [];
      const district = { id: 3, country_id: 1, state_id: 2, district_code: 'AM', district_name: 'Example District' };
      const db: any = (table: string) => {
+          let excludesTenant = false;
           const query: any = {
-               where: () => query, whereNull: () => query, whereIn: () => query,
+               where: () => query, whereNot: () => { excludesTenant = true; return query; },
+               whereNull: () => query, whereIn: () => query,
                forUpdate: () => query, max: () => query,
                first: async () => {
+                    if (table === 'prime_tenants' && excludesTenant) return undefined;
                     if (table in firstOverrides) return firstOverrides[table];
                     if (table === 'platform_users') return { role: 'system' };
                     if (table === 'platform_countries') return { id: 1, country_code: 'GH' };
@@ -145,6 +148,29 @@ describe('complete facility provisioning lifecycle', () => {
           expect(writes.filter(write => write.table === 'facility_provisioning_events').map(write => write.value.stage))
                .toEqual(['retry_started', 'retry_database_removed', 'schema_cloned', 'programmable_objects_installed',
                     'reference_seeded', 'runtime_bootstrapped', 'initialized', 'active']);
+     });
+
+     it('allows company details to change while retrying the same failed reservation', async () => {
+          const failed = {
+               id: 'NRAM1', tenant_number: 654321, database_name: 'pls_nram1_654321', status: 'failed',
+               company_name: input.companyName, email: input.email, phone: input.phone,
+               country_id: input.countryId, state_id: input.stateId, district_id: input.districtId,
+          };
+          const { db, writes } = databaseHarness({ prime_tenants: failed });
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          const editedInput = validateFacilityInput({
+               ...input, companyName: 'Updated Lab', email: 'updated@example.test', phone: '0207654321',
+               moduleConfiguration: undefined,
+          });
+
+          await new FacilityProvisioningService(db).retry(654321, editedInput, actor);
+
+          expect(writes.find(write => write.table === 'prime_tenants' && write.action === 'update')?.value)
+               .toMatchObject({
+                    status: 'provisioning', company_name: editedInput.companyName,
+                    email: editedInput.email, phone: editedInput.phone,
+               });
      });
 
      it('refuses to retry anything except the exact failed facility reservation', async () => {

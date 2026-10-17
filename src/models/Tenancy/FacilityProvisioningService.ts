@@ -193,10 +193,13 @@ export class FacilityProvisioningService {
                if (databaseName !== expectedDatabaseName) {
                     throw new FacilityError('Facility database cannot be safely cleaned up for retry', 409);
                }
-               if (tenant.company_name !== input.companyName || tenant.email !== input.email || tenant.phone !== input.phone ||
-                    Number(tenant.country_id) !== input.countryId || Number(tenant.state_id) !== input.stateId ||
+               if (Number(tenant.country_id) !== input.countryId || Number(tenant.state_id) !== input.stateId ||
                     Number(tenant.district_id) !== input.districtId) {
-                    throw new FacilityError('Retry details must match the failed facility reservation', 409);
+                    throw new FacilityError('Retry location must match the failed facility reservation', 409);
+               }
+               if (tenant.email !== input.email &&
+                    await trx(TENANTS_TABLE).where({ email: input.email }).whereNot({ tenant_number: tenantId }).first('id')) {
+                    throw new FacilityError('Another facility already uses this email', 409);
                }
                const state = await trx('platform_states').where({
                     id: input.stateId, country_id: input.countryId, status: 'active',
@@ -207,7 +210,10 @@ export class FacilityProvisioningService {
                if (!state || !district) throw new FacilityError('The failed facility location is no longer active', 409);
                const reservation = { organizationIdentifier, tenantId, databaseName, state, district };
                const updated = await trx(TENANTS_TABLE).where({ tenant_number: tenantId, status: 'failed' })
-                    .update({ status: 'provisioning', updated_by: createdBy });
+                    .update({
+                         status: 'provisioning', updated_by: createdBy,
+                         company_name: input.companyName, email: input.email, phone: input.phone,
+                    });
                if (updated !== 1) throw new FacilityError('Facility retry is already in progress', 409);
                await this.event(trx, reservation, actor, 'retry_started');
                return reservation;

@@ -143,16 +143,35 @@ describe('controlled marketplace provisioning', () => {
           expect(state.tables.marketplace_facilities[0]).toMatchObject({
                integration_state: 'linked', linked_tenant_id: 1234,
           });
+          expect(JSON.parse(state.tables.marketplace_audit[0].details_json)).toMatchObject({
+               approvedApplicationMatched: true, tenantId: 1234,
+          });
      });
-     it('does not require an identity checkbox for retry, but rejects details that differ from the approved application', async () => {
+     it('does not require an identity checkbox for retry and allows details that differ from the application', async () => {
           state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
           const retryInput: Record<string, unknown> = { ...input, phone: '0207654321' };
           delete retryInput.identityConfirmed;
-          await expect(new MarketplaceService().retryFacilityProvisioning(1, retryInput, actor))
-               .rejects.toMatchObject({ statusCode: 409, message: 'Retry details must match the approved website application' });
+          const result = await new MarketplaceService().retryFacilityProvisioning(1, retryInput, actor);
+          expect(result).toMatchObject({ integrationState: 'linked' });
+          expect(JSON.parse(state.tables.marketplace_audit[0].details_json)).toMatchObject({
+               approvedApplicationMatched: false,
+          });
+     });
+     it('does not link an unrelated failed tenant matching only the edited details', async () => {
+          state.tables.marketplace_facilities[0].integration_state = 'provision_failed';
+          state.tables.prime_tenants = [{
+               tenant_number: 5678, status: 'failed', company_name: 'Edited lab', email: 'edited@example.test',
+          }];
+          const retryInput = {
+               ...input, companyName: 'Edited lab', email: 'edited@example.test', phone: '0207654321',
+          };
+
+          await new MarketplaceService().retryFacilityProvisioning(1, retryInput, actor);
+
+          expect(state.provision).toHaveBeenCalledWith(expect.objectContaining({
+               companyName: retryInput.companyName, email: retryInput.email,
+          }), actor, expect.any(Function));
           expect(state.retry).not.toHaveBeenCalled();
-          expect(state.provision).not.toHaveBeenCalled();
-          expect(state.tables.marketplace_facilities[0].integration_state).toBe('provision_failed');
      });
      it('restarts provisioning when the failed attempt ended before reserving a tenant', async () => {
           state.tables.marketplace_facilities[0].integration_state = 'provision_failed';

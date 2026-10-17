@@ -103,7 +103,9 @@ function storedModuleConfiguration(value: unknown): FacilityModuleConfiguration 
 }
 
 function moduleSettingsPatch(existing: any, config: FacilityModuleConfiguration, final: boolean) {
-     const services = storedObject(existing.services, 'service settings');
+     // Legacy rows may hold malformed service flags; they are fully re-derived below, so recover instead of blocking.
+     let services: Record<string, unknown> = {};
+     try { services = storedObject(existing.services, 'service settings'); } catch { services = {}; }
      const enabled = (name: keyof FacilityModuleConfiguration['modules']) => config.modules[name].enabled;
      const smsEnabled = enabled('sms') && (final || Number(existing.smsActivated) === 1);
      const emailEnabled = enabled('email') && (final || Number(existing.emailModuleActivated) === 1);

@@ -1105,14 +1105,12 @@ export class MarketplaceService {
                }
                const expectedAdminEmail = String(facility.admin_email || facility.contact_email || '').trim().toLowerCase();
                const applicationCurrency = String(facility.currency || '').trim().toUpperCase();
-               if (String(facility.contact_email || '').trim().toLowerCase() !== validated.email ||
-                    String(facility.name || '').trim() !== validated.companyName ||
-                    String(facility.phone || '').trim() !== validated.phone ||
-                    String(facility.address || '').trim() !== validated.address ||
-                    expectedAdminEmail !== validated.adminEmail ||
-                    (applicationCurrency && !validated.planCode && validated.moduleConfiguration?.currency !== applicationCurrency)) {
-                    throw new MarketplaceError('Retry details must match the approved website application', 409);
-               }
+               const approvedApplicationMatched = String(facility.contact_email || '').trim().toLowerCase() === validated.email &&
+                    String(facility.name || '').trim() === validated.companyName &&
+                    String(facility.phone || '').trim() === validated.phone &&
+                    String(facility.address || '').trim() === validated.address &&
+                    expectedAdminEmail === validated.adminEmail &&
+                    !(applicationCurrency && !validated.planCode && validated.moduleConfiguration?.currency !== applicationCurrency);
                if (await trx('marketplace_catalog_items').where({ facility_id: facilityId }).first('id') ||
                     await trx('marketplace_bookings').where({ facility_id: facilityId }).first('id')) {
                     throw new MarketplaceError('Existing catalog or booking history requires reviewed mappings through the existing tenant/link workflow', 409);
@@ -1121,12 +1119,12 @@ export class MarketplaceService {
                if (facility.linked_tenant_id !== null) {
                     tenant = await trx(TENANTS_TABLE).where({
                          tenant_number: facility.linked_tenant_id, status: 'failed',
-                         email: validated.email, company_name: validated.companyName,
                     }).first('tenant_number');
                     if (!tenant) throw new MarketplaceError('The failed tenant reservation no longer matches this application', 409);
                } else {
                     tenant = await trx(TENANTS_TABLE).where({
-                         email: validated.email, company_name: validated.companyName,
+                         email: String(facility.contact_email || '').trim().toLowerCase(),
+                         company_name: String(facility.name || '').trim(),
                     }).first('tenant_number', 'status');
                     if (tenant && tenant.status !== 'failed') {
                          throw new MarketplaceError(`The matching tenant is ${tenant.status}; review it before retrying`, 409);
@@ -1139,10 +1137,10 @@ export class MarketplaceService {
                await trx('marketplace_audit').insert({
                     facility_id: facilityId, event_type: 'facility_provisioning_retry_started', actor_type: 'platform',
                     actor_id: String(actor.employeeId), details_json: JSON.stringify({
-                         approvedApplicationMatched: true, ...(tenantId ? { tenantId } : {}),
+                         approvedApplicationMatched, ...(tenantId ? { tenantId } : {}),
                     }),
                });
-               return { slug: facility.slug, tenantId };
+               return { slug: facility.slug, tenantId, approvedApplicationMatched };
           });
           try {
                const { FacilityProvisioningService } = await import('../models/Tenancy/FacilityProvisioningService');
@@ -1159,7 +1157,7 @@ export class MarketplaceService {
                     await trx('marketplace_audit').insert({
                          facility_id: facilityId, event_type: 'facility_provisioning_retry_linked', actor_type: 'platform',
                          actor_id: String(actor.employeeId), details_json: JSON.stringify({
-                              tenantId: tenant.tenantId, approvedApplicationMatched: true,
+                              approvedApplicationMatched: claim.approvedApplicationMatched,
                          }),
                     });
                };
