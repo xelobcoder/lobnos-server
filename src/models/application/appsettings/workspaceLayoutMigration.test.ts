@@ -16,7 +16,7 @@ describe('tenant workspace layout migration', () => {
                hasColumn: vi.fn().mockResolvedValue(hasColumn),
                alterTable: vi.fn(async (_name, action) => action(table)),
           };
-          const raw = vi.fn().mockResolvedValue([[{ Type: "enum('classic','zoho','claude','ribbon')" }]]);
+          const raw = vi.fn().mockResolvedValue([[{ Type: "enum('classic','zoho','claude','ribbon','slack')" }]]);
           return { db: { schema, raw } as any, table, column, schema };
      }
      it('adds the exact non-null enum and defaults existing/new rows to classic', async () => {
@@ -25,7 +25,7 @@ describe('tenant workspace layout migration', () => {
           expect(t.schema.hasTable).toHaveBeenCalledWith('applicationsettings');
           expect(t.schema.hasColumn).toHaveBeenCalledWith('applicationsettings', 'workspaceLayout');
           expect(t.schema.alterTable).toHaveBeenCalledWith('applicationsettings', expect.any(Function));
-          expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon']);
+          expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon', 'slack']);
           expect(t.column.notNullable).toHaveBeenCalledOnce();
           expect(t.column.defaultTo).toHaveBeenCalledWith('classic');
      });
@@ -41,12 +41,12 @@ describe('tenant workspace layout migration', () => {
                schema: {
                     hasTable: async () => true,
                     hasColumn: async () => false,
-                    alterTable: async (name, action) => {
+                    alterTable: async (name:any, action:any) => {
                          statements.push(...db.schema.alterTable(name, action).toSQL().map(statement => statement.sql));
                     },
                },
           } as any);
-          expect(statements).toEqual(["alter table `applicationsettings` add `workspaceLayout` enum('classic', 'zoho', 'claude', 'ribbon') not null default 'classic'"]);
+          expect(statements).toEqual(["alter table `applicationsettings` add `workspaceLayout` enum('classic', 'zoho', 'claude', 'ribbon', 'slack') not null default 'classic'"]);
           await db.destroy();
      });
      it('rolls back only the new column and safely skips repeated rollback', async () => {
@@ -64,7 +64,7 @@ describe('tenant workspace layout migration', () => {
           mocks.connection.mockResolvedValue(t.db);
           await bootstrapApplicationSettings(42);
           expect(mocks.connection).toHaveBeenCalledWith(42);
-          expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon']);
+          expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon', 'slack']);
           expect(t.schema.alterTable).toHaveBeenCalledOnce();
      });
      it('propagates migration failure instead of marking a tenant ready', async () => {

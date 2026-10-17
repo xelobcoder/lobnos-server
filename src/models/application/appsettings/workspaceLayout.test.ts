@@ -11,7 +11,7 @@ import { isWorkspaceLayout } from './workspaceLayout';
 describe('workspace layout settings', () => {
      beforeEach(() => vi.clearAllMocks());
 
-     it.each(['classic', 'zoho', 'claude', 'ribbon'])('accepts %s', value => {
+     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack'])('accepts %s', value => {
           expect(isWorkspaceLayout(value)).toBe(true);
      });
      it.each([undefined, null, '', 'Classic', ' classic', 'zoho ', 'modern', 1, {}, ['claude']])('rejects %j', value => {
