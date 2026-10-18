@@ -73,8 +73,22 @@ function databaseHarness(firstOverrides: Record<string, any> = {}) {
                     if (table === 'districts') return { id: 173 };
                     return undefined;
                },
-               insert: async (value: any) => { writes.push({ table, action: 'insert', value }); return [1]; },
-               update: async (value: any) => { writes.push({ table, action: 'update', value }); return 1; },
+               insert: async (value: any) => {
+                    if (table === 'prime_tenants' && db.failReservationColumn) {
+                         throw Object.assign(new Error(`Unknown column '${db.failReservationColumn}' in 'field list'`), { code: 'ER_BAD_FIELD_ERROR' });
+                    }
+                    if (table === 'facility_provisioning_events' && value.stage.startsWith('failed:') && db.failFailureAudit) {
+                         throw new Error('Failure audit unavailable');
+                    }
+                    writes.push({ table, action: 'insert', value }); return [1];
+               },
+               update: async (value: any) => {
+                    if (table === 'prime_tenants' && ((value.status === 'failed' && (db.failStatusUpdates || (db.failActorUpdate && 'updated_by' in value))) ||
+                         (value.status === 'active' && db.failActivationColumn))) {
+                         throw Object.assign(new Error(`Unknown column '${db.failActivationColumn || 'updated_by'}' in 'field list'`), { code: 'ER_BAD_FIELD_ERROR' });
+                    }
+                    writes.push({ table, action: 'update', value }); return 1;
+               },
           };
           return query;
      };
@@ -89,7 +103,7 @@ function databaseHarness(firstOverrides: Record<string, any> = {}) {
 function schemaConnection() {
      return {
           end: vi.fn().mockResolvedValue(undefined),
-          query: vi.fn(async (_sql: string, _bindings?: string[]) => [[]]),
+          query: vi.fn(async (sql: string, _bindings?: string[]) => [sql.includes('GET_LOCK') ? [{ acquired: 1 }] : []]),
      };
 }
 
@@ -186,6 +200,80 @@ describe('complete facility provisioning lifecycle', () => {
                .rejects.toThrow('only failed facilities can be retried');
           expect(mocks.release).not.toHaveBeenCalled();
           expect(mocks.connect.mock.results[0]?.value).toBeDefined();
+     });
+
+     it('refuses a concurrent retry before changing the registry or dropping data', async () => {
+          const { db, writes } = databaseHarness();
+          const connection = schemaConnection();
+          connection.query.mockResolvedValueOnce([[{ acquired: 0 }]]);
+          mocks.connect.mockResolvedValue(connection);
+          await expect(new FacilityProvisioningService(db).retry(654321, input, actor)).rejects.toThrow('still running');
+          expect(writes).toHaveLength(0);
+          expect(connection.query).not.toHaveBeenCalledWith('DROP DATABASE IF EXISTS ??', expect.anything());
+          expect(connection.end).toHaveBeenCalled();
+     });
+
+     it.each([
+          { provisioned_at: '2026-01-01' },
+          { deleted_at: '2026-01-01' },
+          { database_name: 'other_tenant_database' },
+     ])('never rebuilds an unsafe or previously activated failed reservation %j', async fields => {
+          const { db } = databaseHarness({ prime_tenants: {
+               id: 'NRAM1', tenant_number: 654321, database_name: 'pls_nram1_654321', status: 'failed',
+               country_id: 1, state_id: 2, district_id: 3, email: input.email, ...fields,
+          } });
+          const connection = schemaConnection();
+          mocks.connect.mockResolvedValue(connection);
+          await expect(new FacilityProvisioningService(db).retry(654321, input, actor)).rejects.toThrow('cannot be safely cleaned up');
+          expect(connection.query).not.toHaveBeenCalledWith('DROP DATABASE IF EXISTS ??', expect.anything());
+          expect(connection.end).toHaveBeenCalled();
+     });
+
+     it('takes the worker lock before exposing a new reservation and releases it when reservation fails', async () => {
+          const { db, writes } = databaseHarness();
+          db.failReservationColumn = 'sequence_number';
+          const connection = schemaConnection();
+          mocks.connect.mockResolvedValue(connection);
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow(
+               /reservation \(ER_BAD_FIELD_ERROR: missing schema column sequence_number/);
+          expect(connection.query.mock.calls[0][0]).toBe('SELECT GET_LOCK(?, 0) AS acquired');
+          expect(connection.query.mock.calls[1][0]).toBe('SELECT RELEASE_LOCK(?)');
+          expect(writes.some(write => write.value.status === 'failed')).toBe(false);
+          expect(connection.end).toHaveBeenCalled();
+     });
+
+     it('falls back to a status-only update when activation and failure actor writes hit legacy schema', async () => {
+          const { db, writes } = databaseHarness();
+          db.failActorUpdate = true;
+          db.failActivationColumn = 'updated_by';
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow(
+               /activation \(ER_BAD_FIELD_ERROR: missing schema column updated_by/);
+          expect(writes.find(write => write.table === 'prime_tenants' && write.value.status === 'failed')?.value)
+               .toEqual({ status: 'failed' });
+          expect(mocks.logError).toHaveBeenCalledWith('Facility failure status update failed; attempting status-only recovery', expect.anything());
+     });
+
+     it('retains the failed status when the failure audit is unavailable', async () => {
+          const { db, writes } = databaseHarness();
+          db.failFailureAudit = true;
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          mocks.bootstrap.mockRejectedValueOnce(new Error('Bootstrap failed'));
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow('retry provisioning or delete');
+          expect(writes.some(write => write.table === 'prime_tenants' && write.value.status === 'failed')).toBe(true);
+          expect(mocks.logError).toHaveBeenCalledWith('Facility failure audit could not be recorded', expect.anything());
+     });
+
+     it('directs operators to recovery and logs explicitly when both failure status writes fail', async () => {
+          const { db } = databaseHarness();
+          db.failStatusUpdates = true;
+          mocks.connect.mockResolvedValue(schemaConnection());
+          mocks.tenantConnection.mockResolvedValue(db);
+          mocks.bootstrap.mockRejectedValueOnce(new Error('Bootstrap failed'));
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow('Recover interrupted setup');
+          expect(mocks.logError).toHaveBeenCalledWith('Facility remains provisioning; operator recovery is required', expect.anything());
      });
 
      beforeEach(() => {
@@ -338,6 +426,7 @@ describe('complete facility provisioning lifecycle', () => {
           mocks.connect.mockResolvedValue(connection);
           mocks.tenantConnection.mockResolvedValue(db);
           if (failure === 'clone') connection.query.mockImplementation(async sql => {
+               if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
                if (sql.startsWith('CREATE DATABASE')) throw new Error('SQL details must not be exposed');
                return [[]];
           });
@@ -345,6 +434,7 @@ describe('complete facility provisioning lifecycle', () => {
           if (failure === 'bootstrap') mocks.bootstrap.mockRejectedValue(new Error('sensitive SQL'));
           if (failure === 'license') mocks.validateLicense.mockResolvedValue(false);
           if (failure === 'objects') connection.query.mockImplementation(async sql => {
+               if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
                if (sql.startsWith('CREATE PROCEDURE')) throw new Error('SQL details must not be exposed');
                return [[]];
           });
@@ -368,6 +458,7 @@ describe('complete facility provisioning lifecycle', () => {
           mocks.connect.mockResolvedValue(connection);
           mocks.tenantConnection.mockResolvedValue(db);
           connection.query.mockImplementation(async sql => {
+               if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
                if (sql.startsWith('CREATE TABLE')) {
                     throw Object.assign(new Error("REFERENCES command denied to user 'pls'@'10.0.0.5' for table 'roles'"), {
                          code: 'ER_TABLEACCESS_DENIED_ERROR',
@@ -387,6 +478,7 @@ describe('complete facility provisioning lifecycle', () => {
           mocks.connect.mockResolvedValue(connection);
           mocks.tenantConnection.mockResolvedValue(db);
           connection.query.mockImplementation(async sql => {
+               if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
                if (/^CREATE\s+(?:PROCEDURE|FUNCTION|TRIGGER)/i.test(sql)) {
                     throw Object.assign(new Error('You do not have the SUPER privilege and binary logging is enabled'), {
                          code: 'ER_BINLOG_CREATE_ROUTINE_NEED_SUPER',

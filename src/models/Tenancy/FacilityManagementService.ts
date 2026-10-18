@@ -27,6 +27,7 @@ import { safeDatabaseIdentifier } from './FacilitySchema';
 import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
 import MedicalInterfacingDevicesRepository from '../settings/devices/MedicalInterfacingDevicesRepository';
 import type { MedicalDeviceConfiguration } from './FacilityMedicalDeviceInput';
+import { acquireProvisioningLock } from './FacilityProvisioningLock';
 
 export const PLANS_TABLE = 'facility_subscription_plans';
 export const PAYMENTS_TABLE = 'facility_subscription_payments';
@@ -338,7 +339,7 @@ export class FacilityManagementService {
 
      private async tenantRow(db: Knex | Knex.Transaction, tenantId: number, lock: boolean) {
           const query = db(TENANTS_TABLE).where({ tenant_number: tenantId });
-          const row = await (lock ? query.forUpdate() : query).first('id', 'tenant_number', 'status', 'deleted_at', 'database_name');
+          const row = await (lock ? query.forUpdate() : query).first('id', 'tenant_number', 'status', 'deleted_at', 'database_name', 'provisioned_at');
           if (!row || row.deleted_at) throw new FacilityError('Facility not found', 404);
           return row;
      }
@@ -475,30 +476,68 @@ export class FacilityManagementService {
           return { tenantId, organizationIdentifier: tenant.id, status: String(tenant.status), settings };
      }
 
+     private requireDisposableReservation(tenant: { id: string; database_name: unknown; provisioned_at?: unknown }, tenantId: number) {
+          const localConnection = singleTenantKnexInstance.client.config.connection;
+          const localDatabase = typeof localConnection === 'object' && localConnection && 'database' in localConnection
+               ? localConnection.database : undefined;
+          const databaseName = tenant.database_name;
+          if (!configuration.isMultiTenant || tenant.provisioned_at || typeof databaseName !== 'string' ||
+               databaseName !== `pls_${String(tenant.id).toLowerCase()}_${tenantId}` ||
+               databaseName.toLowerCase() === configuration.masterControlDatabase.toLowerCase() ||
+               (typeof localDatabase === 'string' && databaseName.toLowerCase() === localDatabase.toLowerCase())) {
+               throw new FacilityError('Failed facility database cannot be safely deleted or rebuilt', 409);
+          }
+          safeDatabaseIdentifier(databaseName);
+          if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PORT) {
+               throw new FacilityError('Tenant database connection settings are incomplete', 503);
+          }
+     }
+
+     async recoverProvisioning(tenantId: number, confirmation: unknown, reason: string, actor: FacilityActor) {
+          await TenantRegistry.ensureReady();
+          this.requireClient(tenantId, 'be recovered');
+          await this.ensureSchema();
+          let admin: mysql.Connection | undefined;
+          try {
+               const result = await this.master.transaction(async trx => {
+                    const tenant = await this.tenantRow(trx, tenantId, true);
+                    if (tenant.status !== 'provisioning') throw new FacilityError('Only interrupted provisioning can be recovered; refresh the facility list', 409);
+                    if (confirmation !== tenant.id) throw new FacilityError('Enter the exact organization identifier to confirm recovery', 400);
+                    this.requireDisposableReservation(tenant, tenantId);
+                    admin = await mysql.createConnection({
+                         host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
+                         user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, multipleStatements: false,
+                    });
+                    await acquireProvisioningLock(admin, tenantId);
+                    await trx(TENANTS_TABLE).where({ tenant_number: tenantId, status: 'provisioning' }).update({ status: 'failed' });
+                    await this.event(trx, tenant, actor, {
+                         action: 'provisioning_recovered', from_status: 'provisioning', to_status: 'failed', reason,
+                         details: JSON.stringify({ databasePreserved: true }),
+                    });
+                    if (await trx.schema.hasTable('marketplace_facilities')) {
+                         await trx('marketplace_facilities').where({ linked_tenant_id: tenantId, integration_state: 'provisioning' })
+                              .update({ integration_state: 'provision_failed', updated_at: trx.fn.now() });
+                    }
+                    return { tenantId, organizationIdentifier: tenant.id, status: 'failed', databasePreserved: true };
+               });
+               TenantRegistry.invalidate();
+               return result;
+          } finally {
+               if (admin) await admin.end();
+          }
+     }
+
      async deleteTenant(tenantId: number, confirmation: unknown, reason: string, actor: FacilityActor) {
           await TenantRegistry.ensureReady();
           this.requireClient(tenantId, 'be deleted');
           await this.ensureSchema();
           const result = await this.master.transaction(async trx => {
                const tenant = await this.tenantRow(trx, tenantId, true);
-               if (tenant.status === 'provisioning') throw new FacilityError('Facility is provisioning; wait for it to finish before deleting', 409);
+               if (tenant.status === 'provisioning') throw new FacilityError('Use Recover interrupted setup first. Running provisioning cannot be deleted.', 409);
                if (confirmation !== tenant.id) throw new FacilityError('Enter the exact organization identifier to confirm deletion', 400);
                const databasePreserved = tenant.status !== 'failed';
                if (!databasePreserved) {
-                    const localConnection = singleTenantKnexInstance.client.config.connection;
-                    const localDatabase = typeof localConnection === 'object' && localConnection && 'database' in localConnection
-                         ? localConnection.database : undefined;
-                    const databaseName = tenant.database_name;
-                    if (!configuration.isMultiTenant || typeof databaseName !== 'string' ||
-                         databaseName !== `pls_${String(tenant.id).toLowerCase()}_${tenantId}` ||
-                         databaseName.toLowerCase() === configuration.masterControlDatabase.toLowerCase() ||
-                         (typeof localDatabase === 'string' && databaseName.toLowerCase() === localDatabase.toLowerCase())) {
-                         throw new FacilityError('Failed facility database cannot be safely deleted', 409);
-                    }
-                    safeDatabaseIdentifier(databaseName);
-                    if (!process.env.DB_HOST || !process.env.DB_USERNAME || !process.env.DB_PORT) {
-                         throw new FacilityError('Tenant database connection settings are incomplete', 503);
-                    }
+                    this.requireDisposableReservation(tenant, tenantId);
                }
                await this.event(trx, tenant, actor, {
                     action: 'tenant_deleted', from_status: tenant.status, to_status: 'deleted', reason,
@@ -511,6 +550,7 @@ export class FacilityManagementService {
                          user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, multipleStatements: false,
                     });
                     try {
+                         await acquireProvisioningLock(admin, tenantId);
                          await releaseTenantConnection(tenantId);
                          await admin.query('DROP DATABASE IF EXISTS ??', [tenant.database_name]);
                     } finally {

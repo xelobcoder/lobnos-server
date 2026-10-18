@@ -146,6 +146,31 @@ records and write a `tenant_deleted` audit event in the deletion transaction, wi
 includes `{tenantId,organizationIdentifier,deleted:true,databasePreserved}`. Legacy
 registry-linked migration/provisioning records follow their existing FK cascades.
 The platform-home tenant and tenants still provisioning cannot be deleted.
+For an interrupted attempt that still shows `provisioning`, use **Recover
+interrupted setup** in the facility directory. It requires the exact organization
+identifier and a reason. The authenticated endpoint is
+`POST /api/v1/platform/facilities/:tenantId/recover-provisioning` with
+`{confirmation, reason}`. It marks the reservation `failed` without dropping data,
+records a `provisioning_recovered` management audit event, and returns
+`{tenantId, organizationIdentifier, status:"failed", databasePreserved:true}`.
+The same row then offers **Retry provisioning** or **Delete tenant**.
+
+Provisioning, retry, recovery and failed-database cleanup share a per-tenant MySQL
+advisory lock held by the dedicated DDL connection. Recovery returns 409 while
+a worker holds that lock, regardless of elapsed time; old rows are never treated
+as failed just because a timeout elapsed. Recovery/rebuild/partial-database deletion
+also reject a reservation with `provisioned_at` set, an unexpected database name,
+or the control/local database. Stop/restart **all** old backend processes when
+deploying this change before recovering legacy attempts: older workers do not
+participate in the advisory-lock protocol. A dropped worker connection releases
+the lock automatically.
+
+The registry startup reconciler adds missing onboarding location, actor and
+lifecycle columns to older master databases (including `provisioned_at` and
+`updated_by`). Failure recording falls back to a status-only update when an actor
+column write fails. Status and audit write failures are logged separately; if
+the master remains unavailable, the response explicitly directs the operator to
+recovery instead of claiming a successful failure-state update.
 The frontend confirmation form warns that deleting a failed facility permanently
 deletes its named database and labels the action "Delete database and tenant".
 The success message uses the returned `databasePreserved` value, rather than
@@ -157,7 +182,7 @@ later registry transaction/commit fails, the failed reservation may remain with
 its database already removed. Repeating the confirmed deletion safely handles an
 already-missing database. No active or suspended database is dropped.
 
-All three endpoints require the PLS staff session, supplied in the
+These endpoints require the PLS staff session, supplied in the
 `pls-prime-tenant-session` cookie or the same-named request header. They do not
 require an `employeeid` or `tenantId` parameter. If `tenantId` is supplied, it must
 be the current registered default/control tenant ID.
@@ -358,11 +383,13 @@ its own active-control-tenant agreement check and staff session validation.
    ```
 
    If binary logging is on, installing the exported triggers and routines also
-   requires `log_bin_trust_function_creators = 1` (or `SET_USER_ID` /
-   `SYSTEM_VARIABLES_ADMIN`). Master registries created by older bootstraps lacked
+   requires `log_bin_trust_function_creators = 1` for a non-SUPER provisioning
+   account. A database administrator must review this server-wide setting; the
+   backend does not change it. Master registries created by older bootstraps lacked
    `prime_tenants.updated_by`/`deleted_by`, which failed activation with
    `ER_BAD_FIELD_ERROR` and left the facility in `provisioning`. The registry now adds
-   them at startup; set any such facility to `failed` before retrying. Then use **Retry provisioning**: it drops the
+   them at startup; use **Recover interrupted setup** for any such facility still
+   marked `provisioning`. Then use **Retry provisioning**: it drops the
    retained failed database and rebuilds it.
 6. Deploy `db-exports/primelabmaster/seeds/primelabmaster_*.sql` for the nine
    allowlisted catalog tables alongside the server tree. These assets are required,

@@ -165,25 +165,30 @@ describe('registry cache invalidation during status changes', () => {
           expect(fresh[0]).toMatchObject({ status: 'suspended', isActive: false });
      });
 
-     it('adds the provisioning actor columns missing from older master registries', async () => {
+     it('repairs reservation, activation and lifecycle columns on older registries idempotently', async () => {
           const columns = new Set(['tenant_number', 'facility_code']);
           const added: string[] = [];
+          const column = (name: string) => {
+               added.push(name);
+               columns.add(name);
+               const chain = { unsigned: () => chain, nullable: () => chain, notNullable: () => chain, defaultTo: () => chain };
+               return chain;
+          };
           const db = {
+               fn: { now: () => 'NOW' },
                schema: {
                     hasTable: async () => true,
                     hasColumn: async (_table: string, column: string) => columns.has(column),
                     alterTable: async (_table: string, build: (table: any) => void) => build({
-                         integer: (column: string) => {
-                              added.push(column);
-                              columns.add(column);
-                              return { unsigned: () => ({ nullable: () => undefined }) };
-                         },
+                         integer: column, string: column, timestamp: column,
                     }),
                },
           } as unknown as Knex;
           const registry = new TenantRegistry(db) as any;
           await registry.ensureSchema();
           await registry.ensureSchema();
-          expect(added).toEqual(['updated_by', 'deleted_by']);
+          expect(added).toEqual(['phone', 'country_id', 'state_id', 'district_id', 'country_code', 'state_code',
+               'district_code', 'sequence_number', 'created_by', 'updated_by', 'deleted_by', 'provisioned_at',
+               'suspended_at', 'archived_at', 'deleted_at', 'created_at', 'updated_at']);
      });
 });

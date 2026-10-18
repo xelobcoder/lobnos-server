@@ -19,6 +19,7 @@ import logger from '../../hooks/logger';
 import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE } from './FacilityModules';
 import { applyFacilityModulePricing, FacilityModulePricingCatalog } from './FacilityModulePricingCatalog';
 import { buildPlanModuleConfiguration, FacilitySubscriptionTierService } from './FacilitySubscriptionTiers';
+import { acquireProvisioningLock, releaseProvisioningLock } from './FacilityProvisioningLock';
 
 import { PROVISIONING_EVENTS_TABLE } from './FacilityManagementService';
 
@@ -41,9 +42,17 @@ export function assertNotControlAssignment(tenantId: number, databaseName: strin
      }
 }
 
-/** Operator-safe error class name only; raw driver messages can contain SQL and are never logged or returned. */
+/** Allowlisted diagnostics only; raw driver messages can contain SQL and are never logged or returned. */
 function diagnosticDetail(error: unknown): string {
      if (error instanceof FacilityError) return '';
+     if (error && typeof error === 'object' && 'code' in error && error.code === 'ER_BAD_FIELD_ERROR') {
+          const message = 'sqlMessage' in error ? error.sqlMessage : 'message' in error ? error.message : '';
+          const column = String(message).match(/^Unknown column '([A-Za-z_][A-Za-z0-9_.]{0,127})'/)?.[1]?.split('.').pop();
+          const registryColumns = new Set(['updated_by', 'deleted_by', 'created_by', 'provisioned_at', 'suspended_at',
+               'archived_at', 'deleted_at', 'created_at', 'updated_at', 'tenant_number', 'facility_code', 'country_id',
+               'state_id', 'district_id', 'country_code', 'state_code', 'district_code', 'sequence_number', 'last_sequence']);
+          if (column && registryColumns.has(column)) return `missing schema column ${column}; restart the updated backend to repair the master registry`;
+     }
      // Expose only the denied privilege keyword; the rest of the MySQL message names the account and table.
      if ((error as any)?.code === 'ER_TABLEACCESS_DENIED_ERROR') {
           const privilege = String((error as any)?.sqlMessage || (error as any)?.message || '')
@@ -118,10 +127,11 @@ export class FacilityProvisioningService {
           });
      }
 
-     private async reserve(input: FacilityInput, actor: FacilityActor, createdBy: number): Promise<Reservation> {
+     private async reserve(input: FacilityInput, actor: FacilityActor, createdBy: number, admin: mysql.Connection): Promise<Reservation> {
           // The district lock serializes sequence allocation even when no sequence row exists yet.
           // Unique registry indexes arbitrate random-number/facility-code races across districts.
           for (let attempt = 0; attempt < 10; attempt++) {
+               let lockedTenantId: number | undefined;
                try {
                     return await this.master.transaction(async trx => {
                          const country = await trx('platform_countries').where({ id: input.countryId, status: 'active' }).whereNull('deleted_at').first();
@@ -168,6 +178,8 @@ export class FacilityProvisioningService {
                          // The control tenant is whichever registry row owns this installation's own DATABASE
                          // (TenantRegistry.registerLocalTenant). A new facility must never take that database or ID.
                          assertNotControlAssignment(tenantId, databaseName);
+                         await acquireProvisioningLock(admin, tenantId);
+                         lockedTenantId = tenantId;
                          const reservation = { organizationIdentifier, tenantId, databaseName, state, district };
                          await trx(TENANTS_TABLE).insert({
                               id: organizationIdentifier, company_name: input.companyName, email: input.email, phone: input.phone,
@@ -181,6 +193,7 @@ export class FacilityProvisioningService {
                          return reservation;
                     });
                } catch (error: any) {
+                    if (lockedTenantId !== undefined) await releaseProvisioningLock(admin, lockedTenantId);
                     if (error.code === 'ER_DUP_ENTRY' && attempt < 9) continue;
                     throw error;
                }
@@ -199,7 +212,8 @@ export class FacilityProvisioningService {
                const databaseName = safeDatabaseIdentifier(tenant.database_name);
                const expectedDatabaseName = safeDatabaseIdentifier(`pls_${organizationIdentifier.toLowerCase()}_${tenantId}`);
                assertNotControlAssignment(tenantId, databaseName);
-               if (databaseName !== expectedDatabaseName) {
+               if (databaseName !== expectedDatabaseName || databaseName.toLowerCase() === configuration.masterControlDatabase.toLowerCase() ||
+                    tenant.provisioned_at || tenant.deleted_at) {
                     throw new FacilityError('Facility database cannot be safely cleaned up for retry', 409);
                }
                if (Number(tenant.country_id) !== input.countryId || Number(tenant.state_id) !== input.stateId ||
@@ -294,8 +308,9 @@ export class FacilityProvisioningService {
                     }
                }
                stage = 'reservation';
+               if (retryTenantId !== undefined) await acquireProvisioningLock(admin, retryTenantId);
                reservation = retryTenantId === undefined
-                    ? await this.reserve(input, actor, createdBy)
+                    ? await this.reserve(input, actor, createdBy, admin)
                     : await this.prepareRetry(input, actor, createdBy, retryTenantId);
                TenantRegistry.invalidate();
                if (retryTenantId !== undefined) {
@@ -429,17 +444,37 @@ export class FacilityProvisioningService {
                }
                // MySQL DDL cannot be rolled back. Retain the database for operator diagnosis; never drop it.
                // Mark nonactive independently of audit availability; provisioning itself is also nonactive.
+               let failureRecorded = false;
                try {
-                    await this.master(TENANTS_TABLE).where({ id: reservation.organizationIdentifier }).whereIn('status', ['provisioning', 'active'])
+                    const updated = await this.master(TENANTS_TABLE).where({ id: reservation.organizationIdentifier }).whereIn('status', ['provisioning', 'active'])
                          .update({ status: 'failed', updated_by: createdBy });
-                    await this.event(this.master, reservation, actor, `failed:${stage}`);
-               } catch {
-                    // An unavailable master leaves the reservation in provisioning, never active.
-               } finally {
-                    TenantRegistry.invalidate();
-                    await releaseTenantConnection(reservation.tenantId);
+                    if (updated !== 1) throw new Error('Failure status was not saved');
+                    failureRecorded = true;
+               } catch (statusError) {
+                    logger.error('Facility failure status update failed; attempting status-only recovery', {
+                         organizationIdentifier: reservation.organizationIdentifier, detail: diagnosticDetail(statusError),
+                    });
+                    try {
+                         const updated = await this.master(TENANTS_TABLE).where({ id: reservation.organizationIdentifier, status: 'provisioning' })
+                              .update({ status: 'failed' });
+                         if (updated !== 1) throw new Error('Failure status was not saved');
+                         failureRecorded = true;
+                    } catch (fallbackError) {
+                         logger.error('Facility remains provisioning; operator recovery is required', {
+                              organizationIdentifier: reservation.organizationIdentifier, detail: diagnosticDetail(fallbackError),
+                         });
+                    }
                }
-               throw new FacilityError(`Facility ${reservation.organizationIdentifier} onboarding failed during ${stage} (${code}${detail ? `: ${detail}` : ''}); it is not active. Review the cause, then use Retry provisioning on this facility.`, 500);
+               try {
+                    await this.event(this.master, reservation, actor, `failed:${stage}`);
+               } catch (auditError) {
+                    logger.error('Facility failure audit could not be recorded', {
+                         organizationIdentifier: reservation.organizationIdentifier, detail: diagnosticDetail(auditError),
+                    });
+               }
+               TenantRegistry.invalidate();
+               await releaseTenantConnection(reservation.tenantId);
+               throw new FacilityError(`Facility ${reservation.organizationIdentifier} onboarding failed during ${stage} (${code}${detail ? `: ${detail}` : ''}); it is not active. Review the cause, then ${failureRecorded ? 'retry provisioning or delete this failed facility' : 'use Recover interrupted setup before retrying or deleting this facility'}.`, 500);
           } finally {
                await admin.end().catch(() => undefined);
           }

@@ -275,12 +275,34 @@ export class TenantRegistry {
                });
                logger.info('[TenantRegistry] Added prime_tenants.facility_code');
           }
-          // Older master bootstraps omitted the audit actor columns that provisioning writes.
-          for (const column of ['updated_by', 'deleted_by']) {
+          // CREATE TABLE IF NOT EXISTS does not upgrade existing master registries.
+          const lifecycleColumns: Record<string, (table: Knex.CreateTableBuilder) => void> = {
+               phone: table => { table.string('phone', 30).nullable(); },
+               country_id: table => { table.integer('country_id').unsigned().nullable(); },
+               state_id: table => { table.integer('state_id').unsigned().nullable(); },
+               district_id: table => { table.integer('district_id').unsigned().nullable(); },
+               country_code: table => { table.string('country_code', 5).nullable(); },
+               state_code: table => { table.string('state_code', 10).nullable(); },
+               district_code: table => { table.string('district_code', 20).nullable(); },
+               sequence_number: table => { table.integer('sequence_number').unsigned().nullable(); },
+               created_by: table => { table.integer('created_by').unsigned().nullable(); },
+               updated_by: table => { table.integer('updated_by').unsigned().nullable(); },
+               deleted_by: table => { table.integer('deleted_by').unsigned().nullable(); },
+               provisioned_at: table => { table.timestamp('provisioned_at').nullable(); },
+               suspended_at: table => { table.timestamp('suspended_at').nullable(); },
+               archived_at: table => { table.timestamp('archived_at').nullable(); },
+               deleted_at: table => { table.timestamp('deleted_at').nullable(); },
+               created_at: table => { table.timestamp('created_at').notNullable().defaultTo(this.connection.fn.now()); },
+               updated_at: table => { table.timestamp('updated_at').nullable(); },
+          };
+          for (const [column, build] of Object.entries(lifecycleColumns)) {
                if (await this.connection.schema.hasColumn(TENANTS_TABLE, column)) continue;
-               await this.connection.schema.alterTable(TENANTS_TABLE, (table) => {
-                    table.integer(column).unsigned().nullable();
-               });
+               try {
+                    await this.connection.schema.alterTable(TENANTS_TABLE, build);
+               } catch (error) {
+                    // Another backend process may have added the same column during startup.
+                    if (!(error && typeof error === 'object' && 'code' in error && error.code === 'ER_DUP_FIELDNAME')) throw error;
+               }
                logger.info(`[TenantRegistry] Added prime_tenants.${column}`);
           }
      }

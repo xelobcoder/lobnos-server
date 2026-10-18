@@ -180,7 +180,7 @@ describe('platform facility status and subscription management', () => {
      });
      beforeEach(() => {
           vi.clearAllMocks();
-          mocks.query.mockReset().mockResolvedValue([[]]);
+          mocks.query.mockReset().mockImplementation(async (sql: string) => [sql.includes('GET_LOCK') ? [{ acquired: 1 }] : []]);
           mocks.release.mockReset().mockResolvedValue(undefined);
           mocks.end.mockReset().mockResolvedValue(undefined);
           mocks.connect.mockReset().mockResolvedValue({ query: mocks.query, end: mocks.end });
@@ -437,8 +437,9 @@ describe('platform facility status and subscription management', () => {
                     });
                     if (id === 222222) {
                          expect(mocks.release).toHaveBeenCalledWith(id);
-                         expect(mocks.query).toHaveBeenCalledExactlyOnceWith('DROP DATABASE IF EXISTS ??', ['pls_nram12_222222']);
-                         expect(mocks.release.mock.invocationCallOrder[0]).toBeLessThan(mocks.query.mock.invocationCallOrder[0]);
+                         expect(mocks.query).toHaveBeenNthCalledWith(1, 'SELECT GET_LOCK(?, 0) AS acquired', ['pls-facility-provisioning-222222']);
+                         expect(mocks.query).toHaveBeenNthCalledWith(2, 'DROP DATABASE IF EXISTS ??', ['pls_nram12_222222']);
+                         expect(mocks.release.mock.invocationCallOrder[0]).toBeLessThan(mocks.query.mock.invocationCallOrder[1]);
                          expect(mocks.end).toHaveBeenCalledOnce();
                     } else {
                          expect(mocks.connect).not.toHaveBeenCalled();
@@ -463,7 +464,7 @@ describe('platform facility status and subscription management', () => {
                await expect(service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor)).rejects.toThrow('Cleanup unavailable');
                const result = await service.deleteTenant(222222, 'NRAM12', 'Retry from scratch', actor);
                expect(result).toMatchObject({ deleted: true, databasePreserved: false });
-               expect(mocks.query).toHaveBeenCalledTimes(2);
+               expect(mocks.query).toHaveBeenCalledTimes(3);
                expect(mocks.query).toHaveBeenLastCalledWith('DROP DATABASE IF EXISTS ??', ['pls_nram12_222222']);
           });
           it('protects the master database even if its name matches the failed reservation', async () => {
@@ -507,6 +508,20 @@ describe('platform facility status and subscription management', () => {
                expect(db.table('prime_tenants')).toHaveLength(6);
                expect(mocks.invalidate).not.toHaveBeenCalled();
           });
+          it('refuses partial database deletion while a provisioning worker still holds the lock', async () => {
+               mocks.query.mockResolvedValueOnce([[{ acquired: 0 }]]);
+               await expectError(service.deleteTenant(222222, 'NRAM12', 'Testing cleanup', actor), 409);
+               expect(mocks.query).not.toHaveBeenCalledWith('DROP DATABASE IF EXISTS ??', expect.anything());
+               expect(mocks.release).not.toHaveBeenCalled();
+               expect(db.table('prime_tenants').some((row: any) => row.tenant_number === 222222)).toBe(true);
+               expect(db.table(EVENTS_TABLE)).toHaveLength(0);
+               expect(mocks.end).toHaveBeenCalled();
+          });
+          it('never deletes a failed reservation database that was previously activated', async () => {
+               await db('prime_tenants').where({ tenant_number: 222222 }).update({ provisioned_at: NOW.toISOString() });
+               await expectError(service.deleteTenant(222222, 'NRAM12', 'Testing cleanup', actor), 409);
+               expect(mocks.connect).not.toHaveBeenCalled();
+          });
           it('protects platform home and provisioning tenants and requires exact confirmation', async () => {
                await expectError(service.deleteTenant(CONTROL, 'CTRL1', 'Testing cleanup', actor), 403);
                await expectError(service.deleteTenant(333333, 'NRAM13', 'Testing cleanup', actor), 409);
@@ -516,6 +531,61 @@ describe('platform facility status and subscription management', () => {
                expect(db.table('prime_tenants')).toHaveLength(6);
                expect(db.table(EVENTS_TABLE)).toHaveLength(0);
                expect(mocks.invalidate).not.toHaveBeenCalled();
+          });
+
+          describe('interrupted provisioning recovery', () => {
+               beforeEach(async () => {
+                    await db('prime_tenants').where({ tenant_number: 333333 }).update({ database_name: 'pls_nram13_333333' });
+               });
+
+               it('marks an interrupted reservation failed without dropping data, then allows confirmed deletion', async () => {
+                    await db('marketplace_facilities').insert({ linked_tenant_id: 333333, integration_state: 'provisioning' });
+                    const result = await service.recoverProvisioning(333333, 'NRAM13', 'Worker stopped during setup', actor);
+                    expect(result).toMatchObject({ tenantId: 333333, status: 'failed', databasePreserved: true });
+                    expect(db.table('prime_tenants').find((row: any) => row.tenant_number === 333333).status).toBe('failed');
+                    expect(db.table(EVENTS_TABLE)[0]).toMatchObject({
+                         action: 'provisioning_recovered', from_status: 'provisioning', to_status: 'failed',
+                         actor_tenant_id: CONTROL, actor_employee_id: 9, reason: 'Worker stopped during setup',
+                    });
+                    expect(db.table('marketplace_facilities')[0].integration_state).toBe('provision_failed');
+                    expect(mocks.query).toHaveBeenCalledExactlyOnceWith('SELECT GET_LOCK(?, 0) AS acquired', ['pls-facility-provisioning-333333']);
+                    expect(mocks.end).toHaveBeenCalled();
+                    expect(await service.deleteTenant(333333, 'NRAM13', 'Remove failed setup', actor))
+                         .toMatchObject({ deleted: true, databasePreserved: false });
+                    expect(mocks.query).toHaveBeenCalledWith('DROP DATABASE IF EXISTS ??', ['pls_nram13_333333']);
+               });
+
+               it('cannot recover a running worker, regardless of how old its registry row is', async () => {
+                    mocks.query.mockResolvedValueOnce([[{ acquired: 0 }]]);
+                    await db('prime_tenants').where({ tenant_number: 333333 }).update({ created_at: '2020-01-01' });
+                    await expectError(service.recoverProvisioning(333333, 'NRAM13', 'Interrupted setup', actor), 409);
+                    expect(db.table('prime_tenants').find((row: any) => row.tenant_number === 333333).status).toBe('provisioning');
+                    expect(db.table(EVENTS_TABLE)).toHaveLength(0);
+                    expect(mocks.end).toHaveBeenCalled();
+               });
+
+               it('rolls back recovery if its audit cannot be recorded', async () => {
+                    db.failNextEventInsert = true;
+                    await expect(service.recoverProvisioning(333333, 'NRAM13', 'Interrupted setup', actor)).rejects.toThrow('Audit unavailable');
+                    expect(db.table('prime_tenants').find((row: any) => row.tenant_number === 333333).status).toBe('provisioning');
+                    expect(mocks.end).toHaveBeenCalled();
+               });
+
+               it('protects the home facility and non-provisioning tenants and requires exact confirmation', async () => {
+                    await expectError(service.recoverProvisioning(CONTROL, 'CTRL1', 'Interrupted setup', actor), 403);
+                    await expectError(service.recoverProvisioning(CLIENT, 'NRAM11', 'Interrupted setup', actor), 409);
+                    await expectError(service.recoverProvisioning(222222, 'NRAM12', 'Interrupted setup', actor), 409);
+                    await expectError(service.recoverProvisioning(333333, 'nram13', 'Interrupted setup', actor), 400);
+                    expect(mocks.connect).not.toHaveBeenCalled();
+               });
+
+               it.each([
+                    { provisioned_at: '2026-01-01' }, { database_name: 'control_db' }, { database_name: 'other_tenant' },
+               ])('rejects unsafe recovery %j', async fields => {
+                    await db('prime_tenants').where({ tenant_number: 333333 }).update(fields);
+                    await expectError(service.recoverProvisioning(333333, 'NRAM13', 'Interrupted setup', actor), 409);
+                    expect(mocks.connect).not.toHaveBeenCalled();
+               });
           });
      });
 

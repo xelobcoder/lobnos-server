@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      authority: vi.fn(), setStatus: vi.fn(), getSubscription: vi.fn(), setPlan: vi.fn(), recordPayment: vi.fn(), voidPayment: vi.fn(), listAudit: vi.fn(),
-     list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(),
+     list: vi.fn(), options: vi.fn(), provision: vi.fn(), retry: vi.fn(), logError: vi.fn(), deleteTenant: vi.fn(), recoverProvisioning: vi.fn(),
      getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(), setModuleConfiguration: vi.fn(),
      getModulePricing: vi.fn(), getAllModulePricing: vi.fn(), putModulePricing: vi.fn(),
      listPlans: vi.fn(), upsertPlan: vi.fn(), platformUpgradeRequests: vi.fn(), decideUpgradeRequest: vi.fn(), assignPlan: vi.fn(),
@@ -18,6 +18,7 @@ vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
           setStatus = mocks.setStatus; getSubscription = mocks.getSubscription; setPlan = mocks.setPlan;
           recordPayment = mocks.recordPayment; voidPayment = mocks.voidPayment; listAudit = mocks.listAudit;
           deleteTenant = mocks.deleteTenant;
+          recoverProvisioning = mocks.recoverProvisioning;
           getSmsProvider = mocks.getSmsProvider; setSmsProvider = mocks.setSmsProvider;
           setModuleConfiguration = mocks.setModuleConfiguration;
           getMedicalDevices = mocks.getMedicalDevices; saveMedicalDevice = mocks.saveMedicalDevice; deleteMedicalDevice = mocks.deleteMedicalDevice;
@@ -71,6 +72,7 @@ describe('platform facility routes', () => {
                'put /api/v1/platform/facilities/:tenantId/plan',
                'post /api/v1/platform/facilities',
                'post /api/v1/platform/facilities/:tenantId/retry',
+               'post /api/v1/platform/facilities/:tenantId/recover-provisioning',
                'get /api/v1/platform/facilities/:tenantId/public-profile', 'put /api/v1/platform/facilities/:tenantId/public-profile',
                'delete /api/v1/platform/facilities/:tenantId',
                'patch /api/v1/platform/facilities/:tenantId/status', 'get /api/v1/platform/facilities/:tenantId/subscription',
@@ -219,6 +221,7 @@ describe('platform facility routes', () => {
           const res = await invoke('delete', '/api/v1/platform/facilities/:tenantId', {
                params: { tenantId: '654321' }, body: { confirmation: 'NRAM11', reason: ' Test cleanup ', employeeid: 1 },
           });
+
           expect(mocks.deleteTenant).toHaveBeenCalledWith(654321, 'NRAM11', 'Test cleanup', { tenantId: 123456, employeeId: 9 });
           expect(res.json).toHaveBeenCalledWith({ status: 'success', result: { deleted: true, databasePreserved } });
           mocks.deleteTenant.mockClear();
@@ -227,6 +230,21 @@ describe('platform facility routes', () => {
           });
           expect(bad.status).toHaveBeenCalledWith(400);
           expect(mocks.deleteTenant).not.toHaveBeenCalled();
+     });
+
+     it('validates recovery reason and uses the authenticated platform actor', async () => {
+          mocks.recoverProvisioning.mockResolvedValue({ status: 'failed', databasePreserved: true });
+          const res = await invoke('post', '/api/v1/platform/facilities/:tenantId/recover-provisioning', {
+               params: { tenantId: '654321' }, body: { confirmation: 'NRAM11', reason: ' Interrupted setup ', employeeid: 1 },
+          });
+          expect(mocks.recoverProvisioning).toHaveBeenCalledWith(654321, 'NRAM11', 'Interrupted setup', res.locals.facilityActor);
+          expect(res.json).toHaveBeenCalledWith({ status: 'success', result: { status: 'failed', databasePreserved: true } });
+          mocks.recoverProvisioning.mockClear();
+          const bad = await invoke('post', '/api/v1/platform/facilities/:tenantId/recover-provisioning', {
+               params: { tenantId: '654321' }, body: { confirmation: 'NRAM11', reason: '' },
+          });
+          expect(bad.status).toHaveBeenCalledWith(400);
+          expect(mocks.recoverProvisioning).not.toHaveBeenCalled();
      });
 
      it('uses the authenticated actor, never a body-supplied one', async () => {
