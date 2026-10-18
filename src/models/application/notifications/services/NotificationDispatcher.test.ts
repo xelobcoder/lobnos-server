@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
-     dispatch: vi.fn(), factory: vi.fn(), publish: vi.fn(), buildMessage: vi.fn(),
+     dispatch: vi.fn(), factory: vi.fn(), publish: vi.fn(), buildMessage: vi.fn(), emailFactory: vi.fn(), triggerByReference: vi.fn(),
 }));
 vi.mock('./AppointmentNotificationServiceFactory', () => ({
      buildAppointmentNotificationService: mocks.factory,
+     buildEmailNotificationService: mocks.emailFactory,
 }));
 vi.mock('../../in-app-notifications/InAppNotificationService', () => ({
      InAppNotificationService: { publish: mocks.publish },
@@ -54,5 +55,34 @@ describe('dispatcher appointment integration', () => {
           expect(await NotificationDispatcher.dispatch(7, 'PATIENT_CREATED', { patientId: 12 }, 4)).toMatchObject({ success: true, notificationId: 81 });
           expect(mocks.factory).not.toHaveBeenCalled();
           expect(mocks.publish).toHaveBeenCalledTimes(1);
+     });
+});
+
+describe('dispatcher email notifications', () => {
+     beforeEach(() => {
+          vi.resetAllMocks();
+          mocks.emailFactory.mockReturnValue({ triggerByReference: mocks.triggerByReference });
+     });
+     it('queues the configured event email by patient reference', async () => {
+          mocks.triggerByReference.mockResolvedValue({ queued: true, notificationQueueId: 5, emailQueueId: 9 });
+          expect(await NotificationDispatcher.dispatchEmail(7, 'PATIENT_CREATED', { patientId: 12 }, 4)).toEqual({
+               success: true, eventCode: 'PATIENT_CREATED', notificationQueueId: 5, emailQueueId: 9,
+          });
+          expect(mocks.emailFactory).toHaveBeenCalledExactlyOnceWith(7);
+          expect(mocks.triggerByReference).toHaveBeenCalledWith(expect.objectContaining({
+               eventCode: 'PATIENT_CREATED', references: { patientId: 12 }, createdBy: 4,
+          }));
+     });
+     it('reports why an email was not queued', async () => {
+          mocks.triggerByReference.mockResolvedValue({ queued: false, reason: 'Email module is not activated.' });
+          expect(await NotificationDispatcher.dispatchEmail(7, 'PATIENT_CREATED', { patientId: 12 })).toMatchObject({
+               success: false, reason: 'Email module is not activated.',
+          });
+     });
+     it('contains failures and rejects invalid tenants', async () => {
+          mocks.triggerByReference.mockRejectedValue(new Error('No active template found for event'));
+          expect(await NotificationDispatcher.dispatchEmail(7, 'PATIENT_CREATED', { patientId: 12 })).toMatchObject({ success: false });
+          expect(await NotificationDispatcher.dispatchEmail(0, 'PATIENT_CREATED', { patientId: 12 })).toMatchObject({ success: false });
+          expect(mocks.emailFactory).toHaveBeenCalledTimes(1);
      });
 });

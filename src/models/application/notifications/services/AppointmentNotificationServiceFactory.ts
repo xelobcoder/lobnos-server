@@ -24,7 +24,7 @@ import { NotificationService } from './NotificationService';
 import { RecipientResolver } from './RecipientResolver';
 import { AppointmentNotificationService } from './AppointmentNotificationService';
 
-export function buildAppointmentNotificationService(tenantId: number): AppointmentNotificationService {
+function buildNotificationParts(tenantId: number) {
      const events = new NotificationEventsRepo(tenantId);
      const settings = new NotificationEventSettingsRepo(tenantId);
      const templates = new NotificationTemplatesRepo(tenantId);
@@ -37,6 +37,15 @@ export function buildAppointmentNotificationService(tenantId: number): Appointme
      const email = new NotificationService(events, templates, settings, new NotificationEventRecipientsRepo(tenantId),
           new NotificationQueueRepo(tenantId), emailQueue, processor, new NotificationTemplateRenderer(),
           new RecipientResolver(), context, tenantId);
+     return { events, settings, templates, context, email };
+}
+
+export function buildEmailNotificationService(tenantId: number): NotificationService {
+     return buildNotificationParts(tenantId).email;
+}
+
+export function buildAppointmentNotificationService(tenantId: number): AppointmentNotificationService {
+     const { events, settings, templates, context, email } = buildNotificationParts(tenantId);
      const sms = new SmsJobsService(new PrimeSmsJobsRepo(tenantId), new PrimeSmsJobRecipientsRepo(tenantId), tenantId);
      return new AppointmentNotificationService(events, settings, templates, context, email, sms, tenantId, async () => {
           const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);

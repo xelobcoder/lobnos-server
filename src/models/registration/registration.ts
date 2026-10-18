@@ -6,6 +6,7 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ApplicationSettings from "../application/appsettings/appset";
 import { InAppNotificationService } from "../application/in-app-notifications/InAppNotificationService";
+import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { OperationsFailures } from "../operations/types";
 import { ICreateNewPatient } from "../patients/interfaces";
 import { q_filter_patient_using_billingid_query, q_filter_patients, q_patient_data, q_patient_info_pagination, q_patient_update_emmergency_information, q_patient_update_patient_addressing, q_patient_update_personal_information, q_totalpatientcountQuery } from "./queries";
@@ -574,6 +575,13 @@ export default class Registration {
 					referenceId: Number(insertId),
 					actorEmployeeId: employeeId,
 				}).catch((err) => logger.error('PATIENT_CREATED in-app notification failed', err));
+				if (typeof data.email === "string" && data.email.trim()) {
+					NotificationDispatcher.dispatchEmail(tenantId, 'PATIENT_CREATED', { patientId: Number(insertId) }, employeeId)
+						.then((result) => {
+							if (!result.success) logger.warn(`PATIENT_CREATED email not queued: ${result.reason}${result.error ? ` (${result.error})` : ''}`);
+						})
+						.catch((err) => logger.error('PATIENT_CREATED email notification failed', err));
+				}
 			}
 			else {
 				response.status(400).send({

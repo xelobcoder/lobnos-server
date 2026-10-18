@@ -115,4 +115,34 @@ export class NotificationDispatcher {
      ): Promise<NotificationDispatchResult> {
           return this.dispatch(tenantId, eventCode, {}, createdBy, { context, recipients });
      }
+
+     /**
+      * Queues the configured email notification for an event. The email module, the per-event
+      * email channel, the template and recipient resolution are all enforced by NotificationService.
+      */
+     static async dispatchEmail(
+          tenantId: number,
+          eventCode: string,
+          references: NotificationDispatchReferences,
+          createdBy?: number,
+     ): Promise<NotificationDispatchResult> {
+          if (!Number.isInteger(tenantId) || tenantId <= 0) {
+               return { success: false, eventCode, reason: 'Valid tenant context is required' };
+          }
+          try {
+               const { buildEmailNotificationService } = await import('./AppointmentNotificationServiceFactory');
+               const result: any = await buildEmailNotificationService(tenantId).triggerByReference({
+                    eventCode, references, context: {}, priority: 'normal', createdBy: createdBy ?? null,
+               });
+               if (!result?.queued) return { success: false, eventCode, reason: result?.reason || 'Email was not queued' };
+               return { success: true, eventCode, notificationQueueId: result.notificationQueueId, emailQueueId: result.emailQueueId };
+          } catch (error) {
+               return {
+                    success: false,
+                    eventCode,
+                    reason: 'Email notification could not be queued',
+                    error: error instanceof Error ? error.message : String(error),
+               };
+          }
+     }
 }

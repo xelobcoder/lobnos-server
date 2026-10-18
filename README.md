@@ -77,6 +77,37 @@ connection; a failed upgrade is surfaced and may be retried.
 pnpm exec vitest run src\models\security\database-backup\BackupSecurityBootstrapper.test.ts
 ```
 
+## Patient portal
+
+Patients sign in at the normal PLS login page (patient mode) and are confined to
+`/api/v1/patient-portal/*`. Portal tables are created on first use by
+`bootstrapPatientPortal`, so no manual migration step is required.
+
+- **Secure defaults:** the portal and self-registration are **off**. Staff invitations,
+  billing and email notifications are on. Results need payment, and appointment
+  requests are off. Admins and managers change these in
+  *Application Settings › Patient Portal*.
+- **Activation:**
+  - **Staff invitation:** single-use, valid for 72 hours by default (1–720), revocable.
+  - **Self-registration:** facility code, patient ID, date of birth, registered email,
+    then a 10-minute emailed code. Responses never reveal whether a patient matched.
+- **Release gate:** a result is shown only when result entry is complete, minimum
+  verification is met, payment rules pass and, under the `manual` policy, staff have
+  released it. A withdrawal always hides it.
+- **Sessions:** five failed sign-ins lock the account for 15 minutes. Disabling access,
+  logging out or changing the password ends every session for that patient. Public
+  endpoints allow 10 requests per 15 minutes.
+- **Audit:** sign-ins, result and billing views, release decisions, invitations,
+  appointment requests and settings changes are written to the portal audit log.
+- **Invitation links:** built from `PATIENT_PORTAL_URL`, falling back to `FRONTEND_URL`
+  (`http://localhost:2377` in development).
+- **Rollback:** turn off **Enable patient portal**. Patient sessions are rejected
+  immediately and staff workflows are unaffected.
+
+```powershell
+pnpm exec vitest run src\controllers\patient-portal\route.test.ts src\models\patient-portal\patientPortalPolicy.test.ts src\controllers\security\authController.token.test.ts
+```
+
 ## Offline installation-bound licensing
 
 Signed licensing is **opt-in** (`PLS_LICENSE_MODE=signed`); existing deployments default
