@@ -216,6 +216,8 @@ async function installPlatformSchema(connection: Connection, database: string): 
           db_connection_string VARCHAR(500) NOT NULL,
           status VARCHAR(20) NOT NULL DEFAULT 'provisioning',
           created_by INT UNSIGNED NULL,
+          updated_by INT UNSIGNED NULL,
+          deleted_by INT UNSIGNED NULL,
           provisioned_at TIMESTAMP NULL,
           suspended_at TIMESTAMP NULL,
           archived_at TIMESTAMP NULL,

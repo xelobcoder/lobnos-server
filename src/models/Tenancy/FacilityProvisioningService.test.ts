@@ -381,6 +381,23 @@ describe('complete facility provisioning lifecycle', () => {
           await expect(failure).rejects.not.toThrow(/10\.0\.0\.5|'pls'/);
      });
 
+     it('names the MySQL setting when binary logging blocks routine installation', async () => {
+          const { db } = databaseHarness();
+          const connection = schemaConnection();
+          mocks.connect.mockResolvedValue(connection);
+          mocks.tenantConnection.mockResolvedValue(db);
+          connection.query.mockImplementation(async sql => {
+               if (/^CREATE\s+(?:PROCEDURE|FUNCTION|TRIGGER)/i.test(sql)) {
+                    throw Object.assign(new Error('You do not have the SUPER privilege and binary logging is enabled'), {
+                         code: 'ER_BINLOG_CREATE_ROUTINE_NEED_SUPER',
+                    });
+               }
+               return [[]];
+          });
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow(
+               /programmable_objects \(ER_BINLOG_CREATE_ROUTINE_NEED_SUPER: binary logging blocks routine creation; set log_bin_trust_function_creators = 1\)/);
+     });
+
      it('refuses single-tenant mode before connecting or allocating', async () => {
           configuration.isMultiTenant = false;
           await expect(new FacilityProvisioningService(databaseHarness().db).provision(input, actor)).rejects.toThrow('multi-tenant');

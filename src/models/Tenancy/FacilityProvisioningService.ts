@@ -50,6 +50,9 @@ function diagnosticDetail(error: unknown): string {
                .match(/^(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|REFERENCES|INDEX|ALTER|TRIGGER|CREATE VIEW|SHOW VIEW) command denied/)?.[1];
           if (privilege) return `${privilege} privilege missing for the DB_USERNAME account`;
      }
+     if ((error as any)?.code === 'ER_BINLOG_CREATE_ROUTINE_NEED_SUPER') {
+          return 'binary logging blocks routine creation; set log_bin_trust_function_creators = 1';
+     }
      const name = (error as any)?.name;
      return typeof name === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(name) && name !== 'Error' ? name : '';
 }

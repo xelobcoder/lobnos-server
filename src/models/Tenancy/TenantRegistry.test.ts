@@ -164,4 +164,26 @@ describe('registry cache invalidation during status changes', () => {
           const fresh = await registry.listTenants();
           expect(fresh[0]).toMatchObject({ status: 'suspended', isActive: false });
      });
+
+     it('adds the provisioning actor columns missing from older master registries', async () => {
+          const columns = new Set(['tenant_number', 'facility_code']);
+          const added: string[] = [];
+          const db = {
+               schema: {
+                    hasTable: async () => true,
+                    hasColumn: async (_table: string, column: string) => columns.has(column),
+                    alterTable: async (_table: string, build: (table: any) => void) => build({
+                         integer: (column: string) => {
+                              added.push(column);
+                              columns.add(column);
+                              return { unsigned: () => ({ nullable: () => undefined }) };
+                         },
+                    }),
+               },
+          } as unknown as Knex;
+          const registry = new TenantRegistry(db) as any;
+          await registry.ensureSchema();
+          await registry.ensureSchema();
+          expect(added).toEqual(['updated_by', 'deleted_by']);
+     });
 });

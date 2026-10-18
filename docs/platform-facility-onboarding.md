@@ -346,7 +346,9 @@ its own active-control-tenant agreement check and staff session validation.
    That makes onboarding fail during `schema_creation` with
    `ER_TABLEACCESS_DENIED_ERROR: REFERENCES privilege missing`. Grant it on the
    tenant database pattern, not globally. Use the account and host returned by
-   `SELECT CURRENT_USER()`:
+   `SELECT CURRENT_USER()` when logged in with the backend's `.env` credentials.
+   Checking grants from `sudo mysql` shows `root@localhost`, which is a different
+   account from the one the backend uses:
 
    ```sql
    GRANT CREATE, ALTER, DROP, INDEX, REFERENCES, TRIGGER, CREATE ROUTINE, ALTER ROUTINE,
@@ -357,7 +359,10 @@ its own active-control-tenant agreement check and staff session validation.
 
    If binary logging is on, installing the exported triggers and routines also
    requires `log_bin_trust_function_creators = 1` (or `SET_USER_ID` /
-   `SYSTEM_VARIABLES_ADMIN`). Then use **Retry provisioning**: it drops the
+   `SYSTEM_VARIABLES_ADMIN`). Master registries created by older bootstraps lacked
+   `prime_tenants.updated_by`/`deleted_by`, which failed activation with
+   `ER_BAD_FIELD_ERROR` and left the facility in `provisioning`. The registry now adds
+   them at startup; set any such facility to `failed` before retrying. Then use **Retry provisioning**: it drops the
    retained failed database and rebuilds it.
 6. Deploy `db-exports/primelabmaster/seeds/primelabmaster_*.sql` for the nine
    allowlisted catalog tables alongside the server tree. These assets are required,

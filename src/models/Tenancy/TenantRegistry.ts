@@ -275,6 +275,14 @@ export class TenantRegistry {
                });
                logger.info('[TenantRegistry] Added prime_tenants.facility_code');
           }
+          // Older master bootstraps omitted the audit actor columns that provisioning writes.
+          for (const column of ['updated_by', 'deleted_by']) {
+               if (await this.connection.schema.hasColumn(TENANTS_TABLE, column)) continue;
+               await this.connection.schema.alterTable(TENANTS_TABLE, (table) => {
+                    table.integer(column).unsigned().nullable();
+               });
+               logger.info(`[TenantRegistry] Added prime_tenants.${column}`);
+          }
      }
 
      /** The database registration is authoritative, including after automatic tenant-ID migration. */
