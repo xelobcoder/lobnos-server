@@ -16,6 +16,7 @@ import DiscountLimitService from "./billing-services/discount-limit";
 import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { StaffFocService } from "../foc/services/StaffFocService";
+import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
 
 
@@ -621,10 +622,10 @@ export class SubmitCustomerBilling {
         try {
             const connection = trx || await KnexConnection(tenantId);
 
-            const services = await connection('dboservices')
-                .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id')
+            const services = await joinReferralClinicianOrganization(connection('dboservices')
+                .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id'))
                 .where({ billingid: billingId })
-                .select('dboservices.serviceid', 'paidamount', 'totalpayable', 'clinicianId', 'organizationId', 'commission_clinician.organization as clinicianOrganizationId', 'categoryTrackId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'serviceAddedOn');
+                .select('dboservices.serviceid', 'paidamount', 'totalpayable', 'clinicianId', 'organizationId', connection.raw(REFERRAL_CLINICIAN_ORGANIZATION_SQL), 'categoryTrackId', 'serviceCategory', 'isoutsourced', 'outsourceprice', 'serviceAddedOn');
             if (!services || services.length === 0) {
                 CommissionLogger.warn('No services found for commission calculation', { billingid: billingId });
                 return;

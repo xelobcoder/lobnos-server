@@ -21,6 +21,9 @@ export const LOCAL_MIGRATIONS = [
      '20261012_workspace_layout',
      '20261012_workspace_ribbon',
      '20261013_sms_provider_settings',
+     '20261018_registration_prompt_settings',
+     '20261018_optional_clinician_phone',
+     '20261018_clinician_organizations',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

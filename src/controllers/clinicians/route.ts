@@ -3,10 +3,15 @@ import * as clinicianHandlers from "./cliniciansHandlers";
 import { ClinicianPaymentHandler } from './ClinicianPaymentHandler';
 import { handleOverLoad } from "../../hooks/helper";
 import { checkTokenExists } from "../../middleware/validateTenancy";
+import { linkClinicianOrganizationHandler, listClinicianOrganizationsHandler, unlinkClinicianOrganizationHandler } from './clinicianOrganizationHandlers';
 const router = Router();
 
 router.get("/api/v1/clinicians", handleOverLoad(clinicianHandlers.getCliniciansHandler));
 router.get("/api/v1/clinicians/getclinician", handleOverLoad(clinicianHandlers.getSingleClinicianHandler));
+// A clinician may refer from several organizations; the main one stays on the clinician profile.
+router.get("/api/v1/clinicians/:clinicianId/organizations", handleOverLoad(listClinicianOrganizationsHandler));
+router.post("/api/v1/clinicians/:clinicianId/organizations", handleOverLoad(linkClinicianOrganizationHandler));
+router.delete("/api/v1/clinicians/:clinicianId/organizations/:organizationId", handleOverLoad(unlinkClinicianOrganizationHandler));
 router.put("/api/v1/clinicians", clinicianHandlers.putCliniciansHandler);
 router.delete("/api/v1/clinicians", clinicianHandlers.deleteCliniciansHandler);
 router.post("/api/v1/clinicians", handleOverLoad(clinicianHandlers.verifyClinicianPhoneNumberAndEmailMiddleware), clinicianHandlers.postCliniciansHandler);

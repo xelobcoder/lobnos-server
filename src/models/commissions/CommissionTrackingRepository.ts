@@ -4,6 +4,7 @@ import ApplicationSettings from "../application/appsettings/appset";
 import { CommissionBatchPaymentServicesRepo } from "./CommissionBatchPaymentServicesRepo";
 import { CommissionServiceFactory } from "./commission-configurations/services/CommissionServiceFactory";
 import { CommissionInput } from "./commission-configurations/interfaces";
+import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
 interface CommissionTracking {
      id?: number;
@@ -185,10 +186,10 @@ export class CommissionTrackingRepo {
                     clinicianOrganizationId: number | null;
                     serviceCategory?: string | null;
                     serviceAddedOn?: Date | string | null;
-               }> = await conn('dboservices')
-                    .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id')
+               }> = await joinReferralClinicianOrganization(conn('dboservices')
+                    .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id'))
                     .whereIn('serviceid', servicesArray)
-                    .select('dboservices.serviceid', 'totalpayable', 'clinicianId', 'organizationId', 'commission_clinician.organization as clinicianOrganizationId', 'serviceCategory', 'serviceAddedOn');
+                    .select('dboservices.serviceid', 'totalpayable', 'clinicianId', 'organizationId', conn.raw(REFERRAL_CLINICIAN_ORGANIZATION_SQL), 'serviceCategory', 'serviceAddedOn');
 
                if (services.length === 0) {
                     return 0;

@@ -22,6 +22,49 @@ Capability query failures are errors, not a simple-mode response.
 pnpm exec vitest run src\models\clincians\billingstrategy.test.ts src\models\billing\SuspendedBillingService.test.ts
 ```
 
+## Registration prompts, quick referral entry and clinician organizations
+
+**Registration prompt settings.** `applicationsettings` has two facility-level flags,
+`homeCollectionPromptEnabled` and `resultDeliveryPromptEnabled`. Both default to
+off (migration `20261018_registration_prompt_settings`, also applied at startup).
+When no result-delivery preference is sent with a sale, the server records
+`hard copy` for every billed test, so delivery data is never left empty.
+
+**Quick add from billing.** These endpoints need only a name; phone and email are
+optional (migration `20261018_optional_clinician_phone` makes the clinician phone
+nullable):
+
+- `POST /api/v1/organization/quick-add?tenantId=<id>` with `{ name, phone?, email? }`.
+  An existing organization with the same name (ignoring case) is returned instead
+  of creating a duplicate.
+- `POST /api/v1/clinicians/quick-add?tenantId=<id>` with
+  `{ name, phone?, email?, organizationId? }`. An existing clinician is matched by
+  phone when given, otherwise by name. When `organizationId` is sent, the clinician
+  is linked to that organization.
+
+**Clinicians referring from several organizations.** `clinician_organizations`
+(migration `20261018_clinician_organizations`) records every organization a
+clinician refers from. `clinicianbasicinfo.organization` is still the main
+organization and is always listed first.
+
+- `GET /api/v1/clinicians/:clinicianId/organizations?tenantId=<id>` returns
+  `{ id, name, primary }` rows.
+- `POST /api/v1/clinicians/:clinicianId/organizations?tenantId=<id>` with
+  `{ organizationId }` adds a link. Adding an existing link does nothing.
+- `DELETE /api/v1/clinicians/:clinicianId/organizations/:organizationId?tenantId=<id>`
+  removes a link. The main organization cannot be removed here; change it on the
+  clinician profile instead.
+
+Commission rule: when organization commissions are paid on a clinician's
+referrals, the recipient is the sale's referral organization if the clinician is
+linked to it. Otherwise it is the clinician's main organization, as before. A sale
+is never counted twice, because each clinician and organization pair can be
+linked only once.
+
+```powershell
+pnpm exec vitest run src\models\referral src\models\billing\resultDeliveryDefaults.test.ts
+```
+
 ## Offline installation-bound licensing
 
 Signed licensing is **opt-in** (`PLS_LICENSE_MODE=signed`); existing deployments default

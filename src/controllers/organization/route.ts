@@ -14,11 +14,15 @@ import {
 import { handleOverLoad } from '../../hooks/helper';
 import { checkTokenExists, isAuthorizedRoleAdmin } from '../../middleware/validateTenancy';
 import { ReferralCodeController } from './ReferralCodeController';
+import { quickAddClinicianHandler, quickAddOrganizationHandler } from './quickAddReferralHandlers';
 
 
 const router = express.Router();
 
 router.get('/api/v1/organization/referral-codes', checkTokenExists, ReferralCodeController.authorizeRead, handleOverLoad(ReferralCodeController.list));
+// Name-only quick add from the billing page; phone and email are optional.
+router.post('/api/v1/organization/quick-add', handleOverLoad(quickAddOrganizationHandler));
+router.post('/api/v1/clinicians/quick-add', handleOverLoad(quickAddClinicianHandler));
 
 router.get("/api/v1/organization", handleOverLoad(getOrganizations));
 router.get("/api/v1/organization/basic", handleOverLoad(getOrganizationsBasic));

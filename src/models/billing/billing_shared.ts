@@ -13,6 +13,7 @@ import { applyDboservicesAfterInsert, applyTestAscensionAfterInsertApprovalSetti
 import { OperationsFailures } from "../operations/types";
 import ResultDeliveryClass from "../../controllers/result/resultDelivery";
 import { FinancialFinalizationGuard } from "../../accountingModule/services/FinancialFinalizationGuard";
+import { resolveTestDeliveryPreference } from "./resultDeliveryDefaults";
 
 export class BillingSharedRepo {
      private static calculateTotalDiscount(data: any[]) {
@@ -767,19 +768,13 @@ export class BillingSharedRepo {
                               if (!ascensionid || typeof ascensionid !== "number") {
                                    throw new Error(billErrors.unableToLoadTestAscension);
                               }
-                              if (Array.isArray(result_delivery.preferences)) {
-                                   const findPrefernceforAscension = result_delivery.preferences.find((item: any) => item.testid == trackId);
-
-                                   if (findPrefernceforAscension)
-                                        await new ResultDeliveryClass(billingid, tenantId).setMultipleTestResultDeliveryPreferences(
-                                             {
-                                                  updated_by_employeeid: findPrefernceforAscension.employeeid,
-                                                  requested_mode: findPrefernceforAscension.requested_mode,
-                                                  requested_mode_detail: findPrefernceforAscension.requested_mode_detail,
-                                                  patientid: patientId, billingid,
-                                                  ascension: ascensionid
-                                             }, queryRunner);
-                              }
+                              const deliveryPreference = resolveTestDeliveryPreference(result_delivery, trackId, employeeid);
+                              await new ResultDeliveryClass(billingid, tenantId).setMultipleTestResultDeliveryPreferences(
+                                   {
+                                        ...deliveryPreference,
+                                        patientid: patientId, billingid,
+                                        ascension: ascensionid
+                                   }, queryRunner);
                               // we must insert into resultdeliverydialog too
                               await TestAscension.initialdbogeneraltestEdit(billingid, ascensionid, queryRunner);
                               await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassCollection', employeeid, queryRunner);

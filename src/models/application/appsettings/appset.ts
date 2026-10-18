@@ -191,7 +191,9 @@ export default class ApplicationSettings {
 			isCommissionEarnedOnPHISBilling,
 			makepdfprintingcompulsory,
 			allowCrmToPrintResult,
-			ageVariationLimits
+			ageVariationLimits,
+			homeCollectionPromptEnabled,
+			resultDeliveryPromptEnabled
 		} = data;
 
 		try {
@@ -267,6 +269,8 @@ export default class ApplicationSettings {
 					commissionRecipientPolicy: commissionRecipientPolicy ?? existing?.commissionRecipientPolicy ?? 'clinician',
 					ageVariationLimits: ageVariationLimits ? JSON.stringify(ageVariationLimits) : null,
 					makepdfprintingcompulsory: makepdfprintingcompulsory ?? 0,
+					homeCollectionPromptEnabled: Number(homeCollectionPromptEnabled ?? existing?.homeCollectionPromptEnabled ?? 0) === 1 ? 1 : 0,
+					resultDeliveryPromptEnabled: Number(resultDeliveryPromptEnabled ?? existing?.resultDeliveryPromptEnabled ?? 0) === 1 ? 1 : 0,
 				};
 				if (existing) {
 					await trx('applicationsettings').where({ keyid: 1 }).update(record);

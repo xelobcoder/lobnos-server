@@ -18,6 +18,7 @@ import { bootstrapTestReportSettingsTable } from '../models/application/appsetti
 import { bootstrapRefundTableSanitization } from '../models/billing/RefundBootstrapper';
 import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
 import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
+import { bootstrapQuickReferralEntities } from '../models/referral/QuickReferralEntityBootstrapper';
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
@@ -92,6 +93,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapTestReportSettingsTable(tenantId);
 	await bootstrapResultSettings(tenantId);
 	await bootstrapApplicationSettings(tenantId);
+	await bootstrapQuickReferralEntities(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapAppointmentTables(tenantId);
 	// Legacy seeds create checklist rows for demo order 1, not reference data.

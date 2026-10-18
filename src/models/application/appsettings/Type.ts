@@ -57,6 +57,8 @@ export type ApplicationSettingsData = {
      withnessRefund: number;
      smsActivated: number;
      allowScientistToRegisterClient: numberBoolean;
+     homeCollectionPromptEnabled?: numberBoolean;
+     resultDeliveryPromptEnabled?: numberBoolean;
      pinOnResultEntry: number;
      patientIdGenerationMethod: string | null;
      automakesupplierpaymentsexpense: numberBoolean;
