@@ -18,6 +18,7 @@ export default class BillingStrategy {
           const connection = await KnexConnection(tenantId);
           const mappedStrategy = await connection('billingstrategy_mapping as mapping')
                .join('billingstrategy as strategy', 'strategy.strategyid', 'mapping.strategyid')
+               .whereNot('mapping.entity_type', 'general')
                .whereRaw('COALESCE(strategy.is_expired, 0) = 0')
                .whereRaw('(strategy.valid_from IS NULL OR strategy.valid_from <= CURRENT_TIMESTAMP)')
                .whereRaw('(strategy.valid_until IS NULL OR strategy.valid_until >= CURRENT_TIMESTAMP)')

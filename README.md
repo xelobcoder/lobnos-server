@@ -2,6 +2,26 @@
 
 **High Performance Laboratory Information Management System**
 
+## Adaptive billing capability
+
+`GET /api/v1/billing/strategies/mode-capability?tenantId=<id>` returns the existing
+`{ status: "success", mode: "simple" | "advanced", hasActiveStrategies: boolean }`
+contract for the authenticated facility. A mapped non-General strategy or NHIS
+strategy must be unexpired and within its validity dates to select advanced mode.
+General-only mappings and unmapped non-NHIS templates do not introduce another
+billing source. An active mapping with incomplete test pricing remains advanced;
+it must not silently become General pricing.
+
+The frontend uses this capability only to simplify navigation and automatically
+call the existing `billing/multi/init` endpoint for General-only facilities.
+There is no new sale endpoint, source identifier or database migration. Existing
+session/debt checks, checkout repricing and transaction persistence still apply.
+Capability query failures are errors, not a simple-mode response.
+
+```powershell
+pnpm exec vitest run src\models\clincians\billingstrategy.test.ts src\models\billing\SuspendedBillingService.test.ts
+```
+
 ## Offline installation-bound licensing
 
 Signed licensing is **opt-in** (`PLS_LICENSE_MODE=signed`); existing deployments default
