@@ -14,6 +14,8 @@ import { PatientPortalResultService } from '../../models/patient-portal/PatientP
 import { PatientPortalRecordsService } from '../../models/patient-portal/PatientPortalRecordsService';
 import { recordPortalAudit } from '../../models/patient-portal/PatientPortalAudit';
 import { bootstrapPatientPortal } from '../../models/patient-portal/PatientPortalBootstrapper';
+import { BILLING_REQUEST_ROLES, createBillingRequestsRouter } from './billingRequests';
+import { patientPortalTrendsRouter } from './trends';
 
 const BASE = '/api/v1/patient-portal';
 const GENERIC_REGISTRATION = 'If your details match our records, a verification code has been sent to your registered email address.';
@@ -421,6 +423,8 @@ export const getAudit = async (req: Request, res: Response) => {
 };
 
 export const patientPortalRouter = Router();
+patientPortalRouter.use(BASE, createBillingRequestsRouter(requirePatientSession, requireStaff(BILLING_REQUEST_ROLES)));
+patientPortalRouter.use(patientPortalTrendsRouter);
 // Admin routes are registered first so "/admin/..." is never captured by a patient route.
 patientPortalRouter.get(`${BASE}/admin/settings`, requireStaff(), getSettings);
 patientPortalRouter.put(`${BASE}/admin/settings`, requireStaff(PORTAL_SETTINGS_ROLES), updateSettings);

@@ -149,8 +149,12 @@ export class AuthController {
 						company,
 						tenantId,
 					},
-					// Patients need no facility configuration; clinicians keep what the doctor portal reads.
-					settings: portalRole === 'patient' ? {} : settings
+					// Share appearance only, not the facility's operational configuration.
+					settings: portalRole === 'patient' ? {
+						fontFamily: settings?.fontFamily,
+						fontsize: settings?.fontsize,
+						workspaceLayout: settings?.workspaceLayout,
+					} : settings
 				});
 			}
 

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
   validate: vi.fn(),
   decode: vi.fn(),
   sessionValid: vi.fn(),
+  settings: vi.fn(),
 }));
 vi.mock('../../models/patient-portal/PatientPortalAccountService', () => ({
   PatientPortalAccountService: class { isSessionValid = mocks.sessionValid; },
@@ -22,7 +23,7 @@ vi.mock('../../models/settings/users/TokenValidator', () => ({
   default: class { validateAccessToken = mocks.validate; decodeAccessToken = mocks.decode; },
 }));
 vi.mock('../../models/application/appsettings/appset', () => ({
-  default: class { async getAllAppSettings() { return {}; } },
+  default: class { async getAllAppSettings() { return mocks.settings() || {}; } },
 }));
 vi.mock('../../models/application/appsettings/result-settings/resultSettings', () => ({ default: {} }));
 vi.mock('../../models/security/errors/SecurityErrors', () => ({ SessionCreationError: class extends Error {} }));
@@ -76,6 +77,21 @@ describe('token validation transport compatibility', () => {
     mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, tid: 3, sv: 1 });
     mocks.sessionValid.mockResolvedValue(false);
     expect((await validate({ 'pls-prime-tenant-session': 'header-token' })).status).toBe(401);
+  });
+  it('shares facility typography with patients without exposing operational settings', async () => {
+    mocks.validate.mockResolvedValue({ expired: false });
+    mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, tid: 3, sv: 1 });
+    mocks.sessionValid.mockResolvedValue(true);
+    mocks.settings.mockReturnValue({
+      fontFamily: 'var(--font-lato)', fontsize: '15px', workspaceLayout: 'slack',
+      emailPassword: 'private-provider-password', smsApiKey: 'private-provider-key', moduleConfiguration: { billing: true },
+    });
+    const response = await validate({ 'pls-prime-tenant-session': 'header-token' });
+    expect(response.status).toBe(200);
+    expect(response.body.settings).toEqual({
+      fontFamily: 'var(--font-lato)', fontsize: '15px', workspaceLayout: 'slack',
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(/private-provider|moduleConfiguration/);
   });
   it('uses the same header precedence as authentication middleware', async () => {
     mocks.validate.mockResolvedValue({ expired: false });

@@ -1,4 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
+import { Knex } from "knex";
 import { enqueueBillingReceivable } from "../../accountingModule/integrations/BillingAccounting";
 import { BillingSharedRepo } from "./billing_shared";
 import { BillErrors, MultiTBillingDataShared } from "./multi/billing_shared_types";
@@ -49,7 +50,10 @@ export class SubmitCustomerBilling {
     private payload: any;
     private tenantId: number;
     private connection: any;
-    constructor(payload: any, tenantId: number) {
+    constructor(payload: any, tenantId: number, private readonly writeHooks?: {
+        beforeWrite(trx: Knex.Transaction): Promise<number | null>;
+        afterWrite(trx: Knex.Transaction, billingid: number): Promise<void>;
+    }) {
         this.payload = payload;
         this.tenantId = tenantId;
         this.connection = KnexConnection(this.tenantId);
@@ -165,6 +169,15 @@ export class SubmitCustomerBilling {
                 }
             }
 
+            if (this.writeHooks) {
+                // Request conversion persists the same authoritative checkout rows as its header.
+                // Do not persist the browser's per-test costs, discounts, tax or payment allocations.
+                if (!Array.isArray(data.cart) || data.cart.length !== cart.length) {
+                    return { status: false, message: "A requested test is no longer available. Refresh the catalog." };
+                }
+                this.payload.cart = data.cart.map((item: any) => ({ ...item, paidamount: 0, paymentstatus: 'pending' }));
+            }
+
             let updatedBillingData: CustomerInitResponse = this.payload;
 
             if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
@@ -179,6 +192,11 @@ export class SubmitCustomerBilling {
             let shouldTriggerCommission = false;
 
             try {
+                const existingBillingId = await this.writeHooks?.beforeWrite(trx);
+                if (existingBillingId) {
+                    await trx.rollback();
+                    return { status: true, message: "Request already converted.", billingid: existingBillingId };
+                }
                 if (!hasRelatedBilling) {
                     billingID = await BillingSharedRepo.generateBillingID(
                         this.payload.patientid || this.payload.patientId,
@@ -583,6 +601,7 @@ export class SubmitCustomerBilling {
                 }
 
                 shouldTriggerCommission = [2, 4, 6].includes(billingSource);
+                await this.writeHooks?.afterWrite(trx, billingID);
                 await trx.commit();
             } catch (error: any) {
                 try {

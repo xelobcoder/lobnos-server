@@ -124,6 +124,20 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
   endpoints allow 10 requests per 15 minutes. Credential submission to the exact
   staff, patient and clinician login POST routes does not require a previous
   session; protected APIs still require one. Invalid or expired tokens return 401.
+- **Appearance:** patient session context exposes only `fontFamily`, `fontsize`
+  and `workspaceLayout` from facility settings so the portal can match the
+  software's typography. Provider credentials, module configuration and all
+  other operational settings remain excluded.
+- **Test trends:** `GET /api/v1/patient-portal/trends/tests` and
+  `GET /api/v1/patient-portal/trends/:testid?page=&count=` return only results the
+  portal release gate allows for the signed-in patient. Charts show the selected
+  page; reference ranges use the current laboratory configuration, as in staff trends.
+- **Test requests (self-billing):** patients submit test selections with
+  `POST /api/v1/patient-portal/billing-requests` (idempotent `submissionKey`); this
+  creates no bill or payment. Staff list, decline or convert requests under
+  `/api/v1/patient-portal/admin/billing-requests`. Conversion saves a tests-only
+  General bill at current server prices, without payment, in the same transaction
+  that marks the request converted, so a request can never produce two bills.
 - **Audit:** sign-ins, result and billing views, release decisions, invitations,
   appointment requests and settings changes are written to the portal audit log.
 - **Invitation links:** built from `PATIENT_PORTAL_URL`, falling back to `FRONTEND_URL`
