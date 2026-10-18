@@ -4,7 +4,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      connection: vi.fn(), settings: vi.fn(), tenant: vi.fn(), send: vi.fn(), provider: vi.fn(),
+     smsConfig: vi.fn(), smsSend: vi.fn(), audit: vi.fn(),
 }));
+vi.mock('../../hooks/configuration', () => ({ configuration: { isMultiTenant: false } }));
+vi.mock('./PatientPortalAudit', () => ({ recordPortalAudit: mocks.audit }));
+vi.mock('../application/sms/services/SmsProviderSettingsService', () => ({
+     SmsProviderSettingsService: class { getActiveConfiguration = mocks.smsConfig; },
+}));
+vi.mock('../application/integrations/Arkesel', () => ({ SmsService: class { sendSms = mocks.smsSend; } }));
 vi.mock('./PatientPortalBootstrapper', () => ({ bootstrapPatientPortal: mocks.connection }));
 vi.mock('./PatientPortalSettings', () => ({ PatientPortalSettingsService: class { get = mocks.settings; } }));
 vi.mock('../Tenancy/TenantRegistry', () => ({ TenantRegistry: class { getTenant = mocks.tenant; } }));
@@ -31,6 +38,7 @@ describe('patient portal accounts and invitation management', () => {
 
      beforeEach(() => {
           vi.clearAllMocks();
+          vi.stubEnv('PATIENT_PORTAL_URL', 'https://portal.example.test');
           db = knex({ client: 'mysql2' });
           queries = [];
           respond = () => [];
@@ -45,12 +53,16 @@ describe('patient portal accounts and invitation management', () => {
           mocks.settings.mockResolvedValue({ portal_enabled: true, staff_invitations_enabled: true, invitation_expiry_hours: 72 });
           mocks.tenant.mockResolvedValue({ platformId: 'PLS123' });
           mocks.send.mockResolvedValue({ success: true });
-          mocks.provider.mockResolvedValue({ id: 1 });
+          mocks.provider.mockResolvedValue({ id: 1, provider_type: 'smtp', host: 'smtp.example.test', port: 587,
+               username: 'lab@example.test', password: 'synthetic', from_email: 'lab@example.test' });
+          mocks.smsConfig.mockResolvedValue({ apiKey: 'synthetic', defaultSender: 'Lab', baseUrl: 'https://sms.example.test' });
+          mocks.smsSend.mockResolvedValue({ status: 'success' });
      });
 
      afterEach(async () => {
           await db.destroy();
           vi.restoreAllMocks();
+          vi.unstubAllEnvs();
      });
 
      it('classifies used, revoked and expired invitations independently of pending', () => {
@@ -89,8 +101,9 @@ describe('patient portal accounts and invitation management', () => {
      it.each(['accepted', 'revoked', 'expired', 'all'] as const)('filters %s at the database, including the count', async status => {
           respond = query => query.sql.includes('count(') ? [{ total: 0 }] : [];
           await new PatientPortalAccountService(4).listFacilityInvitations({ status, search: '', page: 1, pageSize: 20 });
-          expect(queries).toHaveLength(2);
-          for (const query of queries) {
+          const invitationQueries = queries.filter(query => query.sql.includes('`patient_portal_invitations`'));
+          expect(invitationQueries).toHaveLength(2);
+          for (const query of invitationQueries) {
                if (status === 'accepted') expect(query.sql).toContain('`invitation`.`used_at` is not null');
                if (status === 'revoked') {
                     expect(query.sql).toContain('`invitation`.`used_at` is null');
@@ -156,6 +169,84 @@ describe('patient portal accounts and invitation management', () => {
           const result = await new PatientPortalAccountService(4).createInvitation(21, 7, { sendEmail: true });
           expect(result.emailed).toBe(false);
           expect(result.deliveryError).toContain(failure === 'provider' ? 'not configured' : 'could not be sent');
+     });
+
+     it.each(['email', 'sms'] as const)('refuses an explicit %s send with missing contact before replacing a link', async channel => {
+          respond = query => query.sql.includes('from `new_patients`') ? [{ patientid: 21 }] : [];
+          await expect(new PatientPortalAccountService(4).createInvitation(21, 7, { channel }))
+               .rejects.toMatchObject({ code: 'CHANNEL_UNAVAILABLE' });
+          expect(queries.some(query => /^(insert|update)/.test(query.sql))).toBe(false);
+          expect(mocks.send).not.toHaveBeenCalled();
+          expect(mocks.smsSend).not.toHaveBeenCalled();
+     });
+
+     it('preserves legacy sendEmail=false link-only creation and audits no-message outcome', async () => {
+          respond = query => {
+               if (query.sql.includes('from `new_patients`')) return [{ patientid: 21 }];
+               if (query.sql.startsWith('insert')) return { insertId: 6 };
+               return [];
+          };
+          const result = await new PatientPortalAccountService(4).createInvitation(21, 7, { sendEmail: false });
+          expect(result).toMatchObject({ id: 6, emailed: false, delivery: { channel: 'link', status: 'not_requested' } });
+          expect(mocks.send).not.toHaveBeenCalled();
+          expect(mocks.smsSend).not.toHaveBeenCalled();
+          expect(mocks.audit).toHaveBeenCalledWith(4, expect.objectContaining({ action: 'invitation.link.not_requested', resourceId: 6 }));
+          expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain(result.token);
+     });
+
+     it.each(['success', 'error'])('commits SMS invitation before provider %s and returns a truthful channel outcome', async status => {
+          respond = query => {
+               if (query.sql.includes('from `applicationsettings`')) return [{ smsActivated: 1 }];
+               if (query.sql.includes('from `new_patients`')) return [{ patientid: 21, mobile_number: '0241234567' }];
+               if (query.sql.includes('from `patient_portal_invitations`')) return [{ id: 5, patientid: 21 }];
+               if (query.sql.startsWith('insert')) return { insertId: 6 };
+               if (query.sql.startsWith('update')) return { affectedRows: 1 };
+               return [];
+          };
+          mocks.smsSend.mockImplementation(async () => {
+               expect(queries.some(query => query.sql.toUpperCase().startsWith('COMMIT'))).toBe(true);
+               return { status };
+          });
+          const result = await new PatientPortalAccountService(4).resendInvitation(5, 7, 'sms');
+          expect(result).toMatchObject({ id: 6, emailed: false, delivery: { channel: 'sms', status: status === 'success' ? 'accepted' : 'failed' } });
+          expect(mocks.send).not.toHaveBeenCalled();
+          expect(mocks.smsSend).toHaveBeenCalledOnce();
+          expect(JSON.stringify(result)).not.toContain('0241234567');
+          expect(mocks.audit).toHaveBeenCalledWith(4, expect.objectContaining({ action: `invitation.sms.${result.delivery.status}` }));
+          expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain(result.token);
+     });
+
+     it('serializes repeated issuance on the patient lock and enforces a persisted cooldown across new requests', async () => {
+          let latest: any = null;
+          respond = query => {
+               if (query.sql.includes('from `new_patients`')) return [{ patientid: 21, email: 'ama@example.com' }];
+               if (query.sql.includes('from `patient_portal_invitations`')) return latest ? [latest] : [];
+               if (query.sql.startsWith('insert')) { latest = { id: 6, created_at: new Date() }; return { insertId: 6 }; }
+               return [];
+          };
+          await new PatientPortalAccountService(4).createInvitation(21, 7, { channel: 'email' });
+          await expect(new PatientPortalAccountService(4).createInvitation(21, 8, { channel: 'email' }))
+               .rejects.toMatchObject({ statusCode: 429, code: 'INVITATION_COOLDOWN' });
+          expect(queries.filter(query => query.sql.startsWith('insert'))).toHaveLength(1);
+          expect(mocks.send).toHaveBeenCalledOnce();
+          const locks = queries.filter(query => query.sql.includes('for update'));
+          expect(locks[0].sql).toContain('new_patients');
+          expect(locks[1].sql).toContain('patient_portal_invitations');
+     });
+
+     it('rejects active accounts and disabled invitation settings without sending', async () => {
+          respond = query => {
+               if (query.sql.includes('from `new_patients`')) return [{ patientid: 21 }];
+               if (query.sql.includes('from `patient_portal_accounts`')) return [{ status: 'active' }];
+               return [];
+          };
+          await expect(new PatientPortalAccountService(4).createInvitation(21, 7, { channel: 'link' }))
+               .rejects.toMatchObject({ code: 'ACCOUNT_ACTIVE' });
+          mocks.settings.mockResolvedValue({ portal_enabled: true, staff_invitations_enabled: false });
+          await expect(new PatientPortalAccountService(4).createInvitation(21, 7, { channel: 'sms' }))
+               .rejects.toMatchObject({ code: 'INVITATIONS_DISABLED' });
+          expect(mocks.send).not.toHaveBeenCalled();
+          expect(mocks.smsSend).not.toHaveBeenCalled();
      });
 
      it('redeems once, locks the current invitation after the patient, and rejects replay', async () => {

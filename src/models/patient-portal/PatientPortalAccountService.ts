@@ -8,6 +8,8 @@ import { formatTenantLoginUsername } from '../auth/TenantLoginUsername';
 import { TenantRegistry } from '../Tenancy/TenantRegistry';
 import { bootstrapPatientPortal } from './PatientPortalBootstrapper';
 import { PatientPortalSettingsService } from './PatientPortalSettings';
+import { InvitationChannel, InvitationDelivery, PortalInvitationDelivery, patientInvitationAvailability } from './PortalInvitationDelivery';
+import { recordPortalAudit } from './PatientPortalAudit';
 
 export const MAX_FAILED_LOGINS = 5;
 export const LOCKOUT_MINUTES = 15;
@@ -166,30 +168,44 @@ export class PatientPortalAccountService {
 
      // ---- Staff invitations -------------------------------------------------------------
 
-     async createInvitation(patientid: number, staffId: number, options: { sendEmail?: boolean; replacesId?: number } = {}) {
+     async createInvitation(patientid: number, staffId: number, options: { sendEmail?: boolean; channel?: InvitationChannel; replacesId?: number } = {}) {
           const settings = await this.settings();
           if (!settings.portal_enabled) throw new PatientPortalError('The patient portal is disabled for this facility', 403, 'PORTAL_DISABLED');
           if (!settings.staff_invitations_enabled) throw new PatientPortalError('Staff invitations are disabled for this facility', 403, 'INVITATIONS_DISABLED');
           const connection = await this.connection();
+          const channel = options.channel || (options.sendEmail ? 'email' : 'link');
+          if (!['email', 'sms', 'link'].includes(channel)) throw new PatientPortalError('Invalid invitation channel', 400, 'INVALID_CHANNEL');
+          const dispatcher = new PortalInvitationDelivery(this.tenantId);
+          const baseChannels = await dispatcher.availability(connection, null, this.portalBaseUrl());
           const tenant = await new TenantRegistry().getTenant(this.tenantId);
           const organization = String(tenant?.platformId || '').toUpperCase();
           if (!organization) throw new PatientPortalError('This facility has no public organization identifier', 500, 'TENANT_UNREGISTERED');
 
           const token = `${organization}.${randomBytes(32).toString('base64url')}`;
-          const now = new Date();
-          const expiresAt = new Date(now.getTime() + settings.invitation_expiry_hours * 3_600_000);
-          const { id, patient } = await connection.transaction(async (trx) => {
+          let expiresAt: Date;
+          const { id, patient, channels } = await connection.transaction(async (trx) => {
                // Serialize issuance and redemption for this patient, including their first invitation.
                const patient = await trx('new_patients')
-                    .select('patientid', 'firstname', 'email').where({ patientid }).forUpdate().first();
+                    .select('patientid', 'firstname', 'email', 'mobile_number').where({ patientid }).forUpdate().first();
                if (!patient) throw new PatientPortalError('Patient not found', 404, 'NOT_FOUND');
+               const account = await trx('patient_portal_accounts').where({ patientid }).first();
+               if (account?.status === 'active') throw new PatientPortalError('This patient already has an active portal account', 409, 'ACCOUNT_ACTIVE');
+               const now = new Date();
+               expiresAt = new Date(now.getTime() + settings.invitation_expiry_hours * 3_600_000);
+               const latest = await trx('patient_portal_invitations').where({ patientid }).orderBy('id', 'desc').forUpdate().first();
+               if (latest?.created_at && now.getTime() - new Date(latest.created_at).getTime() < 60_000) {
+                    throw new PatientPortalError('Please wait at least 60 seconds before creating or resending another invitation', 429, 'INVITATION_COOLDOWN');
+               }
+               const channels = patientInvitationAvailability(baseChannels, patient);
+               if (options.channel && channel !== 'link' && !channels[channel].available) {
+                    throw new PatientPortalError(channels[channel].reason!, 400, 'CHANNEL_UNAVAILABLE');
+               }
                if (options.replacesId) {
                     const previous = await trx('patient_portal_invitations')
                          .where({ id: options.replacesId, patientid }).forUpdate().first();
                     if (!previous || previous.used_at || previous.revoked_at) {
                          throw new PatientPortalError('Only pending or expired invitations can be replaced', 409, 'INVITATION_NOT_REPLACEABLE');
                     }
-                    if (!patient.email) throw new PatientPortalError('This patient has no email address. Update their contact details before resending.', 400, 'EMAIL_REQUIRED');
                }
                // A new invitation supersedes any still-open one, so only the latest link works.
                await trx('patient_portal_invitations')
@@ -198,25 +214,24 @@ export class PatientPortalAccountService {
                const [inserted] = await trx('patient_portal_invitations').insert({
                     patientid, token_hash: hashInvitationToken(token), created_by: staffId, expires_at: expiresAt, created_at: now,
                });
-               return { id: Number(inserted), patient };
+               return { id: Number(inserted), patient, channels };
+          }).catch(async error => {
+               await recordPortalAudit(this.tenantId, { patientid, actorType: 'staff', actorId: staffId,
+                    action: `invitation.${channel}.rejected`, resource: 'patient', resourceId: patientid });
+               throw error;
           });
 
-          let emailed = false;
-          let deliveryError: string | null = null;
-          if (options.sendEmail && !patient.email) deliveryError = 'The patient has no email address. Share the activation link securely or update their contact details.';
-          if (options.sendEmail && patient.email) {
+          let delivery: InvitationDelivery = { channel, status: 'not_requested', reason: null };
+          if (channel !== 'link') {
                const link = `${this.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(token)}`;
-               try {
-                    await sendPortalEmail(this.tenantId, patient.email, 'Your patient portal invitation',
-                         `<p>Dear ${escapeHtml(patient.firstname || 'patient')},</p><p>You have been invited to access your laboratory records online.</p><p><a href="${link}">Activate your patient portal account</a></p><p>This link expires on ${expiresAt.toUTCString()} and can only be used once.</p>`,
-                         `You have been invited to the patient portal. Activate your account: ${link} (expires ${expiresAt.toUTCString()}, single use).`);
-                    emailed = true;
-               } catch (error) {
-                    logger.warn('[PatientPortal] Invitation email not sent:', (error as Error)?.message);
-                    deliveryError = error instanceof PatientPortalError ? error.message : 'Email delivery failed. Share the activation link securely or try again later.';
-               }
+               delivery = channels[channel].available
+                    ? await dispatcher.send(channel, patient, link, expiresAt!)
+                    : { channel, status: 'failed', reason: channels[channel].reason };
           }
-          return { id, patientid, token, expiresAt, emailed, email: maskEmail(patient.email), deliveryError };
+          await recordPortalAudit(this.tenantId, { patientid, actorType: 'staff', actorId: staffId,
+               action: `invitation.${channel}.${delivery.status}`, resource: 'invitation', resourceId: id });
+          return { id, patientid, token, expiresAt: expiresAt!, emailed: channel === 'email' && delivery.status === 'accepted',
+               email: maskEmail(patient.email), deliveryError: delivery.reason, delivery, channels };
      }
 
      portalBaseUrl(): string {
@@ -257,10 +272,15 @@ export class PatientPortalAccountService {
           const count = await query.clone().count({ total: 'invitation.id' }).first();
           const rows = await query.clone()
                .leftJoin('roles as inviter', 'inviter.employeeid', 'invitation.created_by')
+               .leftJoin('patient_portal_accounts as account', 'account.patientid', 'invitation.patientid')
                .select('invitation.id', 'invitation.patientid', 'invitation.created_by', 'invitation.created_at',
                     'invitation.expires_at', 'invitation.used_at as accepted_at', 'invitation.revoked_at',
-                    'patient.firstname', 'patient.lastname', 'patient.fullpatientid', 'patient.email', 'inviter.username as invitedBy')
+                    'patient.firstname', 'patient.lastname', 'patient.fullpatientid', 'patient.email', 'patient.mobile_number',
+                    'account.status as accountStatus', 'inviter.username as invitedBy')
                .orderBy('invitation.id', 'desc').limit(options.pageSize).offset((options.page - 1) * options.pageSize);
+          const [settings, channels] = await Promise.all([this.settings(),
+               new PortalInvitationDelivery(this.tenantId).availability(connection, null, this.portalBaseUrl())]);
+          const blocked = !settings.portal_enabled ? 'The patient portal is disabled' : !settings.staff_invitations_enabled ? 'Staff invitations are disabled' : null;
           return {
                invitations: rows.map(row => ({
                     id: row.id, patientid: row.patientid, created_by: row.created_by, invitedBy: row.invitedBy,
@@ -269,16 +289,17 @@ export class PatientPortalAccountService {
                     created_at: row.created_at, expires_at: row.expires_at,
                     accepted_at: row.accepted_at, revoked_at: row.revoked_at,
                     status: invitationStatus({ ...row, used_at: row.accepted_at }, now),
+                    channels: patientInvitationAvailability(channels, row, blocked || (row.accountStatus === 'active' ? 'The portal account is already active' : null)),
                })),
                total: Number(count?.total || 0), page: options.page, pageSize: options.pageSize,
           };
      }
 
-     async resendInvitation(invitationId: number, staffId: number) {
+     async resendInvitation(invitationId: number, staffId: number, channel?: InvitationChannel) {
           const connection = await this.connection();
           const invitation = await connection('patient_portal_invitations').select('patientid').where({ id: invitationId }).first();
           if (!invitation) throw new PatientPortalError('Invitation not found', 404, 'NOT_FOUND');
-          return this.createInvitation(Number(invitation.patientid), staffId, { sendEmail: true, replacesId: invitationId });
+          return this.createInvitation(Number(invitation.patientid), staffId, { sendEmail: true, channel, replacesId: invitationId });
      }
 
      async revokeInvitation(invitationId: number, staffId: number, patientid?: number): Promise<boolean> {
@@ -501,6 +522,10 @@ export class PatientPortalAccountService {
           const account = await connection('patient_portal_accounts')
                .select('status', 'activation_method', 'activated_at', 'last_login_at', 'locked_until', 'disabled_at')
                .where({ patientid }).first();
+          const settings = await this.settings();
+          const blocked = !settings.portal_enabled ? 'The patient portal is disabled' :
+               !settings.staff_invitations_enabled ? 'Staff invitations are disabled' :
+                    account?.status === 'active' ? 'The portal account is already active' : null;
           return {
                patientid,
                loginUsername: await formatTenantLoginUsername(this.tenantId, 'patient', patientid),
@@ -508,6 +533,9 @@ export class PatientPortalAccountService {
                email: maskEmail(patient.email),
                account: account || null,
                invitations: await this.listInvitations(patientid),
+               channels: patientInvitationAvailability(
+                    await new PortalInvitationDelivery(this.tenantId).availability(connection, null, this.portalBaseUrl()), patient,
+                    blocked),
           };
      }
 

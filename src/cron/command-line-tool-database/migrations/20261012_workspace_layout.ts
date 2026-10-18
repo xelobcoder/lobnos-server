@@ -1,5 +1,6 @@
 import { Knex } from 'knex';
-import { WORKSPACE_LAYOUTS } from '../../../models/application/appsettings/workspaceLayout';
+
+const WORKSPACE_LAYOUTS = ['classic', 'zoho', 'claude', 'ribbon', 'slack'] as const;
 
 export async function up(knex: Knex): Promise<void> {
      if (await knex.schema.hasTable('applicationsettings') && !(await knex.schema.hasColumn('applicationsettings', 'workspaceLayout'))) {

@@ -11,14 +11,14 @@ import { isWorkspaceLayout } from './workspaceLayout';
 describe('workspace layout settings', () => {
      beforeEach(() => vi.clearAllMocks());
 
-     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack'])('accepts %s', value => {
+     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal'])('accepts %s', value => {
           expect(isWorkspaceLayout(value)).toBe(true);
      });
      it.each([undefined, null, '', 'Classic', ' classic', 'zoho ', 'modern', 1, {}, ['claude']])('rejects %j', value => {
           expect(isWorkspaceLayout(value)).toBe(false);
      });
 
-     it.each(['classic', 'zoho', 'claude', 'ribbon', undefined, null, 'invalid'])('exposes %j as normal application settings', async value => {
+     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal', undefined, null, 'invalid'])('exposes %j as normal application settings', async value => {
           mocks.query.mockResolvedValue([{ keyid: 1, workspaceLayout: value, services: '{"enabled":true}' }]);
           const result = await new ApplicationSettings().getAllAppSettings(42);
           expect(mocks.query).toHaveBeenCalledWith(42, 'SELECT * FROM applicationsettings');
@@ -38,17 +38,17 @@ describe('workspace layout settings', () => {
           const transaction = vi.fn(async action => action(trx));
           return { builder, trx, transaction, db: { transaction } };
      }
-     it('awaits the tenant connection and only updates the singleton column in a transaction', async () => {
+     it.each(['zoho', 'portal'] as const)('awaits the tenant connection and only updates the singleton column for %s in a transaction', async layout => {
           const a = tenant();
           const b = tenant();
           mocks.connection.mockImplementation(async id => id === 42 ? a.db : b.db);
-          await expect(new ApplicationSettings().updateWorkspaceLayout(42, 'zoho')).resolves.toBe(true);
+          await expect(new ApplicationSettings().updateWorkspaceLayout(42, layout)).resolves.toBe(true);
           expect(mocks.connection).toHaveBeenCalledWith(42);
           expect(a.transaction).toHaveBeenCalledOnce();
           expect(a.trx).toHaveBeenCalledWith('applicationsettings');
           expect(a.builder.where).toHaveBeenCalledWith({ keyid: 1 });
           expect(a.builder.forUpdate).toHaveBeenCalledOnce();
-          expect(a.builder.update).toHaveBeenCalledWith({ workspaceLayout: 'zoho' });
+          expect(a.builder.update).toHaveBeenCalledWith({ workspaceLayout: layout });
           expect(b.transaction).not.toHaveBeenCalled();
      });
      it('allows an idempotent PATCH without treating zero changed rows as failure', async () => {

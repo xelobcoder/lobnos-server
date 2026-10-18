@@ -102,10 +102,23 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
   invitations cannot be resent. If email fails, the response explicitly reports
   `emailed: false` and `deliveryError`; the new activation link can be shared
   securely. Creation, replacement and redemption serialize on the patient row
-  and redemption rechecks the invitation under a transaction lock.
+  and redemption rechecks the invitation under a transaction lock. Email and SMS
+  actions report channel availability and configuration/entitlement reasons.
+  A persisted 60-second per-patient cooldown prevents rapid duplicate issuance.
+  Sending succeeds only when the configured provider accepts the request; this
+  is not proof of delivery to the recipient. Failed sends retain the replacement
+  link and record a sanitized channel/outcome audit without tokens or credentials.
 - **Release gate:** a result is shown only when result entry is complete, minimum
   verification is met, payment rules pass and, under the `manual` policy, staff have
   released it. A withdrawal always hides it.
+- **Report parity:** staff and patient report data use `loadLaboratoryReportData`.
+  The patient report API authorizes the bill through the authenticated patient's
+  owned ascensions before calling this loader, and returns a `reports` array for
+  the shared frontend renderer. Per-test report settings, result category/order,
+  references, methods, comments and real verification metadata are preserved.
+  Internal result rows and staff contact data are excluded. The original `tests`
+  summary remains available for compatibility. Patient tokens never gain access
+  to the staff print API.
 - **Sessions:** five failed sign-ins lock the account for 15 minutes. Disabling access,
   logging out or changing the password ends every session for that patient. Public
   endpoints allow 10 requests per 15 minutes. Credential submission to the exact
@@ -120,7 +133,14 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
 
 ```powershell
 pnpm exec vitest run src\controllers\patient-portal\route.test.ts src\models\patient-portal\PatientPortalAccountService.test.ts src\models\patient-portal\patientPortalPolicy.test.ts src\middleware\resolveLoginTenant.test.ts src\controllers\security\authController.token.test.ts
+pnpm exec vitest run src\models\patient-portal\PatientPortalResultService.test.ts src\models\result\LaboratoryReportData.test.ts src\models\patient-portal\PortalInvitationDelivery.test.ts
 ```
+
+The optional **Portal** staff workspace layout is persisted through the existing
+facility layout settings API. Its idempotent `20261018_workspace_portal`
+migration is discovered by the migration runner and application-settings startup
+bootstrap. Deploy the compiled migration with the rebuilt backend and restart;
+no manual SQL edits are required.
 
 ## Offline installation-bound licensing
 

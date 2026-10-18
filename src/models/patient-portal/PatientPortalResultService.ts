@@ -1,11 +1,9 @@
 import { Knex } from 'knex';
-import Creator from '../creator/creator';
-import ResultPrint from '../result/resultPrint';
-import { TestAscension } from '../operations/ascension';
 import { getAllCompanyProfiles } from '../settings/companyProfile';
 import { bootstrapPatientPortal } from './PatientPortalBootstrapper';
 import { PatientPortalSettings, PatientPortalSettingsService } from './PatientPortalSettings';
 import { PatientPortalError } from './PatientPortalAccountService';
+import { loadLaboratoryReportData } from '../result/LaboratoryReportData';
 
 export type PatientResultStage = 'registered' | 'collected' | 'processing' | 'completed' | 'verified';
 
@@ -119,35 +117,64 @@ export class PatientPortalResultService {
           const tests = (await this.listTests(patientid, { billingid })).filter(test => test.released);
           if (!tests.length) throw new PatientPortalError('No released results are available for this request', 404, 'NOT_FOUND');
 
-          const creator = new Creator(0);
           const seen = new Set<number>();
           const reportTests = [];
+          const reports = [];
           for (const test of tests) {
                if (seen.has(test.testid)) continue;
                seen.add(test.testid);
-               const view: any = await new Creator(test.testid).resultPresentationView(this.tenantId, test.testid, billingid, patientid);
-               if (!view || typeof view === 'string') continue;
-               const records = Array.isArray(view.result) ? await ResultPrint.decryptResultArray(view.result) : [];
-               let drugs: any[] = [];
-               if (view.hasDrugs) {
-                    const saved = await TestAscension.getAscensionSavedDrugs(this.tenantId, test.ascensionid, test.testid);
-                    drugs = Array.isArray(saved) ? saved.filter((drug: any) => ['Resistant', 'Sensitive'].includes(drug.sensitivity)) : [];
-               }
-               const comments = await creator.getCustomCommentsRecords(this.tenantId, billingid, test.testid);
+               const report = await loadLaboratoryReportData(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true);
+               const records = (report.records || []).map(record => ({
+                    name: record.name ?? record.field ?? record.parameter ?? '',
+                    value: record.value ?? '',
+                    units: record.units ?? record.unit ?? '',
+                    lowerlimit: record.lowerlimit ?? null, upperlimit: record.upperlimit ?? null,
+                    flag: record.flag ?? record.indicator ?? null,
+                    plan: record.plan, plain: record.plain, textReference: record.textReference,
+                    ordering: record.ordering, categoryid: record.categoryid,
+               }));
+               // Share the staff renderer's data contract, but never send internal rows or staff contacts.
+               reports.push({
+                    ascensionid: test.ascensionid, billingid, patientid,
+                    resultsettings: report.resultsettings,
+                    companyInfo: report.companyInfo,
+                    patientInformation: report.patientInformation ? {
+                         firstname: report.patientInformation.firstname, middlename: report.patientInformation.middlename || '',
+                         lastname: report.patientInformation.lastname, fullpatientid: report.patientInformation.fullpatientid,
+                         age: report.patientInformation.age,
+                         agetype: 'agetype' in report.patientInformation ? report.patientInformation.agetype : report.patientInformation.ageType,
+                         gender: report.patientInformation.gender || '', organization: '',
+                    } : null,
+                    records, testname: report.testname, comments: report.comments,
+                    literatureReview: report.literatureReview, hasDrugs: report.hasDrugs,
+                    drugList: (report.drugList || []).map(drug => ({
+                         id: drug.id, ascensionid: test.ascensionid, drug: drug.drug, sensitivity: drug.sensitivity,
+                    })),
+                    testInfo: report.testInfo ? {
+                         reportitle: 'reportitle' in report.testInfo ? report.testInfo.reportitle : undefined,
+                         method: 'method' in report.testInfo ? report.testInfo.method : undefined,
+                         instrumentation: 'instrumentation' in report.testInfo ? report.testInfo.instrumentation : undefined,
+                    } : null,
+                    testdetailcategory: (report.testdetailcategory || []).map(category => ({
+                         categoryid: category.categoryid, categoryname: category.categoryname,
+                    })),
+                    samplingInformation: report.samplingInformation ? {
+                         id: test.ascensionid, billingid,
+                         collectionEndDate: report.samplingInformation.collectionEndDate,
+                         resultEntryEnd: report.samplingInformation.resultEntryEnd,
+                    } : null,
+                    referrerFacility: report.referrerFacility ? { facility_name: report.referrerFacility.facility_name } : null,
+                    validators: report.validators.map(validator => ({ username: validator.username, employeeid: validator.employeeid })),
+                    resultentry: report.resultentry, enteredOn: report.enteredOn, lastupdatedon: report.lastupdatedon,
+                    logourl: report.logourl,
+               });
                reportTests.push({
                     ascensionid: test.ascensionid,
-                    testname: view.testname || test.testname,
+                    testname: report.testname || test.testname,
                     completedOn: test.completedOn,
-                    records: (records || []).map((record: any) => ({
-                         name: record.name ?? record.field ?? record.parameter ?? '',
-                         value: record.value ?? '',
-                         unit: record.unit ?? record.units ?? '',
-                         lowerlimit: record.lowerlimit ?? null,
-                         upperlimit: record.upperlimit ?? null,
-                         flag: record.flag ?? record.indicator ?? null,
-                    })),
-                    drugs: drugs.map((drug: any) => ({ name: drug.name ?? drug.drugname ?? drug.drug ?? '', sensitivity: drug.sensitivity })),
-                    comments: typeof comments === 'string' ? comments : '',
+                    records: records.map(record => ({ ...record, unit: record.units })),
+                    drugs: (report.drugList || []).map(drug => ({ name: drug.drug, sensitivity: drug.sensitivity })),
+                    comments: typeof report.comments === 'string' ? report.comments : '',
                });
           }
           if (!reportTests.length) throw new PatientPortalError('No released results are available for this request', 404, 'NOT_FOUND');
@@ -165,6 +192,7 @@ export class PatientPortalResultService {
                     email: company.email, website: (company as any).website, motto: company.motto,
                } : null,
                tests: reportTests,
+               reports,
                generatedAt: new Date(),
           };
      }

@@ -27,6 +27,7 @@ import ResultDeliveryClass from "./resultDelivery";
 import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 import { roleAllowed } from "../../middleware/roles";
+import { loadLaboratoryReportData } from "../../models/result/LaboratoryReportData";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -274,106 +275,9 @@ export const getResultPrintoutHandler = async (request: Request<
 		let creator = new Creator(parsedTestId);
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 
-		const dataset: resultPrintOutDataset = {
-			resultsettings: null,
-			records: [],
-			companyInfo: null,
-			patientInformation: null,
-			comments: null,
-			testname: '',
-			validators: [],
-			hasDrugs: false,
-			patientid,
-			billingid,
-			lastupdatedon: null,
-			logourl: '',
-			enteredOn: null,
-			samplingInformation: null,
-			resultentry: null,
-			literatureReview: null,
-			testInfo: null,
-			testdetailcategory: null,
-		};
-
-		const resultsettings = await TestReportSettings.resolve(tenantIdP, parsedTestId);
-
-		if (typeof resultsettings != "boolean") dataset.resultsettings = resultsettings;
-		const companyInfo = await getAllCompanyProfiles(tenantIdP);
-		if (companyInfo != null) dataset.companyInfo = companyInfo;
-		const intPatientid = parseInt(patientid.toString());
-		const patientInformation = await new Registration().getPatientBasicData(tenantIdP, intPatientid);
-
-		if (patientInformation != null) {
-			dataset.patientInformation = patientInformation
-		}
-
-		const comments = await creator.getCustomCommentsRecords(
-			tenantIdP,
-			billingid, parsedTestId);
-		dataset.comments = comments
-
-		const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup("").getResultLiterature(tenantIdP, testid)
-
-		if (literatureReview.can != false) {
-			dataset.literatureReview = literatureReview.literature
-		}
-
-		let records = await new Creator(testid).resultPresentationView(tenantIdP, parsedTestId, billingid, patientid) as previewReportView;
-
-		if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
-			records.result = await ResultPrint.decryptResultArray(records.result);
-		}
-
-		if (records != null && typeof records != "string" && !Array.isArray(records)) {
-			const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-			// Sort result in ascending order by 'ordering' property if present
-			if (Array.isArray(result) && result.length > 0 && result[0].hasOwnProperty('ordering')) {
-				dataset.records = [...result].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0));
-			} else {
-				dataset.records = result;
-			}
-			dataset.testname = testname
-			dataset.hasDrugs = hasDrugs
-			dataset.testInfo = testInfo || null
-			dataset.testdetailcategory = testdetailcategory || null
-		}
-
-		if (dataset.hasDrugs == true) {
-			const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, numAscensionId, parsedTestId);
-			if (Array.isArray(drugList) && drugList.length > 0) {
-				dataset.drugList = drugList.filter((drug) => {
-					return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
-				}) as [];
-			} else {
-				dataset.drugList = drugList as [];
-			}
-		}
-
-		let samplingInformation = await TestAscension.findAscension(tenantIdP, numAscensionId);
-		if (samplingInformation != null) {
-			dataset.samplingInformation = samplingInformation;
-		}
-
-		const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
-		if (referrerFacility) {
-			dataset.referrerFacility = referrerFacility;
-		}
-
-		let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, parsedTestId, numAscensionId);
-
-		const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-
-		dataset.validators = validators;
-		dataset.lastupdatedon = lastupdatedon as Date || null;
-		dataset.resultentry = resultentry
-		const hostname = process.env.NODE_ENV === 'development'
-			? process.env.APPHOST_DEVELOPMENT + ':' + process.env.DEVELOPMENT_PORT
-			: process.env.APPHOST_PRODUCTION;
-
-		const httpProtocol = process.env.NODE_ENV === 'development' ? "http" : "https";
-
-		dataset.logourl = `${httpProtocol}://${hostname}/api/v1/settings/companyprofile/images?tenantId=${tenantIdP}`
-		dataset.enteredOn = enteredOn as Date || null;
+		const dataset = await loadLaboratoryReportData(
+			tenantIdP, Number(patientid), Number(billingid), parsedTestId, numAscensionId, browserMode,
+		);
 
 		if (employeeid) {
 			const pEmployeeId = parseInt(employeeid.toString());
@@ -603,7 +507,7 @@ export type resultPrintOutDataset = {
 	logourl: string,
 	testname: string | null,
 	validators: validatorsFinalFormatType[] | [],
-	drugList?: [],
+	drugList?: { drug: string; sensitivity: string; id?: number; ascensionid?: number }[],
 	lastupdatedon: Date | null,
 	resultentry: any,
 	testdetailcategory: null | TestDetailCategoryType[],

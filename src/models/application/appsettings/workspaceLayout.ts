@@ -1,4 +1,4 @@
-export const WORKSPACE_LAYOUTS = ['classic', 'zoho', 'claude', 'ribbon', 'slack'] as const;
+export const WORKSPACE_LAYOUTS = ['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal'] as const;
 export type WorkspaceLayout = typeof WORKSPACE_LAYOUTS[number];
 
 export function isWorkspaceLayout(value: unknown): value is WorkspaceLayout {

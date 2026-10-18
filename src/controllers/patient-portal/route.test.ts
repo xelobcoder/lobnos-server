@@ -6,7 +6,7 @@ import { handleOverLoad } from '../../hooks/helper';
 
 const mocks = vi.hoisted(() => ({
      standing: vi.fn(), role: vi.fn(), session: vi.fn(), sessionValid: vi.fn(),
-     list: vi.fn(), resend: vi.fn(), authenticate: vi.fn(), endSessions: vi.fn(), audit: vi.fn(),
+     list: vi.fn(), resend: vi.fn(), create: vi.fn(), authenticate: vi.fn(), endSessions: vi.fn(), audit: vi.fn(),
 }));
 vi.mock('../../hooks/helper', () => ({
      customError: (message: string, status: number, res: any) => res.status(status).send({ status: 'error', statusCode: status, message }),
@@ -26,6 +26,7 @@ vi.mock('../../models/patient-portal/PatientPortalAccountService', async (import
           isSessionValid = mocks.sessionValid;
           listFacilityInvitations = mocks.list;
           resendInvitation = mocks.resend;
+          createInvitation = mocks.create;
           authenticate = mocks.authenticate;
           endSessions = mocks.endSessions;
           portalBaseUrl = () => 'https://portal.example.test';
@@ -36,7 +37,7 @@ vi.mock('../../models/patient-portal/PatientPortalAudit', () => ({ recordPortalA
 
 import { checkTokenExists, patientRouteAllowed } from '../../middleware/validateTenancy';
 import { configuration } from '../../hooks/configuration';
-import { getInvitations, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
+import { createInvitation, getInvitations, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
 import { authenticatePatientPortal, logoutUser } from '../logins/authHandlers';
 
 const SECRET = 'portal-test-signing-key';
@@ -172,7 +173,8 @@ describe('patient portal authentication boundaries', () => {
 
      it('protects facility invitation lists and resends with administrator authorization', () => {
           const routes = (patientPortalRouter as any).stack.filter((layer: any) => layer.route).map((layer: any) => layer.route);
-          for (const path of ['/api/v1/patient-portal/admin/invitations', '/api/v1/patient-portal/admin/invitations/:id/resend']) {
+          for (const path of ['/api/v1/patient-portal/admin/invitations', '/api/v1/patient-portal/admin/invitations/:id/resend',
+               '/api/v1/patient-portal/admin/patients/:patientid/invitations']) {
                const guard = routes.find((route: any) => route.path === path).stack[0].handle;
                for (const role of ['patient', 'clinician', 'receptionist']) {
                     const res = response();
@@ -227,11 +229,39 @@ describe('patient portal authentication boundaries', () => {
           await resendInvitation({
                params: { id: '5' }, query: { tenantId: '4' }, authUser: { role: 'admin', employeeid: 7 },
           } as any, res as any);
-          expect(mocks.resend).toHaveBeenCalledWith(5, 7);
-          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('not emailed') }));
+          expect(mocks.resend).toHaveBeenCalledWith(5, 7, undefined);
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringContaining('Email delivery failed') }));
           expect(mocks.audit).toHaveBeenCalledWith(4, expect.objectContaining({ action: 'invitation.replaced', resourceId: 5 }));
           expect(mocks.audit).toHaveBeenCalledWith(4, expect.objectContaining({ action: 'invitation.resend_failed', resourceId: 6 }));
           expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain('secret-token');
+     });
+
+     it.each(['email', 'sms', 'link'])('passes explicit %s actions to the tenant invitation service and reports acceptance truthfully', async channel => {
+          const invitation = { id: 6, patientid: 21, token: 'synthetic', emailed: channel === 'email',
+               delivery: { channel, status: channel === 'link' ? 'not_requested' : 'accepted' } };
+          mocks.resend.mockResolvedValue(invitation);
+          mocks.create.mockResolvedValue(invitation);
+          const req = { params: { id: '5', patientid: '21' }, query: { tenantId: '4' },
+               authUser: { role: 'admin', employeeid: 7 }, body: { channel } };
+          const res = response();
+          await resendInvitation(req as any, res as any);
+          expect(mocks.resend).toHaveBeenCalledWith(5, 7, channel);
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
+               message: expect.stringContaining(channel === 'link' ? 'share the link securely' : `${channel.toUpperCase()} accepted by the provider; delivery is not confirmed`),
+          }));
+          await createInvitation(req as any, response() as any);
+          expect(mocks.create).toHaveBeenCalledWith(21, 7, { channel, sendEmail: true });
+          expect(JSON.stringify(mocks.audit.mock.calls)).not.toContain('synthetic');
+     });
+
+     it.each([{ channel: 'fax' }, { channel: null }, { channel: ['sms'] }, { sendEmail: 'false' }])('rejects malformed invitation action %j before dispatch', async body => {
+          const req = { params: { id: '5', patientid: '21' }, query: { tenantId: '4' }, body };
+          const res = response();
+          await resendInvitation(req as any, res as any);
+          expect(res.status).toHaveBeenCalledWith(400);
+          await createInvitation(req as any, response() as any);
+          expect(mocks.resend).not.toHaveBeenCalled();
+          expect(mocks.create).not.toHaveBeenCalled();
      });
 
      it('issues a patient-scoped token after valid credentials and ends that session on logout', async () => {

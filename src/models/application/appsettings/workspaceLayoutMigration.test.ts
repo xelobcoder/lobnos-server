@@ -17,7 +17,7 @@ describe('tenant workspace layout migration', () => {
                alterTable: vi.fn(async (_name, action) => action(table)),
           };
           const raw = vi.fn().mockResolvedValue([[{ Type: "enum('classic','zoho','claude','ribbon','slack')" }]]);
-          return { db: { schema, raw } as any, table, column, schema };
+          return { db: { schema, raw } as any, table, column, schema, raw };
      }
      it('adds the exact non-null enum and defaults existing/new rows to classic', async () => {
           const t = database();
@@ -72,5 +72,14 @@ describe('tenant workspace layout migration', () => {
           t.schema.alterTable.mockRejectedValue(new Error('DDL failed'));
           mocks.connection.mockResolvedValue(t.db);
           await expect(bootstrapApplicationSettings(42)).rejects.toThrow('DDL failed');
+     });
+     it('upgrades an existing tenant with Portal through normal settings bootstrap', async () => {
+          const t = database(true, true);
+          mocks.connection.mockResolvedValue(t.db);
+          await bootstrapApplicationSettings(42);
+          expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal']);
+          expect(t.column.alter).toHaveBeenCalledOnce();
+          expect(t.column.defaultTo).toHaveBeenCalledWith('classic');
+          expect(t.schema.alterTable).toHaveBeenCalledOnce();
      });
 });

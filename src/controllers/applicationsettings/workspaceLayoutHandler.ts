@@ -11,7 +11,7 @@ export async function updateWorkspaceLayout(req: Request, res: Response) {
      }
      const workspaceLayout = req.body?.workspaceLayout;
      if (!isWorkspaceLayout(workspaceLayout)) {
-          return res.status(400).json({ status: 'error', statusCode: 400, message: 'workspaceLayout must be classic, zoho, claude, ribbon, or slack' });
+          return res.status(400).json({ status: 'error', statusCode: 400, message: 'workspaceLayout must be classic, zoho, claude, ribbon, slack, or portal' });
      }
      try {
           const updated = await new ApplicationSettings().updateWorkspaceLayout(actor.tenantId, workspaceLayout);

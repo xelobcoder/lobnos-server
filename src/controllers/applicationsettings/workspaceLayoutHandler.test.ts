@@ -107,7 +107,7 @@ describe('workspace layout PATCH authentication and validation', () => {
           expect(mocks.update).toHaveBeenCalledWith(42, 'claude');
           expect(res.status).toHaveBeenCalledWith(200);
      });
-     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack'])('persists valid %s', async value => {
+     it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal'])('persists valid %s', async value => {
           await patch(request(value), response());
           expect(mocks.update).toHaveBeenCalledWith(42, value);
      });

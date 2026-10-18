@@ -1,5 +1,6 @@
 import { Knex } from 'knex';
-import { WORKSPACE_LAYOUTS } from '../../../models/application/appsettings/workspaceLayout';
+
+const WORKSPACE_LAYOUTS = ['classic', 'zoho', 'claude', 'ribbon', 'slack'] as const;
 
 async function hasAllWorkspaceLayouts(knex: Knex): Promise<boolean | null> {
      if (!(await knex.schema.hasTable('applicationsettings')) ||

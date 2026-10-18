@@ -303,15 +303,31 @@ export const createInvitation = async (req: Request, res: Response) => {
           const patientid = positiveInt(req.params.patientid);
           if (!patientid) throw new PatientPortalError('Invalid patient', 400);
           const service = new PatientPortalAccountService(tenantOf(req));
-          const invitation = await service.createInvitation(patientid, Number(getAuthUser(req)?.employeeid), { sendEmail: req.body?.sendEmail !== false });
+          const channel = invitationChannel(req);
+          const invitation = await service.createInvitation(patientid, Number(getAuthUser(req)?.employeeid), { sendEmail: req.body?.sendEmail !== false, channel });
           await staffAudit(req, 'invitation.created', patientid, 'invitation', invitation.id);
           return ok(res, {
                ...invitation,
                link: `${service.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(invitation.token)}`,
-          }, invitation.deliveryError ? `Invitation created, but not emailed. ${invitation.deliveryError}` :
-               invitation.emailed ? 'Invitation created and emailed to the patient' : 'Invitation created');
+          }, invitationMessage(invitation, false));
      } catch (error) { return fail(res, error); }
 };
+
+function invitationChannel(req: Request): 'email' | 'sms' | 'link' | undefined {
+     const channel = req.body?.channel;
+     if ((channel !== undefined && !['email', 'sms', 'link'].includes(channel)) ||
+          (req.body?.sendEmail !== undefined && typeof req.body.sendEmail !== 'boolean')) {
+          throw new PatientPortalError('Invalid invitation channel or sendEmail flag', 400, 'INVALID_CHANNEL');
+     }
+     return channel;
+}
+
+function invitationMessage(invitation: { delivery?: { channel: string; status: string }; emailed?: boolean; deliveryError?: string | null }, replacement: boolean) {
+     const prefix = replacement ? 'Replacement invitation created. The previous link no longer works.' : 'Invitation created.';
+     if (invitation.delivery?.status === 'accepted') return `${prefix} ${invitation.delivery.channel.toUpperCase()} accepted by the provider; delivery is not confirmed.`;
+     if (invitation.deliveryError) return `${prefix} ${invitation.deliveryError}`;
+     return `${prefix} ${invitation.emailed ? 'Email accepted by the provider; delivery is not confirmed.' : 'Copy and share the link securely.'}`;
+}
 
 export const getInvitations = async (req: Request, res: Response) => {
      try {
@@ -337,14 +353,15 @@ export const resendInvitation = async (req: Request, res: Response) => {
           const id = positiveInt(req.params.id);
           if (!id) throw new PatientPortalError('Invalid invitation', 400);
           const service = new PatientPortalAccountService(tenantOf(req));
-          const invitation = await service.resendInvitation(id, Number(getAuthUser(req)?.employeeid));
+          const channel = invitationChannel(req);
+          const invitation = await service.resendInvitation(id, Number(getAuthUser(req)?.employeeid), channel);
           await staffAudit(req, 'invitation.replaced', invitation.patientid, 'invitation', id);
-          await staffAudit(req, invitation.emailed ? 'invitation.resent' : 'invitation.resend_failed', invitation.patientid, 'invitation', invitation.id);
+          await staffAudit(req, invitation.delivery?.status === 'not_requested' ? 'invitation.replaced_link_only' :
+               invitation.delivery?.status === 'accepted' || invitation.emailed ? 'invitation.resent' : 'invitation.resend_failed', invitation.patientid, 'invitation', invitation.id);
           return ok(res, {
                ...invitation,
                link: `${service.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(invitation.token)}`,
-          }, invitation.deliveryError ? `Replacement invitation created, but not emailed. ${invitation.deliveryError}` :
-               'A replacement invitation has been emailed. The previous link no longer works.');
+          }, invitationMessage(invitation, true));
      } catch (error) { return fail(res, error); }
 };
 
@@ -412,7 +429,7 @@ patientPortalRouter.get(`${BASE}/admin/invitations`, requireStaff(PORTAL_SETTING
 patientPortalRouter.post(`${BASE}/admin/invitations/:id/resend`, requireStaff(PORTAL_SETTINGS_ROLES), resendInvitation);
 patientPortalRouter.post(`${BASE}/admin/invitations/:id/revoke`, requireStaff(), revokeInvitation);
 patientPortalRouter.get(`${BASE}/admin/patients/:patientid/access`, requireStaff(), getPatientAccess);
-patientPortalRouter.post(`${BASE}/admin/patients/:patientid/invitations`, requireStaff(), createInvitation);
+patientPortalRouter.post(`${BASE}/admin/patients/:patientid/invitations`, requireStaff(PORTAL_SETTINGS_ROLES), createInvitation);
 patientPortalRouter.put(`${BASE}/admin/patients/:patientid/access`, requireStaff(PORTAL_SETTINGS_ROLES), setPatientAccess);
 patientPortalRouter.get(`${BASE}/admin/patients/:patientid/results`, requireStaff(), getPatientResultsForStaff);
 patientPortalRouter.post(`${BASE}/admin/results/:ascensionid/release`, requireStaff(RELEASE_ROLES), setResultRelease('released'));
