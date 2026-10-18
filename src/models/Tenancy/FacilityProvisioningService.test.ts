@@ -362,6 +362,25 @@ describe('complete facility provisioning lifecycle', () => {
           expect(connection.end).toHaveBeenCalled();
      });
 
+     it('names only the denied privilege when the provisioning account lacks a table privilege', async () => {
+          const { db } = databaseHarness();
+          const connection = schemaConnection();
+          mocks.connect.mockResolvedValue(connection);
+          mocks.tenantConnection.mockResolvedValue(db);
+          connection.query.mockImplementation(async sql => {
+               if (sql.startsWith('CREATE TABLE')) {
+                    throw Object.assign(new Error("REFERENCES command denied to user 'pls'@'10.0.0.5' for table 'roles'"), {
+                         code: 'ER_TABLEACCESS_DENIED_ERROR',
+                         sqlMessage: "REFERENCES command denied to user 'pls'@'10.0.0.5' for table 'roles'",
+                    });
+               }
+               return [[]];
+          });
+          const failure = new FacilityProvisioningService(db).provision(input, actor);
+          await expect(failure).rejects.toThrow(/schema_creation \(ER_TABLEACCESS_DENIED_ERROR: REFERENCES privilege missing for the DB_USERNAME account\)/);
+          await expect(failure).rejects.not.toThrow(/10\.0\.0\.5|'pls'/);
+     });
+
      it('refuses single-tenant mode before connecting or allocating', async () => {
           configuration.isMultiTenant = false;
           await expect(new FacilityProvisioningService(databaseHarness().db).provision(input, actor)).rejects.toThrow('multi-tenant');

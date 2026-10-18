@@ -44,6 +44,12 @@ export function assertNotControlAssignment(tenantId: number, databaseName: strin
 /** Operator-safe error class name only; raw driver messages can contain SQL and are never logged or returned. */
 function diagnosticDetail(error: unknown): string {
      if (error instanceof FacilityError) return '';
+     // Expose only the denied privilege keyword; the rest of the MySQL message names the account and table.
+     if ((error as any)?.code === 'ER_TABLEACCESS_DENIED_ERROR') {
+          const privilege = String((error as any)?.sqlMessage || (error as any)?.message || '')
+               .match(/^(SELECT|INSERT|UPDATE|DELETE|CREATE|DROP|REFERENCES|INDEX|ALTER|TRIGGER|CREATE VIEW|SHOW VIEW) command denied/)?.[1];
+          if (privilege) return `${privilege} privilege missing for the DB_USERNAME account`;
+     }
      const name = (error as any)?.name;
      return typeof name === 'string' && /^[A-Za-z0-9_]{1,64}$/.test(name) && name !== 'Error' ? name : '';
 }

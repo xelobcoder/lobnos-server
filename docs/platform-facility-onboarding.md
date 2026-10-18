@@ -335,8 +335,30 @@ its own active-control-tenant agreement check and staff session validation.
    credentials/host as `tenantConnections`, including in production. The
    production target host is the DB_* server, not an arbitrary live source tenant.
    The account needs CREATE DATABASE/table/trigger/routine and ALTER permissions,
-   plus tenant DML and master registry/audit DDL/DML permissions. No credentials
-   are accepted from the request or returned.
+   **REFERENCES** (the exported tables declare foreign keys, and MySQL 8.0.22+
+   checks REFERENCES on every parent table), plus tenant DML and master
+   registry/audit DDL/DML permissions. No credentials are accepted from the
+   request or returned.
+
+   Windows installs usually connect as `root`, which already holds every
+   privilege. Linux servers normally use a dedicated account (root uses
+   `auth_socket`), and those accounts are often created without REFERENCES.
+   That makes onboarding fail during `schema_creation` with
+   `ER_TABLEACCESS_DENIED_ERROR: REFERENCES privilege missing`. Grant it on the
+   tenant database pattern, not globally. Use the account and host returned by
+   `SELECT CURRENT_USER()`:
+
+   ```sql
+   GRANT CREATE, ALTER, DROP, INDEX, REFERENCES, TRIGGER, CREATE ROUTINE, ALTER ROUTINE,
+         EXECUTE, SELECT, INSERT, UPDATE, DELETE, LOCK TABLES, CREATE TEMPORARY TABLES
+      ON `pls\_%`.* TO 'pls_app'@'%';
+   SHOW GRANTS FOR 'pls_app'@'%';
+   ```
+
+   If binary logging is on, installing the exported triggers and routines also
+   requires `log_bin_trust_function_creators = 1` (or `SET_USER_ID` /
+   `SYSTEM_VARIABLES_ADMIN`). Then use **Retry provisioning**: it drops the
+   retained failed database and rebuilds it.
 6. Deploy `db-exports/primelabmaster/seeds/primelabmaster_*.sql` for the nine
    allowlisted catalog tables alongside the server tree. These assets are required,
    not silently skipped in the compiled server. Compile with `pnpm.cmd build`.
