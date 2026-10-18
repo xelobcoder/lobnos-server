@@ -69,6 +69,7 @@ import staffFocRouter from './controllers/foc/routes';
 import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 import { bootstrapTenants, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
+import { startPatientPortalWorkers } from './models/patient-portal/PatientPortalNotifier';
 import { logApplicationStarted } from './bootstrap/startupLogger';
 import marketplaceRouter from './marketplace/marketplaceRouter';
 import { bootstrapMarketplace } from './marketplace/MarketplaceBootstrapper';
@@ -227,6 +228,7 @@ async function startApplication() {
     app.listen(Number(port), host, () => {
         logApplicationStarted(port);
         startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
+        startPatientPortalWorkers(readyTenants);
     });
 }
 

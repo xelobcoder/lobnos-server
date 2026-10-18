@@ -15,6 +15,15 @@ export interface PatientPortalSettings {
      email_notifications_enabled: boolean;
      sms_notifications_enabled: boolean;
      invitation_expiry_hours: number;
+     result_notifications_enabled: boolean;
+     appointment_slot_capacity: number;
+     booking_start_hour: number;
+     booking_end_hour: number;
+     home_collection_enabled: boolean;
+     home_collection_slot_capacity: number;
+     home_collection_note: string;
+     payment_instructions: string;
+     help_contact: string;
 }
 
 export const DEFAULT_PATIENT_PORTAL_SETTINGS: Readonly<PatientPortalSettings> = Object.freeze({
@@ -29,12 +38,40 @@ export const DEFAULT_PATIENT_PORTAL_SETTINGS: Readonly<PatientPortalSettings> = 
      email_notifications_enabled: true,
      sms_notifications_enabled: false,
      invitation_expiry_hours: 72,
+     result_notifications_enabled: true,
+     appointment_slot_capacity: 4,
+     booking_start_hour: 7,
+     booking_end_hour: 17,
+     home_collection_enabled: false,
+     home_collection_slot_capacity: 3,
+     home_collection_note: '',
+     payment_instructions: '',
+     help_contact: '',
 });
 
 const BOOLEAN_KEYS = [
      'portal_enabled', 'self_registration_enabled', 'staff_invitations_enabled', 'require_payment_for_results',
      'appointment_requests_enabled', 'billing_enabled', 'email_notifications_enabled', 'sms_notifications_enabled',
+     'result_notifications_enabled', 'home_collection_enabled',
 ] as const;
+
+/** Whole-number settings with their inclusive bounds. */
+const INTEGER_KEYS = {
+     appointment_slot_capacity: [1, 50],
+     home_collection_slot_capacity: [1, 50],
+     booking_start_hour: [0, 23],
+     booking_end_hour: [1, 24],
+} as const;
+
+/** Free-text settings shown to patients, with their maximum lengths. */
+const TEXT_KEYS = {
+     home_collection_note: 500,
+     payment_instructions: 1000,
+     help_contact: 300,
+} as const;
+
+type IntegerKey = keyof typeof INTEGER_KEYS;
+type TextKey = keyof typeof TEXT_KEYS;
 
 export class PatientPortalSettingsError extends Error {
      readonly statusCode = 400;
@@ -61,6 +98,17 @@ export function normalizePatientPortalSettings(row: Record<string, unknown> | nu
      if (Number.isInteger(hours) && hours >= 1 && hours <= 720) settings.invitation_expiry_hours = hours;
      const practitioner = Number(row.appointment_request_practitioner);
      settings.appointment_request_practitioner = Number.isInteger(practitioner) && practitioner > 0 ? practitioner : null;
+     for (const [key, [min, max]] of Object.entries(INTEGER_KEYS) as Array<[IntegerKey, readonly [number, number]]>) {
+          const value = Number(row[key]);
+          if (row[key] !== null && row[key] !== undefined && Number.isInteger(value) && value >= min && value <= max) settings[key] = value;
+     }
+     if (settings.booking_start_hour >= settings.booking_end_hour) {
+          settings.booking_start_hour = DEFAULT_PATIENT_PORTAL_SETTINGS.booking_start_hour;
+          settings.booking_end_hour = DEFAULT_PATIENT_PORTAL_SETTINGS.booking_end_hour;
+     }
+     for (const [key, max] of Object.entries(TEXT_KEYS) as Array<[TextKey, number]>) {
+          if (typeof row[key] === 'string') settings[key] = (row[key] as string).slice(0, max);
+     }
      return settings;
 }
 
@@ -94,6 +142,19 @@ export function validatePatientPortalSettingsUpdate(input: Record<string, unknow
                     }
                     update.appointment_request_practitioner = id;
                }
+          } else if (key in INTEGER_KEYS) {
+               const [min, max] = INTEGER_KEYS[key as IntegerKey];
+               const parsed = Number(value);
+               if (value === null || value === '' || !Number.isInteger(parsed) || parsed < min || parsed > max) {
+                    throw new PatientPortalSettingsError(`${key} must be a whole number between ${min} and ${max}`);
+               }
+               update[key as IntegerKey] = parsed;
+          } else if (key in TEXT_KEYS) {
+               const max = TEXT_KEYS[key as TextKey];
+               if (typeof value !== 'string' || value.trim().length > max) {
+                    throw new PatientPortalSettingsError(`${key} must be text of at most ${max} characters`);
+               }
+               update[key as TextKey] = value.trim();
           } else {
                throw new PatientPortalSettingsError(`Unknown patient portal setting: ${key}`);
           }
@@ -125,6 +186,9 @@ export class PatientPortalSettingsService {
           const connection = await this.connection();
           const current = await this.get();
           const next = { ...current, ...update };
+          if (next.booking_start_hour >= next.booking_end_hour) {
+               throw new PatientPortalSettingsError('Booking hours must start before they end');
+          }
           if (next.appointment_requests_enabled && !next.appointment_request_practitioner) {
                throw new PatientPortalSettingsError('Choose the staff member who receives appointment requests before enabling them');
           }

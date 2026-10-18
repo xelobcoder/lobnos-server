@@ -183,14 +183,31 @@ export class HomeCollectionRepository implements IHomeCollectionRepository {
           };
      }
 
-     async updateOrderStatus(id: number, status: HomeCollectionOrderStatus): Promise<number> {
+     async updateOrderStatus(id: number, status: HomeCollectionOrderStatus, actorId?: number): Promise<number> {
           const connection = await this.connection;
-          return connection('home_collection_orders').where({ id }).update({ status });
+          return connection.transaction(async (trx) => {
+               const affected = await trx('home_collection_orders').where({ id }).update({ status, updated_at: new Date() });
+               if (affected) await this.recordEvent(trx, id, status, actorId);
+               return affected;
+          });
      }
 
-     async assignOrder(id: number, assignedTo: number): Promise<number> {
+     async assignOrder(id: number, assignedTo: number, actorId?: number): Promise<number> {
           const connection = await this.connection;
-          return connection('home_collection_orders').where({ id }).update({ assigned_to: assignedTo, status: 'Assigned' });
+          return connection.transaction(async (trx) => {
+               const affected = await trx('home_collection_orders').where({ id })
+                    .update({ assigned_to: assignedTo, status: 'Assigned', updated_at: new Date() });
+               if (affected) await this.recordEvent(trx, id, 'Assigned', actorId);
+               return affected;
+          });
+     }
+
+     /** Patient-visible tracking history; skipped on databases where the portal tables are not yet bootstrapped. */
+     private async recordEvent(trx: Knex.Transaction, id: number, status: HomeCollectionOrderStatus, actorId?: number) {
+          if (!(await trx.schema.hasTable('home_collection_order_events'))) return;
+          await trx('home_collection_order_events').insert({
+               home_collection_id: id, status, actor_type: 'staff', actor_id: actorId || null, created_at: new Date(),
+          });
      }
 
      async getChecklistForOrder(homeCollectionId: number): Promise<IHomeCollectionChecklistItem[]> {

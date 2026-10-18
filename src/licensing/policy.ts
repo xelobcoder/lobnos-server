@@ -21,7 +21,8 @@ export function licenseExemption(method: string, route: string): 'recovery' | 'r
                // Public patient-portal activation resolves its facility first, then enforces that facility's license itself.
                '/api/v1/patient-portal/public/availability', '/api/v1/patient-portal/public/invitations/verify',
                '/api/v1/patient-portal/public/invitations/accept', '/api/v1/patient-portal/public/register/start',
-               '/api/v1/patient-portal/public/register/complete'],
+               '/api/v1/patient-portal/public/register/complete', '/api/v1/patient-portal/public/password/start',
+               '/api/v1/patient-portal/public/password/complete'],
           PUT: [],
      };
      if (recovery[method]?.includes(route) ||

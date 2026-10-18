@@ -14,6 +14,8 @@ import { PatientPortalResultService, portalResultDateRange } from '../../models/
 import { PatientPortalRecordsService } from '../../models/patient-portal/PatientPortalRecordsService';
 import { recordPortalAudit } from '../../models/patient-portal/PatientPortalAudit';
 import { bootstrapPatientPortal } from '../../models/patient-portal/PatientPortalBootstrapper';
+import { PatientHomeCollectionService } from '../../models/patient-portal/PatientHomeCollectionService';
+import { PatientPortalNotifier } from '../../models/patient-portal/PatientPortalNotifier';
 import { BILLING_REQUEST_ROLES, createBillingRequestsRouter } from './billingRequests';
 import { patientPortalTrendsRouter } from './trends';
 
@@ -134,6 +136,35 @@ export const completeRegistration = async (req: Request, res: Response) => {
      }
 };
 
+const GENERIC_PASSWORD_RESET = 'If your details match an active portal account, a reset code has been sent to your registered email address.';
+
+export const startPasswordReset = async (req: Request, res: Response) => {
+     try {
+          const tenantId = await publicTenant(String(req.body?.facility || ''));
+          if (tenantId) {
+               await new PatientPortalAccountService(tenantId).startPasswordReset(registrationInput(req.body));
+               await recordPortalAudit(tenantId, { actorType: 'public', action: 'password.reset.requested', ipAddress: req.ip });
+          }
+          return ok(res, null, GENERIC_PASSWORD_RESET);
+     } catch (error) {
+          return fail(res, error);
+     }
+};
+
+export const completePasswordReset = async (req: Request, res: Response) => {
+     try {
+          const tenantId = await publicTenant(String(req.body?.facility || ''));
+          if (!tenantId) throw new PatientPortalError('The reset code is invalid or has expired', 400, 'VERIFICATION_INVALID');
+          const result = await new PatientPortalAccountService(tenantId).completePasswordReset({
+               ...registrationInput(req.body), code: String(req.body?.code || ''), password: req.body?.password,
+          });
+          await recordPortalAudit(tenantId, { patientid: result.patientid, actorType: 'patient', actorId: result.patientid, action: 'password.reset.completed', ipAddress: req.ip });
+          return ok(res, { loginUsername: result.loginUsername }, 'Your password has been reset. You can now sign in.');
+     } catch (error) {
+          return fail(res, error);
+     }
+};
+
 /** Mounted before tenant validation: these routes derive the facility from a public identifier or invitation. */
 export const publicPatientPortalRouter = Router();
 publicPatientPortalRouter.post(`${BASE}/public/availability`, publicLimiter, portalAvailability);
@@ -141,6 +172,8 @@ publicPatientPortalRouter.post(`${BASE}/public/invitations/verify`, publicLimite
 publicPatientPortalRouter.post(`${BASE}/public/invitations/accept`, publicLimiter, acceptInvitation);
 publicPatientPortalRouter.post(`${BASE}/public/register/start`, publicLimiter, startRegistration);
 publicPatientPortalRouter.post(`${BASE}/public/register/complete`, publicLimiter, completeRegistration);
+publicPatientPortalRouter.post(`${BASE}/public/password/start`, publicLimiter, startPasswordReset);
+publicPatientPortalRouter.post(`${BASE}/public/password/complete`, publicLimiter, completePasswordReset);
 
 // ---- Patient endpoints -------------------------------------------------------------------------
 
@@ -215,6 +248,61 @@ export const getBill = async (req: Request, res: Response) => {
           const bill = await new PatientPortalRecordsService(tenantOf(req)).getBill(patientOf(req), billingid);
           await audit(req, 'billing.view', 'billing', billingid);
           return ok(res, bill);
+     } catch (error) { return fail(res, error); }
+};
+
+export const getBillingSummary = async (req: Request, res: Response) => {
+     try {
+          await requireBilling(req);
+          return ok(res, await new PatientPortalRecordsService(tenantOf(req)).billingSummary(patientOf(req)));
+     } catch (error) { return fail(res, error); }
+};
+
+export const getFacility = async (req: Request, res: Response) => {
+     try {
+          return ok(res, await new PatientPortalRecordsService(tenantOf(req)).facilityContact());
+     } catch (error) { return fail(res, error); }
+};
+
+export const getAppointmentAvailability = async (req: Request, res: Response) => {
+     try {
+          return ok(res, await new PatientPortalRecordsService(tenantOf(req)).appointmentAvailability(req.query.date));
+     } catch (error) { return fail(res, error); }
+};
+
+export const getHomeCollectionOptions = async (req: Request, res: Response) => {
+     try {
+          return ok(res, await new PatientHomeCollectionService(tenantOf(req)).options(patientOf(req)));
+     } catch (error) { return fail(res, error); }
+};
+
+export const getHomeCollectionAvailability = async (req: Request, res: Response) => {
+     try {
+          return ok(res, await new PatientHomeCollectionService(tenantOf(req)).availability(req.query.date));
+     } catch (error) { return fail(res, error); }
+};
+
+export const getHomeCollections = async (req: Request, res: Response) => {
+     try {
+          return ok(res, await new PatientHomeCollectionService(tenantOf(req)).list(patientOf(req)));
+     } catch (error) { return fail(res, error); }
+};
+
+export const createHomeCollection = async (req: Request, res: Response) => {
+     try {
+          const result = await new PatientHomeCollectionService(tenantOf(req)).book(patientOf(req), req.body || {});
+          await audit(req, 'home_collection.requested', 'home_collection', result.id);
+          return ok(res, result, 'Your home collection request has been sent to the facility.');
+     } catch (error) { return fail(res, error); }
+};
+
+export const cancelHomeCollection = async (req: Request, res: Response) => {
+     try {
+          const id = positiveInt(req.params.id);
+          if (!id) throw new PatientPortalError('Invalid request', 400);
+          const result = await new PatientHomeCollectionService(tenantOf(req)).cancel(patientOf(req), id, req.body?.reason);
+          await audit(req, 'home_collection.cancelled', 'home_collection', id);
+          return ok(res, result, 'Your home collection has been cancelled.');
      } catch (error) { return fail(res, error); }
 };
 
@@ -398,6 +486,10 @@ export const setResultRelease = (status: 'released' | 'withdrawn') => async (req
           if (status === 'withdrawn' && reason.length < 3) throw new PatientPortalError('A reason is required to withdraw a result', 400);
           const result = await new PatientPortalResultService(tenantOf(req)).setRelease(ascensionId, status, Number(getAuthUser(req)?.employeeid), reason);
           await staffAudit(req, `result.${status}`, result.patientid, 'ascension', ascensionId);
+          if (status === 'released') {
+               void new PatientPortalNotifier(tenantOf(req)).sweepResults(result.patientid)
+                    .catch(error => logger.error('[PatientPortal] result notification failed', (error as Error)?.message || error));
+          }
           return ok(res, result, status === 'released' ? 'Result released to the patient portal' : 'Result withdrawn from the patient portal');
      } catch (error) { return fail(res, error); }
 };
@@ -445,9 +537,17 @@ patientPortalRouter.get(`${BASE}/dashboard`, requirePatientSession, getDashboard
 patientPortalRouter.get(`${BASE}/results`, requirePatientSession, getResults);
 patientPortalRouter.get(`${BASE}/results/:billingid/report`, requirePatientSession, getResultReport);
 patientPortalRouter.get(`${BASE}/billing`, requirePatientSession, getBills);
+patientPortalRouter.get(`${BASE}/billing/summary`, requirePatientSession, getBillingSummary);
 patientPortalRouter.get(`${BASE}/billing/:billingid`, requirePatientSession, getBill);
+patientPortalRouter.get(`${BASE}/facility`, requirePatientSession, getFacility);
 patientPortalRouter.get(`${BASE}/appointments`, requirePatientSession, getAppointments);
+patientPortalRouter.get(`${BASE}/appointments/availability`, requirePatientSession, getAppointmentAvailability);
 patientPortalRouter.post(`${BASE}/appointments`, requirePatientSession, createAppointmentRequest);
 patientPortalRouter.post(`${BASE}/appointments/:refid/change-request`, requirePatientSession, changeAppointment);
+patientPortalRouter.get(`${BASE}/home-collections/options`, requirePatientSession, getHomeCollectionOptions);
+patientPortalRouter.get(`${BASE}/home-collections/availability`, requirePatientSession, getHomeCollectionAvailability);
+patientPortalRouter.get(`${BASE}/home-collections`, requirePatientSession, getHomeCollections);
+patientPortalRouter.post(`${BASE}/home-collections`, requirePatientSession, createHomeCollection);
+patientPortalRouter.post(`${BASE}/home-collections/:id/cancel`, requirePatientSession, cancelHomeCollection);
 patientPortalRouter.put(`${BASE}/preferences`, requirePatientSession, updatePreferences);
 patientPortalRouter.put(`${BASE}/password`, requirePatientSession, changePassword);

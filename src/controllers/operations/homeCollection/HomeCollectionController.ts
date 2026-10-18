@@ -4,10 +4,24 @@ import { customError } from '../../../hooks/helper';
 import { PrimeSqlErrorHandler } from '../../../hooks/utility';
 import { HomeCollectionOrderStatus } from '../../../models/operations/sample/HomeCollection/interfaces/IHomeCollectionRepository';
 import { NotificationDispatcher } from '../../../models/application/notifications/services/NotificationDispatcher';
+import { PatientPortalNotifier } from '../../../models/patient-portal/PatientPortalNotifier';
+import { HOME_COLLECTION_STATUSES } from '../../../models/patient-portal/PatientHomeCollectionService';
+import logger from '../../../hooks/logger';
 
 const repo = (request: Request) => new HomeCollectionRepository(parseInt(String(request.query.tenantId), 10));
 const tenantIdOf = (request: Request) => parseInt(String(request.query.tenantId), 10);
 const actorOf = (request: Request) => Number(request.query.employeeid) || undefined;
+
+/** Tells the patient (through their portal preferences) that their collection moved; never blocks staff work. */
+async function notifyPatient(request: Request, id: number, status: string) {
+     try {
+          const order = await repo(request).findOrderById(id);
+          if (!order?.patientid) return;
+          await new PatientPortalNotifier(tenantIdOf(request)).notify(Number(order.patientid), `hc:${id}:${status}`);
+     } catch (error) {
+          logger.error('[HomeCollection] patient notification failed', (error as Error)?.message || error);
+     }
+}
 
 export class HomeCollectionController {
      static async createArea(request: Request, response: Response) {
@@ -138,10 +152,15 @@ export class HomeCollectionController {
           try {
                const { status } = request.body;
                if (!status) return customError('status is required', 400, response);
-               const affected = await repo(request).updateOrderStatus(parseInt(String(request.params.id), 10), status);
+               if (!(HOME_COLLECTION_STATUSES as readonly string[]).includes(status)) {
+                    return customError(`status must be one of: ${HOME_COLLECTION_STATUSES.join(', ')}`, 400, response);
+               }
+               const id = parseInt(String(request.params.id), 10);
+               const affected = await repo(request).updateOrderStatus(id, status, actorOf(request));
                await NotificationDispatcher.dispatch(tenantIdOf(request), 'HOME_COLLECTION_STATUS_UPDATED', {}, actorOf(request), {
                     context: { message: `Home collection order #${request.params.id} is now ${status}.` }
                });
+               if (affected) void notifyPatient(request, id, status);
                response.json({ status: 'success', statusCode: 200, result: { affected } });
           } catch (error: any) {
                PrimeSqlErrorHandler.handleError(error, response);
@@ -152,10 +171,12 @@ export class HomeCollectionController {
           try {
                const { assigned_to } = request.body;
                if (!assigned_to) return customError('assigned_to is required', 400, response);
-               const affected = await repo(request).assignOrder(parseInt(String(request.params.id), 10), Number(assigned_to));
+               const id = parseInt(String(request.params.id), 10);
+               const affected = await repo(request).assignOrder(id, Number(assigned_to), actorOf(request));
                await NotificationDispatcher.dispatch(tenantIdOf(request), 'HOME_COLLECTION_ASSIGNED', {}, actorOf(request), {
                     context: { message: `Home collection order #${request.params.id} was assigned to staff #${assigned_to}.` }
                });
+               if (affected) void notifyPatient(request, id, 'Assigned');
                response.json({ status: 'success', statusCode: 200, result: { affected } });
           } catch (error: any) {
                PrimeSqlErrorHandler.handleError(error, response);

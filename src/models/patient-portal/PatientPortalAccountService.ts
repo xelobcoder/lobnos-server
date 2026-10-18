@@ -435,6 +435,76 @@ export class PatientPortalAccountService {
           return outcome;
      }
 
+     // ---- Password recovery --------------------------------------------------------------
+
+     /** Emails a reset code when the identity factors match an active account; silent otherwise. */
+     async startPasswordReset(input: { patientNumber: string; dateOfBirth: string; email: string }): Promise<void> {
+          const settings = await this.settings();
+          if (!settings.portal_enabled) return;
+          const connection = await this.connection();
+          const patient = await this.matchPatient(connection, input);
+          if (!patient) return;
+          const account = await connection('patient_portal_accounts').where({ patientid: patient.patientid }).first();
+          if (!account || account.status !== 'active') return;
+
+          const recent = await connection('patient_portal_verifications')
+               .where({ patientid: patient.patientid }).whereNull('used_at').orderBy('id', 'desc').first();
+          if (recent && Date.now() - new Date(recent.created_at).getTime() < OTP_RESEND_DELAY_MS) return;
+
+          const code = String(randomInt(100000, 1000000));
+          const now = new Date();
+          await connection('patient_portal_verifications').where({ patientid: patient.patientid }).whereNull('used_at')
+               .update({ used_at: now });
+          const [id] = await connection('patient_portal_verifications').insert({
+               patientid: patient.patientid, code_hash: hmac(`${patient.patientid}:${code}`), attempts: 0,
+               expires_at: new Date(now.getTime() + OTP_EXPIRY_MINUTES * 60_000), created_at: now,
+          });
+          try {
+               await sendPortalEmail(this.tenantId, patient.email, 'Reset your patient portal password',
+                    `<p>Your patient portal password reset code is <strong>${code}</strong>.</p><p>It expires in ${OTP_EXPIRY_MINUTES} minutes. If you did not ask to reset your password, ignore this email; your password has not changed.</p>`,
+                    `Your patient portal password reset code is ${code}. It expires in ${OTP_EXPIRY_MINUTES} minutes. If you did not ask for this, ignore this email.`);
+          } catch {
+               // Responding differently here would reveal that the details matched an account.
+               await connection('patient_portal_verifications').where({ id }).del();
+               logger.error('[PatientPortal] password reset email could not be sent');
+          }
+     }
+
+     /** Sets a new password with a valid code, clears any lockout and signs out every existing session. */
+     async completePasswordReset(input: { patientNumber: string; dateOfBirth: string; email: string; code: string; password: string }) {
+          validatePortalPassword(input.password);
+          const invalid = new PatientPortalError('The reset code is invalid or has expired', 400, 'VERIFICATION_INVALID');
+          const settings = await this.settings();
+          if (!settings.portal_enabled || !/^\d{6}$/.test(String(input.code || ''))) throw invalid;
+          const connection = await this.connection();
+          const patient = await this.matchPatient(connection, input);
+          if (!patient) throw invalid;
+
+          const outcome = await connection.transaction(async (trx) => {
+               const account = await trx('patient_portal_accounts').where({ patientid: patient.patientid }).forUpdate().first();
+               if (!account || account.status !== 'active') return null;
+               const row = await trx('patient_portal_verifications')
+                    .where({ patientid: patient.patientid }).whereNull('used_at')
+                    .andWhere('expires_at', '>', new Date()).andWhere('attempts', '<', MAX_OTP_ATTEMPTS)
+                    .orderBy('id', 'desc').forUpdate().first();
+               if (!row) return null;
+               if (!sameHash(hmac(`${patient.patientid}:${input.code}`), String(row.code_hash))) {
+                    await trx('patient_portal_verifications').where({ id: row.id }).increment('attempts', 1);
+                    return 'mismatch';
+               }
+               const now = new Date();
+               await trx('patient_portal_verifications').where({ id: row.id }).update({ used_at: now });
+               const hash = await bcrypt.hash(input.password, 10);
+               await trx('patients_credentials').where({ patientid: patient.patientid }).update({ password: hash, updated: 'true', updated_on: now });
+               await trx('patient_portal_accounts').where({ patientid: patient.patientid }).update({
+                    failed_attempts: 0, locked_until: null, session_version: Number(account.session_version || 1) + 1, updated_at: now,
+               });
+               return { patientid: Number(patient.patientid), loginUsername: await formatTenantLoginUsername(this.tenantId, 'patient', Number(patient.patientid)) };
+          });
+          if (!outcome || outcome === 'mismatch') throw invalid;
+          return outcome;
+     }
+
      // ---- Sign-in and sessions -----------------------------------------------------------
 
      async authenticate(patientid: number, password: string): Promise<PortalLoginResult> {

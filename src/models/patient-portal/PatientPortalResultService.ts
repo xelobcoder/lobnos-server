@@ -71,7 +71,7 @@ export class PatientPortalResultService {
      constructor(private readonly tenantId: number) { }
 
      /** All of a patient's tests with the release decision applied; values are never included here. */
-     async listTests(patientid: number, options: { billingid?: number; ascensionId?: number; from?: string; to?: string } = {}) {
+     async listTests(patientid: number, options: { billingid?: number; ascensionId?: number; from?: string; to?: string; limit?: number | null } = {}) {
           const range = portalResultDateRange(options.from, options.to);
           const connection = await bootstrapPatientPortal(this.tenantId);
           const settings = await new PatientPortalSettingsService(this.tenantId).get();
@@ -80,7 +80,9 @@ export class PatientPortalResultService {
                     'ta.id as ascensionid', 'ta.testid', 'ta.billingid', 'tp.name as testname', 'b.billedon',
                     'ta.collectionStartDate', 'ta.processingStartDate', 'ta.resultEntryEnd', 'ds.paymentstatus',
                )
-               .orderBy('ta.id', 'desc').limit(500);
+               .orderBy('ta.id', 'desc');
+          // Lists are capped for display; summaries pass limit: null so counts cover every test.
+          if (options.limit !== null) query.limit(options.limit ?? 500);
           if (options.billingid) query.andWhere('ta.billingid', options.billingid);
           if (options.ascensionId) query.andWhere('ta.id', options.ascensionId);
           if (range.from && range.to) query.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [range.from, range.to]);
