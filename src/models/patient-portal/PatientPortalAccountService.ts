@@ -70,6 +70,27 @@ export function maskEmail(email: string | null | undefined): string | null {
      return `${user.slice(0, 1)}${'*'.repeat(Math.max(1, user.length - 1))}@${domain}`;
 }
 
+export type InvitationStatus = 'pending' | 'accepted' | 'expired' | 'revoked';
+
+export interface InvitationDates {
+     used_at?: Date | string | null;
+     revoked_at?: Date | string | null;
+     expires_at: Date | string;
+}
+
+export function invitationStatus(invitation: InvitationDates, now = new Date()): InvitationStatus {
+     if (invitation.used_at) return 'accepted';
+     if (invitation.revoked_at) return 'revoked';
+     return new Date(invitation.expires_at).getTime() > now.getTime() ? 'pending' : 'expired';
+}
+
+export interface InvitationListOptions {
+     status: InvitationStatus | 'all';
+     search: string;
+     page: number;
+     pageSize: number;
+}
+
 async function sendPortalEmail(tenantId: number, to: string, subject: string, html: string, text: string): Promise<void> {
      const provider = await new EmailProvidersRepo(tenantId).findDefault();
      if (!provider?.id) throw new PatientPortalError('Email delivery is not configured for this facility', 503, 'EMAIL_UNAVAILABLE');
@@ -145,14 +166,11 @@ export class PatientPortalAccountService {
 
      // ---- Staff invitations -------------------------------------------------------------
 
-     async createInvitation(patientid: number, staffId: number, options: { sendEmail?: boolean } = {}) {
+     async createInvitation(patientid: number, staffId: number, options: { sendEmail?: boolean; replacesId?: number } = {}) {
           const settings = await this.settings();
           if (!settings.portal_enabled) throw new PatientPortalError('The patient portal is disabled for this facility', 403, 'PORTAL_DISABLED');
           if (!settings.staff_invitations_enabled) throw new PatientPortalError('Staff invitations are disabled for this facility', 403, 'INVITATIONS_DISABLED');
           const connection = await this.connection();
-          const patient = await this.getPatient(connection, patientid);
-          if (!patient) throw new PatientPortalError('Patient not found', 404, 'NOT_FOUND');
-
           const tenant = await new TenantRegistry().getTenant(this.tenantId);
           const organization = String(tenant?.platformId || '').toUpperCase();
           if (!organization) throw new PatientPortalError('This facility has no public organization identifier', 500, 'TENANT_UNREGISTERED');
@@ -160,7 +178,19 @@ export class PatientPortalAccountService {
           const token = `${organization}.${randomBytes(32).toString('base64url')}`;
           const now = new Date();
           const expiresAt = new Date(now.getTime() + settings.invitation_expiry_hours * 3_600_000);
-          const id = await connection.transaction(async (trx) => {
+          const { id, patient } = await connection.transaction(async (trx) => {
+               // Serialize issuance and redemption for this patient, including their first invitation.
+               const patient = await trx('new_patients')
+                    .select('patientid', 'firstname', 'email').where({ patientid }).forUpdate().first();
+               if (!patient) throw new PatientPortalError('Patient not found', 404, 'NOT_FOUND');
+               if (options.replacesId) {
+                    const previous = await trx('patient_portal_invitations')
+                         .where({ id: options.replacesId, patientid }).forUpdate().first();
+                    if (!previous || previous.used_at || previous.revoked_at) {
+                         throw new PatientPortalError('Only pending or expired invitations can be replaced', 409, 'INVITATION_NOT_REPLACEABLE');
+                    }
+                    if (!patient.email) throw new PatientPortalError('This patient has no email address. Update their contact details before resending.', 400, 'EMAIL_REQUIRED');
+               }
                // A new invitation supersedes any still-open one, so only the latest link works.
                await trx('patient_portal_invitations')
                     .where({ patientid }).whereNull('used_at').whereNull('revoked_at')
@@ -168,10 +198,12 @@ export class PatientPortalAccountService {
                const [inserted] = await trx('patient_portal_invitations').insert({
                     patientid, token_hash: hashInvitationToken(token), created_by: staffId, expires_at: expiresAt, created_at: now,
                });
-               return Number(inserted);
+               return { id: Number(inserted), patient };
           });
 
           let emailed = false;
+          let deliveryError: string | null = null;
+          if (options.sendEmail && !patient.email) deliveryError = 'The patient has no email address. Share the activation link securely or update their contact details.';
           if (options.sendEmail && patient.email) {
                const link = `${this.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(token)}`;
                try {
@@ -181,9 +213,10 @@ export class PatientPortalAccountService {
                     emailed = true;
                } catch (error) {
                     logger.warn('[PatientPortal] Invitation email not sent:', (error as Error)?.message);
+                    deliveryError = error instanceof PatientPortalError ? error.message : 'Email delivery failed. Share the activation link securely or try again later.';
                }
           }
-          return { id, token, expiresAt, emailed, email: maskEmail(patient.email) };
+          return { id, patientid, token, expiresAt, emailed, email: maskEmail(patient.email), deliveryError };
      }
 
      portalBaseUrl(): string {
@@ -197,11 +230,55 @@ export class PatientPortalAccountService {
           const rows = await connection('patient_portal_invitations')
                .select('id', 'created_by', 'expires_at', 'used_at', 'revoked_at', 'created_at')
                .where({ patientid }).orderBy('id', 'desc').limit(20);
-          const now = Date.now();
           return rows.map((row: any) => ({
                ...row,
-               state: row.used_at ? 'used' : row.revoked_at ? 'revoked' : new Date(row.expires_at).getTime() <= now ? 'expired' : 'pending',
+               state: row.used_at ? 'used' : invitationStatus(row),
           }));
+     }
+
+     async listFacilityInvitations(options: InvitationListOptions) {
+          const connection = await this.connection();
+          const now = new Date();
+          const query = connection('patient_portal_invitations as invitation')
+               .join('new_patients as patient', 'patient.patientid', 'invitation.patientid');
+          if (options.status === 'accepted') query.whereNotNull('invitation.used_at');
+          if (options.status === 'revoked') query.whereNull('invitation.used_at').whereNotNull('invitation.revoked_at');
+          if (options.status === 'pending' || options.status === 'expired') {
+               query.whereNull('invitation.used_at').whereNull('invitation.revoked_at')
+                    .where('invitation.expires_at', options.status === 'pending' ? '>' : '<=', now);
+          }
+          if (options.search) {
+               const term = `%${options.search.replace(/[!%_]/g, '!$&')}%`;
+               query.where(function () {
+                    this.whereRaw("CONCAT_WS(' ', patient.firstname, patient.lastname) LIKE ? ESCAPE '!'", [term])
+                         .orWhereRaw("patient.fullpatientid LIKE ? ESCAPE '!'", [term]);
+               });
+          }
+          const count = await query.clone().count({ total: 'invitation.id' }).first();
+          const rows = await query.clone()
+               .leftJoin('roles as inviter', 'inviter.employeeid', 'invitation.created_by')
+               .select('invitation.id', 'invitation.patientid', 'invitation.created_by', 'invitation.created_at',
+                    'invitation.expires_at', 'invitation.used_at as accepted_at', 'invitation.revoked_at',
+                    'patient.firstname', 'patient.lastname', 'patient.fullpatientid', 'patient.email', 'inviter.username as invitedBy')
+               .orderBy('invitation.id', 'desc').limit(options.pageSize).offset((options.page - 1) * options.pageSize);
+          return {
+               invitations: rows.map(row => ({
+                    id: row.id, patientid: row.patientid, created_by: row.created_by, invitedBy: row.invitedBy,
+                    patientName: [row.firstname, row.lastname].filter(Boolean).join(' '),
+                    patientNumber: row.fullpatientid, email: maskEmail(row.email),
+                    created_at: row.created_at, expires_at: row.expires_at,
+                    accepted_at: row.accepted_at, revoked_at: row.revoked_at,
+                    status: invitationStatus({ ...row, used_at: row.accepted_at }, now),
+               })),
+               total: Number(count?.total || 0), page: options.page, pageSize: options.pageSize,
+          };
+     }
+
+     async resendInvitation(invitationId: number, staffId: number) {
+          const connection = await this.connection();
+          const invitation = await connection('patient_portal_invitations').select('patientid').where({ id: invitationId }).first();
+          if (!invitation) throw new PatientPortalError('Invitation not found', 404, 'NOT_FOUND');
+          return this.createInvitation(Number(invitation.patientid), staffId, { sendEmail: true, replacesId: invitationId });
      }
 
      async revokeInvitation(invitationId: number, staffId: number, patientid?: number): Promise<boolean> {
@@ -243,6 +320,9 @@ export class PatientPortalAccountService {
           }
           const connection = await this.connection();
           return connection.transaction(async (trx) => {
+               const candidate = await this.findUsableInvitation(trx, token);
+               if (!candidate) throw new PatientPortalError('This invitation is invalid or has expired', 400, 'INVITATION_INVALID');
+               await trx('new_patients').where({ patientid: candidate.patientid }).forUpdate().first();
                const invitation = await this.findUsableInvitation(trx, token, true);
                if (!invitation) throw new PatientPortalError('This invitation is invalid or has expired', 400, 'INVITATION_INVALID');
                const patient = await this.getPatient(trx, invitation.patientid);

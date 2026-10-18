@@ -91,12 +91,26 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
   - **Staff invitation:** single-use, valid for 72 hours by default (1–720), revocable.
   - **Self-registration:** facility code, patient ID, date of birth, registered email,
     then a 10-minute emailed code. Responses never reveal whether a patient matched.
+- **Invitation administration:** admins and managers use **Patient Portal › Pending
+  Invitations** at `/patient-portal-admin`. The facility-scoped
+  `GET /api/v1/patient-portal/admin/invitations` API defaults to `status=pending`;
+  it also supports `accepted`, `expired`, `revoked`, or `all`, name/patient-ID
+  `search`, `page`, and `pageSize` (default 20, maximum 100). Responses contain
+  masked contact details, never invitation tokens or hashes. Resending uses
+  `POST /api/v1/patient-portal/admin/invitations/:id/resend`, replaces a pending
+  or expired invitation, and invalidates the previous link. Accepted and revoked
+  invitations cannot be resent. If email fails, the response explicitly reports
+  `emailed: false` and `deliveryError`; the new activation link can be shared
+  securely. Creation, replacement and redemption serialize on the patient row
+  and redemption rechecks the invitation under a transaction lock.
 - **Release gate:** a result is shown only when result entry is complete, minimum
   verification is met, payment rules pass and, under the `manual` policy, staff have
   released it. A withdrawal always hides it.
 - **Sessions:** five failed sign-ins lock the account for 15 minutes. Disabling access,
   logging out or changing the password ends every session for that patient. Public
-  endpoints allow 10 requests per 15 minutes.
+  endpoints allow 10 requests per 15 minutes. Credential submission to the exact
+  staff, patient and clinician login POST routes does not require a previous
+  session; protected APIs still require one. Invalid or expired tokens return 401.
 - **Audit:** sign-ins, result and billing views, release decisions, invitations,
   appointment requests and settings changes are written to the portal audit log.
 - **Invitation links:** built from `PATIENT_PORTAL_URL`, falling back to `FRONTEND_URL`
@@ -105,7 +119,7 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
   immediately and staff workflows are unaffected.
 
 ```powershell
-pnpm exec vitest run src\controllers\patient-portal\route.test.ts src\models\patient-portal\patientPortalPolicy.test.ts src\controllers\security\authController.token.test.ts
+pnpm exec vitest run src\controllers\patient-portal\route.test.ts src\models\patient-portal\PatientPortalAccountService.test.ts src\models\patient-portal\patientPortalPolicy.test.ts src\middleware\resolveLoginTenant.test.ts src\controllers\security\authController.token.test.ts
 ```
 
 ## Offline installation-bound licensing

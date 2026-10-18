@@ -8,7 +8,7 @@ import { resolvePublicTenant } from '../../middleware/resolveLoginTenant';
 import { licenseMode } from '../../licensing/storage';
 import { requireOperationalLicense } from '../../licensing/enforcement';
 import { tenantId as licensedTenantId } from '../../licensing/certificate';
-import { PatientPortalAccountService, PatientPortalError, parseInvitationToken } from '../../models/patient-portal/PatientPortalAccountService';
+import { InvitationListOptions, PatientPortalAccountService, PatientPortalError, parseInvitationToken } from '../../models/patient-portal/PatientPortalAccountService';
 import { PatientPortalSettingsError, PatientPortalSettingsService } from '../../models/patient-portal/PatientPortalSettings';
 import { PatientPortalResultService } from '../../models/patient-portal/PatientPortalResultService';
 import { PatientPortalRecordsService } from '../../models/patient-portal/PatientPortalRecordsService';
@@ -308,7 +308,43 @@ export const createInvitation = async (req: Request, res: Response) => {
           return ok(res, {
                ...invitation,
                link: `${service.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(invitation.token)}`,
-          }, invitation.emailed ? 'Invitation created and emailed to the patient' : 'Invitation created');
+          }, invitation.deliveryError ? `Invitation created, but not emailed. ${invitation.deliveryError}` :
+               invitation.emailed ? 'Invitation created and emailed to the patient' : 'Invitation created');
+     } catch (error) { return fail(res, error); }
+};
+
+export const getInvitations = async (req: Request, res: Response) => {
+     try {
+          const status = req.query.status ?? 'pending';
+          const statuses: readonly unknown[] = ['pending', 'accepted', 'expired', 'revoked', 'all'];
+          const page = req.query.page === undefined ? 1 : positiveInt(req.query.page);
+          const pageSize = req.query.pageSize === undefined ? 20 : positiveInt(req.query.pageSize);
+          if (!statuses.includes(status) || !page || !pageSize || pageSize > 100 ||
+               (req.query.search !== undefined && typeof req.query.search !== 'string') ||
+               String(req.query.search || '').length > 100 || !Number.isSafeInteger((page - 1) * pageSize)) {
+               throw new PatientPortalError('Invalid invitation filters or pagination', 400, 'INVALID_FILTERS');
+          }
+          const options: InvitationListOptions = {
+               status: status as InvitationListOptions['status'],
+               search: String(req.query.search || '').trim(), page, pageSize,
+          };
+          return ok(res, await new PatientPortalAccountService(tenantOf(req)).listFacilityInvitations(options));
+     } catch (error) { return fail(res, error); }
+};
+
+export const resendInvitation = async (req: Request, res: Response) => {
+     try {
+          const id = positiveInt(req.params.id);
+          if (!id) throw new PatientPortalError('Invalid invitation', 400);
+          const service = new PatientPortalAccountService(tenantOf(req));
+          const invitation = await service.resendInvitation(id, Number(getAuthUser(req)?.employeeid));
+          await staffAudit(req, 'invitation.replaced', invitation.patientid, 'invitation', id);
+          await staffAudit(req, invitation.emailed ? 'invitation.resent' : 'invitation.resend_failed', invitation.patientid, 'invitation', invitation.id);
+          return ok(res, {
+               ...invitation,
+               link: `${service.portalBaseUrl()}/patient-access/invite?token=${encodeURIComponent(invitation.token)}`,
+          }, invitation.deliveryError ? `Replacement invitation created, but not emailed. ${invitation.deliveryError}` :
+               'A replacement invitation has been emailed. The previous link no longer works.');
      } catch (error) { return fail(res, error); }
 };
 
@@ -372,6 +408,8 @@ export const patientPortalRouter = Router();
 patientPortalRouter.get(`${BASE}/admin/settings`, requireStaff(), getSettings);
 patientPortalRouter.put(`${BASE}/admin/settings`, requireStaff(PORTAL_SETTINGS_ROLES), updateSettings);
 patientPortalRouter.get(`${BASE}/admin/audit`, requireStaff(PORTAL_SETTINGS_ROLES), getAudit);
+patientPortalRouter.get(`${BASE}/admin/invitations`, requireStaff(PORTAL_SETTINGS_ROLES), getInvitations);
+patientPortalRouter.post(`${BASE}/admin/invitations/:id/resend`, requireStaff(PORTAL_SETTINGS_ROLES), resendInvitation);
 patientPortalRouter.post(`${BASE}/admin/invitations/:id/revoke`, requireStaff(), revokeInvitation);
 patientPortalRouter.get(`${BASE}/admin/patients/:patientid/access`, requireStaff(), getPatientAccess);
 patientPortalRouter.post(`${BASE}/admin/patients/:patientid/invitations`, requireStaff(), createInvitation);

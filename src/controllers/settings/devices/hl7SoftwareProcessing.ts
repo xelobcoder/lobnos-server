@@ -265,7 +265,8 @@ export async function handleReceivedIntefacingDataProcessor(req: Request<{}, {},
                     result = await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload, actorEmployeeId);
                     break;
                default:
-                    result = await DeviceModelsVersionProcessing.bioLabDeviceProcessor(Number(tenantId), payload, actorEmployeeId);
+                    result = await DeviceModelsVersionProcessing.MindRayDeviceBClassProcessor(Number(tenantId), { data: payload } as any, actorEmployeeId);
+                    break;
           }
           return res.status(result.status === 'success' ? 200 : 500).json({
                status: result.status,

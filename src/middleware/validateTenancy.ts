@@ -92,8 +92,8 @@ export const patientRouteAllowed = (method: string, path: string): boolean => {
 };
 
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
+     if (request.method === 'POST' && LOGIN_ROUTES.includes(request.path)) return next();
      const bypassRoutes = [
-          '/api/v1/prime/login',
           '/api/v1/prime/forgotpassword',
           '/api/v1/prime/verify-reset-otp',
           '/api/v1/prime/resetpassword',
@@ -120,9 +120,9 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
 
           const tokenValue = primeUserHeader.toString();
-          const status = await new TokenValidator().validateAccessToken(tokenValue) as { expired: boolean | undefined };
-          if (status.expired == null || status.expired == undefined) return customError("Invalid Token Provided", 500, response);
-          if (status.expired == true) return customError('Token expired', 500, response);
+          const status = await new TokenValidator().validateAccessToken(tokenValue);
+          if (status?.expired === undefined) return customError("Invalid Token Provided", 401, response);
+          if (status.expired) return customError('Token expired', 401, response);
 
           const decoded = await new TokenValidator().decodeAccessToken(tokenValue);
           if (decoded?.clientType === 'device-manager' &&
