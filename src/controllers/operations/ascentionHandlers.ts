@@ -25,6 +25,9 @@ export async function updateAscensionStageHandler(request: Request<{}, {}, {
         if (!metRequirement) {
             return customError("invalid request body provided", 400, response);
         }
+        if (!['processingStartDate', 'processingEndDate'].includes(stage)) {
+            return customError('Use the physical sample or result entry workflow for this stage', 409, response);
+        }
         const isUpdateComplete = await TestAscension.
             updateSampleAscensionstate(tenantIdP, parseInt(ascensionid.toString()), stage as keyof typeof ascensionStages, value as unknown as Date, parseInt(employeeid.toString()));
         const ascensionIdNum = parseInt(ascensionid.toString());
@@ -44,6 +47,8 @@ export async function updateAscensionStageHandler(request: Request<{}, {}, {
         }
         response.send({ tenantId, status: isUpdateComplete })
     } catch (err) {
+        const statusCode = Number((err as any)?.statusCode);
+        if (statusCode >= 400 && statusCode < 500) return customError((err as any).message, statusCode, response);
         responseError(response)
     }
 }
@@ -407,5 +412,3 @@ export async function getAllPendingAscensionsHandler(request: Request<{}, {}, {}
         responseError(response);
     }
 }
-
-

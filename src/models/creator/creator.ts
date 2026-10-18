@@ -1,4 +1,5 @@
 import { testpanel } from "../../testpanel/testpanelList";
+import { LaboratoryWorkflowService } from "../operations/LaboratoryWorkflow";
 import {
 	getGenderQuery, insert_critical_value_alert,
 	modify_ultrasound_field_to_support_long_text,
@@ -308,6 +309,7 @@ export default class Creator {
 			return OperationsFailures.invalidRequestBodyType;
 		}
 
+		await new LaboratoryWorkflowService(tenantId).requireResultEntry(ascensionid, testid, billingid, patientid);
 		await requireDailyQcAcceptance(tenantId, testid);
 
 		const isPaymentStatusValid = await this.canPrintResult(tenantId, ascensionid);

@@ -23,6 +23,7 @@ import { PrimeLimsTabletest_ascension } from "../../database/DatabaseTableSchema
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import KnexConnection from "../../database/KnexConnections";
 import ApplicationSettings from "../application/appsettings/appset";
+import { LaboratoryWorkflowService } from "./LaboratoryWorkflow";
 
 
 export class TestAscension {
@@ -45,7 +46,7 @@ export class TestAscension {
 		if (['processingStartDate', 'processingEndDate'].includes(stage)) {
 			query = q_update_ascension_processing_state;
 		} else if (['collectionStartDate', 'collectionEndDate'].includes(stage)) {
-			query = q_update_ascension_collection_state;
+			throw Object.assign(new Error('Use physical sample collection to update collection stages'), { statusCode: 409 });
 		} else if (['resultEntryStart', 'resultEntryEnd'].includes(stage)) {
 			query = q_update_ascension_result_entry_state;
 		} else {
@@ -53,6 +54,15 @@ export class TestAscension {
 		}
 
 		if (query == null) return null;
+		if (['processingStartDate', 'processingEndDate'].includes(stage)) {
+			const row = await new LaboratoryWorkflowService(tenantId).forAscension(ascensionId);
+			if (!row.workflow.canProcess) {
+				throw Object.assign(new Error(row.workflow.blockedReason || 'Processing is already completed or bypassed'), { statusCode: 409 });
+			}
+			if (stage === 'processingEndDate' && !row.processingStartDate) {
+				throw Object.assign(new Error('Start processing before completing it'), { statusCode: 409 });
+			}
+		}
 		query = query.replace('{stage}', stage);
 		const sanitizedDate = new Date(value);
 		const result = await promisifyQuery(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
@@ -146,7 +156,14 @@ export class TestAscension {
 	}
 
 	public static async getTransactionTestsQualifiedForResultEntry(tenantId: number, billingid: number, branchid: number): Promise<[]> {
-		return await promisifyQuery(tenantId, q_get_all_test_qualified_to_for_result_entry_on_test, [billingid, branchid]);
+		const connection = await KnexConnection(tenantId);
+		const rows = await connection('test_ascension as ta')
+			.join('test_panels as tp', 'tp.id', 'ta.testid')
+			.join('dboservices as dbs', 'dbs.serviceid', 'ta.serviceid')
+			.leftJoin('samplestatus as ss', 'ss.ascensionid', 'ta.id')
+			.where('dbs.billingid', billingid).where('dbs.branchid', branchid)
+			.select('ta.*', 'ta.id as ascensionid', 'tp.name', 'ss.approvalstatus', 'ss.samplevalidatedon', 'ss.rejectionmessage', 'ss.isRedraw');
+		return (await new LaboratoryWorkflowService(tenantId).forAscensions(rows)).filter(row => row.workflow.canEnterResults) as [];
 	}
 
 	public static async getAllPendingAscensions(tenantId: number, count: number = 10, page: number = 1, startDate?: string, endDate?: string): Promise<{ items: any[]; total: number }> {
@@ -221,93 +238,19 @@ export class TestAscension {
 
 
 	public static async completeFlowByPass(tenantId: number, billingid: number, employeeid: number): Promise<boolean | void> {
-		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
-		if (!application_settings) return;
-		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
-		if (isCompleteLabFlowEnabled) return;
-
-		const connection = await KnexConnection(tenantId);
-		const trx = await connection.transaction();
-		const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension AS ta")
-			.leftJoin("dboservices AS sbo", "sbo.billingid", "ta.billingid")
-			.where({ "sbo.billingid": billingid })
-			.orWhere({ "sbo.relatedbillingid": billingid })
-
-		const AscensionIdx = cart.map(item => item.id);
-		if (AscensionIdx.length == 0) return;
-
-		if (!isCompleteLabFlowEnabled) {
-			try {
-				for (const item of cart) {
-					const currentDate = new Date();
-					await trx('test_ascension')
-						.update({
-							collectionStartDate: currentDate,
-							collectionEndDate: currentDate,
-							processingStartDate: currentDate,
-							processingEndDate: currentDate,
-							sampleCollectedBy: employeeid,
-							sampleProcessedBy: employeeid,
-						}).where({ billingid: billingid, id: item.id })
-
-
-					await trx('samplestatus')
-						.update({
-							approvalstatus: 1,
-							phelobotomist: employeeid,
-							validatedby: employeeid,
-							samplevalidatedon: currentDate,
-						}).where({ ascensionid: item.id })
-				}
-				await trx.commit();
-				return true
-			} catch (error) {
-				await trx.rollback();
-				throw error;
-			}
-		}
+		return this.completeFlowByPassMultiple(tenantId, [billingid], employeeid);
 	}
 
 	public static async completeFlowByPassMultiple(tenantId: number, billingIds: number[], employeeid: number): Promise<boolean | void> {
 		if (!Array.isArray(billingIds) || billingIds.length === 0) return;
-		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
-		if (!application_settings) return;
-		const isCompleteLabFlowEnabled = parseInt(application_settings['completeFlow'].toString()) ? true : false;
-		if (isCompleteLabFlowEnabled) return;
-
 		const connection = await KnexConnection(tenantId);
-		const trx = await connection.transaction();
-		try {
-			for (const billingid of billingIds) {
-				const cart: PrimeLimsTabletest_ascension[] = await trx("test_ascension").where({ billingid }).orWhere({ relatedbillingid: billingid });
-				if (!cart || cart.length === 0) continue;
-				for (const item of cart) {
-					const currentDate = new Date();
-					await trx('test_ascension')
-						.update({
-							collectionStartDate: currentDate,
-							collectionEndDate: currentDate,
-							processingStartDate: currentDate,
-							processingEndDate: currentDate,
-							sampleCollectedBy: employeeid,
-							sampleProcessedBy: employeeid,
-						}).where({ billingid: billingid, id: item.id });
-
-					await trx('samplestatus')
-						.update({
-							approvalstatus: 1,
-							phelobotomist: employeeid,
-							validatedby: employeeid,
-							samplevalidatedon: currentDate,
-						}).where({ ascensionid: item.id })
-				}
-			}
-			await trx.commit();
-			return true;
-		} catch (error) {
-			await trx.rollback();
-			throw error;
-		}
+		// Compatibility endpoint: evaluate configured bypasses, never manufacture physical history.
+		const rows = await connection('test_ascension as ta')
+			.leftJoin('samplestatus as ss', 'ss.ascensionid', 'ta.id')
+			.whereIn('ta.billingid', billingIds)
+			.select('ta.*', 'ss.approvalstatus', 'ss.samplevalidatedon', 'ss.rejectionmessage', 'ss.isRedraw');
+		const effective = await new LaboratoryWorkflowService(tenantId).forAscensions(rows, connection);
+		return effective.length > 0 && effective.every(row => row.workflow.canEnterResults);
 	}
 
 
@@ -315,51 +258,15 @@ export class TestAscension {
 		"byPassSampleValidation" | 'byPassValidation',
 		employeeid: number, trx: any): Promise<boolean | void> {
 		if (!bypasstage || !['byPassCollection', 'byPassProcessing', 'byPassSampleValidation', 'byPassValidation'].includes(bypasstage)) return;
+		// Collection, sample validation and processing are effective workflow bypasses.
+		// They must not create timestamps, actors, containers or acceptance records.
+		if (bypasstage !== 'byPassValidation') return;
 		const connection = trx ? trx : await KnexConnection(tenantId);
 		// laod application settings to check if complete lab flow is enabled
 		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
 		if (!application_settings) return;
-		const { byPassCollection, byPassProcessing, byPassSampleValidation, byPassValidation } = application_settings;
-
-		const isPassCollectionEnabled = byPassCollection ? parseInt(byPassCollection.toString()) ? true : false : false;
-		const isPassProcessingEnabled = byPassProcessing ? parseInt(byPassProcessing.toString()) ? true : false : false;
-		const isPassSampleValidationEnabled = byPassSampleValidation ? parseInt(byPassSampleValidation.toString()) ? true : false : false;
-		const isPassValidationEnabled = byPassValidation ? parseInt(byPassValidation.toString()) ? true : false : false;
-
-		if (!isPassCollectionEnabled && !isPassProcessingEnabled && !isPassSampleValidationEnabled && !isPassValidationEnabled) return;
-
-
-		if (bypasstage === 'byPassCollection' && isPassCollectionEnabled) {
-			await trx('test_ascension')
-				.update({
-					collectionStartDate: new Date(),
-					collectionEndDate: new Date(),
-					sampleCollectedBy: employeeid,
-				}).where({ id: ascensionid })
-		}
-
-
-		if (bypasstage === 'byPassProcessing' && isPassProcessingEnabled) {
-			await trx('test_ascension')
-				.update({
-					processingStartDate: new Date(),
-					processingEndDate: new Date(),
-					sampleProcessedBy: employeeid,
-				}).where({ id: ascensionid })
-		}
-
-		if (bypasstage === 'byPassSampleValidation' && isPassSampleValidationEnabled) {
-			await trx('samplestatus')
-				.update({
-					approvalstatus: 1,
-					phelobotomist: employeeid,
-					validatedby: employeeid,
-					samplevalidatedon: new Date(),
-				}).where({ ascensionid: ascensionid })
-		}
-
-		if (bypasstage === 'byPassValidation' && isPassValidationEnabled) {
-			await trx('dbotestresultapproval')
+		if (Number(application_settings.byPassValidation) === 1) {
+			await connection('dbotestresultapproval')
 				.update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() })
 				.where({ ascensionid: ascensionid })
 		}
@@ -367,4 +274,3 @@ export class TestAscension {
 	}
 
 }
-

@@ -1,3 +1,4 @@
+import { LaboratoryWorkflowService } from "./LaboratoryWorkflow";
 import {
 	q_approved_samples,
 	q_billing_test_collection,
@@ -375,7 +376,8 @@ export default class Operations {
 							ss.keyid ASC,
 							ra.id ASC;`
 
-			return await promisifyQuery(tenantid, query, [billingid]);
+			const rows = await promisifyQuery(tenantid, query, [billingid]);
+			return new LaboratoryWorkflowService(tenantid).forAscensions(rows);
 		} catch (err: any) {
 			console.log(err)
 			throw new Error(err?.message || "Error fetching ascension overview model transaction details");

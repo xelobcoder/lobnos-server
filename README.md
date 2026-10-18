@@ -132,6 +132,10 @@ Patients sign in at the normal PLS login page (patient mode) and are confined to
   `GET /api/v1/patient-portal/trends/:testid?page=&count=` return only results the
   portal release gate allows for the signed-in patient. Charts show the selected
   page; reference ranges use the current laboratory configuration, as in staff trends.
+- **Result dates:** `GET /api/v1/patient-portal/results?from=YYYY-MM-DD&to=YYYY-MM-DD`
+  filters by the inclusive request/billing dates before the 500-test limit.
+  Both dates are required when filtering; impossible or reversed ranges return 400.
+  Ownership and result-release checks are unchanged.
 - **Test requests (self-billing):** patients submit test selections with
   `POST /api/v1/patient-portal/billing-requests` (idempotent `submissionKey`); this
   creates no bill or payment. Staff list, decline or convert requests under
@@ -806,3 +810,20 @@ For issues, questions, or support:
 _High Performance Laboratory Information Management System_
 
 Built with ❤️ for healthcare professionals
+
+## Laboratory workflow bypass
+
+Application Settings -> Billing Settings controls collection, sample validation and
+processing bypasses independently. The server computes a workflow object for every
+test (`canCollect`, `canValidateSample`, `canProcess`, `canEnterResults`,
+`blockedReason`); Daily Requests shows skipped stages as "Bypassed by configuration"
+and opens results entry without an empty sample-validation step. No timestamps or
+actors are fabricated for bypassed stages. A container that was actually started but
+not completed, or that was rejected, still blocks results entry.
+
+## Staff PIN security
+
+Settings -> Application Settings -> Staff authorization PIN security lets an
+administrator set the failed-PIN attempt limit (1-20, default 5). When a staff member
+reaches the limit they stay locked until an administrator performs an audited reset
+(a reason is required). Resetting clears the counter only; it does not change the PIN.

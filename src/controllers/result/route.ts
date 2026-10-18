@@ -2,6 +2,7 @@ import { ResultPrintingTrackingController } from "./ResultPrintingTrackingContro
 
 
 import express from "express"
+import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
        resultEntry,
        getPreviousResultEntryRecordsIfAny,
@@ -41,7 +42,7 @@ import { getTestTrendsHandler } from "../creator/testTrendsHandler";
 const router = express.Router();
 
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
-router.post("/api/v1/result/entry/customtest", resultEntry);
+router.post("/api/v1/result/entry/customtest", requireLaboratoryWorkflowRole, resultEntry);
 router.get("/api/v1/testpanel/list/customtestrule/previous", handleOverLoad(getPreviousResultEntryRecordsIfAny));
 router.get("/api/v1/testpanel/list/customtestrule/previous/comments", getResultCommentsHandler);
 router.get("/api/v1/result/entry/customtest/drugs", resultEntryDrugsHandler)
@@ -117,5 +118,5 @@ router.get("/api/v1/result/trends", handleOverLoad(getTestTrendsHandler));
 
 
 // BYPASS COMPLETE FLOW FOR ASCENSION WHEN BILLING IS SUBMITTED
-router.post('/api/v1/operations/ascension/bypass/mutiple/completeflow/bypass-multiple', handleOverLoad(completeFlowByPassMultipleHandler));
-router.post('/api/v1/operations/ascension/completeflow/bypass', handleOverLoad(completeFlowByPassHandler));
+router.post('/api/v1/operations/ascension/bypass/mutiple/completeflow/bypass-multiple', requireLaboratoryWorkflowRole, handleOverLoad(completeFlowByPassMultipleHandler));
+router.post('/api/v1/operations/ascension/completeflow/bypass', requireLaboratoryWorkflowRole, handleOverLoad(completeFlowByPassHandler));

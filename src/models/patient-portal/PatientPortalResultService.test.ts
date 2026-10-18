@@ -9,7 +9,7 @@ vi.mock('./PatientPortalBootstrapper', () => ({
 vi.mock('./PatientPortalSettings', () => ({
      PatientPortalSettingsService: class { async get() { return { result_release_policy: 'approved', require_payment_for_results: true }; } },
 }));
-import { PatientPortalResultService } from './PatientPortalResultService';
+import { PatientPortalResultService, portalResultDateRange } from './PatientPortalResultService';
 import knex from 'knex';
 
 describe('patient canonical laboratory reports', () => {
@@ -93,6 +93,34 @@ describe('patient canonical laboratory reports', () => {
           expect(sql[0]).toContain('`ds`.`status` not in');
           expect(sql[0]).toContain('`ds`.`isDeleted` = 0');
           expect(mocks.load).not.toHaveBeenCalled();
+          await database.destroy();
+     });
+
+     it('validates inclusive result date ranges without accepting impossible, repeated or reversed dates', () => {
+          expect(portalResultDateRange(undefined, undefined)).toEqual({});
+          expect(portalResultDateRange('2026-10-18', '2026-10-18')).toEqual({ from: '2026-10-18', to: '2026-10-18' });
+          for (const [from, to] of [
+               ['2026-02-30', '2026-03-01'], ['2026-10-19', '2026-10-18'],
+               ['2026-10-18', undefined], [undefined, '2026-10-18'],
+               [['2026-10-18'], '2026-10-18'], ['', ''], ['invalid', '2026-10-18'],
+          ]) expect(() => portalResultDateRange(from, to)).toThrow(/valid start and end date/);
+     });
+
+     it('filters request dates in SQL before limiting results while retaining patient ownership', async () => {
+          const database = knex({ client: 'mysql2' });
+          const queries: { sql: string; bindings: readonly unknown[] }[] = [];
+          mocks.connection.mockResolvedValue((table: string) => {
+               const query = database(table);
+               query.then = (resolve, reject) => {
+                    queries.push(query.toSQL());
+                    return Promise.resolve([]).then(resolve, reject);
+               };
+               return query;
+          });
+          await new PatientPortalResultService(4).listTests(21, { from: '2020-01-01', to: '2020-01-31' });
+          expect(queries[0].sql).toContain('DATE(b.billedon) BETWEEN ? AND ?');
+          expect(queries[0].sql).toContain('`b`.`patientid` = ?');
+          expect(queries[0].bindings).toEqual(expect.arrayContaining([21, '2020-01-01', '2020-01-31', 500]));
           await database.destroy();
      });
 });

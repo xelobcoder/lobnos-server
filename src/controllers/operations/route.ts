@@ -1,4 +1,5 @@
 import express from "express"
+import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
   getAllCollections,
   getAllEnterResult,
@@ -102,7 +103,7 @@ router.get(`/api/v1/rejected/sample/list`, getRejectedCollectedSampleListHandler
 // TEST ASCENSION ROUTER
 
 
-router.post('/api/v1/ascension/collection/update/stage', updateAscensionStageHandler);
+router.post('/api/v1/ascension/collection/update/stage', requireLaboratoryWorkflowRole, updateAscensionStageHandler);
 router.get(`/api/v1/ascension/edit/count`, getAscensionEditCountHandler);
 router.get(`/api/v1/ascension/analytics/summary`, getAscensionAnalyticSummary)
 router.get(`/api/v1/ascension/analytics/getCollectionToDisputeToApprovedToRedrawnLast30days`, getCollectionToDisputeToApprovedToRedrawnLast30daysHandler)

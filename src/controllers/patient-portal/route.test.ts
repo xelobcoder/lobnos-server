@@ -37,7 +37,8 @@ vi.mock('../../models/patient-portal/PatientPortalAudit', () => ({ recordPortalA
 
 import { checkTokenExists, patientRouteAllowed } from '../../middleware/validateTenancy';
 import { configuration } from '../../hooks/configuration';
-import { createInvitation, getInvitations, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
+import { createInvitation, getInvitations, getResults, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
+import { PatientPortalResultService } from '../../models/patient-portal/PatientPortalResultService';
 import { authenticatePatientPortal, logoutUser } from '../logins/authHandlers';
 
 const SECRET = 'portal-test-signing-key';
@@ -46,6 +47,36 @@ const request = (method: string, path: string, token?: string) =>
      ({ path, method, query: { tenantId: '4' }, headers: token ? { 'pls-prime-tenant-session': token } : {} }) as any;
 const patientToken = (claims: Record<string, unknown> = {}) =>
      jwt.sign({ tid: 4, patientid: 21, employeeid: 21, role: 'patient', sv: 2, ...claims }, SECRET, { expiresIn: '1h' });
+
+describe('patient result date filters', () => {
+     it('passes valid date filters with the authenticated patient to the result service', async () => {
+          const list = vi.spyOn(PatientPortalResultService.prototype, 'listTests').mockResolvedValue([]);
+          try {
+               const req = { query: { tenantId: '4', from: '2026-10-01', to: '2026-10-18' },
+                    authUser: { role: 'patient', patientid: 21, employeeid: 21 }, ip: '127.0.0.1' };
+               const res = response();
+               await getResults(req as any, res as any);
+               expect(list).toHaveBeenCalledWith(21, { from: '2026-10-01', to: '2026-10-18' });
+               expect(res.status).toHaveBeenCalledWith(200);
+          } finally { list.mockRestore(); }
+     });
+
+     it('rejects malformed date query parameters before reading any results', async () => {
+          const list = vi.spyOn(PatientPortalResultService.prototype, 'listTests').mockResolvedValue([]);
+          try {
+               for (const query of [
+                    { from: '2026-02-30', to: '2026-03-01' },
+                    { from: '2026-10-18' },
+                    { from: ['2026-10-01'], to: '2026-10-18' },
+               ]) {
+                    const res = response();
+                    await getResults({ query: { tenantId: '4', ...query } } as any, res as any);
+                    expect(res.status).toHaveBeenCalledWith(400);
+               }
+               expect(list).not.toHaveBeenCalled();
+          } finally { list.mockRestore(); }
+     });
+});
 
 describe('patient portal authentication boundaries', () => {
      const original = { ...configuration };

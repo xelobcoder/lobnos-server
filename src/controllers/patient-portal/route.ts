@@ -10,7 +10,7 @@ import { requireOperationalLicense } from '../../licensing/enforcement';
 import { tenantId as licensedTenantId } from '../../licensing/certificate';
 import { InvitationListOptions, PatientPortalAccountService, PatientPortalError, parseInvitationToken } from '../../models/patient-portal/PatientPortalAccountService';
 import { PatientPortalSettingsError, PatientPortalSettingsService } from '../../models/patient-portal/PatientPortalSettings';
-import { PatientPortalResultService } from '../../models/patient-portal/PatientPortalResultService';
+import { PatientPortalResultService, portalResultDateRange } from '../../models/patient-portal/PatientPortalResultService';
 import { PatientPortalRecordsService } from '../../models/patient-portal/PatientPortalRecordsService';
 import { recordPortalAudit } from '../../models/patient-portal/PatientPortalAudit';
 import { bootstrapPatientPortal } from '../../models/patient-portal/PatientPortalBootstrapper';
@@ -178,7 +178,8 @@ export const getDashboard = async (req: Request, res: Response) => {
 
 export const getResults = async (req: Request, res: Response) => {
      try {
-          const tests = await new PatientPortalResultService(tenantOf(req)).listTests(patientOf(req));
+          const range = portalResultDateRange(req.query.from, req.query.to);
+          const tests = await new PatientPortalResultService(tenantOf(req)).listTests(patientOf(req), range);
           await audit(req, 'results.list', 'results');
           return ok(res, tests);
      } catch (error) { return fail(res, error); }

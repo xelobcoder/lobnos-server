@@ -23,6 +23,17 @@ export interface ResultReleaseDecision {
      pending: 'in_progress' | 'awaiting_verification' | 'awaiting_payment' | 'awaiting_release' | null;
 }
 
+export function portalResultDateRange(from: unknown, to: unknown): { from?: string; to?: string } {
+     if (from === undefined && to === undefined) return {};
+     const valid = (value: unknown): value is string => typeof value === 'string' &&
+          /^\d{4}-\d{2}-\d{2}$/.test(value) && Number.isFinite(Date.parse(value)) &&
+          new Date(value).toISOString().slice(0, 10) === value;
+     if (!valid(from) || !valid(to) || from > to) {
+          throw new PatientPortalError('Provide a valid start and end date, with the start no later than the end.', 400);
+     }
+     return { from, to };
+}
+
 /** Mirrors ResultSettings.isApprovalLimitReached(..., 'minimum') without a query per test. */
 export function isResultApproved(approval: ResultReleaseInput['approval']): boolean {
      if (!approval) return false;
@@ -60,7 +71,8 @@ export class PatientPortalResultService {
      constructor(private readonly tenantId: number) { }
 
      /** All of a patient's tests with the release decision applied; values are never included here. */
-     async listTests(patientid: number, options: { billingid?: number; ascensionId?: number } = {}) {
+     async listTests(patientid: number, options: { billingid?: number; ascensionId?: number; from?: string; to?: string } = {}) {
+          const range = portalResultDateRange(options.from, options.to);
           const connection = await bootstrapPatientPortal(this.tenantId);
           const settings = await new PatientPortalSettingsService(this.tenantId).get();
           const query = this.ownedAscensions(connection, patientid)
@@ -71,6 +83,7 @@ export class PatientPortalResultService {
                .orderBy('ta.id', 'desc').limit(500);
           if (options.billingid) query.andWhere('ta.billingid', options.billingid);
           if (options.ascensionId) query.andWhere('ta.id', options.ascensionId);
+          if (range.from && range.to) query.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [range.from, range.to]);
           const rows: any[] = await query;
           if (!rows.length) return [];
 

@@ -163,7 +163,7 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
      }
 
      private async verifyPin(trx: any, actor: AuthUser, input: FinancialCloseActionInput, purpose: string, resourceId: string): Promise<void> {
-          await new FinancialPinVerificationService(this.tenantId, trx).verify(actor, input.pin, {
+          await new FinancialPinVerificationService(this.tenantId).verify(actor, input.pin, {
                purpose, resourceType: 'financial_day_close', resourceId,
                ipAddress: input.requestContext?.ipAddress, userAgent: input.requestContext?.userAgent, requestId: input.requestContext?.requestId,
           });

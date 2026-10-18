@@ -40,7 +40,7 @@ import { loadLaboratoryReportData } from "../../models/result/LaboratoryReportDa
 //   }
 // };
 
-export const resultEntry = async (req: Request<{}, {}, { testid: number }, { tenantId: number }>, response: Response): Promise<void> => {
+export const resultEntry = async (req: Request, response: Response): Promise<void> => {
 	try {
 		const { tenantId } = req.query
 		const { testid } = req.body;
@@ -576,7 +576,7 @@ export const completeFlowByPassHandler = async (req: Request, res: Response) => 
 			return res.status(400).json({ status: 'error', message: 'Missing required parameters: billingid, employeeid, tenantId' });
 		}
 		const result = await TestAscension.completeFlowByPass(tenantId, parseInt(billingid as string), parseInt(employeeId as string));
-		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Workflow prerequisites satisfied' : 'Required laboratory stages remain pending. Open Daily Requests to complete them.' });
 	} catch (error) {
 		res.status(500).json({ status: 'error', message: 'Internal server error' });
 	}
@@ -593,7 +593,7 @@ export const completeFlowByPassMultipleHandler = async (req: Request, res: Respo
 		}
 
 		const result = await TestAscension.completeFlowByPassMultiple(tenantId, billingids, parseInt(employeeId as string));
-		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Operation completed successfully' : 'Operation failed' });
+		res.send({ status: result == true ? 'success' : 'error', message: result == true ? 'Workflow prerequisites satisfied' : 'Required laboratory stages remain pending. Open Daily Requests to complete them.' });
 	} catch (error) {
 		res.status(500).json({ status: 'error', message: 'Internal server error' });
 	}

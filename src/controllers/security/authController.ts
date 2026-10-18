@@ -210,7 +210,7 @@ export class AuthController {
 			res.status(200).json({ status: result.valid, message: result.valid ? 'Pin is valid' : 'Invalid pin' });
 		} catch (error: any) {
 			const status = error?.code === 'PIN_RATE_LIMITED' ? 429 : error?.code === 'INVALID_PIN' ? 401 : 500;
-			res.status(status).json({ status: false, message: error?.message || 'Unable to validate PIN' });
+			res.status(status).json({ status: false, message: status === 500 ? 'Unable to validate PIN' : error.message });
 		}
 	}
 }

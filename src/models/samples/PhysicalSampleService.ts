@@ -188,7 +188,6 @@ export class PhysicalSampleService {
           const connection = await KnexConnection(this.tenantId);
           const rows = await this.ascensionRequirementQuery(connection)
                .where('ascension.billingid', billingid)
-               .where((builder: any) => builder.whereNull('ascension.collectionEndDate').orWhereNull('ascension.collectionStartDate'))
                .whereNotExists(function () {
                     this.select(connection.raw('1')).from('test_ascension_samples as existing_link').whereRaw('existing_link.ascension_id = ascension.id');
                })
@@ -225,8 +224,10 @@ export class PhysicalSampleService {
 
                const requirementKeys = new Set(rows.map((row: any) => [row.sample_type_id || 0, row.container_type_id || 0, String(row.unit || '').trim().toLowerCase()].join(':')));
                if (requirementKeys.size !== 1) throw new Error('Selected tests require different specimen or container types');
-               if (!input.allowAdditional && action === 'start' && rows.some((row: any) => row.collectionStartDate)) throw new Error('Collection has already started for one or more selected tests');
-               if (!input.allowAdditional && action === 'collect' && rows.some((row: any) => row.collectionEndDate)) throw new Error('One or more selected tests are already collected');
+               // Physical links, not legacy dates (which old bypasses populated), own collection.
+               // Ascension row locks above serialize concurrent attempts to create the first container.
+               const existingLinks = await trx('test_ascension_samples').whereIn('ascension_id', ascensionIds).first();
+               if (!input.allowAdditional && existingLinks) throw new Error('A physical sample is already linked; use its collection or recollection workflow');
 
                const now = new Date();
                const uid = `S-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;

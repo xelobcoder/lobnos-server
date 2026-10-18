@@ -1,6 +1,7 @@
 import express from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireOwnerRole } from '../../middleware/authority';
+import { getPinSecurityPolicy, updatePinSecurityPolicy, listStaffPinSecurity, resetStaffPinAttempts } from './pinSecurityHandler';
 import { updateWorkspaceLayout } from './workspaceLayoutHandler';
 import { getSmsProviderSettings, updateSmsProviderSettings } from '../sms/SmsProviderSettingsController';
 import {
@@ -32,6 +33,10 @@ import {
 
 const router = express.Router();
 
+router.get("/api/v1/applicationsettings/pin-security", checkTokenExists, requireOwnerRole, getPinSecurityPolicy);
+router.put("/api/v1/applicationsettings/pin-security", checkTokenExists, requireOwnerRole, updatePinSecurityPolicy);
+router.get("/api/v1/applicationsettings/pin-security/staff", checkTokenExists, requireOwnerRole, listStaffPinSecurity);
+router.post("/api/v1/applicationsettings/pin-security/staff/:employeeid/reset", checkTokenExists, requireOwnerRole, resetStaffPinAttempts);
 router.patch("/api/v1/applicationsettings/workspace-layout", checkTokenExists, requireOwnerRole, updateWorkspaceLayout);
 router.get("/api/v1/applicationsettings", getApplicationSettings);
 router.put("/api/v1/applicationsettings/updates/billingsettings", updateApplicationBillSettingsHandler);
