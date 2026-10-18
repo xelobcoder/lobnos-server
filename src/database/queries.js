@@ -71,9 +71,9 @@ const database_queries = {
     })
   },
   getBranch: async function (request, response) {
-    let SQL_QUERY = `SELECT * FROM BRANCH  ORDER BY BRANCHID ASC LIMIT 20`
+    let SQL_QUERY = `SELECT * FROM branch  ORDER BY BRANCHID ASC LIMIT 20`
     if (request.query.branchid) {
-      SQL_QUERY = `SELECT * FROM BRANCH WHERE BRANCHID  = ?`
+      SQL_QUERY = `SELECT * FROM branch WHERE BRANCHID  = ?`
     }
     connection.query(SQL_QUERY, [request.query.branchid], (error, result) => {
       if (error) {
@@ -94,7 +94,7 @@ const database_queries = {
   editBranch: function (request, response) {
     const { branchid, name, date, address, email, contact, managerid } = request.body
 
-    let SQL_QUERY = `UPDATE BRANCH 
+    let SQL_QUERY = `UPDATE branch 
           SET NAME = ?,
           contact = ?,
           address =? ,
@@ -120,7 +120,7 @@ const database_queries = {
     })
   },
   deleteBranch: function (branchid, request, response) {
-    let SQL_QUERY = `DELETE FROM BRANCH WHERE BRANCHID = '${branchid}'`
+    let SQL_QUERY = `DELETE FROM branch WHERE BRANCHID = '${branchid}'`
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         response.send({
@@ -138,7 +138,7 @@ const database_queries = {
     })
   },
   getAllRoles: function (request, response) {
-    let SQL_QUERY = "SELECT * FROM ROLES"
+    let SQL_QUERY = "SELECT * FROM roles"
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         response.send({
@@ -157,7 +157,7 @@ const database_queries = {
     })
   },
   getSingleRole: function (request, response, id) {
-    let SQL_QUERY = `SELECT * FROM ROLES WHERE ROLEID = '${id}'`
+    let SQL_QUERY = `SELECT * FROM roles WHERE ROLEID = '${id}'`
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         logger.error(err)
@@ -173,7 +173,7 @@ const database_queries = {
   newRole: function (fullname, username, password, role, request, response) {
     let values = [fullname, username, role, password]
     console.log(arguments[3])
-    let SQL_QUERY = "INSERT INTO ROLES (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)"
+    let SQL_QUERY = "INSERT INTO roles (FULLNAME,USERNAME,ROLE,PASSWORD) VALUES(?,?,?,?)"
     connection.query(SQL_QUERY, values, (err, result) => {
       if (err) {
         logger.error(err)
@@ -186,7 +186,7 @@ const database_queries = {
   updateRole: function (request, response) {
     const { fullname, username, role, password, roleid } = JSON.parse(request.body)
 
-    let SQL_QUERY = `UPDATE ROLES SET FULLNAME = '${fullname}', 
+    let SQL_QUERY = `UPDATE roles SET FULLNAME = '${fullname}', 
    USERNAME = '${username}',
    PASSWORD = '${password}',
    ROLE =' ${role}'
@@ -206,7 +206,7 @@ const database_queries = {
     })
   },
   deletewithID: function (id, request, response) {
-    let SQL_QUERY = `DELETE FROM ROLES WHERE ROLEID = '${id}'`
+    let SQL_QUERY = `DELETE FROM roles WHERE ROLEID = '${id}'`
     connection.query(SQL_QUERY, (err, result) => {
       if (err) {
         logger.error(err)
@@ -248,7 +248,7 @@ const database_queries = {
 
     const activation = status == "activate" ? 1 : 0
 
-    const queryString = `UPDATE BRANCH SET ACTIVATION = ? WHERE BRANCHID = ? `
+    const queryString = `UPDATE branch SET ACTIVATION = ? WHERE BRANCHID = ? `
 
     connection.query(queryString, [activation, id], (err, result) => {
       if (err) {

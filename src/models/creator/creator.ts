@@ -8,16 +8,11 @@ import {
 	q_get_a_single_ultrasound_template,
 	q_get_drug_reaction_inserts_find,
 	q_get_test_ascension_name_and_id,
-	q_get_ultrasound_template_field,
 	q_get_ultrasound_template_mapper,
 	q_get_ultrasound_template_mapper_scan_type,
 	q_has_drug_reaction_inserts,
 	q_insert_drug_reaction,
-	q_insert_new_ultrasound_template_mapper,
-	q_insert_ultrasound_template,
 	q_update_drug_reaction,
-	q_update_ultrasound_template,
-	q_update_ultrasound_template_mapper,
 	testCreationRule, update_creation_query
 } from "./queries";
 import Registration from "../registration/registration";
@@ -42,6 +37,7 @@ import RolesRepository from "../settings/users/RolesRepository";
 import ImagingResultAuditRepository from "../operations/imaging/ImagingResultAuditRepository";
 import ApplicationSettings from "../application/appsettings/appset";
 import { applyDemographicLimits, getAgeGroup } from "./demographic-limits";
+import { UltrasoundTemplateInput, UltrasoundTemplateRepository } from "../operations/imaging/UltrasoundTemplateRepository";
 
 export default class Creator {
 	testid: number;
@@ -527,74 +523,12 @@ export default class Creator {
 
 
 
-	private static async createUltrasoundScanTemplateMapper(tenantId: number, template: ultrasoundTemplateMapper): Promise<number | boolean> {
-		const { employeeid, name, testid, visibleToAll, associatedbodypart } = template;
-		const insert = await promisifyQuery(tenantId, q_insert_new_ultrasound_template_mapper, [testid, name, employeeid, visibleToAll, associatedbodypart]);
-		return insert.insertId ? parseInt(insert.insertId) : false;
+	public static async createUltrasoundTemplate(tenantId: number, template: UltrasoundTemplateInput) {
+		return new UltrasoundTemplateRepository(tenantId).create(template);
 	}
 
-	private static async updateUltrasoundScanTemplateMapper(tenantId: number, template: ultrasoundTemplateMapper) {
-		const { employeeid, name, testid, visibleToAll, associatedbodypart, keyid } = template;
-		const updateRow = await promisifyQuery(tenantId, q_update_ultrasound_template_mapper, [name, employeeid, visibleToAll, associatedbodypart, keyid]);
-		return rowAffected(updateRow);
-	}
-
-
-	public static async createUltrasoundTemplate(tenantId: number, template: ultrasoundTemplate) {
-		try {
-			const { fields } = template;
-			const templateId = await this.createUltrasoundScanTemplateMapper(tenantId, template);
-
-			if (typeof templateId !== "number") return false;
-
-			if (Array.isArray(fields) && fields.length > 0) {
-				for (let i = 0; i < fields.length; i++) {
-					const { name, value, id } = fields[i];
-					await promisifyQuery(tenantId, q_insert_ultrasound_template, [templateId, name, value, id]);
-				}
-			}
-
-			return true;
-		} catch (error) {
-			console.error("Error creating ultrasound template:", error);
-			return false;
-		}
-	}
-
-
-
-	public static async updateUltrasoundTemplate(tenantId: number, template: ultrasoundTemplate) {
-		const { fields, keyid } = template;
-		if (!keyid) return OperationsFailures.invalidRequestBodyType;
-		const isUpdated = await this.updateUltrasoundScanTemplateMapper(tenantId, template);
-		if (!isUpdated) return OperationsFailures.queryExecutionFailed;
-
-		if (Array.isArray(fields) && fields.length > 0) {
-
-			for (let i = 0; i < fields.length; i++) {
-				const { field, value } = fields[i];
-				const hasField = await this.hasUltrasoundTemplateField(tenantId, keyid, field as string);
-
-				if (hasField) {
-					await promisifyQuery(tenantId, q_update_ultrasound_template, [field, value, keyid, field]);
-				} else {
-					await promisifyQuery(tenantId, q_insert_ultrasound_template, [keyid, field, value]);
-				}
-			}
-		}
-		return true;
-	}
-
-	private static async getUltrasoundTemplateField(tenantId: number, templateid: number, fieldName: string) {
-		const result = await promisifyQuery(tenantId, q_get_ultrasound_template_field, [templateid, fieldName]);
-		if (result.length === 0) return null;
-		return result;
-	}
-
-	private static async hasUltrasoundTemplateField(tenantId: number, templateid: number, fieldName: string) {
-		const result = await this.getUltrasoundTemplateField(tenantId, templateid, fieldName);
-		if (result === null) return false;
-		return result.length > 0
+	public static async updateUltrasoundTemplate(tenantId: number, template: UltrasoundTemplateInput & { keyid: number }) {
+		return new UltrasoundTemplateRepository(tenantId).update(template);
 	}
 
 	private static async getUltrasoundTemplate(tenantId: number, templateId: number) {
@@ -615,6 +549,7 @@ export default class Creator {
 
 	public static async getUltrasoundTemplateSingleDetail(tenantId: number, templateid: number) {
 		const template = await this.getUltrasoundTemplateMapper(tenantId, templateid);
+		if (!template) return null;
 		template.fields = await this.getUltrasoundTemplate(tenantId, templateid);
 		return template;
 	}
@@ -682,20 +617,6 @@ type DrugSqlInsertion = {
 	ascensionid: number, reaction?: string, testid: number, drugid: number, sensitivity?: 'resistant' | 'sensitive' | 'Resistant' | 'Sensitive' | ''
 }
 type fieldConstraints = { value: (string | number), constraint: number, valueAlert: number, prefix: number, suffix: number, alert: number, replacementText: string }
-
-interface ultrasoundTemplateMapper {
-	testid: number,
-	visibleToAll: number,
-	employeeid: number,
-	associatedbodypart: string,
-	keyid?: number,
-	name: string,
-}
-
-interface ultrasoundTemplate extends ultrasoundTemplateMapper {
-	fields: { name?: string, value: string, field?: string, id: number }[]
-}
-
 
 export const CONSTRAINTSLEVEL = [
 	{ value: 0, description: 'select an option here', symbol: '' },

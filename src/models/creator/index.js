@@ -217,7 +217,7 @@ class Creator {
 					return rowAffected(await promisifyQuery(pushCommentsQuery, [comments, billingid, testid]))
 				} else {
 					return rowAffected(
-						await promisifyQuery(`INSERT INTO RESULT_COMMENTS (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`, [testid, billingid, comments])
+						await promisifyQuery(`INSERT INTO result_comments (TESTID,BILLINGID,COMMENTS) VALUES (?,?,?)`, [testid, billingid, comments])
 					)
 				}
 			}

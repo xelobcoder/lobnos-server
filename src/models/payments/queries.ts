@@ -41,12 +41,12 @@ INNER JOIN billing AS b ON np.patientid = b.patientid
     WHERE billingid = ?
   `,
   updateTransactionHx: `
-    INSERT INTO billingHx (billingid, paymentmode, amount, employeeid) 
+    INSERT INTO billinghx (billingid, paymentmode, amount, employeeid) 
     VALUES (?,?,?,?)
   `,
   updatePayment: `
     SELECT * 
-    FROM BILLING 
+    FROM billing 
     WHERE billingid = ?
   `,
   updatePaymentUpdate: `
@@ -55,7 +55,7 @@ INNER JOIN billing AS b ON np.patientid = b.patientid
     WHERE billingid = ?
   `,
   insertBillingHx: `
-    INSERT INTO billingHx (billing, paymentmode, amount) 
+    INSERT INTO billinghx (billing, paymentmode, amount) 
     VALUES (?,?,?)
   `,
   paymentMode: `
@@ -64,7 +64,7 @@ INNER JOIN billing AS b ON np.patientid = b.patientid
   `,
   specificBillTransactionHx: `
     SELECT * 
-    FROM billingHx 
+    FROM billinghx 
     WHERE billingid = ?  
     ORDER BY keyid DESC
   `,

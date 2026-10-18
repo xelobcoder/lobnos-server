@@ -105,10 +105,10 @@ WHERE isseen IS NULL LIMIT ? OFFSET ? ` ;
 
 // ultrasound templates
 
-export const q_insert_new_ultrasound_template_mapper: string = `INSERT INTO ultrasoundtemplatesMapper (testid, name,  createdby, visibletoAll,associatedbodypart) VALUES (?,?,?,?,?)`;
+export const q_insert_new_ultrasound_template_mapper: string = `INSERT INTO ultrasoundtemplatesmapper (testid, name,  createdby, visibletoAll,associatedbodypart) VALUES (?,?,?,?,?)`;
 
 export const q_update_ultrasound_template_mapper: string = `
-UPDATE ultrasoundtemplatesMapper  SET name = ?, createdby = ?,visibletoAll = ? ,associatedbodypart = ? WHERE keyid = ?`
+UPDATE ultrasoundtemplatesmapper  SET name = ?, createdby = ?,visibletoAll = ? ,associatedbodypart = ? WHERE keyid = ?`
 
 export const q_insert_ultrasound_template = `INSERT INTO ultrasoundtemplates(templateid, field, value,fieldid) VALUES (?,?,?,?)
   `;
@@ -119,15 +119,13 @@ export const q_get_ultrasound_template_mapper = `SELECT
     utm.*, 
     tp.name as ultrasoundname
 FROM 
-    ultrasoundtemplatesMapper AS utm
+    ultrasoundtemplatesmapper AS utm
 INNER JOIN 
     test_panels AS tp 
 ON 
     tp.id = utm.testid
 WHERE 
     utm.createdby = ? OR utm.visibletoAll = 1
-GROUP BY 
-    utm.name, utm.associatedbodypart
 ORDER BY 
     utm.keyid DESC
 LIMIT ? OFFSET ?;
@@ -144,36 +142,27 @@ export const q_get_ultrasound_template_mapper_scan_type = `SELECT
     utm.visibletoAll,
     tp.name AS ultrasoundname
 FROM 
-    ultrasoundtemplatesMapper AS utm
+    ultrasoundtemplatesmapper AS utm
 INNER JOIN 
     test_panels AS tp 
 ON 
     tp.id = utm.testid
 WHERE 
     (utm.createdby = ? OR utm.visibletoAll = 1) AND utm.testid = ?
-GROUP BY 
-    utm.keyid, 
-    utm.testid,
-    utm.name, 
-    utm.associatedbodypart, 
-    utm.createdOn, 
-    utm.createdby, 
-    utm.visibletoAll, 
-    tp.name
 ORDER BY 
     utm.keyid DESC
 LIMIT ? OFFSET ?;
 
 `;
 
-export const q_get_a_single_ultrasound_mapper = `SELECT * FROM ultrasoundtemplatesMapper WHERE keyid = ?`;
+export const q_get_a_single_ultrasound_mapper = `SELECT * FROM ultrasoundtemplatesmapper WHERE keyid = ?`;
 
 export const q_get_ultrasound_template = `SELECT * FROM ultrasoundtemplates  LIMIT ? OFFSET ?`;
 
 export const q_get_a_single_ultrasound_template = `SELECT * FROM ultrasoundtemplates WHERE templateid = ?`;
 
 export const q_insert_ultrasound_template_single_count: string = `
-SELECT COUNT(*)  FROM ultrasoundtemplatesMapper WHERE name = ? AND testid = ? `
+SELECT COUNT(*)  FROM ultrasoundtemplatesmapper WHERE name = ? AND testid = ? `
 
 export const q_get_ultrasound_template_field = `SELECT * FROM ultrasoundtemplates WHERE templateid = ? AND field = ?`
 

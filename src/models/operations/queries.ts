@@ -480,14 +480,14 @@ export const q_get_date_for_tat_analysis: string = `SELECT
 
 
 
-export const q_test_multi_create_testConditionDefinition = "INSERT INTO testConditionDefinitions (conditionName, testId) VALUES (?, ?)";
-export const q_test_multi_read_testConditionDefinition = "SELECT * FROM testConditionDefinitions WHERE id = ?";
-export const q_test_multi_update_testConditionDefinition = "UPDATE testConditionDefinitions SET conditionName = ?, testId = ? WHERE id = ?";
-export const q_test_multi_delete_testConditionDefinition = "DELETE FROM testConditionDefinitions WHERE id = ?";
+export const q_test_multi_create_testConditionDefinition = "INSERT INTO testconditiondefinitions (conditionName, testId) VALUES (?, ?)";
+export const q_test_multi_read_testConditionDefinition = "SELECT * FROM testconditiondefinitions WHERE id = ?";
+export const q_test_multi_update_testConditionDefinition = "UPDATE testconditiondefinitions SET conditionName = ?, testId = ? WHERE id = ?";
+export const q_test_multi_delete_testConditionDefinition = "DELETE FROM testconditiondefinitions WHERE id = ?";
 
-export const q_test_multi_read_testCondition = "SELECT * FROM testConditions WHERE id = ?";
-export const q_test_multi_update_testCondition = "UPDATE testConditions SET testId = ?, parameter = ?, conditionId = ?, target = ?, inRange = ?, createdBy = ? WHERE id = ?";
-export const q_test_multi_delete_testCondition = "DELETE FROM testConditions WHERE id = ?";
+export const q_test_multi_read_testCondition = "SELECT * FROM testconditions WHERE id = ?";
+export const q_test_multi_update_testCondition = "UPDATE testconditions SET testId = ?, parameter = ?, conditionId = ?, target = ?, inRange = ?, createdBy = ? WHERE id = ?";
+export const q_test_multi_delete_testCondition = "DELETE FROM testconditions WHERE id = ?";
 
 
 export const q_test_definition_conditions = `SELECT * FROM testconditions WHERE conditionid = ?`

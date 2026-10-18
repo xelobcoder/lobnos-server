@@ -34,7 +34,7 @@ export let clientPaymentStatusQuery: string = `SELECT
             WHEN SUM(paid) > SUM(PAYABLE) THEN -1
             WHEN SUM(paid) < SUM(PAYABLE) THEN 0
           END AS status
-          FROM BILLING
+          FROM billing
       WHERE PATIENTID = ?`;
 
 export const q_get_today_client_billingid = ` SELECT billingid FROM billing WHERE patientid = ? AND DATE(billedon) = CURRENT_DATE  ORDER BY 

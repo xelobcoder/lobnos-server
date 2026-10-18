@@ -47,7 +47,7 @@ class Tax extends ApplicationSettings {
       const { id, value, name } = request.body
       if (!id || !value || !name) return customError("tax id , name and value are required", 404, response)
 
-      const query = `UPDATE Tax SET name = ? , value = ? WHERE id = ?`
+      const query = `UPDATE tax SET name = ? , value = ? WHERE id = ?`
       const result = rowAffected(await promisifyQuery(query, [name, value, id]))
       response.send({
         message: result ? "updated successfully" : "failed updating",
@@ -63,7 +63,7 @@ class Tax extends ApplicationSettings {
       if (!id || typeof status !== "boolean") return customError("tax id and applystatus required", 404, response)
 
       const value = status === true ? "Yes" : "No"
-      const query = `UPDATE Tax SET  apply  = ? WHERE id = ?`
+      const query = `UPDATE tax SET  apply  = ? WHERE id = ?`
       const result = rowAffected(await promisifyQuery(query, [value, id]))
       response.send({
         message: result ? "updated successfully" : "update failed",

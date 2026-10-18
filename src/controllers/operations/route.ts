@@ -19,6 +19,7 @@ import {
   getUltrasoundTestListHandler,
   updateUltrasoundTemplateHandler,
   createUltrasoundTemplateHandler,
+  deleteUltrasoundTemplateHandler,
   getUltrasoundTemplateSingleDetailHandler,
   getUltrasoundScanTestListHandler
 } from "./testHandler"
@@ -126,6 +127,7 @@ router.post(`/api/v1/result/entry/ultrasound/templates/creation`, createUltrasou
 router.get(`/api/v1/testpanel/list/ultrasound/get/template`, getUltrasoundTemplateSingleDetailHandler);
 router.put(`/api/v1/result/entry/ultrasound/templates/creation`, updateUltrasoundTemplateHandler);
 router.get(`/api/v1/result/entry/ultrasound/templates/list`, getUltrasoundScanTestListHandler)
+router.delete('/api/v1/result/entry/ultrasound/templates/:templateid', deleteUltrasoundTemplateHandler);
 
 // TEST APPROVAL
 

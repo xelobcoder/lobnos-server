@@ -6,7 +6,7 @@ export const q_branches_get_all = `SELECT * FROM branch WHERE branchid = ?`
 
 export const q_branches_update_single = `UPDATE branch SET name = ?, contact = ?, address = ?, email = ?, managerid = ? WHERE branchid = ?`
 
-export const q_branches_delete_single = `DELETE FROM BRANCH WHERE branchid = ?`
+export const q_branches_delete_single = `DELETE FROM branch WHERE branchid = ?`
 
 export const q_update_activation =
      `UPDATE branch SET activation = ? WHERE branchid = ?`;

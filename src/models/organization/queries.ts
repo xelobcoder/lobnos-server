@@ -76,7 +76,7 @@ ON DUPLICATE KEY UPDATE
 
 
 
-export const q_load_from_organizationalBilling_Table = `SELECT * FROM organizationalBillingtable WHERE organizationid = ?`
+export const q_load_from_organizationalBilling_Table = `SELECT * FROM organizationalbillingtable WHERE organizationid = ?`
 
 
 

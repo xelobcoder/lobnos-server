@@ -4,6 +4,40 @@ import Creator from "../../models/creator/creator";
 import { OperationsFailures } from "../../models/operations/types";
 import { responseError, customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
+import { getAuthUser } from "../../middleware/authority";
+import { roleAllowed } from "../../middleware/roles";
+import { PrimeSqlErrorHandler } from "../../hooks/utility";
+import { ultrasoundTemplateSchema, UltrasoundTemplateRepository } from "../../models/operations/imaging/UltrasoundTemplateRepository";
+
+function templateMutationContext(request: Request, response: Response) {
+       const value = request.query.tenantId;
+       const tenantId = typeof value === 'string' && /^[1-9]\d*$/.test(value) ? Number(value) : NaN;
+       if (!Number.isSafeInteger(tenantId)) {
+              customError('Invalid tenantId', 400, response);
+              return null;
+       }
+       const actor = getAuthUser(request);
+       if (!actor) {
+              customError('Authentication required', 401, response);
+              return null;
+       }
+       if (['clinician', 'patient'].includes(String(actor.role || '').toLowerCase())) {
+              customError('Portal sessions cannot manage ultrasound templates', 403, response);
+              return null;
+       }
+       if (Number(actor.tenantId) !== tenantId) {
+              customError('Template tenant access denied', 403, response);
+              return null;
+       }
+       return { tenantId, actor };
+}
+
+function templateMutationError(error: unknown, response: Response) {
+       const code = error && typeof error === 'object' && 'code' in error && typeof error.code === 'string'
+              && /^[A-Z0-9_]+$/.test(error.code) ? error.code : 'TEMPLATE_MUTATION_FAILED';
+       logger.error('Ultrasound template operation failed', { code });
+       return PrimeSqlErrorHandler.handleError(error, response);
+}
 
 export const getUltrasoundTestListHandler = async function (request: Request, response: Response) {
        try {
@@ -21,23 +55,15 @@ export const getUltrasoundTestListHandler = async function (request: Request, re
 
 export const createUltrasoundTemplateHandler = async function (request: Request, response: Response) {
        try {
-              const { fields, employeeid, visibleToAll, associatedbodypart, name, testid } = request.body;
-              const parsedVisibleToAll = parseInt(visibleToAll.toString());
-
-              if (!associatedbodypart) return customError(OperationsFailures.invalidResponseBodyParams + ' .Associated body part not included', 404, response);
-
-              const isValidBodyPart = fields && employeeid && (parsedVisibleToAll == 0 || parsedVisibleToAll == 1) && associatedbodypart && testid && typeof testid == 'number' && Array.isArray(fields) && name;
-
-              if (!isValidBodyPart) {
-                     return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
-              }
-              const tenantIdValue = request.query.tenantId;
-              if (!tenantIdValue) return customError('tenantId is required', 400, response);
-              const tenantId = parseInt(String(tenantIdValue), 10);
-              const isCreated_Value = await Creator.createUltrasoundTemplate(tenantId, request.body);
-              response.send({ status: isCreated_Value });
+              const context = templateMutationContext(request, response);
+              if (!context) return;
+              const parsed = ultrasoundTemplateSchema.safeParse({ ...request.body, employeeid: context.actor.employeeid });
+              if (!parsed.success) return customError('Invalid ultrasound template: check the name, body part and report fields', 400, response);
+              const created = await Creator.createUltrasoundTemplate(context.tenantId, parsed.data);
+              if (!created) return customError('Ultrasound template could not be created', 500, response);
+              response.send({ status: true });
        } catch (err) {
-              responseError(response);
+              templateMutationError(err, response);
        }
 }
 
@@ -51,6 +77,7 @@ export const getUltrasoundTemplateSingleDetailHandler = async function (request:
               const parsedTemplateId = parseInt(String(templateid), 10);
               const tenantId = parseInt(String(tenantIdValue), 10);
               const templateDetail = await Creator.getUltrasoundTemplateSingleDetail(tenantId, parsedTemplateId);
+              if (!templateDetail) return customError('Ultrasound template not found', 404, response);
               response.send(templateDetail);
        } catch (err) {
               responseError(response);
@@ -60,24 +87,36 @@ export const getUltrasoundTemplateSingleDetailHandler = async function (request:
 
 export const updateUltrasoundTemplateHandler = async function (request: Request, response: Response) {
        try {
-              const { fields, employeeid, visibleToAll, associatedbodypart, name, testid } = request.body;
-
-              const isValidBodyPart = fields && employeeid && (visibleToAll == 0 || visibleToAll == 1) && associatedbodypart && testid && typeof testid == 'number' && Array.isArray(fields) && name;
-
-              if (!isValidBodyPart) {
-                     return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
-              }
-              const tenantIdValue = request.query.tenantId;
-              if (!tenantIdValue) return customError('tenantId is required', 400, response);
-              const tenantId = parseInt(String(tenantIdValue), 10);
-              const isCreated_Value = await Creator.updateUltrasoundTemplate(tenantId, request.body);
-
-              response.send({ status: isCreated_Value });
+              const context = templateMutationContext(request, response);
+              if (!context) return;
+              const parsed = ultrasoundTemplateSchema.safeParse({ ...request.body, employeeid: context.actor.employeeid });
+              if (!parsed.success || !parsed.data.keyid) return customError('Invalid ultrasound template or template ID', 400, response);
+              const updated = await Creator.updateUltrasoundTemplate(context.tenantId, { ...parsed.data, keyid: parsed.data.keyid });
+              if (!updated) return customError('Ultrasound template not found', 404, response);
+              response.send({ status: true });
        } catch (err) {
-              responseError(response);
+              templateMutationError(err, response);
        }
 }
 
+export const deleteUltrasoundTemplateHandler = async function (request: Request, response: Response) {
+       try {
+              const context = templateMutationContext(request, response);
+              if (!context) return;
+              const id = request.params.templateid;
+              const templateId = typeof id === 'string' && /^[1-9]\d*$/.test(id) ? Number(id) : NaN;
+              if (!Number.isSafeInteger(templateId)) return customError('Invalid template ID', 400, response);
+              const result = await new UltrasoundTemplateRepository(context.tenantId).delete(
+                     templateId, context.actor.employeeid, roleAllowed(context.actor.role, ['admin', 'manager']),
+              );
+              if (result === 'not_found') return customError('Ultrasound template not found', 404, response);
+              if (result === 'forbidden') return customError('Only the template creator or an administrator/manager can delete this template', 403, response);
+              logger.info('Ultrasound template deleted', { tenantId: context.tenantId, templateId, employeeId: context.actor.employeeid });
+              response.send({ status: 'success', result: { deleted: true, templateId } });
+       } catch (err) {
+              templateMutationError(err, response);
+       }
+}
 
 export const getUltrasoundScanTestListHandler = async function (request: Request<
        {}, {}, {}, {

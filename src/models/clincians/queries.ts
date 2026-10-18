@@ -34,7 +34,7 @@ const SQLQueries = {
 			ORDER BY cbi.name ASC;
   			`,
 
-	getClinicianBasicInfo: `SELECT * FROM clinicianBasicInfo WHERE id = ?`,
+	getClinicianBasicInfo: `SELECT * FROM clinicianbasicinfo WHERE id = ?`,
 
 	getCliniciansWithPagination: `SELECT * FROM clinicianbasicinfo
    LIMIT ? OFFSET ?`,

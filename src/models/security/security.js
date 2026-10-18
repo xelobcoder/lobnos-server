@@ -48,7 +48,7 @@ class Security {
 
     async getCurrentUserLoginSessions() {
         if (this.isEmployeeid()) {
-            const sessionQuery = `SELECT * FROM sessionTracker WHERE logoutTime > ? AND employeeid = ?`;
+            const sessionQuery = `SELECT * FROM sessiontracker WHERE logoutTime > ? AND employeeid = ?`;
             const data = await this.sqlConnection(sessionQuery, [this.currentTimeInMillessconds(), this.employeeid]);
             return data;
         }
@@ -57,8 +57,8 @@ class Security {
 
     async getCurrentUserLoginSessionsWithDetails() {
         if (this.isEmployeeid()) {
-            const sessionQuery = `SELECT * FROM sessionTracker AS st
-                              INNER JOIN loginLogs AS ll ON ll.employeeid = st.employeeid WHERE st.logoutTime > ? AND st.employeeid = ? AND ll.loggedout = 0`
+            const sessionQuery = `SELECT * FROM sessiontracker AS st
+                              INNER JOIN loginlogs AS ll ON ll.employeeid = st.employeeid WHERE st.logoutTime > ? AND st.employeeid = ? AND ll.loggedout = 0`
             let data = await this.sqlConnection(sessionQuery, [this.currentTimeInMillessconds(), this.employeeid]);
             if (data.length > 0) {
                 return data = data.map((item, index) => {
@@ -80,11 +80,11 @@ class Security {
     async destroyUserSessions() {
         let sessionsKeys = [];
         try {
-            const query = `SELECT * FROM sessionTracker WHERE employeeid = ?`;
+            const query = `SELECT * FROM sessiontracker WHERE employeeid = ?`;
             let result = await this.sqlConnection(query, this.employeeid);
             if (result.length > 0) {
                 result = result.map((item, index) => sessionsKeys.push(item?.loginhxid));
-                await this.sqlConnection(`DELETE FROM sessionTracker WHERE employeeid = ?`, [this.employeeid]);
+                await this.sqlConnection(`DELETE FROM sessiontracker WHERE employeeid = ?`, [this.employeeid]);
             }
 
         } catch (err) {

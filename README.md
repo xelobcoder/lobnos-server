@@ -2,6 +2,29 @@
 
 **High Performance Laboratory Information Management System**
 
+## Imaging reporting templates
+
+Ultrasound templates use the exported lowercase tables `ultrasoundtemplatesmapper`
+and `ultrasoundtemplates` on both Windows and Linux/Ubuntu. Creation and updates
+are transactional; database failures return an HTTP error rather than HTTP 200
+with a false save status. Both creation-rule fields (`name`/`id`) and saved fields
+(`field`/`fieldid`) are accepted, with field IDs retained when editing.
+
+The imaging template list offers confirmed deletion to the template creator and
+administrators/managers (including super administrators). The backend enforces
+the same policy using the authenticated employee and tenant, not a body-supplied
+employee ID. `DELETE /api/v1/result/entry/ultrasound/templates/:templateid`
+requires the staff session and `tenantId`. It removes only the selected template
+and its fields in one transaction; existing patient reports are unchanged.
+Deploy/rebuild both applications for the corrected queries and the delete button.
+No database rename or MySQL case-sensitivity setting change is needed for
+facilities provisioned from the current schema exports.
+
+Linux MySQL (`lower_case_table_names=0`) treats table names as case-sensitive,
+while Windows does not. All SQL and Knex table references in `src` therefore use
+the exact casing from `db-exports/primelabmaster/tables-structure` (for example
+`billinghx`, `drugscategory`, `testconditions`, `privateinsurance`).
+
 ## Adaptive billing capability
 
 `GET /api/v1/billing/strategies/mode-capability?tenantId=<id>` returns the existing

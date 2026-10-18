@@ -54,7 +54,7 @@ export default class TestCreationMultipleConditionsClass {
 	generateBulkInsertQuery(rows: any[][]) {
 		const placeholders = rows.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ');
 		return `
-				INSERT INTO testConditions 
+				INSERT INTO testconditions 
 				(testId, parameter, conditionId, target, inRange, conditionConstraint, createdBy) 
 				VALUES ${placeholders}
 				ON DUPLICATE KEY UPDATE
@@ -112,7 +112,7 @@ export default class TestCreationMultipleConditionsClass {
 		const idsToDelete = existingConstraintIds.filter((id: any) => !newConstraintIds.includes(id));
 
 		if (idsToDelete.length > 0) {
-			const deleteQuery = `DELETE FROM testConditions WHERE id IN (${idsToDelete.map(() => '?').join(', ')})`;
+			const deleteQuery = `DELETE FROM testconditions WHERE id IN (${idsToDelete.map(() => '?').join(', ')})`;
 			await promisifyQuery(tenantId, deleteQuery, idsToDelete);
 		}
 	}
@@ -148,7 +148,7 @@ export default class TestCreationMultipleConditionsClass {
 	static async getTestDefinitions(tenantId: number, testid: number) {
 		try {
 			const connection = await KnexConnection(tenantId);
-			return await connection('testConditionDefinitions')
+			return await connection('testconditiondefinitions')
 				.leftJoin('roles', 'roles.employeeid', 'testConditionDefinitions.createdBy')
 				.where({ testId: testid })
 				.select('testConditionDefinitions.*', 'roles.username as createdBy');
