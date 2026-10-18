@@ -3,6 +3,8 @@ import { CommissionDefaultRepository } from "../models/commissions/commission-co
 import OutsourcedCases from "../models/organization/outsourcingOrganization/outsourcedCases";
 import ApplicationSettings from "../models/application/appsettings/appset";
 import { formatTenantLoginUsername } from "../models/auth/TenantLoginUsername";
+import bcrypt from "bcrypt";
+import crypto from "crypto";
 
 type DbRunner = Knex | Knex.Transaction;
 
@@ -22,7 +24,8 @@ export async function applyNewPatientAfterInsert(
 	payload: { patientid: number; firstname: string; lastname: string }
 ) {
 	const username = `${payload.firstname}${payload.lastname}`;
-	const password = `${payload.firstname}${payload.lastname}${payload.patientid}`;
+	// Never a guessable default: patients set their own password when portal access is activated.
+	const password = await bcrypt.hash(crypto.randomBytes(24).toString('base64url'), 10);
 	await db("patients_credentials").insert({
 		patientid: payload.patientid,
 		username,

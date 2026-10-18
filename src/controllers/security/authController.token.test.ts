@@ -5,6 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
   validate: vi.fn(),
   decode: vi.fn(),
+  sessionValid: vi.fn(),
+}));
+vi.mock('../../models/patient-portal/PatientPortalAccountService', () => ({
+  PatientPortalAccountService: class { isSessionValid = mocks.sessionValid; },
 }));
 vi.mock('../../hooks/helper', () => ({ customError: vi.fn() }));
 vi.mock('../../middleware/validateTenancy', () => ({
@@ -57,11 +61,21 @@ describe('token validation transport compatibility', () => {
     { cookie: 'pls-prime-tenant-session=cookie-token' },
   ])('accepts the supported header or existing web cookie', async (headers) => {
     mocks.validate.mockResolvedValue({ expired: false });
-    mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, username: 'Test patient' });
+    mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, username: 'Test patient', tid: 3, sv: 1 });
+    mocks.sessionValid.mockResolvedValue(true);
     const response = await validate(headers);
     expect(response.status).toBe(200);
     expect(response.body.status).toBe(true);
+    expect(response.body.settings).toEqual({});
     expect(mocks.validate).toHaveBeenCalledWith(headers['pls-prime-tenant-session'] || 'cookie-token');
+  });
+  it('rejects patient tokens from another facility or with a revoked session', async () => {
+    mocks.validate.mockResolvedValue({ expired: false });
+    mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, tid: 9, sv: 1 });
+    expect((await validate({ 'pls-prime-tenant-session': 'header-token' })).status).toBe(403);
+    mocks.decode.mockResolvedValue({ role: 'patient', patientid: 42, tid: 3, sv: 1 });
+    mocks.sessionValid.mockResolvedValue(false);
+    expect((await validate({ 'pls-prime-tenant-session': 'header-token' })).status).toBe(401);
   });
   it('uses the same header precedence as authentication middleware', async () => {
     mocks.validate.mockResolvedValue({ expired: false });

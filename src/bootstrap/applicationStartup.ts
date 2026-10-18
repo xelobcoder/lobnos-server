@@ -19,6 +19,7 @@ import { bootstrapRefundTableSanitization } from '../models/billing/RefundBootst
 import { bootstrapStaffFocTables } from '../models/foc/StaffFocBootstrapper';
 import { bootstrapApplicationSettings } from '../models/application/appsettings/ApplicationSettingsBootstrapper';
 import { bootstrapQuickReferralEntities } from '../models/referral/QuickReferralEntityBootstrapper';
+import { bootstrapPatientPortal } from '../models/patient-portal/PatientPortalBootstrapper';
 import { bootstrapBackupSecuritySettings } from '../models/security/database-backup/BackupSecurityBootstrapper';
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
@@ -98,6 +99,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapQuickReferralEntities(tenantId);
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapAppointmentTables(tenantId);
+	await bootstrapPatientPortal(tenantId);
 	// Legacy seeds create checklist rows for demo order 1, not reference data.
 	// A new facility must start with no home-collection transactions.
 	if (!strict) await bootstrapHomeCollectionSeeds(tenantId);

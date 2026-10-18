@@ -15,6 +15,8 @@ import { configuration, effectiveTenantId } from "../../hooks/configuration";
 import { LoginEntityType, parseLoginUsername } from "../../models/auth/TenantLoginDirectory";
 import { TenantRegistry } from "../../models/Tenancy/TenantRegistry";
 import { PasswordRecoveryService } from "../../models/auth/PasswordRecoveryService";
+import { LOCKOUT_MINUTES, PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
+import { recordPortalAudit } from "../../models/patient-portal/PatientPortalAudit";
 
 const recoveryResponse = "If the account and email address are registered, password recovery instructions will be sent.";
 
@@ -237,29 +239,40 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 		const loginIdentifier = String(username || identifier || '').trim();
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
-		const connection = await KnexConnection(tenantId);
 		const patientIdMatch = loginIdentifier.match(/^P(\d+)$/i);
 		const patientId = patientIdMatch ? parseInt(patientIdMatch[1], 10) : null;
-		const query = connection('patients_credentials as pc')
-			.leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')
-			.select('pc.*', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
-			.where('pc.patientid', patientId || -1);
+		if (!patientId) return customError("Invalid username or password", 401, res);
 
-		const patient = await query.first();
-		if (!patient) return customError("Invalid credentials", 401, res);
+		// Only activated portal accounts with a patient-chosen (bcrypt) password may sign in.
+		const outcome = await new PatientPortalAccountService(tenantId).authenticate(patientId, password);
+		const ip = req.ip || null;
+		if (!outcome.ok) {
+			await recordPortalAudit(tenantId, { patientid: patientId, actorType: 'public', action: `login.failed.${String(outcome.reason).toLowerCase()}`, ipAddress: ip });
+			if (outcome.reason === 'LOCKED') {
+				return res.status(423).json({ status: 'error', statusCode: 423, code: 'ACCOUNT_LOCKED', message: `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes or reset your password.` });
+			}
+			if (outcome.reason === 'PORTAL_DISABLED') {
+				return res.status(403).json({ status: 'error', statusCode: 403, code: 'PORTAL_DISABLED', message: 'The patient portal is not available for this facility.' });
+			}
+			if (outcome.reason === 'DISABLED') {
+				return res.status(403).json({ status: 'error', statusCode: 403, code: 'ACCOUNT_DISABLED', message: 'Your portal access has been disabled. Please contact the facility.' });
+			}
+			return customError("Invalid username or password", 401, res);
+		}
 
-		const matched = await passwordMatches(password, patient.password, patient.updated === true || patient.updated === 'true' ? 1 : 0);
-		if (!matched) return customError("Invalid credentials", 401, res);
-
+		const patient = outcome.patient;
 		const user = {
 			role: "patient",
 			employeeid: patient.patientid,
 			patientid: patient.patientid,
-			username: `${patient.firstname || ''} ${patient.lastname || ''}`.trim() || patient.username,
+			username: `${patient.firstname || ''} ${patient.lastname || ''}`.trim() || loginIdentifier,
 			email: patient.email,
 			fullpatientid: patient.fullpatientid,
 		};
-		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
+		const token = await new User(null, null, null, null, null).tokenizeData({
+			...user, tid: effectiveTenantId(tenantId), sv: Number(outcome.account.session_version), clientType: 'patient-portal',
+		}, "12h");
+		await recordPortalAudit(tenantId, { patientid: patient.patientid, actorType: 'patient', actorId: patient.patientid, action: 'login.success', ipAddress: ip });
 		res.send({ message: "Patient authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);
@@ -287,6 +300,20 @@ export const logoutUser = async (req: Request, res: Response) => {
 		const decoded = await new TokenValidator().decodeAccessToken(primeUserHeader.toString());
 		if (!decoded || !decoded.employeeid) {
 			return customError('Invalid token', 401, res);
+		}
+
+		// Portal identities are not staff: their IDs share a number space with employees, so they
+		// must never reach the staff session tables. Patients end their sessions by version bump.
+		const portalRole = String(decoded.role || '').toLowerCase();
+		if (portalRole === 'patient' || portalRole === 'clinician') {
+			if (decoded.tid === undefined || Number(decoded.tid) !== effectiveTenantId(tenantId)) {
+				return customError('This session does not belong to the requested organization', 403, res);
+			}
+			if (portalRole === 'patient' && decoded.patientid) {
+				await new PatientPortalAccountService(tenantId).endSessions(Number(decoded.patientid));
+				await recordPortalAudit(tenantId, { patientid: Number(decoded.patientid), actorType: 'patient', actorId: Number(decoded.patientid), action: 'logout', ipAddress: req.ip || null });
+			}
+			return res.send({ status: "success", statusCode: 200, message: "Logout successful." });
 		}
 
 		const employeeid = parseInt(decoded.employeeid.toString());

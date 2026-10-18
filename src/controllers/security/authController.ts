@@ -13,6 +13,7 @@ import { getAuthUser } from "../../middleware/authority";
 import { FinancialPinVerificationService } from "../../accountingModule/services/FinancialPinVerificationService";
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
+import { PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
 export class AuthController {
 	private tokenValidator: TokenValidator;
 
@@ -123,6 +124,13 @@ export class AuthController {
 			if (portalRole === 'clinician' || portalRole === 'patient') {
 				const portalId = portalRole === 'clinician' ? response?.clinicianid || response?.employeeid : response?.patientid || response?.employeeid;
 				if (!portalId) return res.status(401).json({ message: 'Invalid token', status: false });
+				if (response?.tid === undefined || Number(response.tid) !== effectiveTenantId(tenantId)) {
+					return res.status(403).json({ message: 'This session does not belong to the requested organization', status: false });
+				}
+				if (portalRole === 'patient' &&
+					!(await new PatientPortalAccountService(tenantId).isSessionValid(Number(portalId), response?.sv))) {
+					return res.status(401).json({ message: 'Session expired. Please sign in again.', status: false, isExpired: true });
+				}
 				return res.status(200).json({
 					message: 'Token is valid',
 					status: true,
@@ -141,7 +149,8 @@ export class AuthController {
 						company,
 						tenantId,
 					},
-					settings
+					// Patients need no facility configuration; clinicians keep what the doctor portal reads.
+					settings: portalRole === 'patient' ? {} : settings
 				});
 			}
 

@@ -38,7 +38,7 @@ describe('validate-token workspace layout settings', () => {
      it.each(['classic', 'zoho', 'claude', undefined])('returns persisted %j in the normal settings object', async value => {
           mocks.query.mockResolvedValue([{ keyid: 1, workspaceLayout: value }]);
           const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };
-          await new AuthController().validateToken({ query: { tenantId: '42' }, headers: { cookie: 'test' } } as any, res as any);
+          await new AuthController().validateToken({ query: { tenantId: '42' }, headers: { cookie: 'test' }, get: () => undefined } as any, res as any);
           expect(mocks.query).toHaveBeenCalledWith(42, 'SELECT * FROM applicationsettings');
           expect(res.status).toHaveBeenCalledWith(200);
           expect(res.json).toHaveBeenCalledWith(expect.objectContaining({

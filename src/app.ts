@@ -44,6 +44,7 @@ import homeCollectionRouter from './controllers/operations/homeCollection/routes
 // ANALYTICS 
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
+import { patientPortalRouter, publicPatientPortalRouter } from "./controllers/patient-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
 import publicFacilitiesRouter from "./controllers/public/facilities";
@@ -105,10 +106,13 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
 // The router enforces active control-tenant standing and live super-admin/session validation.
 app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);
+// Patient portal activation derives the facility from an invitation or public facility identifier.
+app.use(publicPatientPortalRouter);
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
+app.use(patientPortalRouter);
 app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);

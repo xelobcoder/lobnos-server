@@ -13,6 +13,25 @@ const INVALID_CREDENTIALS = 'Invalid username or password';
 const servesTenant = (tenant: RegisteredTenant) =>
      configuration.isMultiTenant || tenant.tenantId === configuration.defaultTenantId;
 
+/**
+ * Resolves a public organization identifier (or facility code) to an active tenant served by this
+ * installation, applying the same rules as sign-in. Returns null rather than revealing why.
+ */
+export async function resolvePublicTenant(identifier: string): Promise<RegisteredTenant | null> {
+     const prefix = String(identifier || '').trim().toUpperCase();
+     if (!/^[A-Z0-9]{3,32}$/.test(prefix)) return null;
+     const registry = new TenantRegistry();
+     let tenant: RegisteredTenant | null;
+     if (configuration.desktopStandalone) {
+          tenant = await registry.getLocalTenant();
+          if (tenant && tenant.platformId.toUpperCase() !== prefix && String(tenant.facilityCode || '').toUpperCase() !== prefix) return null;
+     } else {
+          tenant = await registry.getByOrganizationIdentifier(prefix) ?? await registry.getByFacilityCode(prefix);
+     }
+     if (!tenant || !servesTenant(tenant) || !tenant.isActive) return null;
+     return tenant;
+}
+
 /** Resolves the public organization prefix without querying a master user directory. */
 export const resolveLoginTenant = (entityType: LoginEntityType) =>
      async (req: Request, res: Response, next: NextFunction) => {

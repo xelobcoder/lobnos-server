@@ -80,6 +80,17 @@ export const parseCookies = (cookieHeader?: string): Record<string, string> => {
      }, {} as Record<string, string>);
 }
 
+/**
+ * Patient tokens are scoped to the patient portal API. Staff, clinician and administration
+ * endpoints — including the portal's own /admin routes — are never reachable with them.
+ */
+export const patientRouteAllowed = (method: string, path: string): boolean => {
+     const route = String(path || '').toLowerCase().replace(/\/+$/, '');
+     if (method === 'GET' && route === '/api/v1/prime/validate-token') return true;
+     if (!route.startsWith('/api/v1/patient-portal/')) return false;
+     return !route.startsWith('/api/v1/patient-portal/admin') && !route.startsWith('/api/v1/patient-portal/public');
+};
+
 export const checkTokenExists = async (request: Request, response: Response, next: NextFunction) => {
      const bypassRoutes = [
           '/api/v1/prime/login',
@@ -123,10 +134,18 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (role === 'clinician' || role === 'patient') {
                const portalId = role === 'clinician' ? decoded?.clinicianid || decoded?.employeeid : decoded?.patientid || decoded?.employeeid;
                if (!portalId) return customError('Invalid token', 401, response);
+               // Portal tokens are minted for exactly one facility; never let them read another tenant.
+               if (decoded?.tid === undefined || Number(decoded.tid) !== effectiveTenantId(tenantId)) {
+                    return customError('This session does not belong to the requested organization', 403, response);
+               }
+               if (role === 'patient' && !patientRouteAllowed(request.method, request.path)) {
+                    return customError('Patient portal sessions may only access patient portal services', 403, response);
+               }
                (request as any).authUser = {
                     employeeid: Number(portalId),
                     clinicianid: role === 'clinician' ? Number(portalId) : undefined,
                     patientid: role === 'patient' ? Number(portalId) : undefined,
+                    sessionVersion: role === 'patient' ? decoded?.sv : undefined,
                     email: decoded?.email || null,
                     role,
                     branch: null,
