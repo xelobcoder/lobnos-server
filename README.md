@@ -65,6 +65,18 @@ linked only once.
 pnpm exec vitest run src\models\referral src\models\billing\resultDeliveryDefaults.test.ts
 ```
 
+## Backup security schema upgrades
+
+Tenant startup and the first backup-security settings read/write run the existing
+`20260812_backup_security_settings_password` migration. Legacy installations gain
+the missing `encryption_password` and `storage_path` columns without replacing
+saved settings. Concurrent requests share schema preparation per database
+connection; a failed upgrade is surfaced and may be retried.
+
+```powershell
+pnpm exec vitest run src\models\security\database-backup\BackupSecurityBootstrapper.test.ts
+```
+
 ## Offline installation-bound licensing
 
 Signed licensing is **opt-in** (`PLS_LICENSE_MODE=signed`); existing deployments default

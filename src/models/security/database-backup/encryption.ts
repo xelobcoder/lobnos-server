@@ -2,6 +2,7 @@ import KnexConnection from "../../../database/KnexConnections";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
 import * as path from 'path';
+import { bootstrapBackupSecuritySettings } from './BackupSecurityBootstrapper';
 
 interface BackupSecuritySettings {
      id?: number;
@@ -47,6 +48,7 @@ export default class EncryptionManager {
      }
 
      static async getSecuritySettings(tenantId: number): Promise<BackupSecuritySettings | null> {
+          await bootstrapBackupSecuritySettings(tenantId);
           const connection = await KnexConnection(tenantId);
           const settings = await connection(this.SETTINGS_TABLE)
                .where('is_active', true)
@@ -62,6 +64,7 @@ export default class EncryptionManager {
      }
 
      static async updateSecuritySettings(tenantId: number, updates: Partial<BackupSecuritySettings>): Promise<boolean> {
+          await bootstrapBackupSecuritySettings(tenantId);
           const connection = await KnexConnection(tenantId);
 
           // Validate storage path if provided
