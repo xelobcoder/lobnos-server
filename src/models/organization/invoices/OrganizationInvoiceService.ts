@@ -92,7 +92,7 @@ function isDuplicateKey(error: any): boolean {
  * invoice also rolls back its number (no gaps, no duplicates).
  */
 export async function nextInvoiceNumber(trx: Knex.Transaction, year: number): Promise<string> {
-     await trx.raw('INSERT IGNORE INTO org_invoice_sequences (seq_year, last_value) VALUES (?, 0)', [year]);
+     await trx.raw('INSERT IGNORE INTO org_invoice_sequences (`seq_year`, `last_value`) VALUES (?, 0)', [year]);
      const row = await trx('org_invoice_sequences').select('last_value').where({ seq_year: year }).forUpdate().first();
      if (!row) throw new OrganizationInvoiceError(500, 'Unable to reserve an invoice number.');
      const next = Number(row.last_value) + 1;
