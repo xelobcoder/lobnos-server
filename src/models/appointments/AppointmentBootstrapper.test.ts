@@ -1,8 +1,9 @@
 ﻿import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ connect: vi.fn(), warn: vi.fn(), info: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connect: vi.fn(), warn: vi.fn(), info: vi.fn(), workflowUp: vi.fn() }));
 vi.mock("../../database/KnexConnections", () => ({ default: mocks.connect }));
 vi.mock("../../hooks/logger", () => ({ default: { warn: mocks.warn, info: mocks.info } }));
+vi.mock("../../cron/command-line-tool-database/migrations/20261023_appointment_workflow", () => ({ up: mocks.workflowUp }));
 
 import { bootstrapAppointmentTables } from "./AppointmentBootstrapper";
 
@@ -50,6 +51,7 @@ describe("bootstrapAppointmentTables", () => {
 			"index idx_appointments_type", "index idx_appointments_lead", "index idx_appointments_billing", "index idx_appointments_date",
 			"ALTER TABLE `appointments` MODIFY COLUMN `patientid` INT UNSIGNED NULL",
 		]);
+		expect(mocks.workflowUp).toHaveBeenCalledWith(db);
 	});
 
 	it("is a no-op when already migrated", async () => {
@@ -78,5 +80,6 @@ describe("bootstrapAppointmentTables", () => {
 		await bootstrapAppointmentTables(4);
 		expect(db.schema.alterTable).not.toHaveBeenCalled();
 		expect(db.raw).not.toHaveBeenCalled();
+		expect(mocks.workflowUp).not.toHaveBeenCalled();
 	});
 });

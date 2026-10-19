@@ -7,8 +7,27 @@ import {
      PrescriptionListFilters,
      PrescriptionRow,
      PrescriptionStatus,
+     PrescriptionStatusCounts,
      PrescriptionSummaryRow
 } from '../interfaces/IPrescriptionRepository';
+
+/** Shared scope filters for queries rooted at `prescriptions as p` joined to `new_patients as patient`. */
+export function applyPrescriptionScopeFilters<T extends Knex.QueryBuilder>(query: T, filters: Omit<PrescriptionListFilters, 'page' | 'count' | 'statuses'>): T {
+     let q: any = query;
+     if (filters.patientId) q = q.where('p.patient_id', filters.patientId);
+     if (filters.clinicianId) q = q.where('p.clinician_id', filters.clinicianId);
+     if (filters.consultationId) q = q.where('p.consultation_id', filters.consultationId);
+     if (filters.from && filters.to) q = q.whereRaw('DATE(p.created_at) BETWEEN ? AND ?', [filters.from, filters.to]);
+     else if (filters.from) q = q.whereRaw('DATE(p.created_at) >= ?', [filters.from]);
+     else if (filters.to) q = q.whereRaw('DATE(p.created_at) <= ?', [filters.to]);
+     if (filters.search?.trim()) {
+          const term = `%${filters.search.trim()}%`;
+          q = q.where((builder: Knex.QueryBuilder) => builder
+               .where('patient.firstname', 'like', term)
+               .orWhere('patient.lastname', 'like', term));
+     }
+     return q;
+}
 
 export class PrescriptionRepository implements IPrescriptionRepository {
      private readonly connection: Promise<Knex>;
@@ -76,15 +95,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
                .orderBy('p.created_at', 'desc');
 
           if (filters.statuses?.length) query = query.whereIn('p.status', filters.statuses);
-          if (filters.patientId) query = query.where('p.patient_id', filters.patientId);
-          if (filters.clinicianId) query = query.where('p.clinician_id', filters.clinicianId);
-          if (filters.consultationId) query = query.where('p.consultation_id', filters.consultationId);
-          if (filters.search?.trim()) {
-               const term = `%${filters.search.trim()}%`;
-               query = query.where((builder) => builder
-                    .where('patient.firstname', 'like', term)
-                    .orWhere('patient.lastname', 'like', term));
-          }
+          query = applyPrescriptionScopeFilters(query, filters);
 
           const [rows, totalResult] = await Promise.all([
                query.clone().limit(filters.count).offset((filters.page - 1) * filters.count),
@@ -95,6 +106,20 @@ export class PrescriptionRepository implements IPrescriptionRepository {
                prescriptions: rows.map((row: any) => ({ ...this.toPrescriptionRow(row), patientName: row.patient_name?.trim() || 'Unknown patient', clinicianName: row.clinician_name || 'Unknown clinician' })),
                total: Number((totalResult as any)?.total || 0)
           };
+     }
+
+     async countPrescriptionsByStatus(filters: Omit<PrescriptionListFilters, 'page' | 'count' | 'statuses'>): Promise<PrescriptionStatusCounts> {
+          const connection = await this.connection;
+          const query = applyPrescriptionScopeFilters(
+               connection('prescriptions as p').leftJoin('new_patients as patient', 'patient.patientid', 'p.patient_id'),
+               filters
+          )
+               .select('p.status', connection.raw('COUNT(*) AS total'))
+               .groupBy('p.status');
+          const rows: any[] = await query;
+          const counts: PrescriptionStatusCounts = {};
+          for (const row of rows) counts[row.status as PrescriptionStatus] = Number(row.total || 0);
+          return counts;
      }
 
      async linkPrescriptionsToConsultation(prescriptionIds: string[], patientId: number, consultationId: number): Promise<number> {

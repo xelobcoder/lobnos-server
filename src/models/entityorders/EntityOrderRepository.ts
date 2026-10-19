@@ -5,6 +5,43 @@ import {
      EntityOrderStatus,
 } from './EntityOrder.types';
 
+export interface EntityOrderListFilters {
+     patientId?: number;
+     entityType?: string;
+     entityId?: number;
+     /** Orders billed to this clinician OR placed by them (covers orders stored as 'general'). */
+     clinicianId?: number;
+     status?: EntityOrderStatus;
+     pendingReview?: boolean;
+     sampleLocation?: 'center' | 'referrer';
+     consultationId?: number;
+     /** Inclusive YYYY-MM-DD bounds on DATE(o.created_at). */
+     from?: string;
+     to?: string;
+     page?: number;
+     count?: number;
+}
+
+/** Applies list filters to a query rooted at `entity_orders as o`. Status is excluded so summaries can group by it. */
+export function applyEntityOrderFilters(q: any, filters: Omit<EntityOrderListFilters, 'status' | 'pendingReview' | 'page' | 'count'>) {
+     if (filters.patientId) q.where('o.patient_id', filters.patientId);
+     if (filters.entityType) q.where('o.entity_type', filters.entityType);
+     if (filters.entityId) q.where('o.entity_id', filters.entityId);
+     if (filters.clinicianId) {
+          const clinicianId = filters.clinicianId;
+          q.where((scope: any) => {
+               scope.where((own: any) => own.where('o.entity_type', 'clinician').andWhere('o.entity_id', clinicianId))
+                    .orWhere('o.ordered_by_employee_id', clinicianId);
+          });
+     }
+     if (filters.sampleLocation) q.where('o.sample_location', filters.sampleLocation);
+     if (filters.consultationId) q.where('o.consultation_id', filters.consultationId);
+     if (filters.from && filters.to) q.whereRaw('DATE(o.created_at) BETWEEN ? AND ?', [filters.from, filters.to]);
+     else if (filters.from) q.whereRaw('DATE(o.created_at) >= ?', [filters.from]);
+     else if (filters.to) q.whereRaw('DATE(o.created_at) <= ?', [filters.to]);
+     return q;
+}
+
 /**
  * Data access for the entity_orders tables. All reads scoped by patient or id;
  * the service layer enforces lifecycle rules.
@@ -84,30 +121,44 @@ export class EntityOrderRepository {
           return { ...this.mapRow(row), lines, decisions };
      }
 
-     async listOrders(filters: {
-          patientId?: number;
-          entityType?: string;
-          entityId?: number;
-          status?: EntityOrderStatus;
-          pendingReview?: boolean;
-          sampleLocation?: 'center' | 'referrer';
-          consultationId?: number;
-          page?: number;
-          count?: number;
-     }) {
+     /** Order counts and line value per status for the same scope as listOrders (ignores status/page). */
+     async summarizeOrders(filters: EntityOrderListFilters) {
+          const conn = await this.connection;
+          const rows = await applyEntityOrderFilters(conn('entity_orders as o'), filters)
+               .leftJoin(
+                    conn('entity_order_lines')
+                         .select('order_id', conn.raw('SUM(unit_price * quantity) AS line_total'))
+                         .groupBy('order_id')
+                         .as('lt'),
+                    'lt.order_id',
+                    'o.id'
+               )
+               .select('o.status', conn.raw('COUNT(o.id) AS total'), conn.raw('COALESCE(SUM(lt.line_total), 0) AS value'))
+               .groupBy('o.status');
+
+          const byStatus: Record<string, { count: number; value: number }> = {};
+          let total = 0;
+          let value = 0;
+          for (const row of rows as any[]) {
+               const c = Number(row.total || 0);
+               const v = parseFloat(Number(row.value || 0).toFixed(2));
+               byStatus[row.status] = { count: c, value: v };
+               total += c;
+               value += v;
+          }
+          return { total, value: parseFloat(value.toFixed(2)), byStatus };
+     }
+
+     async listOrders(filters: EntityOrderListFilters) {
           const conn = await this.connection;
           const page = Math.max(1, Number(filters.page || 1));
           const count = Math.max(1, Number(filters.count || 10));
 
           const base = () => this.baseQuery(conn)
                .where((q: any) => {
-                    if (filters.patientId) q.where('o.patient_id', filters.patientId);
-                    if (filters.entityType) q.where('o.entity_type', filters.entityType);
-                    if (filters.entityId) q.where('o.entity_id', filters.entityId);
+                    applyEntityOrderFilters(q, filters);
                     if (filters.status) q.where('o.status', filters.status);
                     if (filters.pendingReview) q.whereIn('o.status', ['PENDING', 'ON_HOLD']);
-                    if (filters.sampleLocation) q.where('o.sample_location', filters.sampleLocation);
-                    if (filters.consultationId) q.where('o.consultation_id', filters.consultationId);
                });
 
           const countRow = await base().count('o.id as total').first();

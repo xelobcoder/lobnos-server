@@ -16,6 +16,7 @@ import {
      PrescriptionItemDetail,
      PrescriptionList,
      PrescriptionListRequest,
+     PrescriptionStatusSummary,
      ReferRemainingResult
 } from '../interfaces/IPrescriptionService';
 
@@ -74,6 +75,12 @@ export class PrescriptionService implements IPrescriptionService {
           return { ...prescription, items: items.map((item) => this.toItemDetail(item)) };
      }
 
+     async summarize(request: Omit<PrescriptionListRequest, 'page' | 'count' | 'statuses'>): Promise<PrescriptionStatusSummary> {
+          const byStatus = await this.repository.countPrescriptionsByStatus(request);
+          const total = Object.values(byStatus).reduce((sum, value) => sum + Number(value || 0), 0);
+          return { total, byStatus };
+     }
+
      async list(request: PrescriptionListRequest): Promise<PrescriptionList> {
           const safePage = Math.max(1, request.page);
           const safeCount = Math.min(100, Math.max(1, request.count));
@@ -84,7 +91,9 @@ export class PrescriptionService implements IPrescriptionService {
                patientId: request.patientId,
                clinicianId: request.clinicianId,
                consultationId: request.consultationId,
-               search: request.search
+               search: request.search,
+               from: request.from,
+               to: request.to
           });
 
           return {

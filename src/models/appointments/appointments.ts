@@ -3,15 +3,23 @@ import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { type TAppointment, type Tpagination, months, slots } from "./appointmentTypes";
 import { z } from "zod";
 import {
+	AppointmentConflictError,
 	AppointmentLinks,
+	AppointmentType,
 	AppointmentValidationError,
 	APPOINTMENT_TYPES,
+	CANCELLED_APPOINTMENT_STATUSES,
+	WORKFLOW_APPOINTMENT_TYPES,
 	assertAppointmentLinks,
+	assertServicesAllowed,
 	normalizeAppointmentRow,
 	normalizeAppointmentRows,
 	normalizeAppointmentType,
 	parseAppointmentMetadata,
+	parseServiceIds,
 	resolveCreateLinks,
+	serviceMatchesType,
+	storedServiceIds,
 } from "./appointmentValidation";
 
 class Appointment {
@@ -46,21 +54,89 @@ class Appointment {
 		return `${year}-${month}-${day}`;
 	}
 
-	private async isAppointmentTimeAvailable(tenantId: number, date: string, time: string) {
+	private practitionerId(value: unknown): number | null {
+		const raw = value && typeof value === "object" ? (value as any).employeeid : value;
+		const id = Number(raw);
+		return Number.isSafeInteger(id) && id > 0 ? id : null;
+	}
+
+	/** A practitioner can only hold one live (non-cancelled) booking per slot. */
+	private async isAppointmentTimeAvailable(tenantId: number, date: string, time: string, practitionerId: number | null) {
 		const refined_date = this.normalizeDateOnly(date);
-		const _mysql_query = "SELECT * FROM appointments WHERE appointment_date = ? AND appointment_time = ?";
-		const rows = await this.connection(tenantId, _mysql_query, [refined_date, time]);
+		let _mysql_query = `SELECT refid FROM appointments WHERE appointment_date = ? AND appointment_time = ?
+			AND LOWER(COALESCE(status, '')) NOT IN (${CANCELLED_APPOINTMENT_STATUSES.map(() => "?").join(",")})`;
+		const values: unknown[] = [refined_date, time, ...CANCELLED_APPOINTMENT_STATUSES];
+		if (practitionerId) {
+			_mysql_query += " AND practioner = ?";
+			values.push(practitionerId);
+		}
+		const rows = await this.connection(tenantId, `${_mysql_query} LIMIT 1`, values);
 		return !(Array.isArray(rows) && rows.length > 0);
+	}
+
+	/** Rejects a second live booking for the same patient (or lead) at the same date and time. */
+	private async assertNoDuplicateBooking(
+		tenantId: number,
+		links: { patientid: number | null; lead_id: number | null },
+		date: string,
+		time: string,
+		excludeRefid?: number,
+	) {
+		const owners: string[] = [];
+		const values: unknown[] = [date, time];
+		if (links.patientid) { owners.push("patientid = ?"); values.push(links.patientid); }
+		if (links.lead_id) { owners.push("lead_id = ?"); values.push(links.lead_id); }
+		if (owners.length === 0 || !time) return;
+		let query = `SELECT refid FROM appointments WHERE appointment_date = ? AND appointment_time = ? AND (${owners.join(" OR ")})
+			AND LOWER(COALESCE(status, '')) NOT IN (${CANCELLED_APPOINTMENT_STATUSES.map(() => "?").join(",")})`;
+		values.push(...CANCELLED_APPOINTMENT_STATUSES);
+		if (excludeRefid) { query += " AND refid <> ?"; values.push(excludeRefid); }
+		const rows = await this.connection(tenantId, `${query} LIMIT 1`, values);
+		if (Array.isArray(rows) && rows.length > 0) {
+			throw new AppointmentConflictError(
+				`This ${links.patientid ? "patient" : "lead"} already has an appointment on ${date} at ${time} (appointment #${rows[0].refid}).`
+			);
+		}
+	}
+
+	/** Booked services must be billable tests of the matching department (Ultrasound vs laboratory). */
+	private async assertServicesExist(tenantId: number, type: AppointmentType, serviceIds: number[]) {
+		if (serviceIds.length === 0) return;
+		const rows = await this.connection(
+			tenantId,
+			`SELECT tp.id, d.department FROM test_panels AS tp
+			INNER JOIN testdetails AS td ON td.testid = tp.id
+			LEFT JOIN departments AS d ON d.id = tp.category
+			WHERE tp.id IN (${serviceIds.map(() => "?").join(",")})`,
+			serviceIds
+		);
+		const found = new Map<number, unknown>((Array.isArray(rows) ? rows : []).map((row: any) => [Number(row.id), row.department]));
+		const missing = serviceIds.filter((id) => !found.has(id));
+		if (missing.length) throw new AppointmentValidationError(`Selected service(s) not found: ${missing.join(", ")}`);
+		const mismatched = serviceIds.filter((id) => !serviceMatchesType(type, found.get(id)));
+		if (mismatched.length) {
+			throw new AppointmentValidationError(
+				type === "ultrasound"
+					? "Ultrasound appointments can only book Ultrasound department services"
+					: "Laboratory appointments cannot book Ultrasound department services"
+			);
+		}
 	}
 
 	public async createAppointment(tenantId: number, data: TAppointment) {
 		try {
 			const { duration, appointment_date, appointment_time, inviteMethod, purpose, title, preference, practioner, location } = data;
 			const links = resolveCreateLinks(data as unknown as Record<string, unknown>);
+			const serviceIds = parseServiceIds((data as any).service_ids) ?? [];
+			assertServicesAllowed(links.appointment_type, serviceIds);
 			await this.assertLinkedRecords(tenantId, links);
+			await this.assertServicesExist(tenantId, links.appointment_type, serviceIds);
 			const normalizedAppointmentDate = this.normalizeDateOnly(appointment_date);
-			if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time))) return false;
-			const createQuery = "INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location,appointment_type,lead_id,billingid) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)";
+			await this.assertNoDuplicateBooking(tenantId, links, normalizedAppointmentDate, appointment_time);
+			if (!(await this.isAppointmentTimeAvailable(tenantId, normalizedAppointmentDate, appointment_time, this.practitionerId(practioner)))) return false;
+			// service_ids is only written when supplied so legacy inserts keep their exact shape.
+			const serviceColumn = serviceIds.length ? ",service_ids" : "";
+			const createQuery = `INSERT INTO appointments(patientid,duration,appointment_time,appointment_date,inviteMethod,purpose,title,preference,practioner,location,appointment_type,lead_id,billingid${serviceColumn}) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?${serviceIds.length ? ",?" : ""})`;
 			const result = await this.connection(tenantId, createQuery, [
 				links.patientid,
 				duration,
@@ -75,6 +151,7 @@ class Appointment {
 				links.appointment_type,
 				links.lead_id,
 				links.billingid,
+				...(serviceIds.length ? [JSON.stringify(serviceIds)] : []),
 			]);
 
 			const insertId = Number((result as any)?.insertId ?? 0);
@@ -260,11 +337,15 @@ class Appointment {
 			appointment_type: z.enum(APPOINTMENT_TYPES).nullable().optional(),
 			lead_id: z.number().int().positive().nullable().optional(),
 			billingid: z.number().int().positive().nullable().optional(),
+			service_ids: z.array(z.number().int().positive()).max(50).nullable().optional(),
 		}).strict();
 
 		const metadata = parseAppointmentMetadata(normalizedData as Record<string, unknown>);
 		for (const key of ["patientid", "lead_id", "billingid", "appointment_type"] as const) {
 			if (metadata[key] !== undefined) (normalizedData as any)[key] = metadata[key];
+		}
+		if ((normalizedData as any).service_ids !== undefined) {
+			(normalizedData as any).service_ids = parseServiceIds((normalizedData as any).service_ids);
 		}
 
 		const parseResult = updateSchema.safeParse(normalizedData);
@@ -276,33 +357,73 @@ class Appointment {
 		if (fields.length === 0) return false;
 
 		// Link/type columns are only written when supplied, so legacy clients never clear them.
-		const linkColumns = (["patientid", "appointment_type", "lead_id", "billingid"] as const)
+		const linkColumns: string[] = (["patientid", "appointment_type", "lead_id", "billingid"] as const)
 			.filter((key) => validData[key] !== undefined);
-		if (linkColumns.length > 0) {
+		const linkValues: unknown[] = linkColumns.map((key) => (validData as any)[key] ?? null);
+		const servicesSupplied = validData.service_ids !== undefined;
+		const rescheduled = Boolean(validData.appointment_date && validData.appointment_time);
+		if (linkColumns.length > 0 || servicesSupplied || rescheduled) {
 			const current = await this.getAppointmentDetails(tenantId, appointmentId);
-			if (!current) return false;
-			const previous: AppointmentLinks = {
-				patientid: current.patientid ?? null,
-				lead_id: current.lead_id ?? null,
-				billingid: current.billingid ?? null,
-				appointment_type: normalizeAppointmentType(current.appointment_type),
-			};
-			const merged = assertAppointmentLinks({
-				patientid: validData.patientid !== undefined ? validData.patientid : previous.patientid,
-				lead_id: validData.lead_id !== undefined ? validData.lead_id : previous.lead_id,
-				billingid: validData.billingid !== undefined ? validData.billingid : previous.billingid,
-				appointment_type: validData.appointment_type !== undefined
-					? normalizeAppointmentType(validData.appointment_type)
-					: previous.appointment_type,
-			});
-			await this.assertLinkedRecords(tenantId, merged, previous);
-			if (validData.appointment_type !== undefined) validData.appointment_type = merged.appointment_type;
+			if (!current && (linkColumns.length > 0 || servicesSupplied)) return false;
+			if (current) {
+				const previous: AppointmentLinks = {
+					patientid: current.patientid ?? null,
+					lead_id: current.lead_id ?? null,
+					billingid: current.billingid ?? null,
+					appointment_type: normalizeAppointmentType(current.appointment_type),
+				};
+				const needsLinkValidation = linkColumns.length > 0 || servicesSupplied;
+				const candidate: AppointmentLinks = {
+					patientid: validData.patientid !== undefined ? validData.patientid : previous.patientid,
+					lead_id: validData.lead_id !== undefined ? validData.lead_id : previous.lead_id,
+					billingid: validData.billingid !== undefined ? validData.billingid : previous.billingid,
+					appointment_type: validData.appointment_type !== undefined
+						? normalizeAppointmentType(validData.appointment_type)
+						: previous.appointment_type,
+				};
+				// Reschedule-only updates of legacy rows must not start failing on link rules.
+				const merged = needsLinkValidation ? assertAppointmentLinks(candidate) : candidate;
+				if (linkColumns.length > 0) await this.assertLinkedRecords(tenantId, merged, previous);
+				if (validData.appointment_type !== undefined) {
+					validData.appointment_type = merged.appointment_type;
+					linkValues[linkColumns.indexOf("appointment_type")] = merged.appointment_type;
+				}
+
+				const currentServices = storedServiceIds(current.service_ids);
+				const typeChanged = merged.appointment_type !== previous.appointment_type;
+				if (servicesSupplied || (typeChanged && currentServices.length > 0)) {
+					let nextServices = servicesSupplied ? (validData.service_ids ?? []) : currentServices;
+					// Moving to a non-workflow type drops the booked services instead of failing.
+					if (!servicesSupplied && !WORKFLOW_APPOINTMENT_TYPES.includes(merged.appointment_type)) nextServices = [];
+					assertServicesAllowed(merged.appointment_type, nextServices);
+					if (previous.billingid && JSON.stringify(nextServices) !== JSON.stringify(currentServices)) {
+						throw new AppointmentConflictError("This appointment has already been billed; its services can no longer be changed.");
+					}
+					await this.assertServicesExist(tenantId, merged.appointment_type, nextServices);
+					linkColumns.push("service_ids");
+					linkValues.push(nextServices.length ? JSON.stringify(nextServices) : null);
+				}
+
+				if (rescheduled) {
+					await this.assertNoDuplicateBooking(
+						tenantId,
+						merged,
+						validData.appointment_date as string,
+						validData.appointment_time as string,
+						appointmentId,
+					);
+				}
+			}
 		}
 		const linkAssignments = linkColumns.map((key) => `,\n\t\t\t${key} = ?`).join("");
-		const linkValues = linkColumns.map((key) => validData[key] ?? null);
 
-		// Write the full SQL query with all fields explicitly
+		// Reminder flags are evaluated BEFORE date/time are assigned (MySQL applies SET left to right),
+		// so a reschedule re-arms the 24h/30m reminders and the old schedule can never fire.
+		const sameSchedule = "(appointment_date <=> ? AND appointment_time <=> ?)";
 		const query = `UPDATE appointments SET
+			reminder_24h_sent_at = IF(${sameSchedule}, reminder_24h_sent_at, NULL),
+			reminder_30m_sent_at = IF(${sameSchedule}, reminder_30m_sent_at, NULL),
+			reminder_attempts = IF(${sameSchedule}, reminder_attempts, 0),
 			duration = ?,
 			status = ?,
 			appointment_time = ?,
@@ -316,7 +437,11 @@ class Appointment {
 			notes = ?${linkAssignments}
 		WHERE refid = ?`;
 		// Ensure all fields are present in the correct order, use null if missing
+		const scheduleValues = [validData.appointment_date ?? null, validData.appointment_time ?? null];
 		const values = [
+			...scheduleValues,
+			...scheduleValues,
+			...scheduleValues,
 			validData.duration ?? null,
 			validData.status ?? null,
 			validData.appointment_time ?? null,

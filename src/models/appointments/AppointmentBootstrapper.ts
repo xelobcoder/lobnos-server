@@ -1,6 +1,7 @@
 import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
+import { up as migrateAppointmentWorkflow } from '../../cron/command-line-tool-database/migrations/20261023_appointment_workflow';
 
 const TABLE = 'appointments';
 
@@ -73,4 +74,5 @@ export async function bootstrapAppointmentTables(tenantId: number): Promise<void
      await ensureIndex(connection, 'billingid', 'idx_appointments_billing');
      await ensureIndex(connection, 'appointment_date', 'idx_appointments_date');
      await ensurePatientIdNullable(connection);
+     await migrateAppointmentWorkflow(connection);
 }

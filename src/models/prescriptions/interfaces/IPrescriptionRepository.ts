@@ -42,7 +42,12 @@ export interface PrescriptionListFilters {
      clinicianId?: number;
      consultationId?: number;
      search?: string;
+     /** Inclusive YYYY-MM-DD bounds on DATE(created_at). */
+     from?: string;
+     to?: string;
 }
+
+export type PrescriptionStatusCounts = Partial<Record<PrescriptionStatus, number>>;
 
 /** The per-item update applied once a fulfillment sale has been completed. */
 export interface PrescriptionItemFulfillmentUpdate {
@@ -57,6 +62,8 @@ export interface IPrescriptionRepository {
      findById(id: string): Promise<PrescriptionRow | null>;
      findItemsByPrescriptionId(prescriptionId: string): Promise<PrescriptionItemRow[]>;
      listPrescriptions(filters: PrescriptionListFilters): Promise<{ prescriptions: PrescriptionSummaryRow[]; total: number }>;
+     /** Prescription counts per status for the same scope as listPrescriptions (statuses/page ignored). */
+     countPrescriptionsByStatus(filters: Omit<PrescriptionListFilters, 'page' | 'count' | 'statuses'>): Promise<PrescriptionStatusCounts>;
      /** Backfills prescriptions placed before a consultation existed; only touches this patient's still-unlinked prescriptions. */
      linkPrescriptionsToConsultation(prescriptionIds: string[], patientId: number, consultationId: number): Promise<number>;
      /** Atomically writes the dispensed quantities/status for each fulfilled item and the prescription's new overall status. */

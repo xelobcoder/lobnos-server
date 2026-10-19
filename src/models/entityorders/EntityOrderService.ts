@@ -1,6 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import BillingStrategy from '../clincians/billingstrategy';
-import { EntityOrderRepository } from './EntityOrderRepository';
+import { EntityOrderListFilters, EntityOrderRepository } from './EntityOrderRepository';
 import {
      CreateEntityOrderInput,
      EntityOrderEntityType,
@@ -143,8 +143,12 @@ export class EntityOrderService {
           return order;
      }
 
-     async listOrders(filters: { patientId?: number; entityType?: string; entityId?: number; status?: EntityOrderStatus; pendingReview?: boolean; sampleLocation?: 'center' | 'referrer'; consultationId?: number; page?: number; count?: number }) {
+     async listOrders(filters: EntityOrderListFilters) {
           return this.repo.listOrders(filters);
+     }
+
+     async summarizeOrders(filters: EntityOrderListFilters) {
+          return this.repo.summarizeOrders(filters);
      }
 
      /** Backfills orders placed before a consultation existed (consultation_id was still null) once it is saved. */

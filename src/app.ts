@@ -16,6 +16,7 @@ import LoginsRouter from "./controllers/logins/route";
 import insuranceRouters from './controllers/insurance/routes'
 import resultprintRouter from "./controllers/printables/routes";
 import organizationRouter from "./controllers/organization/route";
+import organizationInvoiceRouter from "./controllers/organization/organizationInvoiceRoutes";
 import applicationsettingsRouter from "./controllers/applicationsettings/route";
 import generalSalesRouter from "./controllers/sales/route";
 import FinancialAnalyticsPrimeLabSystemRouter from "./controllers/billing/sales/route";
@@ -45,6 +46,7 @@ import homeCollectionRouter from './controllers/operations/homeCollection/routes
 import PatientAnalytics from './controllers/analytics/patient-analytics/patient-analytics-route';
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
 import { patientPortalRouter, publicPatientPortalRouter } from "./controllers/patient-portal/route";
+import { clinicianPortalRouter } from "./controllers/clinician-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
 import publicFacilitiesRouter from "./controllers/public/facilities";
@@ -70,6 +72,7 @@ import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
 import { bootstrapTenants, startApplicationBackgroundWorkers } from './bootstrap/applicationStartup';
 import { startPatientPortalWorkers } from './models/patient-portal/PatientPortalNotifier';
+import { startAppointmentReminderWorker } from './models/appointments/AppointmentReminderWorker';
 import { logApplicationStarted } from './bootstrap/startupLogger';
 import marketplaceRouter from './marketplace/marketplaceRouter';
 import { bootstrapMarketplace } from './marketplace/MarketplaceBootstrapper';
@@ -114,6 +117,7 @@ app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
 app.use(patientPortalRouter);
+app.use(clinicianPortalRouter);
 app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)
 app.use(smsAnalytics);
@@ -123,6 +127,7 @@ app.use(sampleContainerRouter);
 app.use(testPanelRouter);
 app.use(expenseRouter);
 app.use(organizationRouter);
+app.use(organizationInvoiceRouter);
 app.use(AppointmentRouter);
 app.use(FileUploadsRouter);
 app.use(LoginsRouter);
@@ -229,6 +234,7 @@ async function startApplication() {
         logApplicationStarted(port);
         startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
         startPatientPortalWorkers(readyTenants);
+        startAppointmentReminderWorker(readyTenants);
     });
 }
 

@@ -67,6 +67,58 @@ export function evaluateResultRelease(input: ResultReleaseInput, settings: Pick<
      return { stage, released: true, pending: null };
 }
 
+type LaboratoryReportDataset = Awaited<ReturnType<typeof loadLaboratoryReportData>>;
+
+/**
+ * Shares the staff renderer's data contract with external portals (patients, clinicians),
+ * but never sends internal rows or staff contacts.
+ */
+export function toExternalLaboratoryReport(report: LaboratoryReportDataset, ascensionid: number, billingid: number, patientid: number) {
+     const records = (report.records || []).map(record => ({
+          name: record.name ?? record.field ?? record.parameter ?? '',
+          value: record.value ?? '',
+          units: record.units ?? record.unit ?? '',
+          lowerlimit: record.lowerlimit ?? null, upperlimit: record.upperlimit ?? null,
+          flag: record.flag ?? record.indicator ?? null,
+          plan: record.plan, plain: record.plain, textReference: record.textReference,
+          ordering: record.ordering, categoryid: record.categoryid,
+     }));
+     return {
+          ascensionid, billingid, patientid,
+          resultsettings: report.resultsettings,
+          companyInfo: report.companyInfo,
+          patientInformation: report.patientInformation ? {
+               firstname: report.patientInformation.firstname, middlename: report.patientInformation.middlename || '',
+               lastname: report.patientInformation.lastname, fullpatientid: report.patientInformation.fullpatientid,
+               age: report.patientInformation.age,
+               agetype: 'agetype' in report.patientInformation ? report.patientInformation.agetype : report.patientInformation.ageType,
+               gender: report.patientInformation.gender || '', organization: '',
+          } : null,
+          records, testname: report.testname, comments: report.comments,
+          literatureReview: report.literatureReview, hasDrugs: report.hasDrugs,
+          drugList: (report.drugList || []).map(drug => ({
+               id: drug.id, ascensionid, drug: drug.drug, sensitivity: drug.sensitivity,
+          })),
+          testInfo: report.testInfo ? {
+               reportitle: 'reportitle' in report.testInfo ? report.testInfo.reportitle : undefined,
+               method: 'method' in report.testInfo ? report.testInfo.method : undefined,
+               instrumentation: 'instrumentation' in report.testInfo ? report.testInfo.instrumentation : undefined,
+          } : null,
+          testdetailcategory: (report.testdetailcategory || []).map(category => ({
+               categoryid: category.categoryid, categoryname: category.categoryname,
+          })),
+          samplingInformation: report.samplingInformation ? {
+               id: ascensionid, billingid,
+               collectionEndDate: report.samplingInformation.collectionEndDate,
+               resultEntryEnd: report.samplingInformation.resultEntryEnd,
+          } : null,
+          referrerFacility: report.referrerFacility ? { facility_name: report.referrerFacility.facility_name } : null,
+          validators: (report.validators || []).map(validator => ({ username: validator.username, employeeid: validator.employeeid })),
+          resultentry: report.resultentry, enteredOn: report.enteredOn, lastupdatedon: report.lastupdatedon,
+          logourl: report.logourl,
+     };
+}
+
 export class PatientPortalResultService {
      constructor(private readonly tenantId: number) { }
 
@@ -139,50 +191,9 @@ export class PatientPortalResultService {
                if (seen.has(test.testid)) continue;
                seen.add(test.testid);
                const report = await loadLaboratoryReportData(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true);
-               const records = (report.records || []).map(record => ({
-                    name: record.name ?? record.field ?? record.parameter ?? '',
-                    value: record.value ?? '',
-                    units: record.units ?? record.unit ?? '',
-                    lowerlimit: record.lowerlimit ?? null, upperlimit: record.upperlimit ?? null,
-                    flag: record.flag ?? record.indicator ?? null,
-                    plan: record.plan, plain: record.plain, textReference: record.textReference,
-                    ordering: record.ordering, categoryid: record.categoryid,
-               }));
-               // Share the staff renderer's data contract, but never send internal rows or staff contacts.
-               reports.push({
-                    ascensionid: test.ascensionid, billingid, patientid,
-                    resultsettings: report.resultsettings,
-                    companyInfo: report.companyInfo,
-                    patientInformation: report.patientInformation ? {
-                         firstname: report.patientInformation.firstname, middlename: report.patientInformation.middlename || '',
-                         lastname: report.patientInformation.lastname, fullpatientid: report.patientInformation.fullpatientid,
-                         age: report.patientInformation.age,
-                         agetype: 'agetype' in report.patientInformation ? report.patientInformation.agetype : report.patientInformation.ageType,
-                         gender: report.patientInformation.gender || '', organization: '',
-                    } : null,
-                    records, testname: report.testname, comments: report.comments,
-                    literatureReview: report.literatureReview, hasDrugs: report.hasDrugs,
-                    drugList: (report.drugList || []).map(drug => ({
-                         id: drug.id, ascensionid: test.ascensionid, drug: drug.drug, sensitivity: drug.sensitivity,
-                    })),
-                    testInfo: report.testInfo ? {
-                         reportitle: 'reportitle' in report.testInfo ? report.testInfo.reportitle : undefined,
-                         method: 'method' in report.testInfo ? report.testInfo.method : undefined,
-                         instrumentation: 'instrumentation' in report.testInfo ? report.testInfo.instrumentation : undefined,
-                    } : null,
-                    testdetailcategory: (report.testdetailcategory || []).map(category => ({
-                         categoryid: category.categoryid, categoryname: category.categoryname,
-                    })),
-                    samplingInformation: report.samplingInformation ? {
-                         id: test.ascensionid, billingid,
-                         collectionEndDate: report.samplingInformation.collectionEndDate,
-                         resultEntryEnd: report.samplingInformation.resultEntryEnd,
-                    } : null,
-                    referrerFacility: report.referrerFacility ? { facility_name: report.referrerFacility.facility_name } : null,
-                    validators: report.validators.map(validator => ({ username: validator.username, employeeid: validator.employeeid })),
-                    resultentry: report.resultentry, enteredOn: report.enteredOn, lastupdatedon: report.lastupdatedon,
-                    logourl: report.logourl,
-               });
+               const safe = toExternalLaboratoryReport(report, test.ascensionid, billingid, patientid);
+               const records = safe.records;
+               reports.push(safe);
                reportTests.push({
                     ascensionid: test.ascensionid,
                     testname: report.testname || test.testname,

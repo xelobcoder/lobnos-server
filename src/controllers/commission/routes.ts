@@ -2,8 +2,11 @@ import { Router } from "express";
 import { CommissionTrackingController } from "./CommissionTrackingController";
 import { CommissionBatchServicesController } from "./commissionBatchServicesController";
 import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
+import { getClinicianCommissionPortalHandler } from "./ClinicianCommissionPortalController";
 
 const router = Router();
+
+router.get('/clinician/:clinicianId/portal', getClinicianCommissionPortalHandler);
 
 router.get('/detailed/list', async (req, res) => {
      const tenantid = parseInt(req.query.tenantId as string);

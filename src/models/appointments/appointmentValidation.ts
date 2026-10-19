@@ -19,11 +19,75 @@ export const WORKFLOW_APPOINTMENT_TYPES: readonly AppointmentType[] = ["laborato
 export const MAX_CALENDAR_RANGE_DAYS = 366;
 
 export class AppointmentValidationError extends Error {
-	readonly statusCode = 400;
-	constructor(message: string) {
+	readonly statusCode: number;
+	constructor(message: string, statusCode = 400) {
 		super(message);
 		this.name = "AppointmentValidationError";
+		this.statusCode = statusCode;
 	}
+}
+
+/** Same patient/lead already booked at that date and time (HTTP 409). */
+export class AppointmentConflictError extends AppointmentValidationError {
+	constructor(message: string) {
+		super(message, 409);
+		this.name = "AppointmentConflictError";
+	}
+}
+
+/** Statuses that end an appointment: no reminders, no duplicate blocking. */
+export const CLOSED_APPOINTMENT_STATUSES = ["cancelled", "canceled", "cancel", "completed", "complete", "done", "missed", "no_show", "noshow"] as const;
+export const CANCELLED_APPOINTMENT_STATUSES = ["cancelled", "canceled", "cancel"] as const;
+export const MAX_APPOINTMENT_SERVICES = 50;
+
+/**
+ * Booked lab/ultrasound services (`test_panels.id`). Accepts an array or its JSON text.
+ * Returns `undefined` when absent, otherwise a sorted list of unique positive ids (may be empty).
+ */
+export function parseServiceIds(value: unknown): number[] | undefined {
+	if (value === undefined) return undefined;
+	if (value === null || value === "") return [];
+	let source = value;
+	if (typeof source === "string") {
+		try {
+			source = JSON.parse(source);
+		} catch {
+			throw new AppointmentValidationError("service_ids must be a list of service ids");
+		}
+	}
+	if (!Array.isArray(source)) throw new AppointmentValidationError("service_ids must be a list of service ids");
+	const ids = source.map((id) => (typeof id === "string" && /^\d+$/.test(id.trim()) ? Number(id) : id));
+	if (ids.length > MAX_APPOINTMENT_SERVICES || ids.some((id) => !Number.isSafeInteger(id) || (id as number) <= 0)) {
+		throw new AppointmentValidationError(`Select up to ${MAX_APPOINTMENT_SERVICES} valid services`);
+	}
+	if (new Set(ids).size !== ids.length) throw new AppointmentValidationError("service_ids cannot contain duplicates");
+	return (ids as number[]).sort((a, b) => a - b);
+}
+
+/** Lenient read of the stored JSON column; never throws for legacy/corrupt values. */
+export function storedServiceIds(value: unknown): number[] {
+	try {
+		return parseServiceIds(value) ?? [];
+	} catch {
+		return [];
+	}
+}
+
+/** Services may only be booked on lab/ultrasound appointments. */
+export function assertServicesAllowed(type: AppointmentType, serviceIds: number[]) {
+	if (serviceIds.length > 0 && !WORKFLOW_APPOINTMENT_TYPES.includes(type)) {
+		throw new AppointmentValidationError(
+			`service_ids are only allowed for appointment_type ${WORKFLOW_APPOINTMENT_TYPES.join(" or ")}`
+		);
+	}
+}
+
+/** Ultrasound services come from the Ultrasound department; laboratory services from any other. */
+export function serviceMatchesType(type: AppointmentType, department: unknown): boolean {
+	const isUltrasound = String(department ?? "").trim().toLowerCase() === "ultrasound";
+	if (type === "ultrasound") return isUltrasound;
+	if (type === "laboratory") return !isUltrasound;
+	return false;
 }
 
 const positiveId = z
@@ -119,14 +183,18 @@ export function normalizeAppointmentRow<T extends Record<string, any>>(row: T): 
 	appointment_type: AppointmentType;
 	lead_id: number | null;
 	billingid: number | null;
+	service_ids?: number[];
 } {
 	if (!row || typeof row !== "object") return row as any;
-	return {
+	const normalized: Record<string, any> = {
 		...row,
 		appointment_type: normalizeAppointmentType(row.appointment_type),
 		lead_id: row.lead_id ?? null,
 		billingid: row.billingid ?? null,
 	};
+	// Only rows read from a migrated table carry the column; legacy shapes stay unchanged.
+	if ("service_ids" in row) normalized.service_ids = storedServiceIds(row.service_ids);
+	return normalized as any;
 }
 
 export function normalizeAppointmentRows<T extends Record<string, any>>(rows: T[] | unknown) {

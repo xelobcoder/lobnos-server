@@ -21,6 +21,8 @@ export type TAppointment = {
   lead_id?: number | null;
   /** billing.billingid of the lab/ultrasound workflow */
   billingid?: number | null;
+  /** Booked lab/ultrasound services (test_panels.id), stored as JSON. */
+  service_ids?: number[] | null;
 };
 
 export const slots: string[] = [

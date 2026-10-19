@@ -65,6 +65,13 @@ export interface PrescriptionListRequest {
      clinicianId?: number;
      consultationId?: number;
      search?: string;
+     from?: string;
+     to?: string;
+}
+
+export interface PrescriptionStatusSummary {
+     total: number;
+     byStatus: Partial<Record<PrescriptionStatus, number>>;
 }
 
 export interface PrescriptionList {
@@ -120,6 +127,7 @@ export interface IPrescriptionService {
      createPrescription(input: CreatePrescriptionInput, clinicianId: number): Promise<PrescriptionDetail>;
      getById(id: string): Promise<PrescriptionDetail>;
      list(request: PrescriptionListRequest): Promise<PrescriptionList>;
+     summarize(request: Omit<PrescriptionListRequest, 'page' | 'count' | 'statuses'>): Promise<PrescriptionStatusSummary>;
      /** Dispenses the requested quantities via the normal pharmacy sale flow, tagging the sale with the prescription's patient. */
      fulfill(id: string, input: FulfillPrescriptionInput, cashierId: number): Promise<FulfillPrescriptionResult>;
      /** Marks whatever is still outstanding as referred out and returns printable referral-slip data for the patient to take elsewhere. */

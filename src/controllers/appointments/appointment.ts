@@ -8,6 +8,9 @@ import {
   deleteAppointmentController,
   getAppointmentDetailsController,
   getAllAppointmentsController,
+  getAppointmentServicesController,
+  getAppointmentWorkflowController,
+  convertAppointmentController,
 } from "./controllerAppointment";
 
 
@@ -25,6 +28,9 @@ router.get("/api/v1/appointments/month", MonthAppointmentsController);
 router.get("/api/v1/appointments/client/previous", getPatientAppointmentHistoryController);
 router.post("/api/v1/appointments/create", createAppointmentController);
 router.get("/api/v1/appointments/practioner/slots", loadPractionerAvailableSlotsController);
+router.get("/api/v1/appointments/services", getAppointmentServicesController);
+router.get("/api/v1/appointments/:id/workflow", getAppointmentWorkflowController);
+router.post("/api/v1/appointments/:id/convert", convertAppointmentController);
 router.get("/api/v1/appointments/:id", getAppointmentDetailsController);
 router.put("/api/v1/appointments/:id", updateAppointmentController);
 router.delete("/api/v1/appointments/:id", deleteAppointmentController);

@@ -29,6 +29,8 @@ export const LOCAL_MIGRATIONS = [
      '20261019_patient_portal',
      '20261020_patient_billing_requests',
      '20261021_patient_portal_engagement',
+     '20261022_organization_credit_invoices',
+     '20261023_appointment_workflow',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

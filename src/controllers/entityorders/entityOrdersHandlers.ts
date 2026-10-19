@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import { EntityOrderService } from '../../models/entityorders/EntityOrderService';
 import { EntityOrderStatus } from '../../models/entityorders/EntityOrder.types';
+import { EntityOrderListFilters } from '../../models/entityorders/EntityOrderRepository';
 import { customError } from '../../hooks/helper';
+
+const ENTITY_ORDER_STATUSES: string[] = ['DRAFT', 'PENDING', 'ON_HOLD', 'APPROVED', 'REJECTED', 'CONVERTED', 'CANCELLED'];
 
 const getTenant = (req: Request): number => parseInt((req.query.tenantId as string) || (req.body?.tenantId as string) || '1', 10);
 const getActor = (req: Request): number => parseInt((req.query.employeeid as string) || (req.body?.employeeid ?? req.body?.actorId ?? 0), 10);
@@ -18,22 +21,53 @@ export const createEntityOrderHandler = (req: Request, res: Response) => handle(
      res.status(201).json({ status: 'success', statusCode: 201, message: 'Order created', data: order });
 });
 
-/** GET /api/v1/entityorders?patientid=&entityType=&entityId=&status=&pendingReview=&consultationid= */
-export const listEntityOrdersHandler = (req: Request, res: Response) => handle(res, async () => {
-     const tenantId = getTenant(req);
-     const { patientid, entityType, entityId, status, pendingReview, sampleLocation, consultationid, page, count } = req.query as any;
-     const svc = new EntityOrderService(tenantId);
-     const data = await svc.listOrders({
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const isValidDate = (value: string) => DATE_RE.test(value) && !Number.isNaN(new Date(`${value}T00:00:00Z`).getTime());
+
+/**
+ * Builds list filters from the query string. A clinician-portal session is always pinned to its own
+ * clinician id (orders billed to them OR placed by them) so it can never read another clinician's orders.
+ */
+export function buildEntityOrderListFilters(query: any, authUser?: any): { filters?: EntityOrderListFilters; error?: string } {
+     const { patientid, entityType, entityId, clinicianId, status, pendingReview, sampleLocation, consultationid, page, count, from, to } = query || {};
+     for (const [name, value] of [['from', from], ['to', to]] as const) {
+          if (value !== undefined && value !== '' && !isValidDate(String(value))) return { error: `${name} must be a date in YYYY-MM-DD format` };
+     }
+     if (from && to && String(from) > String(to)) return { error: 'from must be on or before to' };
+     if (status && !ENTITY_ORDER_STATUSES.includes(status)) return { error: 'Invalid status' };
+
+     const filters: EntityOrderListFilters = {
           patientId: patientid ? Number(patientid) : undefined,
           entityType: entityType || undefined,
           entityId: entityId ? Number(entityId) : undefined,
+          clinicianId: clinicianId ? Number(clinicianId) : undefined,
           status: (status as EntityOrderStatus) || undefined,
           pendingReview: pendingReview === '1' || pendingReview === 'true',
           sampleLocation: (sampleLocation as 'center' | 'referrer') || undefined,
           consultationId: consultationid ? Number(consultationid) : undefined,
+          from: from || undefined,
+          to: to || undefined,
           page: page ? Number(page) : undefined,
           count: count ? Number(count) : undefined,
-     });
+     };
+
+     if (String(authUser?.role || '').toLowerCase() === 'clinician') {
+          const selfId = Number(authUser.clinicianid ?? authUser.employeeid);
+          if (!selfId) return { error: 'Clinician session could not be identified' };
+          filters.clinicianId = selfId;
+          filters.entityType = undefined;
+          filters.entityId = undefined;
+     }
+     return { filters };
+}
+
+/** GET /api/v1/entityorders?patientid=&entityType=&entityId=&clinicianId=&status=&pendingReview=&consultationid=&from=&to= */
+export const listEntityOrdersHandler = (req: Request, res: Response) => handle(res, async () => {
+     const tenantId = getTenant(req);
+     const { filters, error } = buildEntityOrderListFilters(req.query, (req as any).authUser);
+     if (error || !filters) return customError(error || 'Invalid filters', 400, res);
+     const svc = new EntityOrderService(tenantId);
+     const data = await svc.listOrders(filters);
      res.status(200).json({
           status: 'success',
           statusCode: 200,
@@ -43,6 +77,16 @@ export const listEntityOrdersHandler = (req: Request, res: Response) => handle(r
           count: data.count,
           totalPages: data.totalPages,
      });
+});
+
+/** GET /api/v1/entityorders/summary?clinicianId=&from=&to= — order counts/value per status for the same scope as the list. */
+export const summarizeEntityOrdersHandler = (req: Request, res: Response) => handle(res, async () => {
+     const tenantId = getTenant(req);
+     const { filters, error } = buildEntityOrderListFilters(req.query, (req as any).authUser);
+     if (error || !filters) return customError(error || 'Invalid filters', 400, res);
+     const svc = new EntityOrderService(tenantId);
+     const data = await svc.summarizeOrders(filters);
+     res.status(200).json({ status: 'success', statusCode: 200, data });
 });
 
 /** GET /api/v1/entityorders/:id */

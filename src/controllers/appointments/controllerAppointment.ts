@@ -2,12 +2,16 @@ import { z } from "zod";
 import { responseError, customError } from "../../hooks/helper";
 import Appointment from "../../models/appointments/appointments";
 import { Response, Request } from "express";
+import { getAuthUser } from "../../middleware/authority";
+import { AppointmentWorkflowService } from "../../models/appointments/AppointmentWorkflowService";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 import { AppointmentContextProvider } from "../../models/application/notifications/context/providers/AppointmentContextProvider";
 import {
 	APPOINTMENT_TYPES,
 	AppointmentValidationError,
+	MAX_APPOINTMENT_SERVICES,
 	parseAppointmentMetadata,
+	parseServiceIds,
 	resolveAppointmentCalendarQuery,
 } from "../../models/appointments/appointmentValidation";
 
@@ -20,10 +24,10 @@ function appointmentTenantId(request: Request): number {
 	return tenantId;
 }
 
-/** Sends 400 for appointment validation errors; returns false for anything else. */
+/** Sends the validation status (400, 404, or 409 for conflicts) for appointment errors; returns false otherwise. */
 function handleAppointmentValidationError(response: Response, err: unknown): boolean {
 	if (err instanceof AppointmentValidationError) {
-		customError(err.message, 400, response);
+		customError(err.message, err.statusCode ?? 400, response);
 		return true;
 	}
 	return false;
@@ -108,6 +112,7 @@ export async function updateAppointmentController(request: Request, response: Re
 			appointment_type: z.enum(APPOINTMENT_TYPES).nullable().optional(),
 			lead_id: z.number().int().positive().nullable().optional(),
 			billingid: z.number().int().positive().nullable().optional(),
+			service_ids: z.array(z.number().int().positive()).max(MAX_APPOINTMENT_SERVICES).nullable().optional(),
 		}).strict();
 
 		const unParsedCleanPayload = {
@@ -126,6 +131,7 @@ export async function updateAppointmentController(request: Request, response: Re
 			appointment_type: metadata.appointment_type,
 			lead_id: metadata.lead_id,
 			billingid: metadata.billingid,
+			service_ids: parseServiceIds(cleanPayload.service_ids),
 		};
 
 		const parseResult = updateSchema.safeParse(unParsedCleanPayload);
@@ -284,5 +290,76 @@ export async function loadPractionerAvailableSlotsController(request: Request, r
 	} catch (err) {
 		if (handleAppointmentValidationError(response, err)) return;
 		responseError(response, err);
+	}
+}
+
+const STAFF_BLOCKED_ROLES = ["patient", "clinician"];
+
+function workflowContext(request: Request, response: Response) {
+	const user = getAuthUser(request);
+	const tenantId = Number(user?.tenantId);
+	if (!user || !Number.isSafeInteger(tenantId) || tenantId <= 0) {
+		customError("Authentication required", 401, response);
+		return null;
+	}
+	if (STAFF_BLOCKED_ROLES.includes(String(user.role || "").toLowerCase())) {
+		customError("Only facility staff can manage appointment workflows", 403, response);
+		return null;
+	}
+	return { user, service: new AppointmentWorkflowService(tenantId) };
+}
+
+function workflowAppointmentId(request: Request): number {
+	const id = Number(request.params.id);
+	if (!Number.isSafeInteger(id) || id <= 0) throw new AppointmentValidationError("Invalid appointment ID");
+	return id;
+}
+
+function handleWorkflowError(response: Response, err: unknown) {
+	if (handleAppointmentValidationError(response, err)) return;
+	console.error("[appointments] workflow error:", (err as Error)?.message || err);
+	// Do not forward SQL or billing internals to the client.
+	customError("Unable to process the appointment workflow. Please retry.", 500, response);
+}
+
+/** GET /api/v1/appointments/services?appointment_type=laboratory|ultrasound */
+export async function getAppointmentServicesController(request: Request, response: Response) {
+	const ctx = workflowContext(request, response);
+	if (!ctx) return;
+	try {
+		const services = await ctx.service.services(request.query.appointment_type);
+		response.send({ status: "success", statusCode: 200, data: services });
+	} catch (err) {
+		handleWorkflowError(response, err);
+	}
+}
+
+/** GET /api/v1/appointments/:id/workflow — recommendation view for converting an appointment to a bill. */
+export async function getAppointmentWorkflowController(request: Request, response: Response) {
+	const ctx = workflowContext(request, response);
+	if (!ctx) return;
+	try {
+		const data = await ctx.service.workflow(workflowAppointmentId(request));
+		response.setHeader("Cache-Control", "no-store");
+		response.send({ status: "success", statusCode: 200, data });
+	} catch (err) {
+		handleWorkflowError(response, err);
+	}
+}
+
+/** POST /api/v1/appointments/:id/convert — creates the bill via the standard checkout; idempotent per appointment. */
+export async function convertAppointmentController(request: Request, response: Response) {
+	const ctx = workflowContext(request, response);
+	if (!ctx) return;
+	try {
+		const result = await ctx.service.convert(
+			workflowAppointmentId(request),
+			Number(ctx.user.employeeid),
+			Number(ctx.user.branch),
+			request.body || {},
+		);
+		response.send(result);
+	} catch (err) {
+		handleWorkflowError(response, err);
 	}
 }

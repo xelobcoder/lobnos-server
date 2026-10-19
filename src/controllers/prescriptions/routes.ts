@@ -9,6 +9,8 @@ router.use(checkTokenExists);
 
 // Raised by a clinician during consultation; any authenticated clinical user may create or view one.
 router.post('/prescriptions', PrescriptionController.createPrescription);
+// Must precede /prescriptions/:id. Same self-or-pharmacy rule as the list.
+router.get('/prescriptions/summary', prescriptionListAccess, PrescriptionController.summarizePrescriptions);
 router.get('/prescriptions/:id', PrescriptionController.getPrescription);
 router.put('/prescriptions/link-consultation', PrescriptionController.linkPrescriptionsToConsultation);
 
