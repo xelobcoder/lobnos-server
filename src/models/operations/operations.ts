@@ -721,7 +721,7 @@ export default class Operations {
 
 				if (row.ascension_id) {
 					let stage = await TestAscension.determineStage(tenantId, row.ascension_id);
-					if (row.resultEntryStart) {
+					if (row.resultEntryStart || row.resultEntryEnd) {
 						const isValidated = await this.isTestValidated(tenantId, row.ascension_id);
 						if (isValidated) {
 							stage = 'validated';

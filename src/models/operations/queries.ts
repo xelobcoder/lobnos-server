@@ -193,16 +193,16 @@ export const q_get_all_test_ready_for_various_stages = function (currentQuery: s
       query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
       return query;
     case OperationsStages.COMPLETED:
-      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NULL OR ta.resultEntryEnd IS NULL)
+      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)       AND ta.resultEntryEnd IS NULL
 AND (d.department <> 'ultrasound' OR d.department IS NULL)`
       return query;
     case OperationsStages.VALIDATION:
-      query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
+      query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
 AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
       return query;
     case OperationsStages.VALIDATED:
-      query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND (ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL ) AND  dta.isapproved = 1
+      query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)       AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 1
      AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
       return query;

@@ -435,9 +435,7 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					const comments = await creator.getCustomCommentsRecords(
 						tenantIdP,
 						billingid, testid);
-					if (typeof dataset.comments === "string" && typeof comments === "string") {
-						finalResult.generalComments = finalResult.generalComments + " " + comments;
-					}
+					dataset.comments = typeof comments === "string" ? comments : '';
 					return dataset
 				}))
 

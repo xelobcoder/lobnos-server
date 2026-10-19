@@ -201,10 +201,10 @@ export async function createAppointmentController(request: Request, response: Re
 		const isAppointmentCreated = await new Appointment(employeeid).createAppointment(tenantId, request.body);
 		const createdId = (isAppointmentCreated as any)?.appointmentId
 			|| (isAppointmentCreated as any)?.refid
-			|| (isAppointmentCreated as any)?.id
-			|| request.body?.refid
-			|| request.body?.appointmentId;
-		const createdOk = Boolean(isAppointmentCreated) && isAppointmentCreated !== false;
+			|| (isAppointmentCreated as any)?.id;
+		const createdOk = typeof isAppointmentCreated === "object" && isAppointmentCreated !== null
+			? (isAppointmentCreated as any).success === true
+			: isAppointmentCreated === true;
 		if (createdOk && createdId) {
 			NotificationDispatcher.dispatch(
 				tenantId,
@@ -224,7 +224,10 @@ export async function createAppointmentController(request: Request, response: Re
 		} else if (createdOk && !createdId) {
 			console.warn('[notifications] APPOINTMENT_CREATED skipped: appointment created but no id returned');
 		}
-		response.send({ success: isAppointmentCreated });
+		response.send({
+			success: createdOk,
+			...(createdOk && createdId ? { appointmentId: Number(createdId) } : {}),
+		});
 	} catch (err) {
 		if (handleAppointmentValidationError(response, err)) return;
 		responseError(response, err);

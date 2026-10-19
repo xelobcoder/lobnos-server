@@ -86,6 +86,35 @@ describe("MonthAppointmentsController", () => {
 });
 
 describe("appointment write validation", () => {
+	it("returns a boolean success value and the created appointment ID", async () => {
+		mocks.createAppointment.mockResolvedValueOnce({ success: true, appointmentId: 11, refid: 11 });
+		const response = res();
+
+		await createAppointmentController({
+			query: { tenantId: "2", employeeid: "5" },
+			body: { patientid: 9 },
+		} as any, response);
+
+		expect(response.body).toEqual({ success: true, appointmentId: 11 });
+		expect(mocks.dispatch).toHaveBeenCalledWith(2, "APPOINTMENT_CREATED", {
+			appointmentId: 11,
+			patientId: 9,
+		}, 5);
+	});
+
+	it("does not treat a failed model result as a created appointment", async () => {
+		mocks.createAppointment.mockResolvedValueOnce(false);
+		const response = res();
+
+		await createAppointmentController({
+			query: { tenantId: "2", employeeid: "5" },
+			body: { patientid: 9, appointmentId: 11 },
+		} as any, response);
+
+		expect(response.body).toEqual({ success: false });
+		expect(mocks.dispatch).not.toHaveBeenCalled();
+	});
+
 	it("maps create validation errors to 400 and does not notify", async () => {
 		mocks.createAppointment.mockRejectedValueOnce(new AppointmentValidationError("lead_id does not reference an existing lead"));
 		const response = res();

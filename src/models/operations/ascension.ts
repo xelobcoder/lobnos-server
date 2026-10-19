@@ -66,6 +66,10 @@ export class TestAscension {
 		query = query.replace('{stage}', stage);
 		const sanitizedDate = new Date(value);
 		const result = await promisifyQuery(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
+		if (stage === 'resultEntryEnd') {
+			// Saving results implies entry started; without this the test never reaches VALIDATION.
+			await promisifyQuery(tenantId, `UPDATE test_ascension SET resultEntryStart = ? WHERE id = ? AND resultEntryStart IS NULL`, [sanitizedDate, ascensionId]);
+		}
 		return rowAffected(result);
 	}
 

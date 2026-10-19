@@ -74,7 +74,7 @@ export class LaboratoryWorkflowService {
             return {
                 ...row, workflow,
                 sample_validation_stage: workflow.sampleValidation === 'bypassed' ? 'Bypassed' : row.sample_validation_stage,
-                current_stage: workflow.canEnterResults && !row.resultEntryStart ? 'Ready for Result Entry' : row.current_stage,
+                current_stage: workflow.canEnterResults && !row.resultEntryStart && !row.resultEntryEnd ? 'Ready for Result Entry' : row.current_stage,
             };
         });
     }
