@@ -231,8 +231,20 @@ The gateway core and the three adapters are now implemented in `src/payments/`. 
 1. Sandbox validation of each adapter against official docs (endpoints, status values, reference length limits, Hubtel IP allow-listing, PaySwitch amount in status response). Run the safe test cases in 8.8 per provider.
 2. Provision credentials through a secret store; resolve findings S1/S2 (`.env` tracked in git) first. Set `PAYMENT_PUBLIC_BASE_URL` (HTTPS) and configure the Paystack webhook URL in its dashboard.
 3. Refunds are detected only for unsettled transactions and flagged; there is no automatic refund or void. Refund detection on already-settled payments needs a product policy.
-4. Initiation is platform-admin only; a tenant self-service checkout and a frontend are not built.
-5. Only facility subscription payments are supported; invoice/patient billing is out of scope.
+4. Platform initiation is platform-admin only (UI built in the facility admin area).
+5. Facility subscription payments (platform merchant) and tenant patient-bill payments (tenant merchant, see 8.11) are supported.
 6. Open decisions in 8.9 (provider identity of "AySta ck", currency, per-tenant merchants) still need confirmation.
 
 **Tests:** `src/payments/PaymentGatewayService.test.ts` (17 cases) covers success, failure, pending, duplicate, delayed/late, forged signature/token, client-claimed success, amount/currency/unverifiable amount, outage-then-recovery, refused fulfilment, audit trail, Paystack signature and adapter mappings.
+
+### 8.11 Tenant (facility) gateways for patient payments
+
+Each facility can connect its **own** Paystack, Hubtel or PaySwitch merchant account so its patients pay bills online into the facility's account. Status: **implemented, unit-tested with fakes, not sandbox-verified, not exercised with a real payment.**
+
+- **Credentials:** entered in Settings > Online Payments (admin, superadmin, accountant). Stored in the tenant DB table `tenant_payment_gateways`, encrypted with AES-256-GCM (`CredentialCipher`, key `PAYMENT_CREDENTIAL_KEY`, AAD binds tenant and provider). Write-only: the API returns configured/enabled flags only. Without the key, saving is refused (503). No fallback to platform credentials. Tenants cannot set base URLs (SSRF).
+- **Checkout:** staff create a link from a bill (`POST /api/v1/payments/gateway/bills/:billingId/checkout`); amount comes from the server's outstanding balance, never the client. Transactions have purpose `patient_bill` and live in the master DB with the platform ones; tenant routes are scoped to `purpose=patient_bill` and the caller's tenant.
+- **Webhooks:** `POST /api/v1/payments/webhooks/:provider/:tenantId`; a tenant webhook only matches that tenant's `patient_bill` transactions, a platform webhook only the others. Success still requires API verification with matching amount and currency.
+- **Ledger posting:** `PatientBillFulfilment` allocates to services and calls `MultiPayment.processPayment` with an idempotency key. `gateway_payment_applications` (reference primary key) is inserted in the same DB transaction, so repeat callbacks cannot create a second receipt. Overpayment or a voided/paid bill goes to `needs_review`.
+- **Frontend:** Settings > Online Payments (+ Transactions page with Verify now) and a "Collect payment online" card on the bill page.
+
+**Open risks:** `PAYMENT_CREDENTIAL_KEY` custody and rotation procedure is undecided (losing it requires re-entering credentials); `PatientBillFulfilment` has no unit test and has not run against a real ledger write end to end; no patient-portal self-pay; no refunds; adapters need sandbox validation per 8.10.

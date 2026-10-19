@@ -14,7 +14,7 @@ import { PatientBillFulfilment } from './PatientBillFulfilment';
 import { TenantGatewayResolver } from './TenantGatewayResolver';
 import { TenantGatewayStore, isProvider } from './TenantGatewayStore';
 import { getAuthUser } from '../middleware/authority';
-import { roleAllowed } from '../middleware/roles';
+import { normalizeRole, roleAllowed } from '../middleware/roles';
 import { HubtelAdapter } from './adapters/HubtelAdapter';
 import { PaySwitchAdapter } from './adapters/PaySwitchAdapter';
 import { PaystackAdapter } from './adapters/PaystackAdapter';
@@ -173,7 +173,7 @@ export function createTenantPaymentsRouter(
                try {
                     const user = getAuthUser(req);
                     if (!user || !user.tenantId) return customError('Authentication required', 401, res);
-                    const allowed = kind === 'admin' ? roleAllowed(user.role, GATEWAY_ADMIN_ROLES) : !roleAllowed(user.role, NON_COLLECTING_ROLES);
+                    const allowed = kind === 'admin' ? roleAllowed(user.role, GATEWAY_ADMIN_ROLES) : !NON_COLLECTING_ROLES.includes(normalizeRole(user.role));
                     if (!allowed) return customError('You are not permitted to perform this action', 403, res);
                     return res.json({ status: 'success', result: await operation(req, user) });
                } catch (error) {
