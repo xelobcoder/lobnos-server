@@ -257,6 +257,60 @@ export default class MultiPayment {
                };
           }
      }
+
+     public async listOutstandingBills({ startDate, endDate, search, page = 1, count = 25 }: { startDate?: string; endDate?: string; search?: string; page?: number; count?: number }) {
+          const connection = await this.connection;
+          const pageSize = Math.min(Math.max(count, 1), 100);
+          const offset = (Math.max(page, 1) - 1) * pageSize;
+
+          const base = () => {
+               const q = connection(`${this.billingTable} as b`)
+                    .leftJoin('new_patients as p', 'p.patientid', 'b.patientid')
+                    .where('b.outstanding', '>', 0);
+               if (startDate && endDate) q.whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [startDate, endDate]);
+               if (search) {
+                    const like = `%${search}%`;
+                    q.where((w: any) => w
+                         .whereRaw("CONCAT_WS(' ', p.firstname, p.middlename, p.lastname) LIKE ?", [like])
+                         .orWhere('p.fullpatientid', 'like', like)
+                         .orWhere('p.mobile_number', 'like', like)
+                         .orWhereRaw('CAST(b.billingid AS CHAR) LIKE ?', [like])
+                         .orWhereRaw('CAST(b.patientid AS CHAR) = ?', [search]));
+               }
+               return q;
+          };
+
+          const [summary] = await base().select(
+               connection.raw('COUNT(*) AS bills'),
+               connection.raw('COUNT(DISTINCT b.patientid) AS patients'),
+               connection.raw('COALESCE(SUM(b.outstanding), 0) AS totalOutstanding'),
+               connection.raw('COALESCE(SUM(b.paid), 0) AS totalPaid'),
+          );
+
+          const records = await base()
+               .select(
+                    'b.billingid', 'b.patientid', 'b.billedon', 'b.payable', 'b.paid', 'b.outstanding',
+                    'p.fullpatientid', 'p.mobile_number',
+                    connection.raw("TRIM(CONCAT_WS(' ', p.firstname, p.middlename, p.lastname)) AS patient_name"),
+                    connection.raw('DATEDIFF(CURDATE(), DATE(b.billedon)) AS age_days'),
+               )
+               .orderBy('b.billedon', 'asc')
+               .limit(pageSize)
+               .offset(offset);
+
+          return {
+               records,
+               page: Math.max(page, 1),
+               count: pageSize,
+               summary: {
+                    bills: Number(summary?.bills || 0),
+                    patients: Number(summary?.patients || 0),
+                    totalOutstanding: Number(summary?.totalOutstanding || 0),
+                    totalPaid: Number(summary?.totalPaid || 0),
+               },
+          };
+     }
+
      public async getOutstandingPayments({ patientid, status = "pending", billingid }: { patientid?: number, status?: "completed" | "all" | "pending", billingid?: number | number[] }) {
           const connection = await this.connection;
 

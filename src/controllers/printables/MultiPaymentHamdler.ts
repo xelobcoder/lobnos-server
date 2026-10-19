@@ -79,6 +79,27 @@ export const getPatientOutstandingPayments = async (req: Request, res: Response)
 };
 
 
+export const listOutstandingBillsHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const tenantId = parseInt(req.query.tenantId as string);
+          const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+          const startDate = req.query.startDate as string | undefined;
+          const endDate = req.query.endDate as string | undefined;
+          if ((startDate && !dateRe.test(startDate)) || (endDate && !dateRe.test(endDate))) {
+               res.status(400).json({ success: false, message: 'startDate and endDate must be YYYY-MM-DD' });
+               return;
+          }
+          const search = ((req.query.search as string) || '').trim().slice(0, 100);
+          const page = parseInt(req.query.page as string) || 1;
+          const count = parseInt(req.query.count as string) || 25;
+          const data = await new MultiPayment(tenantId).listOutstandingBills({ startDate, endDate, search, page, count });
+          res.status(200).json({ success: true, data });
+     } catch (error) {
+          console.error('Error listing outstanding bills:', error);
+          res.status(500).json({ success: false, message: 'Internal server error' });
+     }
+};
+
 export const generateTransactionReceiptHandler = async (req: Request, res: Response) => {
      try {
           const { billingid, employeeid } = req.query;
