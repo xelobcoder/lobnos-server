@@ -13,11 +13,42 @@ function handle(res: Response, fn: () => Promise<void>) {
      fn().catch((err: any) => customError(err?.message || 'Something went wrong', 500, res));
 }
 
+/** The clinician id of a clinician-portal session, or null for staff sessions. */
+export function clinicianSessionId(req: Request): number | null {
+     const authUser = (req as any).authUser;
+     if (String(authUser?.role || '').toLowerCase() !== 'clinician') return null;
+     const selfId = Number(authUser.clinicianid ?? authUser.employeeid);
+     return Number.isInteger(selfId) && selfId > 0 ? selfId : 0;
+}
+
+/**
+ * For clinician sessions, confirms the order is theirs (billed to them or placed by them).
+ * Unowned or unknown orders get a 404 so other clinicians' order ids are not disclosed.
+ */
+async function ensureClinicianOwnsOrder(req: Request, res: Response, svc: EntityOrderService, orderId: number): Promise<boolean> {
+     const selfId = clinicianSessionId(req);
+     if (selfId === null) return true;
+     if (!selfId || !Number.isInteger(orderId) || orderId <= 0) {
+          customError('Order not found', 404, res);
+          return false;
+     }
+     const owned = await svc.filterOrderIdsForClinician([orderId], selfId);
+     if (!owned.includes(orderId)) {
+          customError('Order not found', 404, res);
+          return false;
+     }
+     return true;
+}
+
 /** POST /api/v1/entityorders  { patientId, orderedByEmployeeId, lines:[{testId,quantity}], consultationId?, sampleLocation?, notes? } */
 export const createEntityOrderHandler = (req: Request, res: Response) => handle(res, async () => {
      const tenantId = getTenant(req);
      const svc = new EntityOrderService(tenantId);
-     const order = await svc.createOrder({ ...req.body, orderedByEmployeeId: req.body.orderedByEmployeeId || getActor(req) });
+     const selfId = clinicianSessionId(req);
+     if (selfId === 0) return customError('Clinician session could not be identified', 403, res);
+     // A clinician session always orders as itself.
+     const orderedByEmployeeId = selfId ?? (req.body.orderedByEmployeeId || getActor(req));
+     const order = await svc.createOrder({ ...req.body, orderedByEmployeeId });
      res.status(201).json({ status: 'success', statusCode: 201, message: 'Order created', data: order });
 });
 
@@ -93,7 +124,9 @@ export const summarizeEntityOrdersHandler = (req: Request, res: Response) => han
 export const getEntityOrderHandler = (req: Request, res: Response) => handle(res, async () => {
      const tenantId = getTenant(req);
      const svc = new EntityOrderService(tenantId);
-     const order = await svc.getOrder(Number(req.params.id));
+     const orderId = Number(req.params.id);
+     if (!(await ensureClinicianOwnsOrder(req, res, svc, orderId))) return;
+     const order = await svc.getOrder(orderId);
      res.status(200).json({ status: 'success', statusCode: 200, data: order });
 });
 
@@ -105,7 +138,13 @@ export const linkEntityOrdersToConsultationHandler = (req: Request, res: Respons
           return customError('orderIds, patientId and consultationId are required', 400, res);
      }
      const svc = new EntityOrderService(tenantId);
-     const linked = await svc.linkOrdersToConsultation(orderIds.map(Number), Number(patientId), Number(consultationId));
+     const ids = orderIds.map(Number);
+     const selfId = clinicianSessionId(req);
+     if (selfId !== null) {
+          const owned = selfId ? await svc.filterOrderIdsForClinician(ids, selfId) : [];
+          if (ids.some((id: number) => !owned.includes(id))) return customError('Order not found', 404, res);
+     }
+     const linked = await svc.linkOrdersToConsultation(ids, Number(patientId), Number(consultationId));
      res.status(200).json({ status: 'success', statusCode: 200, message: 'Orders linked to consultation', linked });
 });
 
@@ -116,10 +155,14 @@ const action = (
      message: string
 ) => handle(res, async () => {
      const tenantId = getTenant(req);
-     const actorId = getActor(req);
+     const selfId = clinicianSessionId(req);
+     // Clinician sessions act as themselves; the body cannot impersonate another actor.
+     const actorId = selfId ?? getActor(req);
      if (!actorId) return customError('employeeid (actor) is required', 400, res);
      const svc = new EntityOrderService(tenantId);
-     const result = await fn(svc, Number(req.params.id), actorId);
+     const orderId = Number(req.params.id);
+     if (!(await ensureClinicianOwnsOrder(req, res, svc, orderId))) return;
+     const result = await fn(svc, orderId, actorId);
      res.status(200).json({ status: 'success', statusCode: 200, message, data: result });
 });
 

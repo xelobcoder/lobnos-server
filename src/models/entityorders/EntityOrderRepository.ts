@@ -212,6 +212,14 @@ export class EntityOrderRepository {
                .update({ ...updates, updated_at: conn.fn.now() });
      }
 
+     /** Ids from `orderIds` that fall inside the clinician's scope (same rule as the clinician list filter). */
+     async filterOrderIdsForClinician(orderIds: number[], clinicianId: number): Promise<number[]> {
+          if (!orderIds.length) return [];
+          const conn = await this.connection;
+          const rows = await applyEntityOrderFilters(conn('entity_orders as o').whereIn('o.id', orderIds), { clinicianId }).select('o.id');
+          return rows.map((row: any) => Number(row.id));
+     }
+
      async getOrderRow(orderId: number, trx?: any): Promise<EntityOrderRow | null> {
           const conn = trx || (await this.connection);
           return await conn('entity_orders').where({ id: orderId }).first();

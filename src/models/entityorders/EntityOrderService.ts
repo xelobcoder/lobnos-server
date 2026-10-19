@@ -152,6 +152,10 @@ export class EntityOrderService {
      }
 
      /** Backfills orders placed before a consultation existed (consultation_id was still null) once it is saved. */
+     async filterOrderIdsForClinician(orderIds: number[], clinicianId: number): Promise<number[]> {
+          return this.repo.filterOrderIdsForClinician(orderIds, clinicianId);
+     }
+
      async linkOrdersToConsultation(orderIds: number[], patientId: number, consultationId: number): Promise<number> {
           return this.repo.linkOrdersToConsultation(orderIds, patientId, consultationId);
      }
