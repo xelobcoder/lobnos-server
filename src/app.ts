@@ -49,6 +49,8 @@ import { patientPortalRouter, publicPatientPortalRouter } from "./controllers/pa
 import { clinicianPortalRouter } from "./controllers/clinician-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
+import { createPaymentWebhookRouter, createPlatformPaymentsRouter, createTenantPaymentsRouter, getPaymentGatewayService } from './payments/paymentRoutes';
+import { startPaymentReconciliationWorker } from './payments/PaymentReconciliationWorker';
 import publicFacilitiesRouter from "./controllers/public/facilities";
 import subscriptionRouter from "./controllers/subscription/route";
 import requestLogger from "./middleware/requestLogger";
@@ -91,6 +93,7 @@ app.use(cors({
     preflightContinue: false
 }));
 
+app.use(createPaymentWebhookRouter());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(signedLicenseGuard);
@@ -108,6 +111,7 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
 });
 // Platform authority derives its tenant from the verified session, not a caller-supplied tenantId.
 // The router enforces active control-tenant standing and live super-admin/session validation.
+app.use(createPlatformPaymentsRouter());
 app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);
 // Patient portal activation derives the facility from an invitation or public facility identifier.
@@ -117,6 +121,7 @@ app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
 app.use(patientPortalRouter);
+app.use(createTenantPaymentsRouter());
 app.use(clinicianPortalRouter);
 app.use(InterfacingDevicesRouterT);
 app.use(OutsourcedTestTracking)
@@ -235,6 +240,8 @@ async function startApplication() {
         startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
         startPatientPortalWorkers(readyTenants);
         startAppointmentReminderWorker(readyTenants);
+        // Tenants hold their own gateway credentials, so recovery must run even when no platform provider is configured.
+        startPaymentReconciliationWorker(getPaymentGatewayService());
     });
 }
 

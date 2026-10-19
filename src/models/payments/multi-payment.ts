@@ -22,6 +22,8 @@ type MultiServicePaymentRequest = {
      description: string;
      employeeid: number;
      tenantId: number;
+     /** When set, the payment is recorded at most once for this key (a verified gateway reference). */
+     idempotencyKey?: string;
 }
 
 type PaymentRequestBody = {
@@ -50,7 +52,7 @@ export default class MultiPayment {
           this.servicesTable = "dboservices";
      }
 
-     public async processPayment(paymentData: MultiServicePaymentRequest): Promise<{ success: boolean; message: string; transactionId?: string }> {
+     public async processPayment(paymentData: MultiServicePaymentRequest): Promise<{ success: boolean; message: string; transactionId?: string; alreadyApplied?: boolean }> {
           const connection = await this.connection;
 
           try {
@@ -76,6 +78,19 @@ export default class MultiPayment {
                const trx = await connection.transaction();
 
                try {
+                    if (paymentData.idempotencyKey) {
+                         try {
+                              await trx('gateway_payment_applications').insert({
+                                   reference: paymentData.idempotencyKey,
+                                   billing_id: paymentData.service_payments[0].billing_id,
+                                   amount_minor: Math.round(paymentData.total_amount * 100),
+                              });
+                         } catch (error: any) {
+                              if (error?.code !== 'ER_DUP_ENTRY') throw error;
+                              await trx.rollback();
+                              return { success: true, message: 'Payment was already applied', alreadyApplied: true };
+                         }
+                    }
                     const waiveOffsPerBilling: Record<number, number> = {};
 
                     for (const servicePayment of paymentData.service_payments) {

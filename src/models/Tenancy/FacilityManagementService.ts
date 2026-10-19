@@ -12,7 +12,7 @@ import {
 } from './FacilityModules';
 import {
      AuditQuery, FacilityStatusTarget, PaymentInput, SubscriptionFrequency, SubscriptionPlanInput,
-     formatCents, normalizeStoredAmount, parseAsOf, storedDateToIso, storedTimestampToIso, utcToday, validatePaymentInput,
+     formatCents, normalizeStoredAmount, parseAmountToCents, parseAsOf, storedDateToIso, storedTimestampToIso, utcToday, validatePaymentInput,
 } from './FacilityManagementInput';
 import {
      PlanSegment, countPeriodsBefore, exactPeriod, maxAdvancePeriodStart, periodOf, planScheduleChange, scheduleWindow,
@@ -838,6 +838,36 @@ export class FacilityManagementService {
           const row = await this.master(PAYMENTS_TABLE).where({ id: paymentId, tenant_id: tenantId }).first();
           return { payment: toHistoryItem(row), ...(await this.getSubscription(tenantId)) };
      }
+
+     /** Server-side price of a payable period; online payments must never take the amount from the client. */
+     async quoteSubscriptionPeriod(tenantId: number, periodStartRaw: string) {
+          const today = utcToday(this.now());
+          const input: PaymentInput = validatePaymentInput({ periodStart: periodStartRaw, paidAt: today, reference: 'quote' }, today);
+          await TenantRegistry.ensureReady();
+          await this.ensureSchema();
+          const tenant = await this.tenantRow(this.master, tenantId, false);
+          this.requireManageable(tenant, 'receive online payments');
+          const segments = await this.segments(this.master, tenantId, false);
+          if (segments.length === 0) throw new FacilityError('Configure a subscription plan before collecting payments', 409);
+          const match = exactPeriod(segments, input.periodStart);
+          if (!match) throw new FacilityError('periodStart must be the first day of a period in the subscription schedule');
+          const limit = maxAdvancePeriodStart(segments, today);
+          if (input.periodStart > limit) throw new FacilityError(`Payments are accepted in advance only up to the period starting ${limit}`);
+          const { period } = match;
+          const key = periodKey(period.periodStart, period.periodEnd);
+          if (await this.master(PAYMENTS_TABLE).where({ tenant_id: tenantId, active_period_key: key }).first('id')) {
+               throw new FacilityError(`Period ${key} is already marked paid`, 409);
+          }
+          const cents = parseAmountToCents(String(period.amount));
+          return { amountMinor: cents, currency: String(period.currency).toUpperCase(), periodStart: period.periodStart, periodEnd: period.periodEnd };
+     }
+
+     async findActivePaymentByReference(tenantId: number, reference: string) {
+          await this.ensureSchema();
+          const row = await this.master(PAYMENTS_TABLE).where({ tenant_id: tenantId, reference }).whereNotNull('active_period_key').first('id');
+          return row ? { id: Number(row.id) } : null;
+     }
+
      async voidPayment(tenantId: number, paymentId: number, input: { reason: string }, actor: FacilityActor) {
           await TenantRegistry.ensureReady();
           await this.ensureSchema();
