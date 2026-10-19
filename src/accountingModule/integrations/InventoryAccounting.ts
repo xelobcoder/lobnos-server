@@ -128,6 +128,7 @@ export async function enqueueStockMovement(
                transactionId: movement?.id,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 

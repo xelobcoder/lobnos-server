@@ -93,7 +93,7 @@ export async function enqueueBillingReceivable(
                     sourceModule: SourceModule.BILLING,
                     sourceTable: 'billing',
                     sourcePk: Number(bill.billingid),
-                    sourceRef: isInitial ? '' : String(round2(Number(bill.payable || 0))),
+                    sourceRef: isInitial ? '' : `${round2(Number(previousPayable || 0))}>${round2(Number(bill.payable || 0))}`,
                     description: isInitial ? 'Bill issued' : 'Bill adjusted',
                     occurredAt: bill.billedon || new Date(),
                     createdBy: bill.lastupdatedby ? Number(bill.lastupdatedby) : null,
@@ -114,7 +114,7 @@ export async function enqueueBillingReceivable(
                taxAmount: taxDelta,
                sourceModule: SourceModule.BILLING,
                sourceTable: 'billing',
-               sourceRef: `${bill.billingid}:${isInitial ? 'initial' : round2(Number(bill.payable || 0))}`,
+               sourceRef: `${bill.billingid}:${isInitial ? 'initial' : `${round2(Number(previousPayable || 0))}>${round2(Number(bill.payable || 0))}`}`,
                branchid: bill.branchid ? Number(bill.branchid) : null,
           });
      } catch (error: any) {

@@ -121,9 +121,10 @@ export class InventoryTransactionModel {
                throw new Error('Transaction would result in negative stock');
           }
 
+          const effectiveUnitCost = Number(request.unit_cost) > 0 ? Number(request.unit_cost) : Number(inventoryItem.cost_price || 0);
           const totalCost = request.unit_cost && request.quantity
                ? request.unit_cost * request.quantity
-               : null;
+               : (effectiveUnitCost > 0 ? effectiveUnitCost * quantityInConsumptionUnits : null);
 
           const transactionData = {
                id: this.generateTransactionId(),
@@ -223,7 +224,7 @@ export class InventoryTransactionModel {
 
                     const totalCost = request.unit_cost && request.quantity
                          ? request.unit_cost * request.quantity
-                         : null;
+                         : (Number(inventoryItem.cost_price) > 0 ? Number(inventoryItem.cost_price) * request.quantity : null);
 
                     const transactionData = {
                          id: this.generateTransactionId(),

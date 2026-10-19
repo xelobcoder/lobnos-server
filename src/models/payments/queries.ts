@@ -51,12 +51,12 @@ INNER JOIN billing AS b ON np.patientid = b.patientid
   `,
   updatePaymentUpdate: `
     UPDATE billing 
-    SET outstanding = ?, paid_amount = ?
+    SET outstanding = ?, paid = ?
     WHERE billingid = ?
   `,
   insertBillingHx: `
-    INSERT INTO billinghx (billing, paymentmode, amount) 
-    VALUES (?,?,?)
+    INSERT INTO billinghx (billingid, paymentmode, amount, type) 
+    VALUES (?,?,?,'credit')
   `,
   paymentMode: `
     SELECT * 

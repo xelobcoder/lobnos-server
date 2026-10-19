@@ -7,6 +7,7 @@ import { billErrors } from "../billing/billingclientTypes";
 import KnexConnection from "../../database/KnexConnections";
 import { QUERY_EXPENSE_PAYMENTS_SUMMARY } from "../../controllers/billing/sales/Extensive/queries";
 import { applyDboservicesAfterUpdate } from "../../database/appLevelTriggers";
+import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 
 
 
@@ -298,12 +299,16 @@ class Payment {
 			if (result.length === 0) {
 				throw new Error("No such transaction found");
 			}
-			const { paid_amount, discount, outstanding, payable } = result[0];
+			const { paid, discount, outstanding, payable } = result[0];
 			if (outstanding <= 0) {
 				response.send({ status: "success", statusCode: 200, message: "Client is in good standing" });
 				return;
 			}
-			const newAmount = paid_amount + parseInt(pay);
+			const payAmount = Number(pay);
+			if (!Number.isFinite(payAmount) || payAmount <= 0 || payAmount > Number(outstanding)) {
+				throw new Error("Payment amount must be greater than zero and not exceed the outstanding balance");
+			}
+			const newAmount = Number(paid) + payAmount;
 			const notOutstanding = payable - newAmount - discount;
 			const updateQuery = queries.updatePaymentUpdate;
 			const values = [notOutstanding, newAmount, billingid];
@@ -311,10 +316,11 @@ class Payment {
 			if (!rowAffected(updateInfo)) {
 				throw new Error("Failed to update payment");
 			}
-			const inserted = await promisifyQuery(tenantId, queries.insertBillingHx, [billingid, paymentMode, pay]);
+			const inserted = await promisifyQuery(tenantId, queries.insertBillingHx, [billingid, paymentMode, payAmount]);
 			if (!rowAffected(inserted)) {
 				throw new Error("Failed to insert payment history");
 			}
+			await enqueueBillingPayment(Number(tenantId), Number(inserted.insertId), Number(billingid), payAmount, request.body?.employeeid ?? null);
 			response.send({ message: "Payment updated successfully", statusCode: 200, status: "success" });
 		} catch (err: any) {
 			customError(err.message || "Something went wrong", 500, response);

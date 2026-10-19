@@ -4,6 +4,7 @@ import { ManualJournalController } from './ManualJournalController';
 import { AuthorityController } from './AuthorityController';
 import { BankReconciliationController, parseBankExcelUpload } from './BankReconciliationController';
 import { FinancialDayCloseController } from './FinancialDayCloseController';
+import { AccountingCoverageService } from '../../accountingModule/services/AccountingCoverageService';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireAccountingRole, requireAuthority, requireOwnerRole } from '../../middleware/authority';
 
@@ -29,6 +30,24 @@ accountingRouter.get('/api/v1/accounting/reports/inventory-valuation', Accountin
 accountingRouter.get('/api/v1/accounting/subledger/:ledger/balances', AccountingReportController.subledgerBalances);
 accountingRouter.get('/api/v1/accounting/subledger/:ledger/reconcile', AccountingReportController.subledgerReconcile);
 accountingRouter.get('/api/v1/accounting/subledger/:ledger/statement/:partyType/:partyId', AccountingReportController.subledgerStatement);
+
+accountingRouter.get('/api/v1/accounting/reconciliation/coverage', async (req, res) => {
+     try {
+          const report = await new AccountingCoverageService(Number(req.query.tenantId) || 1).report();
+          res.send({ status: 'success', statusCode: 200, result: report });
+     } catch (error: any) {
+          res.status(500).send({ status: 'error', statusCode: 500, message: error?.message || 'Coverage failed' });
+     }
+});
+accountingRouter.post('/api/v1/accounting/reconciliation/backfill', requireOwnerRole, async (req, res) => {
+     try {
+          const execute = req.body?.execute === true;
+          const result = await new AccountingCoverageService(Number(req.query.tenantId) || 1).backfillBilling(execute);
+          res.send({ status: 'success', statusCode: 200, result });
+     } catch (error: any) {
+          res.status(500).send({ status: 'error', statusCode: 500, message: error?.message || 'Backfill failed' });
+     }
+});
 
 accountingRouter.get('/api/v1/accounting/periods', AccountingReportController.listPeriods);
 accountingRouter.get('/api/v1/accounting/periods/:periodCode/totals', AccountingReportController.periodTotals);

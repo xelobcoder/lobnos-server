@@ -52,7 +52,7 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AP',
                partyType: 'supplier',
-               partyId: payment.supplier_id ? Number(payment.supplier_id) : null,
+               partyId: Number.isFinite(Number(payment.supplier_id)) && payment.supplier_id ? Number(payment.supplier_id) : null,
                documentType: 'supplier_payment',
                documentRef: String(payment.payment_id || payment.id),
                documentDate: payment.payment_date || new Date(),
@@ -67,6 +67,7 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
                paymentId,
                error: error?.message || String(error),
           });
+          if (trx) throw error;
      }
 }
 
