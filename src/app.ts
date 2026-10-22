@@ -53,6 +53,7 @@ import platformFacilitiesRouter from "./controllers/platform/facilities";
 import { createPaymentWebhookRouter, createPlatformPaymentsRouter, createTenantPaymentsRouter, getPaymentGatewayService } from './payments/paymentRoutes';
 import { startPaymentReconciliationWorker } from './payments/PaymentReconciliationWorker';
 import publicFacilitiesRouter from "./controllers/public/facilities";
+import { publicWalkInQueueRouter, walkInQueueRouter, queuePublicBodyBoundary } from './controllers/queue/WalkInQueueController';
 import subscriptionRouter from "./controllers/subscription/route";
 import requestLogger from "./middleware/requestLogger";
 import smsPrimeRouter from './controllers/sms/primesms/routes';
@@ -94,6 +95,8 @@ app.use(cors({
     preflightContinue: false
 }));
 
+// Parse public kiosk requests before the general API's larger JSON allowance.
+app.use('/api/v1/public/queue', ...queuePublicBodyBoundary);
 app.use(createPaymentWebhookRouter());
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
@@ -116,12 +119,14 @@ app.get('/api/v1/health', (_req: Request, res: Response) => {
 app.use(createPlatformPaymentsRouter());
 app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);
+app.use(publicWalkInQueueRouter);
 // Patient portal activation derives the facility from an invitation or public facility identifier.
 app.use(publicPatientPortalRouter);
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
+app.use('/api/v1/queue', walkInQueueRouter);
 app.use(patientPortalRouter);
 app.use(createTenantPaymentsRouter());
 app.use(clinicianPortalRouter);

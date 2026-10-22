@@ -22,6 +22,7 @@ import { bootstrapQuickReferralEntities } from '../models/referral/QuickReferral
 import { bootstrapPatientPortal } from '../models/patient-portal/PatientPortalBootstrapper';
 import { bootstrapBackupSecuritySettings } from '../models/security/database-backup/BackupSecurityBootstrapper';
 import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleBootstrapper';
+import { bootstrapWalkInQueueTables } from '../models/queue/WalkInQueueBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
 import { bootstrapAppointmentTables } from '../models/appointments/AppointmentBootstrapper';
@@ -81,6 +82,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
+	await bootstrapWalkInQueueTables(tenantId);
 	await bootstrapRefundTableSanitization(tenantId, strict);
 	await bootstrapStaffFocTables(tenantId, strict);
 	await bootstrapCommissionTables(tenantId);

@@ -48,6 +48,9 @@ export const signedLicenseGuard = async (req: Request, res: Response, next: Next
           // and enforce licensing there. They deliberately reject caller tenant IDs.
           if (/^\/api\/v1\/platform\/facilities(?:\/|$)/i.test(req.path) ||
                /^\/api\/v1\/marketplace\/core(?:\/|$)/i.test(req.path)) return next();
+          // Kiosk endpoints resolve a served, active facility from their public URL and enforce
+          // that facility's license before any queue read or write. They accept no tenant query.
+          if (/^\/api\/v1\/public\/queue(?:\/|$)/i.test(req.path)) return next();
           // Marketplace/public directory operations own control-database data, not arbitrary
           // query-selected tenant data. Preserve their existing tenantless API contract.
           const controlSurface = /^\/api\/v1\/(?:marketplace|public\/facilities)(?:\/|$)/i.test(req.path);

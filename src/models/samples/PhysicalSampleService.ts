@@ -45,6 +45,22 @@ export interface PhysicalSampleReportFilters {
      count?: number;
 }
 
+/** Only containers in the same recollection chain belong in a specimen history. */
+export function physicalSampleLineage(rows: any[], sampleId: number): any[] {
+     const connected = new Set([Number(sampleId)]);
+     let expanded = true;
+     while (expanded) {
+          expanded = false;
+          for (const row of rows) {
+               const id = Number(row.id);
+               const parentId = Number(row.replaces_sample_id);
+               if (!parentId || (!connected.has(id) && !connected.has(parentId))) continue;
+               for (const next of [id, parentId]) if (!connected.has(next)) { connected.add(next); expanded = true; }
+          }
+     }
+     return rows.filter(row => connected.has(Number(row.id))).sort((left, right) => Number(left.id) - Number(right.id));
+}
+
 export function groupPhysicalSampleCandidates(rows: any[]): any[] {
      const groups = new Map<string, any>();
      for (const row of rows) {
@@ -164,25 +180,32 @@ export class PhysicalSampleService {
      async auditDetail(sampleId: number): Promise<any> {
           const connection = await KnexConnection(this.tenantId);
           const sample = await this.detail(sampleId, connection);
+          const siblings = await connection('physical_samples').where({ billingid: sample.billingid, patientid: sample.patientid }).orderBy('created_at').orderBy('id');
+          const lineage = physicalSampleLineage(siblings, sampleId);
+          const sampleIds = lineage.map((item: any) => Number(item.id));
+          const sampleById = new Map(lineage.map((item: any) => [Number(item.id), item]));
           const events = await connection('physical_sample_events as event')
                .leftJoin('roles as actor', 'actor.employeeid', 'event.actor_employeeid')
                .select('event.*', 'actor.username as actor_name')
-               .where('event.sample_id', sampleId)
-               .orderBy('event.created_at');
+               .whereIn('event.sample_id', sampleIds)
+               .orderBy('event.created_at').orderBy('event.id');
           const reviews = await connection('physical_sample_reviews as review')
                .leftJoin('roles as requester', 'requester.employeeid', 'review.requested_by')
                .leftJoin('roles as reviewer', 'reviewer.employeeid', 'review.reviewed_by')
                .select('review.*', 'requester.username as requested_by_name', 'reviewer.username as reviewed_by_name')
-               .where('review.sample_id', sampleId)
+               .whereIn('review.sample_id', sampleIds)
                .orderBy('review.requested_at');
-          const communications = await connection('physical_sample_communications').where({ sample_id: sampleId }).orderBy('created_at');
+          const communicationRows = await connection('physical_sample_communications').select('id').whereIn('sample_id', sampleIds);
+          await this.reconcileCommunicationStatuses(connection, communicationRows.map((item: any) => Number(item.id)));
+          const communications = await connection('physical_sample_communications').whereIn('sample_id', sampleIds).orderBy('created_at');
           const communicationIds = communications.map((item: any) => Number(item.id));
           const attempts = communicationIds.length ? await connection('physical_sample_delivery_attempts').whereIn('communication_id', communicationIds).orderBy('created_at') : [];
           return {
                ...sample,
-               events,
-               reviews,
-               communications: communications.map((communication: any) => ({ ...communication, attempts: attempts.filter((attempt: any) => Number(attempt.communication_id) === Number(communication.id)) })),
+               lineage,
+               events: events.map((event: any) => ({ ...event, sample_uid: sampleById.get(Number(event.sample_id))?.sample_uid })),
+               reviews: reviews.map((review: any) => ({ ...review, sample_uid: sampleById.get(Number(review.sample_id))?.sample_uid })),
+               communications: communications.map((communication: any) => ({ ...communication, sample_uid: sampleById.get(Number(communication.sample_id))?.sample_uid, attempts: attempts.filter((attempt: any) => Number(attempt.communication_id) === Number(communication.id)) })),
           };
      }
 
@@ -338,11 +361,11 @@ export class PhysicalSampleService {
                                         .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
                                         .whereRaw('replacement.replaces_sample_id = linked_sample.id')
                                         .whereRaw('replacement_link.ascension_id = link.ascension_id')
-                                        .where('replacement_link.is_required', true).where('replacement.status', 'accepted');
+                                        .where('replacement_link.is_required', true);
                               })
                               .count('* as count')
                               .first();
-                         if (Number(outstanding?.count || 0) === 0) await trx('samplestatus').where({ ascensionid: ascensionId }).update({ approvalstatus: 1, validatedby: actorEmployeeId, samplevalidatedon: now });
+                         if (Number(outstanding?.count || 0) === 0) await trx('samplestatus').where({ ascensionid: ascensionId }).update({ approvalstatus: 1, validatedby: actorEmployeeId, samplevalidatedon: now, rejectionmessage: null, isRedraw: 0 });
                     }
                     await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: 'accepted', from_status: sample.status, to_status: 'accepted', actor_employeeid: actorEmployeeId, reason: null, sample_version: update.version, idempotency_key: options.idempotencyKey || null, created_at: now });
                     return this.detail(sampleId, trx);
@@ -446,7 +469,12 @@ export class PhysicalSampleService {
                const rejected = await trx('physical_samples').where({ id: sampleId }).forUpdate().first();
                if (!rejected) throw new Error('Physical sample not found');
                if (!['rejected', 'recollection_required'].includes(rejected.status)) throw new Error('Only a rejected sample can be recollected');
+               // The original row lock serializes double clicks and network retries.
+               // Resume its existing replacement; a later rejection must be recollected from that replacement.
+               const replacement = await trx('physical_samples').where({ replaces_sample_id: sampleId }).orderBy('id', 'desc').first();
+               if (replacement) return this.detail(Number(replacement.id), trx);
                const links = await trx('test_ascension_samples').where({ sample_id: sampleId });
+               if (!links.length) throw new Error('The rejected sample has no linked tests to recollect');
                const ascensionIds = links.map((link: any) => Number(link.ascension_id));
                const now = new Date();
                const uid = `S-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
@@ -462,6 +490,7 @@ export class PhysicalSampleService {
                await trx('test_ascension').whereIn('id', ascensionIds).update({ collectionStartDate: now, collectionEndDate: null, sampleCollectedBy: actorEmployeeId });
                await trx('samplestatus').whereIn('ascensionid', ascensionIds).update({ approvalstatus: 0, rejectionmessage: null, isRedraw: 1, redraw: 1, redrawOrderDate: now, samplevalidatedon: null, validatedby: null });
                await trx('physical_sample_events').insert({ sample_id: newSampleId, event_type: 'recollection_started', from_status: 'recollection_required', to_status: 'collection_started', actor_employeeid: actorEmployeeId, reason: `Recollection of ${rejected.sample_uid}`, sample_version: 1, metadata: JSON.stringify({ replacesSampleId: sampleId }), created_at: now });
+               await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: 'replacement_started', from_status: rejected.status, to_status: rejected.status, actor_employeeid: actorEmployeeId, reason: `Replacement ${uid} started`, sample_version: Number(rejected.version || 1), metadata: JSON.stringify({ replacementSampleId: Number(newSampleId) }), created_at: now });
                return this.detail(Number(newSampleId), trx);
           });
      }
@@ -583,7 +612,7 @@ export class PhysicalSampleService {
                               .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
                               .whereRaw('replacement.replaces_sample_id = sample.id')
                               .whereRaw('replacement_link.ascension_id = link.ascension_id')
-                              .where('replacement_link.is_required', true).whereIn('replacement.status', ['collected', 'received', 'accepted']);
+                              .where('replacement_link.is_required', true);
                     })
                     .count('* as count')
                     .first();

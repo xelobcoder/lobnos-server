@@ -37,16 +37,53 @@ vi.mock('../../models/patient-portal/PatientPortalAudit', () => ({ recordPortalA
 
 import { checkTokenExists, patientRouteAllowed } from '../../middleware/validateTenancy';
 import { configuration } from '../../hooks/configuration';
-import { createInvitation, getInvitations, getResults, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
+import { createInvitation, getInvitations, getResults, getSamples, getSampleHistory, patientPortalRouter, requirePatientSession, requireStaff, resendInvitation } from './route';
 import { PatientPortalResultService } from '../../models/patient-portal/PatientPortalResultService';
+import { PatientPortalSampleService } from '../../models/patient-portal/PatientPortalSampleService';
 import { authenticatePatientPortal, logoutUser } from '../logins/authHandlers';
 
 const SECRET = 'portal-test-signing-key';
-const response = () => ({ status: vi.fn().mockReturnThis(), send: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() });
+const response = () => ({ status: vi.fn().mockReturnThis(), send: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis(), setHeader: vi.fn().mockReturnThis() });
 const request = (method: string, path: string, token?: string) =>
      ({ path, method, query: { tenantId: '4' }, headers: token ? { 'pls-prime-tenant-session': token } : {} }) as any;
 const patientToken = (claims: Record<string, unknown> = {}) =>
      jwt.sign({ tid: 4, patientid: 21, employeeid: 21, role: 'patient', sv: 2, ...claims }, SECRET, { expiresIn: '1h' });
+
+describe('patient sample history endpoints', () => {
+     it('uses the authenticated patient instead of any requested patient ID and prevents caching', async () => {
+          const list = vi.spyOn(PatientPortalSampleService.prototype, 'list').mockResolvedValue({ items: [], page: 2, total: 0, totalPages: 0 });
+          const history = vi.spyOn(PatientPortalSampleService.prototype, 'history').mockResolvedValue({ sample: {}, lineage: [], events: [], communications: [] } as any);
+          try {
+               const req = { query: { tenantId: '4', patientid: '999', page: '2' }, params: { id: '10' }, authUser: { role: 'patient', patientid: 21 }, ip: '127.0.0.1' };
+               const res = response();
+               await getSamples(req as any, res as any);
+               await getSampleHistory(req as any, res as any);
+               expect(list).toHaveBeenCalledWith(21, 2);
+               expect(history).toHaveBeenCalledWith(21, 10);
+               expect(res.setHeader).toHaveBeenCalledWith('Cache-Control', 'private, no-store');
+          } finally { list.mockRestore(); history.mockRestore(); }
+     });
+
+     it('rejects invalid pagination and IDs before querying records', async () => {
+          const list = vi.spyOn(PatientPortalSampleService.prototype, 'list');
+          const history = vi.spyOn(PatientPortalSampleService.prototype, 'history');
+          try {
+               const res = response();
+               await getSamples({ query: { tenantId: '4', page: ['1', '2'] } } as any, res as any);
+               await getSampleHistory({ params: { id: '0' } } as any, res as any);
+               expect(list).not.toHaveBeenCalled(); expect(history).not.toHaveBeenCalled();
+               expect(res.status).toHaveBeenCalledWith(400);
+          } finally { list.mockRestore(); history.mockRestore(); }
+     });
+
+     it('guards both read endpoints with the existing active patient-session check', () => {
+          for (const path of ['/api/v1/patient-portal/samples', '/api/v1/patient-portal/samples/:id']) {
+               const layer = patientPortalRouter.stack.find((entry: any) => entry.route?.path === path) as any;
+               expect(layer.route.methods.get).toBe(true);
+               expect(layer.route.stack[0].handle).toBe(requirePatientSession);
+          }
+     });
+});
 
 describe('patient result date filters', () => {
      it('passes valid date filters with the authenticated patient to the result service', async () => {

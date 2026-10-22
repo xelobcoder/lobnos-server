@@ -95,6 +95,14 @@ describe('signed-mode operational intersection and router protection', () => {
           expect((await call('/api/v1/public/facilities?tenantId=4')).status).toBe(200);
           expect(mocks.status).toHaveBeenLastCalledWith(3);
      });
+     it('delegates the public queue namespace to its facility resolver without broad public-route exemptions', async () => {
+          expect((await call('/api/v1/public/queue/facility-lab042/config')).status).toBe(200);
+          expect((await call('/api/v1/public/queue/facility-lab042/tickets', 'POST', undefined, {})).status).toBe(200);
+          expect((await call('/api/v1/public/queue/facility-lab042/display')).status).toBe(200);
+          expect(mocks.status).not.toHaveBeenCalled();
+          expect((await call('/api/v1/public/queue-admin?tenantId=3')).status).toBe(403);
+          expect(mocks.status).toHaveBeenCalledWith(3);
+     });
      it('desktop standalone licensing always uses its configured local identity, never a query-selected tenant', async () => {
           configuration.desktopStandalone = true;
           configuration.isMultiTenant = false;

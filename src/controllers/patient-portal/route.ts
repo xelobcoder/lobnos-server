@@ -18,6 +18,7 @@ import { PatientHomeCollectionService } from '../../models/patient-portal/Patien
 import { PatientPortalNotifier } from '../../models/patient-portal/PatientPortalNotifier';
 import { BILLING_REQUEST_ROLES, createBillingRequestsRouter } from './billingRequests';
 import { patientPortalTrendsRouter } from './trends';
+import { PatientPortalSampleService } from '../../models/patient-portal/PatientPortalSampleService';
 
 const BASE = '/api/v1/patient-portal';
 const GENERIC_REGISTRATION = 'If your details match our records, a verification code has been sent to your registered email address.';
@@ -215,6 +216,28 @@ export const getResults = async (req: Request, res: Response) => {
           const tests = await new PatientPortalResultService(tenantOf(req)).listTests(patientOf(req), range);
           await audit(req, 'results.list', 'results');
           return ok(res, tests);
+     } catch (error) { return fail(res, error); }
+};
+
+export const getSamples = async (req: Request, res: Response) => {
+     res.setHeader('Cache-Control', 'private, no-store');
+     try {
+          const page = req.query.page === undefined ? 1 : positiveInt(req.query.page);
+          if (!page || typeof req.query.page === 'object') throw new PatientPortalError('Invalid page', 400);
+          const data = await new PatientPortalSampleService(tenantOf(req)).list(patientOf(req), page);
+          await audit(req, 'samples.list', 'samples');
+          return ok(res, data);
+     } catch (error) { return fail(res, error); }
+};
+
+export const getSampleHistory = async (req: Request, res: Response) => {
+     res.setHeader('Cache-Control', 'private, no-store');
+     try {
+          const id = positiveInt(req.params.id);
+          if (!id) throw new PatientPortalError('Invalid sample', 400);
+          const data = await new PatientPortalSampleService(tenantOf(req)).history(patientOf(req), id);
+          await audit(req, 'samples.history', 'sample', id);
+          return ok(res, data);
      } catch (error) { return fail(res, error); }
 };
 
@@ -534,6 +557,8 @@ patientPortalRouter.post(`${BASE}/admin/results/:ascensionid/withdraw`, requireS
 
 patientPortalRouter.get(`${BASE}/me`, requirePatientSession, getMe);
 patientPortalRouter.get(`${BASE}/dashboard`, requirePatientSession, getDashboard);
+patientPortalRouter.get(`${BASE}/samples`, requirePatientSession, getSamples);
+patientPortalRouter.get(`${BASE}/samples/:id`, requirePatientSession, getSampleHistory);
 patientPortalRouter.get(`${BASE}/results`, requirePatientSession, getResults);
 patientPortalRouter.get(`${BASE}/results/:billingid/report`, requirePatientSession, getResultReport);
 patientPortalRouter.get(`${BASE}/billing`, requirePatientSession, getBills);
