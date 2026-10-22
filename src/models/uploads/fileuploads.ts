@@ -171,5 +171,24 @@ export default function createFileUploader(storagePath = patientImageRoot, legac
           } catch (error) { fail(res, error); }
      }
 
-     return { authorizeUpload, getMulterMiddleware, uploadSingle, handleUpload, getImage };
+     async function getImagePath(req: Request, res: Response): Promise<void> {
+          try {
+               const tenantId = authenticatedTenant(req);
+               const patientId = positiveId(req.query.patientid);
+               const db = await KnexConnection(tenantId);
+               if (!await db('new_patients').where({ patientid: patientId }).first('patientid')) {
+                    throw new ImageError('Patient not found in this facility', 404);
+               }
+               const image = await db('patientimages').where({ patientid: patientId }).first('imagepath');
+               // Reopening a record must resolve the current reference after a replacement.
+               res.setHeader('Cache-Control', 'private, no-store');
+               res.json({
+                    status: 'success', statusCode: 200,
+                    message: 'image path retrieved successfully',
+                    imagePath: image?.imagepath ?? null,
+               });
+          } catch (error) { fail(res, error); }
+     }
+
+     return { authorizeUpload, getMulterMiddleware, uploadSingle, handleUpload, getImage, getImagePath };
 }

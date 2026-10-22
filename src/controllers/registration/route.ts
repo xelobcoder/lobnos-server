@@ -10,7 +10,6 @@ import {
   getAddressingInformation,
   getEmergencyContactInformation,
   getRegistrationSettings,
-  getPatientImagePathHandler,
 } from "./registrationHandlers";
 import { CheckMobileNumberDto, CheckPatientIdDto } from "../../models/patients/dto/checkMobileNoDto.dto";
 import { getNotificationSettingsHandler, getTransactionsByDateHandler, updateCredentialsHandler, updateNotificationSettingsHandler } from "./PatientsHandler";
@@ -33,7 +32,6 @@ router.get("/api/v1/register/checkmobile", validateDtoMiddleware(CheckMobileNumb
 router.get("/api/v1/register/addressinginformation", validateDtoMiddleware(CheckPatientIdDto, "query"), getAddressingInformation);
 router.get("/api/v1/register/emmergencycontactinformation", validateDtoMiddleware(CheckPatientIdDto, "query"), getEmergencyContactInformation);
 router.get("/api/v1/register/registration/settings", getRegistrationSettings);
-router.get("/api/v1/patients/images", getPatientImagePathHandler)
 
 
 // PATIENTS ROUTER

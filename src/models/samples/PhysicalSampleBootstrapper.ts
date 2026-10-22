@@ -141,7 +141,6 @@ export async function bootstrapPhysicalSampleTables(tenantId = 1): Promise<void>
                table.index(['status', 'channel'], 'idx_sample_delivery_status');
           });
      }
-
      await neutralizeDuplicateLegacySamples(connection);
      await backfillLegacyPhysicalSamples(connection);
      await bootstrapSpecimenLifecycleTables(connection);

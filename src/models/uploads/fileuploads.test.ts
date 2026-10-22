@@ -77,8 +77,9 @@ describe('tenant-scoped patient images', () => {
                };
                next();
           });
-          app.post('/upload', uploader.authorizeUpload, uploader.uploadSingle, uploader.handleUpload);
-          app.get('/images/:filename', uploader.getImage);
+          app.post('/api/v1/storage/prime/uploads', uploader.authorizeUpload, uploader.uploadSingle, uploader.handleUpload);
+          app.get('/api/v1/patients/images', uploader.getImagePath);
+          app.get('/api/v1/patient/images/:filename', uploader.getImage);
           server = app.listen(0, '127.0.0.1');
           await once(server, 'listening');
           base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -95,16 +96,60 @@ describe('tenant-scoped patient images', () => {
      async function upload(tenant: number, bytes = png, options: { query?: string; mime?: string; filename?: string; actor?: string; role?: string } = {}) {
           const form = new FormData();
           form.append('file', new Blob([new Uint8Array(bytes)], { type: options.mime || 'image/png' }), options.filename || 'photo.png');
-          const res = await fetch(`${base}/upload?tenantId=${tenant}&patientid=42&ptid=42&category=patients${options.query || ''}`, {
+          const res = await fetch(`${base}/api/v1/storage/prime/uploads?tenantId=${tenant}&patientid=42&ptid=42&category=patients${options.query || ''}`, {
                method: 'POST', body: form, headers: { 'x-actor-tenant': options.actor || String(tenant), 'x-role': options.role || 'scientist' },
           });
           return { status: res.status, body: await res.json() as any };
      }
 
      async function read(tenant: number, filename: string) {
-          const res = await fetch(`${base}/images/${encodeURIComponent(filename)}?tenantId=${tenant}`, { headers: { 'x-actor-tenant': String(tenant) } });
+          const res = await fetch(`${base}/api/v1/patient/images/${encodeURIComponent(filename)}?tenantId=${tenant}`, { headers: { 'x-actor-tenant': String(tenant) } });
           return { status: res.status, bytes: Buffer.from(await res.arrayBuffer()), cache: res.headers.get('cache-control') };
      }
+
+     async function metadata(tenant: number, patient: string = '42', headers: Record<string, string> = { 'x-actor-tenant': String(tenant) }) {
+          const res = await fetch(`${base}/api/v1/patients/images?tenantId=${tenant}&patientid=${encodeURIComponent(patient)}`, { headers });
+          return { status: res.status, body: await res.json() as any, cache: res.headers.get('cache-control') };
+     }
+
+     it('reloads persisted image references and bytes after leaving the record and replacing its photo', async () => {
+          const first = await upload(3);
+          expect(first.status).toBe(200);
+          const revisited = await metadata(3);
+          expect(revisited.status).toBe(200);
+          expect(revisited.body).toMatchObject({ status: 'success', statusCode: 200, imagePath: first.body.imagePath });
+          expect(revisited.cache).toBe('private, no-store');
+          expect((await read(3, revisited.body.imagePath)).bytes).toEqual(png);
+
+          const replacement = await upload(3, gif, { mime: 'image/gif' });
+          const reopened = await metadata(3);
+          expect(reopened.body.imagePath).toBe(replacement.body.imagePath);
+          expect(reopened.body.imagePath).not.toBe(revisited.body.imagePath);
+          expect((await read(3, reopened.body.imagePath)).bytes).toEqual(gif);
+          expect((await read(3, revisited.body.imagePath)).status).toBe(404);
+     });
+
+     it('distinguishes a patient with no image from a missing patient and resolves only the selected tenant', async () => {
+          expect((await metadata(3)).body).toMatchObject({ status: 'success', imagePath: null });
+          const own = await upload(3);
+          expect((await metadata(3)).body.imagePath).toBe(own.body.imagePath);
+          expect((await metadata(4)).body.imagePath).toBeNull();
+          const other = await upload(4);
+          expect((await metadata(4)).body.imagePath).toBe(other.body.imagePath);
+          expect((await metadata(3)).body.imagePath).toBe(own.body.imagePath);
+          tenants.get(3)!.tables.new_patients.length = 0;
+          expect((await metadata(3)).status).toBe(404);
+     });
+
+     it('requires a staff session in the requested tenant and a complete positive patient identifier for metadata', async () => {
+          expect((await metadata(3, '42', {})).status).toBe(403);
+          expect((await metadata(3, '42', { 'x-actor-tenant': '4' })).status).toBe(403);
+          for (const role of ['patient', 'clinician']) {
+               expect((await metadata(3, '42', { 'x-actor-tenant': '3', 'x-role': role })).status).toBe(403);
+          }
+          for (const patient of ['', '0', '-1', '42abc', '42.5']) expect((await metadata(3, patient)).status).toBe(400);
+          expect(mocks.connect).not.toHaveBeenCalled();
+     });
 
      it('isolates the same patient ID in two tenants for upload, replacement and reads', async () => {
           const first = await upload(3), other = await upload(4);

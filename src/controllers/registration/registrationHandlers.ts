@@ -5,7 +5,6 @@ import { customError, convertKeysToLowerCase } from "../../hooks/helper";
 import { NewRegistration } from "../../models/registration/types";
 import logger from "../../hooks/logger";
 import { PrimeLimsTablepatientemmergencycontactinformation } from "../../database/DatabaseTableSchema";
-import PatientImageRepository from "../../repositories/patientRepositories/PatientImageRepository";
 import Patient from "../../models/patients/patientRepo";
 import { ICreateEmergencyPatient, ICreateNewPatient } from "../../models/patients/interfaces";
 import PatientAddressingRepo from "../../models/patients/respositories/patientAddressingRepo.repo";
@@ -251,26 +250,3 @@ export const getRegistrationSettings = async (
 };
 
 
-export const getPatientImagePathHandler = async (
-	req: Request<{}, {}, {}, { tenantId: string; patientid: string }>,
-	res: Response
-) => {
-	try {
-		const tenantId: number = parseInt(req.query.tenantId, 10);
-		const patientid: number = parseInt(req.query.patientid, 10);
-		if (!patientid) {
-			return customError("patientid not included in the request", 400, res);
-		}
-		const imagePath = await PatientImageRepository.findByPatientId(tenantId, patientid);
-		res.send({
-			status: "success",
-			message: "image path retrieved successfully",
-			statusCode: 200,
-			imagePath,
-		});
-
-	} catch (error: any) {
-		logger.log(error);
-		customError("Error fetching image path", 500, res);
-	}
-}

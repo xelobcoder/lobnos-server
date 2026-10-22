@@ -7,6 +7,7 @@ const router = express.Router();
 const fileUploader = createFileUploader(patientImageRoot, path.join(__dirname, '../../public/uploads/patients'));
 
 router.post('/api/v1/storage/prime/uploads', fileUploader.authorizeUpload, fileUploader.uploadSingle, fileUploader.handleUpload);
+router.get('/api/v1/patients/images', fileUploader.getImagePath);
 // Preserve the old double-slash path as well as the canonical URL.
 router.get(['/api/v1/patient/images/:filename', '/api/v1//patient/images/:filename'], fileUploader.getImage);
 
