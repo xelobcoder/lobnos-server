@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 
 export type PhysicalSampleStatus = 'planned' | 'collection_started' | 'collected' | 'received' | 'accepted' | 'rejected' | 'recollection_required';
@@ -85,7 +86,7 @@ export class PhysicalSampleService {
                .leftJoin('roles as validator', function () {
                     this.on('validator.employeeid', '=', connection.raw('COALESCE(sample.accepted_by, sample.rejected_by)'));
                })
-               .whereNotExists(function () {
+               .whereNotExists(function (this: Knex.QueryBuilder) {
                     this.select(connection.raw('1'))
                          .from('test_ascension_samples as legacy_link')
                          .join('test_ascension_samples as native_link', 'native_link.ascension_id', 'legacy_link.ascension_id')
@@ -189,7 +190,7 @@ export class PhysicalSampleService {
           const connection = await KnexConnection(this.tenantId);
           const rows = await this.ascensionRequirementQuery(connection)
                .where('ascension.billingid', billingid)
-               .whereNotExists(function () {
+               .whereNotExists(function (this: Knex.QueryBuilder) {
                     this.select(connection.raw('1')).from('test_ascension_samples as existing_link').whereRaw('existing_link.ascension_id = ascension.id');
                })
                .orderBy('ascension.id');
@@ -469,7 +470,7 @@ export class PhysicalSampleService {
           const connection = scope || await KnexConnection(this.tenantId);
           const samples = await connection('physical_samples as sample')
                .where('sample.billingid', billingid)
-               .whereNotExists(function () {
+               .whereNotExists(function (this: Knex.QueryBuilder) {
                     this.select(connection.raw('1'))
                          .from('test_ascension_samples as legacy_link')
                          .join('test_ascension_samples as native_link', 'native_link.ascension_id', 'legacy_link.ascension_id')
@@ -577,7 +578,7 @@ export class PhysicalSampleService {
                     .where('link.ascension_id', ascensionId)
                     .where('link.is_required', true)
                     .whereNotIn('sample.status', ['collected', 'received', 'accepted'])
-                    .whereNotExists(function () {
+                    .whereNotExists(function (this: Knex.QueryBuilder) {
                          this.select(trx.raw('1')).from('physical_samples as replacement')
                               .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
                               .whereRaw('replacement.replaces_sample_id = sample.id')

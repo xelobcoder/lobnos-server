@@ -1,4 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
+import type { Knex } from 'knex';
 import { randomUUID } from 'crypto';
 import { bootstrapSpecimenLifecycleTables } from './SpecimenLifecycleBootstrapper';
 
@@ -150,7 +151,7 @@ async function neutralizeDuplicateLegacySamples(connection: any): Promise<void> 
      const duplicateLinks = await connection('test_ascension_samples as legacy_link')
           .join('physical_samples as legacy_sample', 'legacy_sample.id', 'legacy_link.sample_id')
           .whereNotNull('legacy_sample.legacy_ascension_id')
-          .whereExists(function () {
+          .whereExists(function (this: Knex.QueryBuilder) {
                this.select(connection.raw('1'))
                     .from('test_ascension_samples as native_link')
                     .join('physical_samples as native_sample', 'native_sample.id', 'native_link.sample_id')

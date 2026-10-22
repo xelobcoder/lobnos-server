@@ -1,4 +1,5 @@
 import KnexConnection from '../../database/KnexConnections';
+import type { Knex } from 'knex';
 import ApplicationSettings from '../application/appsettings/appset';
 
 type Stage = 'completed' | 'bypassed' | 'pending';
@@ -86,7 +87,7 @@ export class LaboratoryWorkflowService {
             .join('physical_samples as sample', 'sample.id', 'link.sample_id')
             .whereIn('link.ascension_id', ids)
             .where('link.is_required', true)
-            .whereNotExists(function () {
+            .whereNotExists(function (this: Knex.QueryBuilder) {
                 this.select(db.raw('1')).from('physical_samples as replacement')
                     .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
                     .whereRaw('replacement.replaces_sample_id = sample.id')

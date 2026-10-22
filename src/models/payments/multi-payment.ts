@@ -1,4 +1,5 @@
 import { PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
+import type { Knex } from 'knex';
 import KnexConnection from "../../database/KnexConnections";
 import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";
 import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
@@ -355,11 +356,11 @@ export default class MultiPayment {
                     for (const record of records) {
                          const serviceDetails: PrimeLimsTabledboservices[] = await connection(`${this.servicesTable} as dbo`)
                               .leftJoin("dbobillingrefundtable", "dbo.serviceid", "dbobillingrefundtable.serviceid")
-                              .leftJoin("test_panels", function () {
-                                   this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
+                              .leftJoin("test_panels", function (this: Knex.JoinClause) {
+                                   this.on("dbo.trackId", "test_panels.id").andOnVal("dbo.categoryTrackId", "!=", 5);
                               })
-                              .leftJoin("additionalservices", function () {
-                                   this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
+                              .leftJoin("additionalservices", function (this: Knex.JoinClause) {
+                                   this.on("dbo.trackId", "additionalservices.keyid").andOnVal("dbo.categoryTrackId", "=", 5);
                               })
                               .select(
                                    "dbo.totalpayable",
@@ -398,11 +399,11 @@ export default class MultiPayment {
                     for (const record of records) {
                          const serviceDetails: PrimeLimsTabledboservices[] = await connection(`${this.servicesTable} as dbo`)
                               .leftJoin("dbobillingrefundtable", "dbo.serviceid", "dbobillingrefundtable.serviceid")
-                              .leftJoin("test_panels", function () {
-                                   this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
+                              .leftJoin("test_panels", function (this: Knex.JoinClause) {
+                                   this.on("dbo.trackId", "test_panels.id").andOnVal("dbo.categoryTrackId", "!=", 5);
                               })
-                              .leftJoin("additionalservices", function () {
-                                   this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
+                              .leftJoin("additionalservices", function (this: Knex.JoinClause) {
+                                   this.on("dbo.trackId", "additionalservices.keyid").andOnVal("dbo.categoryTrackId", "=", 5);
                               })
                               .select(
                                    "dbo.totalpayable",
@@ -469,12 +470,12 @@ export default class MultiPayment {
           const receiptNumber = `${companyAbbr}-${billingid}-PLS-${timestamp}`;
 
           const services = await connection(`${this.servicesTable} as dbo`)
-               .leftJoin("test_panels", function () {
-                    this.on("dbo.trackId", "test_panels.id").andOn("dbo.categoryTrackId", "!=", 5);
+               .leftJoin("test_panels", function (this: Knex.JoinClause) {
+                    this.on("dbo.trackId", "test_panels.id").andOnVal("dbo.categoryTrackId", "!=", 5);
                })
                .leftJoin("testdetails", "test_panels.id", "testdetails.testid")
-               .leftJoin("additionalservices", function () {
-                    this.on("dbo.trackId", "additionalservices.keyid").andOn("dbo.categoryTrackId", "=", 5);
+               .leftJoin("additionalservices", function (this: Knex.JoinClause) {
+                    this.on("dbo.trackId", "additionalservices.keyid").andOnVal("dbo.categoryTrackId", "=", 5);
                })
                .select(
                     "dbo.*",

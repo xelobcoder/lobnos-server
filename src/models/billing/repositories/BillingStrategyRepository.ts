@@ -1,4 +1,5 @@
 import KnexConnection from "../../../database/KnexConnections";
+import type { Knex } from 'knex';
 import { DateTime } from "luxon";
 import {
 	BillingStrategy,
@@ -357,10 +358,10 @@ export default class BillingStrategyRepository {
 			const overlapping = await conn(this.strategyAssignmentsTable)
 				.where("entity_type", data.entity_type)
 				.andWhere("track_id", data.track_id)
-				.andWhere(function () {
-					this.where(function () {
+				.andWhere(function (this: Knex.QueryBuilder) {
+					this.where(function (this: Knex.QueryBuilder) {
 						this.where("applies_from", "<=", data.applies_to || "9999-12-31");
-						this.where(function () {
+						this.where(function (this: Knex.QueryBuilder) {
 							this.whereNull("applies_to").orWhere("applies_to", ">=", data.applies_from);
 						});
 					});

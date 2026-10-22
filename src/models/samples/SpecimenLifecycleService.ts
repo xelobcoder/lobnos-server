@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
+import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import { roleAllowed } from '../../middleware/roles';
 
@@ -91,7 +92,7 @@ export class SpecimenLifecycleService {
           }
           if (filters.search) {
                const search = text(filters.search, 'Search', 100)!;
-               base.where(function () {
+               base.where(function (this: Knex.QueryBuilder) {
                     this.where('sample.barcode', 'like', `%${search}%`).orWhere('sample.sample_uid', 'like', `%${search}%`).orWhere('patient.fullpatientid', 'like', `%${search}%`)
                          .orWhereRaw("CONCAT_WS(' ', patient.firstname, patient.middlename, patient.lastname) LIKE ?", [`%${search}%`]);
                     if (/^[1-9]\d*$/.test(search) && Number.isSafeInteger(Number(search))) {
