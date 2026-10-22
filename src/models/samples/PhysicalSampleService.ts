@@ -91,6 +91,7 @@ export class PhysicalSampleService {
                          .join('test_ascension_samples as native_link', 'native_link.ascension_id', 'legacy_link.ascension_id')
                          .join('physical_samples as native_sample', 'native_sample.id', 'native_link.sample_id')
                          .whereRaw('legacy_link.sample_id = sample.id')
+                         .where('native_link.is_required', true)
                          .whereNotNull('sample.legacy_ascension_id')
                          .whereNull('native_sample.legacy_ascension_id');
                });
@@ -287,6 +288,7 @@ export class PhysicalSampleService {
           return connection.transaction(async (trx) => {
                const sample = await trx('physical_samples').where({ id: sampleId }).forUpdate().first();
                if (!sample) throw new Error('Physical sample not found');
+               if (sample.storage_state === 'disposed') throw new Error('Disposed specimens cannot be changed');
                if (options.expectedVersion !== undefined && Number(sample.version) !== Number(options.expectedVersion)) throw new Error('Physical sample was changed by another user; reload and try again');
                if (options.idempotencyKey) {
                     const existingEvent = await trx('physical_sample_events').where({ idempotency_key: options.idempotencyKey }).first();
@@ -325,12 +327,17 @@ export class PhysicalSampleService {
                                         .from('test_ascension_samples as native_link')
                                         .join('physical_samples as native_sample', 'native_sample.id', 'native_link.sample_id')
                                         .whereRaw('native_link.ascension_id = link.ascension_id')
+                                        .where('native_link.is_required', true)
                                         .whereNotNull('linked_sample.legacy_ascension_id')
                                         .whereNull('native_sample.legacy_ascension_id');
                               })
                               .whereNot('linked_sample.status', 'accepted')
                               .whereNotExists(function () {
-                                   this.select(trx.raw('1')).from('physical_samples as replacement').whereRaw('replacement.replaces_sample_id = linked_sample.id').where('replacement.status', 'accepted');
+                                   this.select(trx.raw('1')).from('physical_samples as replacement')
+                                        .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
+                                        .whereRaw('replacement.replaces_sample_id = linked_sample.id')
+                                        .whereRaw('replacement_link.ascension_id = link.ascension_id')
+                                        .where('replacement_link.is_required', true).where('replacement.status', 'accepted');
                               })
                               .count('* as count')
                               .first();
@@ -367,6 +374,7 @@ export class PhysicalSampleService {
           return connection.transaction(async (trx) => {
                const rows = await trx('physical_samples').whereIn('id', unique.map((sample) => Number(sample.id))).orderBy('id').forUpdate();
                if (rows.length !== unique.length) throw new Error('One or more physical samples were not found');
+               if (rows.some((sample: any) => sample.storage_state === 'disposed')) throw new Error('Disposed specimens cannot be changed');
                const expectedById = new Map(unique.map((sample) => [Number(sample.id), sample.expectedVersion]));
                if (rows.some((sample: any) => sample.status !== 'collected')) throw new Error('Only collected samples can be received');
                if (rows.some((sample: any) => expectedById.get(Number(sample.id)) !== undefined && Number(expectedById.get(Number(sample.id))) !== Number(sample.version))) throw new Error('One or more samples changed; reload and try again');
@@ -385,6 +393,7 @@ export class PhysicalSampleService {
           return connection.transaction(async (trx) => {
                const sample = await trx('physical_samples').where({ id: sampleId }).forUpdate().first();
                if (!sample) throw new Error('Physical sample not found');
+               if (sample.storage_state === 'disposed') throw new Error('Disposed specimens cannot be reviewed');
                if (sample.status !== 'rejected') throw new Error('Only a rejected sample can be reviewed');
                const rejectionEvent = await trx('physical_sample_events').where({ sample_id: sampleId, event_type: 'rejected' }).orderBy('id', 'desc').first();
                if (!rejectionEvent) throw new Error('Rejection event not found');
@@ -404,6 +413,7 @@ export class PhysicalSampleService {
                if (Number(review.requested_by) === actorEmployeeId) throw new Error('A different scientist must decide this review');
                const sample = await trx('physical_samples').where({ id: review.sample_id }).forUpdate().first();
                if (!sample || sample.status !== 'rejected') throw new Error('Rejected physical sample not found');
+               if (sample.storage_state === 'disposed') throw new Error('Disposed specimens cannot be reviewed');
                const now = new Date();
                await trx('physical_sample_reviews').where({ id: reviewId }).update({ status: decision, reviewed_by: actorEmployeeId, review_notes: notes?.trim() || null, reviewed_at: now });
                if (decision === 'usable') {
@@ -422,7 +432,7 @@ export class PhysicalSampleService {
 
      async findByAscension(ascensionId: number): Promise<any> {
           const connection = await KnexConnection(this.tenantId);
-          const link = await connection('test_ascension_samples').where({ ascension_id: ascensionId }).orderBy('id', 'desc').first();
+          const link = await connection('test_ascension_samples').where({ ascension_id: ascensionId }).where('is_required', true).orderBy('id', 'desc').first();
           if (!link) throw new Error('No physical sample is linked to this ascension');
           const sample = await this.detail(Number(link.sample_id), connection);
           const latestReview = await connection('physical_sample_reviews').where({ sample_id: link.sample_id }).orderBy('id', 'desc').first();
@@ -465,6 +475,7 @@ export class PhysicalSampleService {
                          .join('test_ascension_samples as native_link', 'native_link.ascension_id', 'legacy_link.ascension_id')
                          .join('physical_samples as native_sample', 'native_sample.id', 'native_link.sample_id')
                          .whereRaw('legacy_link.sample_id = sample.id')
+                         .where('native_link.is_required', true)
                          .whereNotNull('sample.legacy_ascension_id')
                          .whereNull('native_sample.legacy_ascension_id');
                })
@@ -567,7 +578,11 @@ export class PhysicalSampleService {
                     .where('link.is_required', true)
                     .whereNotIn('sample.status', ['collected', 'received', 'accepted'])
                     .whereNotExists(function () {
-                         this.select(trx.raw('1')).from('physical_samples as replacement').whereRaw('replacement.replaces_sample_id = sample.id').whereIn('replacement.status', ['collected', 'received', 'accepted']);
+                         this.select(trx.raw('1')).from('physical_samples as replacement')
+                              .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
+                              .whereRaw('replacement.replaces_sample_id = sample.id')
+                              .whereRaw('replacement_link.ascension_id = link.ascension_id')
+                              .where('replacement_link.is_required', true).whereIn('replacement.status', ['collected', 'received', 'accepted']);
                     })
                     .count('* as count')
                     .first();

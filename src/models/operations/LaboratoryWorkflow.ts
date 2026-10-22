@@ -2,6 +2,28 @@ import KnexConnection from '../../database/KnexConnections';
 import ApplicationSettings from '../application/appsettings/appset';
 
 type Stage = 'completed' | 'bypassed' | 'pending';
+
+/** Legacy specimens may have no recorded volume; an explicitly exhausted volume is never usable. */
+function hasAvailableMaterial(sample: any): boolean {
+    if (!['available', 'retrieved'].includes(sample.storage_state || 'available')) return false;
+    const remaining = sample.remaining_quantity ?? sample.quantity;
+    return remaining === null || remaining === undefined || (Number.isFinite(Number(remaining)) && Number(remaining) > 0);
+}
+
+function hasUsableAliquot(rootId: unknown, children: Map<string, any[]>): boolean {
+    const queue = [String(rootId)];
+    const visited = new Set<string>();
+    while (queue.length) {
+        const parentId = queue.pop()!;
+        if (visited.has(parentId)) continue;
+        visited.add(parentId);
+        for (const child of children.get(parentId) || []) {
+            if (child.status === 'accepted' && hasAvailableMaterial(child)) return true;
+            queue.push(String(child.id));
+        }
+    }
+    return false;
+}
 export interface LaboratoryWorkflow {
     collection: Stage;
     sampleValidation: Stage;
@@ -26,6 +48,7 @@ export function laboratoryWorkflow(settings: any, ascension: any, samples: any[]
     const accepted = hasSamples && samples.every(s => s.status === 'accepted');
     const rejected = samples.some(s => ['rejected', 'recollection_required'].includes(s.status)) ||
         (!hasSamples && (!!ascension.rejectionmessage || Number(ascension.isRedraw) === 1));
+    const unavailable = samples.some(s => !hasAvailableMaterial(s) && !s.has_usable_aliquot);
     const collection: Stage = (hasSamples ? collected : ascension.collectionEndDate)
         ? 'completed' : bypassCollection ? 'bypassed' : 'pending';
     // Legacy acceptance is only usable when there are no physical links.
@@ -33,6 +56,7 @@ export function laboratoryWorkflow(settings: any, ascension: any, samples: any[]
     const sampleValidation: Stage = validated ? 'completed' : bypassValidation ? 'bypassed' : 'pending';
     let blockedReason: string | null = null;
     if (rejected) blockedReason = 'A required sample is rejected or requires recollection';
+    else if (unavailable) blockedReason = 'Retrieve an available specimen or aliquot with remaining material before processing or entering results';
     else if (hasSamples && !collected) blockedReason = 'Complete collection of every required physical container';
     else if (collection === 'pending') blockedReason = 'Sample collection is required';
     else if (!hasSamples && !validated && !bypassValidation) blockedReason = 'Collect a physical sample for validation';
@@ -66,11 +90,36 @@ export class LaboratoryWorkflowService {
                 this.select(db.raw('1')).from('physical_samples as replacement')
                     .join('test_ascension_samples as replacement_link', 'replacement_link.sample_id', 'replacement.id')
                     .whereRaw('replacement.replaces_sample_id = sample.id')
-                    .whereRaw('replacement_link.ascension_id = link.ascension_id');
+                    .whereRaw('replacement_link.ascension_id = link.ascension_id')
+                    .where('replacement_link.is_required', true);
             })
-            .select('link.ascension_id', 'sample.status');
+            .select('link.ascension_id', 'sample.id', 'sample.status', 'sample.storage_state', 'sample.quantity', 'sample.remaining_quantity');
+        const unavailableRoots = links.filter(sample => !hasAvailableMaterial(sample));
+        const childrenByAscension = new Map<number, Map<string, any[]>>();
+        if (unavailableRoots.length) {
+            // Fetch the linked aliquot forest once. Walking it in JavaScript supports old MySQL
+            // installations and follows only descendants belonging to the same ordered test.
+            const aliquots = await db('test_ascension_samples as link')
+                .join('physical_samples as sample', 'sample.id', 'link.sample_id')
+                .whereIn('link.ascension_id', [...new Set(unavailableRoots.map(sample => Number(sample.ascension_id)))])
+                .where('link.is_required', false)
+                .whereNotNull('sample.parent_sample_id')
+                .select('link.ascension_id', 'sample.id', 'sample.parent_sample_id', 'sample.status', 'sample.storage_state', 'sample.quantity', 'sample.remaining_quantity');
+            for (const aliquot of aliquots) {
+                const ascensionId = Number(aliquot.ascension_id);
+                if (!childrenByAscension.has(ascensionId)) childrenByAscension.set(ascensionId, new Map());
+                const children = childrenByAscension.get(ascensionId)!;
+                const parentId = String(aliquot.parent_sample_id);
+                if (!children.has(parentId)) children.set(parentId, []);
+                children.get(parentId)!.push(aliquot);
+            }
+        }
+        const requiredSamples = links.map(sample => ({
+            ...sample,
+            has_usable_aliquot: !hasAvailableMaterial(sample) && hasUsableAliquot(sample.id, childrenByAscension.get(Number(sample.ascension_id)) || new Map()),
+        }));
         return rows.map(row => {
-            const workflow = laboratoryWorkflow(settings, row, links.filter(link => Number(link.ascension_id) === Number(row.ascension_id ?? row.id)));
+            const workflow = laboratoryWorkflow(settings, row, requiredSamples.filter(link => Number(link.ascension_id) === Number(row.ascension_id ?? row.id)));
             return {
                 ...row, workflow,
                 sample_validation_stage: workflow.sampleValidation === 'bypassed' ? 'Bypassed' : row.sample_validation_stage,

@@ -1,10 +1,12 @@
 import { describe, expect, it, vi } from 'vitest';
+import knex from 'knex';
 
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 
 import { canTransitionPhysicalSample, groupPhysicalSampleCandidates, PhysicalSampleService } from './PhysicalSampleService';
 import KnexConnection from '../../database/KnexConnections';
 import { q_get_pending_collected_but_unvalidated_samples } from '../creator/queries';
+import { bootstrapPhysicalSampleTables } from './PhysicalSampleBootstrapper';
 
 const row = (overrides: Record<string, unknown> = {}) => ({
      ascension_id: 101,
@@ -121,5 +123,95 @@ describe('sample validation worklist', () => {
                await expect(service.create({ billingid: 3, ascensionIds: [101], action: 'collect' }, 5)).rejects.toThrow('already linked');
                expect(inserts).toHaveLength(count);
           });
+     });
+});
+
+describe('specimen lifecycle integration with historical sample operations', () => {
+     it.each(['transition', 'requestReview', 'decideReview'])('does not resurrect a disposed specimen through %s', async operation => {
+          const writes = vi.fn();
+          const trx: any = vi.fn((table: string) => {
+               const query: any = {};
+               for (const method of ['where', 'forUpdate']) query[method] = vi.fn(() => query);
+               query.first = vi.fn(async () => table === 'physical_sample_reviews'
+                    ? { id: 3, sample_id: 10, status: 'pending', requested_by: 7 }
+                    : { id: 10, status: 'rejected', storage_state: 'disposed', version: 1 });
+               query.update = writes;
+               query.insert = writes;
+               return query;
+          });
+          vi.mocked(KnexConnection).mockResolvedValue({ transaction: async (callback: any) => callback(trx) } as any);
+          const service = new PhysicalSampleService(9);
+          const mutation = operation === 'transition' ? service.transition(10, 'accepted', 5)
+               : operation === 'requestReview' ? service.requestReview(10, 5, 'Review suitability')
+               : service.decideReview(3, 5, 'usable');
+          await expect(mutation).rejects.toThrow('Disposed specimens');
+          expect(writes).not.toHaveBeenCalled();
+     });
+
+     it('uses the required specimen for ascension review instead of a newer optional aliquot', async () => {
+          const queries = new Map<string, any>();
+          const db: any = vi.fn((table: string) => {
+               const query: any = {};
+               for (const method of ['where', 'orderBy']) query[method] = vi.fn(() => query);
+               query.first = vi.fn(async () => table === 'test_ascension_samples' ? { sample_id: 10 } : null);
+               queries.set(table, query);
+               return query;
+          });
+          vi.mocked(KnexConnection).mockResolvedValue(db);
+          const service = new PhysicalSampleService(9);
+          vi.spyOn(service, 'detail').mockResolvedValue({ id: 10, status: 'accepted' });
+          await expect(service.findByAscension(101)).resolves.toMatchObject({ id: 10 });
+          expect(queries.get('test_ascension_samples').where).toHaveBeenCalledWith('is_required', true);
+     });
+
+     it('requires a native required link before neutralizing legacy samples on tenant startup', async () => {
+          const compiler = knex({ client: 'mysql2' });
+          const compiled: Array<{ sql: string; bindings: readonly any[] }> = [];
+          const db: any = vi.fn((table: string) => {
+               const query: any = compiler(table);
+               if (table === 'test_ascension_samples as legacy_link') {
+                    query.pluck = vi.fn(async (column: string) => {
+                         compiled.push(query.select(column).toSQL());
+                         return [];
+                    });
+               } else if (table === 'test_ascension as ascension') {
+                    query.then = (resolve: any, reject: any) => {
+                         compiled.push(query.toSQL());
+                         return Promise.resolve([]).then(resolve, reject);
+                    };
+               } else throw new Error(`Unexpected data access: ${table}`);
+               return query;
+          });
+          db.schema = { hasTable: async () => true, hasColumn: async () => true };
+          db.fn = compiler.fn;
+          db.raw = (sql: string, values?: any[]) => sql.startsWith('SELECT 1 FROM information_schema.')
+               ? Promise.resolve([[{ 1: 1 }]]) : compiler.raw(sql, values);
+          vi.mocked(KnexConnection).mockResolvedValue(db);
+          try {
+               await bootstrapPhysicalSampleTables(9);
+               expect(compiled[0].sql).toContain('`native_link`.`is_required` = ?');
+               expect(compiled[0].bindings).toContain(true);
+               expect(compiled.every(query => !/^(update|delete|insert)/i.test(query.sql))).toBe(true);
+          } finally { await compiler.destroy(); }
+     });
+
+     it('keeps a legacy parent visible when its only native links are optional aliquots', async () => {
+          const compiler = knex({ client: 'mysql2' });
+          let compiled: { sql: string; bindings: readonly any[] };
+          const db: any = vi.fn((table: string) => {
+               const query: any = compiler(table);
+               query.then = (resolve: any, reject: any) => {
+                    compiled = query.toSQL();
+                    return Promise.resolve([]).then(resolve, reject);
+               };
+               return query;
+          });
+          db.raw = (...args: any[]) => (compiler.raw as any)(...args);
+          vi.mocked(KnexConnection).mockResolvedValue(db);
+          try {
+               await new PhysicalSampleService(9).listByBilling(3);
+               expect(compiled.sql).toContain('`native_link`.`is_required` = ?');
+               expect(compiled.bindings).toContain(true);
+          } finally { await compiler.destroy(); }
      });
 });

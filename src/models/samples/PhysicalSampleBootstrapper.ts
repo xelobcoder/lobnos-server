@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { randomUUID } from 'crypto';
+import { bootstrapSpecimenLifecycleTables } from './SpecimenLifecycleBootstrapper';
 
 export async function bootstrapPhysicalSampleTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
@@ -143,6 +144,7 @@ export async function bootstrapPhysicalSampleTables(tenantId = 1): Promise<void>
 
      await neutralizeDuplicateLegacySamples(connection);
      await backfillLegacyPhysicalSamples(connection);
+     await bootstrapSpecimenLifecycleTables(connection);
 }
 
 async function neutralizeDuplicateLegacySamples(connection: any): Promise<void> {
@@ -154,6 +156,7 @@ async function neutralizeDuplicateLegacySamples(connection: any): Promise<void> 
                     .from('test_ascension_samples as native_link')
                     .join('physical_samples as native_sample', 'native_sample.id', 'native_link.sample_id')
                     .whereRaw('native_link.ascension_id = legacy_link.ascension_id')
+                    .where('native_link.is_required', true)
                     .whereNull('native_sample.legacy_ascension_id');
           })
           .pluck('legacy_link.id');

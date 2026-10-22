@@ -2,6 +2,51 @@
 
 **High Performance Laboratory Information Management System**
 
+## Specimen aliquots, storage, retention and disposal
+
+The Lobnos frontend exposes **Specimen Storage & Retention** from both laboratory
+operations and phlebotomy navigation, plus each Sample Summary row. The page is
+`/operations/phelobotomy/specimen-storage`; `?sampleId=<id>` opens a container.
+
+Tenant startup adds `specimen_storage_positions` and nullable lifecycle fields
+to `physical_samples`, retaining existing records and collection/acceptance
+statuses. Rebuild and restart the backend before using the updated frontend.
+No default retention duration is imposed: laboratory staff must record the
+appropriate period and reason for each container.
+
+- Create aliquots from an accepted, retrieved/available specimen with a recorded
+  quantity and unit. Each child gets an independent barcode, parent link and
+  inherited retention deadline. Allocation deducts the parent's remaining
+  quantity atomically; its original collected quantity remains in history.
+- Administrators/managers configure freezer, rack and position labels. Collected,
+  received and accepted containers can be stored without changing their approval
+  status, including at facilities that bypass sample validation. Store,
+  transfer, retrieve with a reason, and return containers using unique positions.
+  Concurrent requests cannot occupy the same position or overallocate a parent.
+- Set retention in days from now or an explicit date/time. The due-for-review
+  worklist excludes disposed containers. Scientific staff can set/extend a
+  period; only administrators/managers can shorten an existing period with a
+  recorded reason. Existing aliquots retain their own independent deadlines.
+- Document disposal with method, reason and a different active laboratory
+  witness. Early disposal requires an explicit administrator/manager override.
+  Disposal releases the position and leaves the container, lineage and audit
+  events available as history. There is no automatic disposal or deletion.
+- Stored, exhausted or disposed material cannot satisfy new processing/result
+  entry gates. An available accepted descendant aliquot linked to the same test
+  can satisfy the parent requirement. Existing collection/approval history stays
+  intact, and optional aliquots never replace required sample links.
+
+APIs use the existing staff session and `tenantId`, under `/api/v1/physical-samples`:
+`GET /lifecycle/worklist`, `GET/POST /storage/positions`, `GET /:id/lifecycle`,
+`POST /:id/aliquots`, `POST /:id/storage`, `POST /:id/retrieve`,
+`PUT /:id/retention`, and `POST /:id/dispose`. Container writes require
+`expectedVersion`; clients send an `idempotencyKey` so retries do not duplicate
+aliquots or audit events. Identities and permissions derive from the staff session.
+
+```powershell
+pnpm exec vitest run src/models/samples/SpecimenLifecycleBootstrapper.test.ts src/models/samples/SpecimenLifecycleService.test.ts src/controllers/samples/SpecimenLifecycleController.test.ts src/models/samples/PhysicalSampleService.test.ts src/models/operations/LaboratoryWorkflow.test.ts
+```
+
 ## Patient image storage and password recovery security
 
 Patient image uploads retain the existing `POST /api/v1/storage/prime/uploads`

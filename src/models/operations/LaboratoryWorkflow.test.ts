@@ -64,28 +64,58 @@ describe('independent laboratory workflow bypasses', () => {
         expect(laboratoryWorkflow({ completeFlow: 0, byPassValidation: 1 }, {}, []).canEnterResults).toBe(false);
         expect(laboratoryWorkflow({ ...all, completeFlow: 1, byPassValidation: 0 }, {}, []).canEnterResults).toBe(true);
     });
+    it.each([
+        { storage_state: 'disposed', quantity: 2 },
+        { storage_state: 'stored', quantity: 2 },
+        { storage_state: 'available', quantity: 2, remaining_quantity: '0.00' },
+        { storage_state: 'retrieved', quantity: 0 },
+        { storage_state: 'available', remaining_quantity: -1 },
+        { storage_state: 'available', remaining_quantity: 'invalid' },
+    ])('blocks new processing and result entry when material is unavailable: %j', lifecycle => {
+        const specimens = [{ status: 'accepted', ...lifecycle }];
+        const result = laboratoryWorkflow(all, { processingEndDate: '2026-01-01' }, specimens);
+        expect(result).toMatchObject({ collection: 'completed', sampleValidation: 'completed', processing: 'completed', canEnterResults: false, canProcess: false });
+        expect(result.blockedReason).toContain('remaining material');
+        expect(laboratoryWorkflow({}, {}, specimens).canProcess).toBe(false);
+    });
+    it('preserves availability for legacy unknown volumes and accepts retrieved material', () => {
+        for (const lifecycle of [{}, { quantity: null, remaining_quantity: null }, { storage_state: 'retrieved', quantity: '1.50' }]) {
+            expect(laboratoryWorkflow(all, {}, [{ status: 'accepted', ...lifecycle }]).canEnterResults).toBe(true);
+        }
+    });
+    it('allows an available aliquot to satisfy an unavailable parent without changing historical stages', () => {
+        expect(laboratoryWorkflow(all, {}, [{ status: 'accepted', storage_state: 'disposed', has_usable_aliquot: true }]))
+            .toMatchObject({ collection: 'completed', sampleValidation: 'completed', canEnterResults: true });
+    });
 });
 
 describe('authoritative workflow loader and result ownership', () => {
     let db: any;
     let links: any[];
+    let aliquots: any[];
     let row: any;
     let patientid: number;
     let department: string;
     beforeEach(() => {
         vi.clearAllMocks();
         links = [];
+        aliquots = [];
         row = { id: 1, testid: 2, billingid: 3 };
         patientid = 4;
         department = 'Laboratory';
         mocks.settings.mockResolvedValue(all);
         db = vi.fn((table: string) => {
             const query: any = {};
-            for (const method of ['join', 'leftJoin', 'where', 'whereIn', 'whereNotExists', 'select']) {
+            let required = true;
+            for (const method of ['join', 'leftJoin', 'whereIn', 'whereNotExists', 'whereNotNull', 'select']) {
                 query[method] = vi.fn(() => query);
             }
+            query.where = vi.fn((column: string, value: any) => {
+                if (column === 'link.is_required') required = value;
+                return query;
+            });
             query.first = vi.fn(async () => table === 'billing' ? { patientid } : table.startsWith('test_panels') ? { department } : row);
-            query.then = (resolve: any, reject: any) => Promise.resolve(links).then(resolve, reject);
+            query.then = (resolve: any, reject: any) => Promise.resolve(required ? links : aliquots).then(resolve, reject);
             return query;
         });
         mocks.connection.mockResolvedValue(db);
@@ -107,6 +137,40 @@ describe('authoritative workflow loader and result ownership', () => {
     it('enforces container state on direct result submission even with all bypasses', async () => {
         links = [{ ascension_id: 1, status: 'rejected' }];
         await expect(new LaboratoryWorkflowService(9).requireResultEntry(1, 2, 3, 4)).rejects.toMatchObject({ statusCode: 409 });
+    });
+    it.each(['disposed', 'stored'])('blocks direct result submission from a %s required specimen', async storage_state => {
+        links = [{ id: 10, ascension_id: 1, status: 'accepted', storage_state, quantity: 2 }];
+        await expect(new LaboratoryWorkflowService(9).requireResultEntry(1, 2, 3, 4)).rejects.toMatchObject({ statusCode: 409 });
+    });
+    it('finds an available nested aliquot linked to the same ordered test', async () => {
+        links = [{ id: 10, ascension_id: 1, status: 'accepted', storage_state: 'disposed', quantity: 2 }];
+        aliquots = [
+            { id: 11, parent_sample_id: 10, ascension_id: 1, status: 'accepted', storage_state: 'stored', remaining_quantity: '0.00' },
+            { id: 12, parent_sample_id: 11, ascension_id: 1, status: 'accepted', storage_state: 'retrieved', remaining_quantity: '1.00' },
+        ];
+        await expect(new LaboratoryWorkflowService(9).requireResultEntry(1, 2, 3, 4)).resolves.toBeUndefined();
+        const queries = db.mock.calls.map((call: any[], index: number) => ({ table: call[0], query: db.mock.results[index].value }));
+        const childQuery = queries.find(({ query }: any) => query.where.mock.calls.some(([column, value]: any[]) => column === 'link.is_required' && value === false))!.query;
+        expect(childQuery.whereIn).toHaveBeenCalledWith('link.ascension_id', [1]);
+        expect(childQuery.whereNotNull).toHaveBeenCalledWith('sample.parent_sample_id');
+    });
+    it('does not substitute an unrelated specimen or an aliquot linked only to another ordered test', async () => {
+        links = [{ id: 10, ascension_id: 1, status: 'accepted', storage_state: 'available', remaining_quantity: '0.00' }];
+        aliquots = [
+            { id: 11, parent_sample_id: 99, ascension_id: 1, status: 'accepted', storage_state: 'available', quantity: 1 },
+            { id: 12, parent_sample_id: 10, ascension_id: 2, status: 'accepted', storage_state: 'available', quantity: 1 },
+        ];
+        await expect(new LaboratoryWorkflowService(9).requireResultEntry(1, 2, 3, 4)).rejects.toMatchObject({ statusCode: 409 });
+    });
+    it.each([
+        { status: 'accepted', storage_state: 'disposed', quantity: 1 },
+        { status: 'accepted', storage_state: 'stored', quantity: 1 },
+        { status: 'accepted', storage_state: 'available', remaining_quantity: 0 },
+        { status: 'rejected', storage_state: 'available', quantity: 1 },
+    ])('does not accept unusable aliquots: %j', child => {
+        links = [{ id: 10, ascension_id: 1, status: 'accepted', storage_state: 'disposed', quantity: 1 }];
+        aliquots = [{ id: 11, parent_sample_id: 10, ascension_id: 1, ...child }];
+        return expect(new LaboratoryWorkflowService(9).requireResultEntry(1, 2, 3, 4)).rejects.toMatchObject({ statusCode: 409 });
     });
     it.each([[8, 3, 4], [2, 8, 4], [2, 3, 8]])('rejects mismatched test/billing/patient ownership', async (testid, billingid, patient) => {
         await expect(new LaboratoryWorkflowService(9).requireResultEntry(1, testid, billingid, patient)).rejects.toMatchObject({ statusCode: 403 });
