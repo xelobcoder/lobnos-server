@@ -2,6 +2,40 @@
 
 **High Performance Laboratory Information Management System**
 
+## Patient image storage and password recovery security
+
+Patient image uploads retain the existing `POST /api/v1/storage/prime/uploads`
+contract (`tenantId`, `patientid`, `category`, optional matching `ptid`, and a
+multipart `file`). An authenticated staff session for that facility and an
+existing patient in its database are required. JPEG, PNG and GIF uploads are
+limited to 5 MB; encoded structure, dimensions and MIME consistency are checked.
+The server generates the filename and extension. Files are stored privately in
+`data/patient-images/<tenantId>/<category>/`, outside the static public directory.
+Back up this directory alongside each tenant database.
+
+Use `GET /api/v1/patient/images/:filename?tenantId=<id>` with the staff session to
+retrieve an image. Both the tenant-specific filename and the current patient
+image reference must match that facility. The old double-slash API path remains
+accepted. Old public `/uploads/patients` and `/uploads/receipts` URLs are blocked;
+reverse proxies must also avoid exposing these directories directly.
+
+Single-tenant installations can still read legacy images from their original
+location after verifying the database reference. Shared legacy images in a
+multi-tenant installation require re-upload or a migration that independently
+verifies the owning facility; the server never guesses ownership or deletes
+these shared files when replacing an image.
+
+Password recovery and administrative staff resets revoke sessions in the same
+transaction as the credential update. This includes browser and Device Manager
+sessions, stored staff refresh tokens and patient portal session versions.
+Clinician tokens are bound to the current credential hash; existing clinician
+tokens issued before this change require a new sign-in. Concurrent staff logins
+cannot create a session using credentials that changed during sign-in.
+
+```powershell
+pnpm exec vitest run src/models/uploads/fileuploads.test.ts src/models/auth/PasswordRecoveryService.test.ts src/models/auth/clinicianPasswordSessions.test.ts src/controllers/logins/passwordReset.test.ts src/models/security/services/ApplicationLoginLogging.test.ts
+```
+
 ## Imaging reporting templates
 
 Ultrasound templates use the exported lowercase tables `ultrasoundtemplatesmapper`

@@ -64,7 +64,7 @@ export class AuthController {
 			const sessionBrowserInfo = { ...(browserInfo ?? {}), clientType, userAgent: req.get('user-agent') || browserInfo?.userAgent, ip: req.ip };
 
 			const applicationLoginLoggingService = new ApplicationLoginLoggingService(numericEmployeeId, tenantId);
-			const session = await applicationLoginLoggingService.initUserLoginSession(sessionBrowserInfo, deviceFingerprint, clientType);
+			const session = await applicationLoginLoggingService.initUserLoginSession(sessionBrowserInfo, deviceFingerprint, clientType, user.password);
 			if (!session) throw new SessionCreationError(numericEmployeeId, tenantId);
 
 			const sessionExpiryTime = session.logoutTime;

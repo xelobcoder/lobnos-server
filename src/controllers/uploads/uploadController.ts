@@ -1,35 +1,13 @@
 import express from 'express';
 import path from 'path';
-import { updatePatientImageHandler } from '../registration/PatientsHandler';
-import { sendFileResponse } from '../../hooks/utility';
-import createFileUploader from '../../models/uploads/fileuploads';
+import createFileUploader, { patientImageRoot } from '../../models/uploads/fileuploads';
+export { validStoragePaths } from '../../models/uploads/fileuploads';
 
 const router = express.Router();
-const baseurl = `/api/v1/`
-const uploadDir = path.join(__dirname, '../../public/uploads')
+const fileUploader = createFileUploader(patientImageRoot, path.join(__dirname, '../../public/uploads/patients'));
 
-const fileUploader = createFileUploader(uploadDir);
-
-export const validStoragePaths = ['patients', 'receipts']
-
-router.post(`${baseurl}storage/prime/uploads`,
-     fileUploader.getMulterMiddleware().single('file'),
-     fileUploader.handleUpload,
-     updatePatientImageHandler
-);
-
-router.post('/storage/prime/uploads/multiple',
-     // updatePatientImageHandler
-     // fileUploader.getMulterMiddleware().array('files', 5),
-     // fileUploader.handleUpload
-);
-
-
-
-router.get(`${baseurl}/patient/images/:filename`, (req, res) => {
-     const { filename } = req.params;
-     const filePath = path.join(__dirname, '../../public/uploads/patients', filename);
-     sendFileResponse(filePath, res);
-});
+router.post('/api/v1/storage/prime/uploads', fileUploader.authorizeUpload, fileUploader.uploadSingle, fileUploader.handleUpload);
+// Preserve the old double-slash path as well as the canonical URL.
+router.get(['/api/v1/patient/images/:filename', '/api/v1//patient/images/:filename'], fileUploader.getImage);
 
 export default router;

@@ -5,6 +5,7 @@ import logger from '../../hooks/logger';
 import { EmailProvidersRepo } from '../application/email/repositories/EmailProvidersRepo';
 import { ProviderFactory } from '../application/email/services/ProviderFactory';
 import { LoginEntityType } from './TenantLoginDirectory';
+import { revokePasswordSessions } from './passwordSessions';
 
 const OTP_TABLE = 'password_reset_otps';
 const OTP_EXPIRY_MINUTES = 10;
@@ -172,6 +173,7 @@ export class PasswordRecoveryService {
                }
 
                if (!updated) return false;
+               await revokePasswordSessions(trx, entityType, entityId);
                await trx(OTP_TABLE).where({ id: row.id }).del();
                return true;
           });

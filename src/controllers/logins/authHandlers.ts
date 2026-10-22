@@ -15,6 +15,7 @@ import { configuration, effectiveTenantId } from "../../hooks/configuration";
 import { LoginEntityType, parseLoginUsername } from "../../models/auth/TenantLoginDirectory";
 import { TenantRegistry } from "../../models/Tenancy/TenantRegistry";
 import { PasswordRecoveryService } from "../../models/auth/PasswordRecoveryService";
+import { clinicianCredentialVersion, revokePasswordSessions } from "../../models/auth/passwordSessions";
 import { LOCKOUT_MINUTES, PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
 import { recordPortalAudit } from "../../models/patient-portal/PatientPortalAudit";
 
@@ -173,16 +174,17 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 			return customError("Only admin or manager can reset staff passwords", 403, res);
 		}
 
-		const target = await connection("roles").select("employeeid").where({ employeeid: targetEmployeeid }).first();
-		if (!target) {
-			return customError("Employee not found", 404, res);
-		}
-
 		const temporaryPassword = crypto.randomBytes(5).toString("hex");
 		const passwordHash = await bcrypt.hash(temporaryPassword, 10);
-		await connection("roles")
-			.where({ employeeid: targetEmployeeid })
-			.update({ password: passwordHash, updated_on: new Date() });
+		const updated = await connection.transaction(async trx => {
+			const target = await trx('roles').where({ employeeid: targetEmployeeid }).forUpdate().first('employeeid');
+			if (!target) return false;
+			await trx('roles').where({ employeeid: targetEmployeeid })
+				.update({ password: passwordHash, updated_on: new Date() });
+			await revokePasswordSessions(trx, 'staff', targetEmployeeid);
+			return true;
+		});
+		if (!updated) return customError("Employee not found", 404, res);
 
 		res.send({
 			status: "success",
@@ -224,7 +226,9 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 			username: clinician.name || clinician.identifier || clinician.login_username,
 			email: clinician.email || clinician.clinician_email,
 		};
-		const token = await new User(null, null, null, null, null).tokenizeData({ ...user, tid: effectiveTenantId(tenantId) }, "12h");
+		const token = await new User(null, null, null, null, null).tokenizeData({
+			...user, tid: effectiveTenantId(tenantId), cv: clinicianCredentialVersion(clinician.password),
+		}, "12h");
 		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
 		logger.error(err);

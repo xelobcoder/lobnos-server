@@ -34,6 +34,7 @@ import { PasswordRecoveryService } from './PasswordRecoveryService';
 
 function database(accounts: Record<string, Row[]>) {
      const tables: Record<string, Row[]> = { password_reset_otps: [], ...accounts };
+     const failures = { revoke: false };
      const connection = (table: string) => {
           const name = table.split(' as ')[0];
           const filters: Array<(row: Row) => boolean> = [];
@@ -60,6 +61,7 @@ function database(accounts: Record<string, Row[]>) {
                forUpdate: () => query,
                first: async () => tables[name].find(matches),
                update: async (changes: Row) => {
+                    if (name === 'loginlogs' && failures.revoke) throw new Error('Session storage unavailable');
                     const rows = tables[name].filter(matches);
                     rows.forEach((row) => Object.assign(row, changes));
                     return rows.length;
@@ -84,13 +86,18 @@ function database(accounts: Record<string, Row[]>) {
      };
      let pending = Promise.resolve();
      const transaction = <T>(action: (trx: typeof connection) => Promise<T>) => {
-          const next = pending.then(() => action(connection));
+          const next = pending.then(async () => {
+               const snapshot = structuredClone(tables);
+               try { return await action(connection); }
+               catch (error) { Object.assign(tables, snapshot); throw error; }
+          });
           pending = next.then(() => undefined, () => undefined);
           return next;
      };
      return {
           connection: Object.assign(connection, { schema: { hasTable: async () => true }, transaction }),
           tables,
+          failures,
      };
 }
 
@@ -107,6 +114,12 @@ describe('tenant-local password recovery', () => {
                roles: [{ employeeid: 42, email: 'staff@example.test', password: 'old' }],
                patients_credentials: [{ patientid: 42, email: 'patient@example.test', password: 'old' }],
                clinicianscredentials: [{ clinicianid: 42, clinician_email: 'doctor@example.test', password: 'old' }],
+               loginlogs: [
+                    { employeeid: 42, loginSessionId: 'browser', loggedout: false },
+                    { employeeid: 42, loginSessionId: 'device-manager:one', loggedout: false },
+                    { employeeid: 99, loginSessionId: 'other-user', loggedout: false },
+               ],
+               patient_portal_accounts: [{ patientid: 42, session_version: 3 }, { patientid: 99, session_version: 7 }],
           });
           mocks.connect.mockResolvedValue(db.connection);
           return { ...db, service: new PasswordRecoveryService(123) };
@@ -166,6 +179,9 @@ describe('tenant-local password recovery', () => {
           ]);
           expect(results).toEqual([true, false]);
           expect(tables.roles[0].password).toBe('hashed:new-password');
+          expect(tables.roles[0].refresh_token).toBeNull();
+          expect(tables.loginlogs.map(row => row.loggedout)).toEqual([true, true, false]);
+          expect(tables.loginlogs[0].actualLogout).toBeInstanceOf(Date);
           expect(tables.password_reset_otps).toHaveLength(0);
      });
 
@@ -189,6 +205,25 @@ describe('tenant-local password recovery', () => {
           seed(tables, { entity_type: type, verified_at: new Date() });
           expect(await service.resetPassword(type, 42, '123456', 'new-password')).toBe(true);
           expect(tables[table][0]).toMatchObject({ password: 'hashed:new-password', ...flags });
+          expect(tables.roles[0].password).toBe('old');
+          expect(tables.patient_portal_accounts.map(row => row.session_version)).toEqual(type === 'patient' ? [4, 7] : [3, 7]);
+     });
+
+     it('rolls back the password and preserves the OTP if session revocation fails', async () => {
+          const { service, tables, failures } = setup();
+          seed(tables, { verified_at: new Date() });
+          failures.revoke = true;
+          await expect(service.resetPassword('staff', 42, '123456', 'new-password')).rejects.toThrow('Session storage unavailable');
+          expect(tables.roles[0].password).toBe('old');
+          expect(tables.password_reset_otps).toHaveLength(1);
+          expect(tables.loginlogs.every(row => row.loggedout === false)).toBe(true);
+     });
+
+     it('leaves sessions untouched for an invalid reset code', async () => {
+          const { service, tables } = setup();
+          seed(tables, { verified_at: new Date() });
+          expect(await service.resetPassword('staff', 42, '654321', 'new-password')).toBe(false);
+          expect(tables.loginlogs.every(row => row.loggedout === false)).toBe(true);
           expect(tables.roles[0].password).toBe('old');
      });
 });

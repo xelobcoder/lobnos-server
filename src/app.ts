@@ -33,6 +33,7 @@ import customerRouter from "./controllers/customers/route";
 import TestAscensionAnalytics from './controllers/analytics/test-ascension-analytics/routes'
 import sampleContainerRouter from "./controllers/routes/sampleContainerRoutes";
 import FileUploadsRouter from './controllers/uploads/uploadController';
+import { blockPublicPatientImages } from './models/uploads/fileuploads';
 import IndividualPatientAnalyticRouter from './controllers/registration/patient/routes';
 import qualityControlRoutes from './controllers/QualityControl/qualityControlRoutes';
 import ExcelParser from './controllers/utilities/excelparserHandler';
@@ -99,6 +100,7 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(signedLicenseGuard);
 // Recovery is authenticated but not gated by an activated certificate.
 app.use(licenseRoutes);
+app.use(blockPublicPatientImages);
 app.use(express.static("public"));
 // Marketplace routes validate/reject query strings before the generic request
 // logger, keeping tracking credentials, payment references and patient details

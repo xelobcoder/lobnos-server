@@ -56,4 +56,12 @@ describe('staff session isolation', () => {
           await first.initUserLoginSession({});
           expect(state.sessions.map(session => session.loggedout)).toEqual([true, false, false]);
      });
+
+     it('rejects a login validated before a concurrent password reset', async () => {
+          state.lock.mockResolvedValueOnce({ employeeid: 1, password: 'new-hash' });
+          await expect(new ApplicationLoginLoggingService(1, 3).initUserLoginSession({}, null, 'standard', 'old-hash'))
+               .rejects.toThrow('Credentials changed');
+          expect(state.sessions).toHaveLength(0);
+          expect(state.destroy).not.toHaveBeenCalled();
+     });
 });

@@ -22,11 +22,15 @@ export class ApplicationLoginLoggingService {
       * Browser logins replace other browser sessions. Restricted device-manager sessions
       * coexist with them; administrative revocation still closes either session type.
       */
-     async initUserLoginSession(browserInformation: unknown, deviceFingerprint?: string | null, clientType: StaffClientType = 'standard'): Promise<ILoginLog | undefined> {
+     async initUserLoginSession(browserInformation: unknown, deviceFingerprint?: string | null, clientType: StaffClientType = 'standard', expectedPasswordHash?: string): Promise<ILoginLog | undefined> {
           const service = this.ApplicationLoginLogRepo;
           const connection = await KnexConnection(this.tenantId);
           const logId = await connection.transaction(async (trx) => {
-               await trx('roles').where('employeeid', this.employeeid).forUpdate().first('employeeid');
+               const account = await trx('roles').where('employeeid', this.employeeid).forUpdate().first('employeeid', 'password');
+               // A reset may have committed after password validation but before this lock.
+               if (expectedPasswordHash !== undefined && account?.password !== expectedPasswordHash) {
+                    throw new Error('Credentials changed during sign-in. Please sign in again.');
+               }
                if (clientType === 'standard') await service.destroyUserSessions(this.employeeid, trx, true);
                return service.createHistoryLog(this.employeeid, browserInformation as string, trx, deviceFingerprint, clientType);
           });

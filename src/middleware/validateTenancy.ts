@@ -11,6 +11,8 @@ import { JwtPayload } from "jsonwebtoken";
 import crypto from "crypto";
 import { roleAllowed } from "./roles";
 import { DEVICE_MANAGER_SESSION_PREFIX, deviceManagerRouteAllowed } from "../models/security/deviceManagerSession";
+import KnexConnection from '../database/KnexConnections';
+import { clinicianCredentialMatches } from '../models/auth/passwordSessions';
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -140,6 +142,13 @@ export const checkTokenExists = async (request: Request, response: Response, nex
                }
                if (role === 'patient' && !patientRouteAllowed(request.method, request.path)) {
                     return customError('Patient portal sessions may only access patient portal services', 403, response);
+               }
+               if (role === 'clinician') {
+                    const db = await KnexConnection(tenantId);
+                    const credentials = await db('clinicianscredentials').where({ clinicianid: Number(portalId) }).first('password');
+                    if (!credentials || !clinicianCredentialMatches(decoded?.cv, credentials.password)) {
+                         return customError('Session expired. Please sign in again.', 401, response);
+                    }
                }
                (request as any).authUser = {
                     employeeid: Number(portalId),
