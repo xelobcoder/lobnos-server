@@ -124,6 +124,9 @@ export class PhysicalSampleService {
                'collector.username as collected_by_name',
                'receiver.username as received_by_name',
                'validator.username as validated_by_name',
+               connection.raw('(SELECT review.status FROM physical_sample_reviews review WHERE review.sample_id = sample.id ORDER BY review.id DESC LIMIT 1) AS latest_review_status'),
+               connection.raw('(SELECT replacement.sample_uid FROM physical_samples replacement WHERE replacement.replaces_sample_id = sample.id ORDER BY replacement.id DESC LIMIT 1) AS replacement_sample_uid'),
+               connection.raw('(SELECT replacement.status FROM physical_samples replacement WHERE replacement.replaces_sample_id = sample.id ORDER BY replacement.id DESC LIMIT 1) AS replacement_status'),
                connection.raw("(SELECT GROUP_CONCAT(DISTINCT panel.name ORDER BY panel.name SEPARATOR ', ') FROM test_ascension_samples link INNER JOIN test_ascension ascension ON ascension.id = link.ascension_id INNER JOIN test_panels panel ON panel.id = ascension.testid WHERE link.sample_id = sample.id) AS test_names")
           ).orderBy('sample.created_at', 'desc').limit(paging.count).offset(paging.offset);
           const summary: Record<string, number> = { total: items.length };
@@ -559,7 +562,8 @@ export class PhysicalSampleService {
      private applyReportFilters(query: any, dateColumn: string, filters: PhysicalSampleReportFilters, statusColumn = 'sample.status'): void {
           if (filters.startDate) query.whereRaw(`DATE(${dateColumn}) >= ?`, [filters.startDate]);
           if (filters.endDate) query.whereRaw(`DATE(${dateColumn}) <= ?`, [filters.endDate]);
-          if (filters.status && filters.status !== 'all') query.where(statusColumn, filters.status);
+          if (filters.status === 'rejected_or_recollection') query.whereIn(statusColumn, ['rejected', 'recollection_required']);
+          else if (filters.status && filters.status !== 'all') query.where(statusColumn, filters.status);
           if (filters.search?.trim()) {
                const search = `%${filters.search.trim()}%`;
                query.where((builder: any) => builder.where('sample.sample_uid', 'like', search).orWhere('sample.billingid', 'like', search).orWhere('patient.fullpatientid', 'like', search).orWhereRaw("CONCAT_WS(' ', patient.firstname, patient.middlename, patient.lastname) LIKE ?", [search]));

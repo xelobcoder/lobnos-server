@@ -123,10 +123,11 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
                     query.where('ca.is_active', true);
                }
 
-               if (params?.onDate) {
-                    query.where('ca.assigned_from', '<=', params.onDate)
+               const onDate = params?.onDate;
+               if (onDate) {
+                    query.where('ca.assigned_from', '<=', onDate)
                          .where((builder: Knex.QueryBuilder) => {
-                              builder.whereNull('ca.assigned_to').orWhere('ca.assigned_to', '>=', params.onDate);
+                              builder.whereNull('ca.assigned_to').orWhere('ca.assigned_to', '>=', onDate);
                          })
                }
 
