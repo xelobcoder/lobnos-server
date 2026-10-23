@@ -2,13 +2,17 @@
 // Types and interfaces for supplier payment tracking system
 
 export interface SupplierPayment {
+     payment_account_id?: number | null;
+     payment_account_name?: string | null;
+     payment_account_gl_code?: string | null;
+     branchid?: number | null;
      id: string;
      payment_id: string;
      supplier_id: string;
      purchase_order_id: string;
      payment_amount: number;
      payment_date: string;
-     payment_method: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'other';
+     payment_method: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'mobile_money' | 'cheque' | 'other';
      payment_status: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
      reference_number?: string;
      payment_notes?: string;
@@ -66,11 +70,12 @@ export interface SupplierPaymentAllocation {
 }
 
 export interface CreateSupplierPaymentRequest {
+     payment_account_id: number;
      supplier_id: string;
      purchase_order_id: string;
      payment_amount: number;
      payment_date: string;
-     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'other';
+     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'mobile_money' | 'cheque' | 'other';
      reference_number?: string;
      payment_notes?: string;
      created_by: string;
@@ -85,9 +90,10 @@ export interface CreateSupplierPaymentAllocationRequest {
 }
 
 export interface UpdateSupplierPaymentRequest {
+     payment_account_id?: number;
      payment_amount?: number;
      payment_date?: string;
-     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'other';
+     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'mobile_money' | 'cheque' | 'other';
      payment_status?: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
      reference_number?: string;
      payment_notes?: string;
@@ -101,7 +107,7 @@ export interface SupplierPaymentFilters {
      supplier_id?: string;
      purchase_order_id?: string;
      payment_status?: 'pending' | 'completed' | 'failed' | 'cancelled' | 'refunded';
-     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'other';
+     payment_method?: 'cash' | 'check' | 'bank_transfer' | 'credit_card' | 'wire_transfer' | 'mobile_money' | 'cheque' | 'other';
      startDate?: string;
      endDate?: string;
      search?: string;

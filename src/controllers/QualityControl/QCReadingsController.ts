@@ -1,3 +1,4 @@
+import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from 'express';
 import { QCReadingsRepository } from '../../repositories/QualityControl/QCReadingsRepository';
 import { QCSessionsRepository } from '../../repositories/QualityControl/QCSessionsRepository';
@@ -28,7 +29,7 @@ export class QCReadingsController {
     async acceptForResultEntry(req: Request, res: Response) {
         try {
             const tenantId = this.getTenantId(req);
-            const employeeId = parseInt(req.query.employeeid as string, 10);
+            const employeeId = getAuthUser(req)?.employeeid;
             if (!employeeId) return res.status(400).json({ error: 'employeeid is required' });
             const repository = new QCSessionsRepository(tenantId);
             const testId = await repository.recordResultEntryReview(String(req.params.id), employeeId, 'accepted');
@@ -38,10 +39,18 @@ export class QCReadingsController {
         }
     }
 
+    async revokeForResultEntry(req: Request, res: Response) {
+        try {
+            const actor = getAuthUser(req);
+            if (!actor) return res.status(401).json({ error: 'Authentication required' });
+            await new QCSessionsRepository(actor.tenantId).recordResultEntryReview(String(req.params.id), actor.employeeid, 'rejected', req.body?.reason);
+            res.json({ status: true, decision: 'rejected' });
+        } catch (error: any) { res.status(400).json({ error: error.message }); }
+    }
     async bypassForResultEntry(req: Request, res: Response) {
         try {
             const tenantId = this.getTenantId(req);
-            const employeeId = parseInt(req.query.employeeid as string, 10);
+            const employeeId = getAuthUser(req)?.employeeid;
             if (!employeeId) return res.status(400).json({ error: 'employeeid is required' });
             const repository = new QCSessionsRepository(tenantId);
             const testId = await repository.recordResultEntryReview(String(req.params.id), employeeId, 'bypassed', req.body?.reason);

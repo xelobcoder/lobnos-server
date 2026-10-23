@@ -1,3 +1,4 @@
+import { bootstrapOperationsWorkflow } from '../models/operations/OperationsWorkflowBootstrapper';
 import { bootstrapNotificationDefinitions } from '../models/application/notifications/services/NotificationBootstrapService';
 import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from '../models/operations/sample/HomeCollection/BootstrapHomeCollection';
 import { bootstrapCommissionTables } from '../models/commissions/commission-configurations/services/CommissionBootstrapService';
@@ -80,6 +81,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
 	await bootstrapCalculationAndQcTables(tenantId);
+	await bootstrapOperationsWorkflow(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapWalkInQueueTables(tenantId);

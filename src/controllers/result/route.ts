@@ -2,7 +2,7 @@ import { ResultPrintingTrackingController } from "./ResultPrintingTrackingContro
 
 
 import express from "express"
-import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
+import { requireLaboratoryWorkflowRole, requireResultDeliveryRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
        resultEntry,
        getPreviousResultEntryRecordsIfAny,
@@ -82,10 +82,10 @@ router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckMultiple
 
 router.post('/api/v1/result/delivery/preference', handleOverLoad(setResultDeliveryPreference));
 router.get('/api/v1/result/delivery/preference/:billingid', handleOverLoad(getResultDeliveryPreference));
-router.post('/api/v1/result/delivery/record', handleOverLoad(recordResultDelivery));
-router.post('/api/v1/result/delivery/handover', handleOverLoad(recordResultHandover));
-router.get('/api/v1/result/delivery/record/result/undelivered', handleOverLoad(getResultRecordUndelivered));
-router.get('/api/v1/result/delivery/chain/:billingid', handleOverLoad(getResultDeliveryChain));
+router.post('/api/v1/result/delivery/record', requireResultDeliveryRole, handleOverLoad(recordResultDelivery));
+router.post('/api/v1/result/delivery/handover', requireResultDeliveryRole, handleOverLoad(recordResultHandover));
+router.get('/api/v1/result/delivery/record/result/undelivered', requireResultDeliveryRole, handleOverLoad(getResultRecordUndelivered));
+router.get('/api/v1/result/delivery/chain/:billingid', requireResultDeliveryRole, handleOverLoad(getResultDeliveryChain));
 
 
 

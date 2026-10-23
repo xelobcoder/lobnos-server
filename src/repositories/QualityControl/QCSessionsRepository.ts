@@ -170,14 +170,14 @@ export class QCSessionsRepository {
     async recordResultEntryReview(
         sessionId: string,
         employeeId: number,
-        decision: 'accepted' | 'bypassed',
+        decision: 'accepted' | 'bypassed' | 'rejected',
         reason?: string
     ): Promise<number> {
         const connection = await this.connection;
         return connection.transaction(async (trx: any) => {
             const session = await trx('qc_sessions as qs')
                 .innerJoin('control_materials as cm', 'cm.id', 'qs.controlMaterialId')
-                .select('qs.id', 'cm.testId')
+                .select('qs.id', 'cm.testId', 'cm.deviceId')
                 .where('qs.id', sessionId)
                 .whereRaw('DATE(qs.createdAt) = CURRENT_DATE()')
                 .where('cm.status', 'active')
@@ -185,8 +185,8 @@ export class QCSessionsRepository {
                 .first();
             if (!session) throw new Error('QC session must be linked to an active, unexpired control material and recorded today.');
 
-            if (decision === 'bypassed' && !reason?.trim()) {
-                throw new Error('A reason is required to bypass QC enforcement.');
+            if (['bypassed', 'rejected'].includes(decision) && !reason?.trim()) {
+                throw new Error('A reason is required to bypass or revoke QC enforcement.');
             }
 
             if (decision === 'accepted') {
@@ -196,7 +196,10 @@ export class QCSessionsRepository {
                 }
             }
 
+            const actor = await trx('roles').where({ employeeid: employeeId }).first('branch');
+            if (!Number(actor?.branch)) throw new Error('A branch must be assigned to the QC reviewer');
             await trx('qc_session_review_audit').insert({
+                branchid: Number(actor.branch), device_id: session.deviceId || null,
                 session_id: sessionId,
                 testid: Number(session.testId),
                 working_date: trx.raw('CURRENT_DATE()'),

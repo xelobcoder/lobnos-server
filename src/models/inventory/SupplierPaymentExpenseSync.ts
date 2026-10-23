@@ -57,6 +57,14 @@ export class SupplierPaymentExpenseSync {
                     invoicePrefix: "SUPP-INV"
                }, trx);
 
+               if (lifecycleResult.paymentId && paymentRecord.payment_account_id) {
+                    await trx('expense_payments').where({ id: lifecycleResult.paymentId }).update({
+                         payment_account_id: paymentRecord.payment_account_id,
+                         branchid: paymentRecord.branchid || branchid,
+                         currency: 'GHS',
+                    });
+               }
+
                await trx('inv_supplier_payments')
                     .where('id', paymentId)
                     .update({

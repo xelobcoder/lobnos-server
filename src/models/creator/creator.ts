@@ -306,7 +306,10 @@ export default class Creator {
 		}
 
 		await new LaboratoryWorkflowService(tenantId).requireResultEntry(ascensionid, testid, billingid, patientid);
-		await requireDailyQcAcceptance(tenantId, testid);
+		const qcConnection = await KnexConnection(tenantId);
+          const qcBill = await qcConnection('billing').where({ billingid }).first('branchid');
+          const qcWork = await qcConnection('lab_work_assignments').where({ ascensionid }).first('device_id');
+          await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: qcWork?.device_id || null });
 
 		const isPaymentStatusValid = await this.canPrintResult(tenantId, ascensionid);
 
@@ -318,11 +321,9 @@ export default class Creator {
 		const calculationService = new CalculationFormulaService();
 		const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[]);
 		const entryFields = calculatedEntry.fields;
-		const shouldCreateRecord = async function (tenantId: number, fieldid: number, ascensionId: number, testid: number): Promise<boolean> {
-			const records = await promisifyQuery(tenantId, `SELECT * FROM test_results WHERE ascensionid = ? AND testid = ? AND fieldid = ?`, [
-				ascensionId, testid, fieldid]);
-			return Array.isArray(records) && records.length === 0;
-		};
+		const shouldCreateRecord = async (trx: any, fieldid: number, ascensionId: number, testid: number) => {
+               return !(await trx('test_results').where({ ascensionid: ascensionId, testid, fieldid }).first());
+          };
 
 
 		const insertUpdate = async function (trx: any, tenantId: number, fields: any[], testid: number) {
@@ -337,7 +338,7 @@ export default class Creator {
 			await Promise.all(
 				resources.map(async (item: any, index: number) => {
 					const originalvalue = item.originalvalue;
-					const isCreateRecord = await shouldCreateRecord(tenantId, item.fieldid, ascensionid, testid);
+					const isCreateRecord = await shouldCreateRecord(trx, item.fieldid, ascensionid, testid);
 					if (isCreateRecord) {
 						return await insertRecord();
 					} else {
@@ -348,17 +349,17 @@ export default class Creator {
 						if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
 						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ? AND testid = ?`;
 						const result = await trx.raw(updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
-						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid, trx);
 						return rowAffected(result);
 					}
 
 					async function insertRecord() {
 						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
-						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid);
+						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid, trx);
 						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id)
 							VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
 						const result = await trx.raw(query, values);
-						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid);
+						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid, trx);
 						return rowAffected(result);
 					}
 				})
@@ -413,6 +414,8 @@ export default class Creator {
 
 		try {
 			await connection.transaction(async (trx) => {
+                    await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
+                    await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: null, isapproved: 0, approval_revision: trx.raw('approval_revision + 1'), lastupdatedon: new Date() });
 				let previousImagingValues: Record<string, string> = {};
 				if (auditImaging) {
 					const previousRows = await trx("test_results").select("fieldid", "value").where({ ascensionid, testid });

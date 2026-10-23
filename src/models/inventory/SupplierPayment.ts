@@ -1,3 +1,7 @@
+import { AuthUser } from '../../middleware/authority';
+import { AuthorityService } from '../../accountingModule/services/AuthorityService';
+import { validateSupplierPaymentFunding, SupplierPaymentValidationError } from './SupplierPaymentFunding';
+import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
 import {
      SupplierPayment,
@@ -38,7 +42,7 @@ export class SupplierPaymentModel {
           return `ALLOC-${timestamp}${this.allocationCounter.toString().padStart(3, '0')}`;
      }
 
-     async create(request: CreateSupplierPaymentRequest): Promise<SupplierPayment> {
+     async create(request: CreateSupplierPaymentRequest, actor: AuthUser): Promise<SupplierPayment> {
           const connection = await this.connection;
 
           // Reset counters for new payment
@@ -66,15 +70,20 @@ export class SupplierPaymentModel {
           }
 
           // Validate payment amount is positive
-          if (request.payment_amount <= 0) {
+          if (!Number.isFinite(request.payment_amount) || request.payment_amount <= 0) {
                throw new Error('Payment amount must be positive');
           }
 
-          const paymentId = this.generatePaymentId();
+          const funding = await validateSupplierPaymentFunding(connection, actor, request.payment_account_id, request.payment_method || 'cash');
+          if (purchaseOrder.supplier_id !== request.supplier_id) throw new SupplierPaymentValidationError('Purchase order does not belong to this supplier');
+          const paymentId = 'PAY-' + randomUUID();
           const paymentDate = request.payment_date || new Date();
 
           const paymentData = {
-               id: `SP-${Date.now()}`,
+               id: 'SP-' + randomUUID(),
+               payment_account_id: funding.account.id,
+               payment_account_gl_code: null,
+               branchid: funding.branchid,
                payment_id: paymentId,
                supplier_id: request.supplier_id,
                purchase_order_id: request.purchase_order_id,
@@ -85,7 +94,7 @@ export class SupplierPaymentModel {
                reference_number: request.reference_number || null,
                payment_notes: request.payment_notes || null,
                total_allocated: 0,
-               created_by: request.created_by,
+               created_by: String(actor.employeeid),
                approved_by: null,
                approved_at: null,
                processed_at: null,
@@ -147,9 +156,11 @@ export class SupplierPaymentModel {
 
           const result = await connection('inv_supplier_payments')
                .leftJoin('inv_suppliers', 'inv_supplier_payments.supplier_id', 'inv_suppliers.id')
+               .leftJoin('payment_accounts as source_account', 'inv_supplier_payments.payment_account_id', 'source_account.id')
                .leftJoin('inv_purchase_orders', 'inv_supplier_payments.purchase_order_id', 'inv_purchase_orders.id')
                .select(
                     'inv_supplier_payments.*',
+                    'source_account.name as payment_account_name',
                     'inv_suppliers.id as supplier_id_join',
                     'inv_suppliers.name as supplier_name',
                     'inv_suppliers.contact as supplier_contact',
@@ -191,6 +202,10 @@ export class SupplierPaymentModel {
                payment_amount: parseFloat(result.payment_amount),
                payment_date: result.payment_date,
                payment_method: result.payment_method,
+               payment_account_id: result.payment_account_id,
+               payment_account_name: result.payment_account_name,
+               payment_account_gl_code: result.payment_account_gl_code,
+               branchid: result.branchid,
                payment_status: result.payment_status,
                reference_number: result.reference_number,
                payment_notes: result.payment_notes,
@@ -237,9 +252,11 @@ export class SupplierPaymentModel {
 
           let query = connection('inv_supplier_payments')
                .leftJoin('inv_suppliers', 'inv_supplier_payments.supplier_id', 'inv_suppliers.id')
+               .leftJoin('payment_accounts as source_account', 'inv_supplier_payments.payment_account_id', 'source_account.id')
                .leftJoin('inv_purchase_orders', 'inv_supplier_payments.purchase_order_id', 'inv_purchase_orders.id')
                .select(
                     'inv_supplier_payments.*',
+                    'source_account.name as payment_account_name',
                     'inv_suppliers.name as supplier_name',
                     'inv_purchase_orders.order_number as po_order_number'
                )
@@ -297,6 +314,10 @@ export class SupplierPaymentModel {
                payment_amount: parseFloat(result.payment_amount),
                payment_date: result.payment_date,
                payment_method: result.payment_method,
+               payment_account_id: result.payment_account_id,
+               payment_account_name: result.payment_account_name,
+               payment_account_gl_code: result.payment_account_gl_code,
+               branchid: result.branchid,
                payment_status: result.payment_status,
                reference_number: result.reference_number,
                payment_notes: result.payment_notes,
@@ -322,9 +343,10 @@ export class SupplierPaymentModel {
           };
      }
 
-     async update(id: string, updates: UpdateSupplierPaymentRequest): Promise<SupplierPayment | null> {
+     async update(id: string, updates: UpdateSupplierPaymentRequest, actor: AuthUser): Promise<SupplierPayment | null> {
           const connection = await this.connection;
 
+          if (['completed', 'refunded'].includes(updates.payment_status)) throw new SupplierPaymentValidationError('Use the approval workflow to complete a payment; completed payments require a separate reversal');
           const currentPayment = await this.findById(id);
           if (!currentPayment) {
                throw new Error('Supplier payment not found');
@@ -358,43 +380,47 @@ export class SupplierPaymentModel {
                updateData.approved_at = new Date();
           }
 
-          await connection('inv_supplier_payments')
-               .where({ id })
-               .update(updateData);
+          if (updates.payment_account_id !== undefined || currentPayment.payment_account_id) {
+               const funding = await validateSupplierPaymentFunding(connection, actor, updates.payment_account_id ?? currentPayment.payment_account_id, updates.payment_method ?? currentPayment.payment_method, currentPayment.branchid);
+               updateData.payment_account_id = funding.account.id;
+               updateData.branchid = funding.branchid;
+          }
+          delete updateData.approved_by;
+          delete updateData.approved_at;
+          delete updateData.processed_at;
+          await connection('inv_supplier_payments').where({ id }).whereNotIn('payment_status', ['completed', 'refunded']).update(updateData);
 
           return await this.findById(id);
      }
 
-     async approve(id: string, approvedBy: number): Promise<SupplierPayment | null> {
+     async approve(id: string, actor: AuthUser, input: { payment_account_id?: number; payment_method?: string } = {}): Promise<SupplierPayment | null> {
           const connection = await this.connection;
-
-          const currentPayment = await this.findById(id);
-          if (!currentPayment) {
-               throw new Error('Supplier payment not found');
-          }
-
-          if (currentPayment.payment_status !== 'pending') {
-               throw new Error('Only pending payments can be approved');
-          }
-
-          await connection('inv_supplier_payments')
-               .where({ id })
-               .update({
-                    payment_status: 'completed',
-                    approved_by: approvedBy,
-                    approved_at: new Date(),
-                    processed_at: new Date(),
-                    updated_at: new Date()
+          await connection.transaction(async trx => {
+               const payment = await trx('inv_supplier_payments').where({ id }).forUpdate().first();
+               if (!payment) throw new SupplierPaymentValidationError('Supplier payment not found', 404);
+               if (!actor?.employeeid) throw new SupplierPaymentValidationError('Authentication required', 401);
+               if (payment.payment_status === 'completed') {
+                    if (actor.branch != null && payment.branchid != null && Number(actor.branch) !== Number(payment.branchid)) throw new SupplierPaymentValidationError('Payment belongs to another branch', 403);
+                    const decision = await new AuthorityService(this.tenantId).can(actor.employeeid, 'purchase_order.pay', Number(payment.payment_amount), payment.branchid ?? actor.branch);
+                    if (!decision.allowed) throw new SupplierPaymentValidationError(decision.reason, 403);
+                    if (input.payment_account_id && Number(input.payment_account_id) !== Number(payment.payment_account_id)) throw new SupplierPaymentValidationError('A completed payment source cannot be changed');
+                    if (payment.payment_account_id) await validateSupplierPaymentFunding(trx, actor, payment.payment_account_id, payment.payment_method, payment.branchid);
+                    return;
+               }
+               if (payment.payment_status !== 'pending') throw new SupplierPaymentValidationError('Only pending payments can be approved');
+               const accountId = input.payment_account_id ?? payment.payment_account_id;
+               const method = input.payment_method ?? payment.payment_method;
+               const funding = await validateSupplierPaymentFunding(trx, actor, accountId, method, payment.branchid);
+               const decision = await new AuthorityService(this.tenantId).can(actor.employeeid, 'purchase_order.pay', Number(payment.payment_amount), funding.branchid);
+               if (!decision.allowed) throw new SupplierPaymentValidationError(decision.reason, 403);
+               await trx('inv_supplier_payments').where({ id }).update({
+                    payment_account_id: funding.account.id, payment_account_gl_code: funding.account.gl_account_code,
+                    branchid: funding.branchid, payment_method: method, payment_status: 'completed',
+                    approved_by: String(actor.employeeid), approved_at: new Date(), processed_at: new Date(), updated_at: new Date()
                });
-
-          // Get the updated payment
-          const updatedPayment = await this.findById(id);
-
-          if (updatedPayment) {
-               await enqueueSupplierPayment(this.tenantId, id);
-          }
-
-          return updatedPayment;
+               await enqueueSupplierPayment(this.tenantId, id, trx);
+          });
+          return this.findById(id);
      }
 
      async cancel(id: string): Promise<SupplierPayment | null> {

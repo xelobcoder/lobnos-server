@@ -82,12 +82,12 @@ export class InventoryTransactionModel {
           return transaction;
      }
 
-     async createBulk(requests: CreateInventoryTransactionRequest[]): Promise<InventoryTransaction[]> {
+     async createBulk(requests: CreateInventoryTransactionRequest[], parentTransaction?: Knex.Transaction): Promise<InventoryTransaction[]> {
           if (!Array.isArray(requests) || requests.length === 0) throw new Error('At least one transaction is required');
           const transactions = requests.map(request => inventoryTransactionSchema.parse(request) as CreateInventoryTransactionRequest);
           const connection = await this.connection;
           const alerts: Array<{ request: CreateInventoryTransactionRequest; previous: number; next: number; minimum: number }> = [];
-          const created = await connection.transaction(async trx => {
+          const created = await (parentTransaction || connection).transaction(async trx => {
                // Lock in a stable order so overlapping bulk requests do not deadlock.
                const items = await trx('inv_inventory_items').whereIn('id', [...new Set(transactions.map(r => r.item_id))].sort())
                     .where('is_active', true).orderBy('id').forUpdate();
@@ -136,10 +136,14 @@ export class InventoryTransactionModel {
                }
                return results;
           });
-          for (const alert of alerts) {
-               this.dispatchTransactionLifecycle(alert.request, alert.request.item_id);
-               this.dispatchStockThresholdAlerts(alert.request.item_id, alert.next, alert.minimum, alert.previous, alert.request.performed_by);
-          }
+          const dispatchAlerts = () => {
+               for (const alert of alerts) {
+                    this.dispatchTransactionLifecycle(alert.request, alert.request.item_id);
+                    this.dispatchStockThresholdAlerts(alert.request.item_id, alert.next, alert.minimum, alert.previous, alert.request.performed_by);
+               }
+          };
+          if (parentTransaction) void parentTransaction.executionPromise.then(dispatchAlerts, () => undefined);
+          else dispatchAlerts();
           return created;
      }
 

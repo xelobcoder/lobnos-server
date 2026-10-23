@@ -1,3 +1,5 @@
+import { getAuthUser } from '../../middleware/authority';
+import { SupplierPaymentValidationError } from '../../models/inventory/SupplierPaymentFunding';
 import { Request, Response } from 'express';
 import { SupplierPaymentModel } from '../../models/inventory';
 import KnexConnection from '../../database/KnexConnections';
@@ -43,13 +45,15 @@ export class SupplierPaymentController {
                });
           }
 
-          if (!data.payment_amount || typeof data.payment_amount !== 'number' || data.payment_amount <= 0) {
+          if (!Number.isFinite(data.payment_amount) || data.payment_amount <= 0) {
                errors.push({
                     field: 'payment_amount',
                     message: 'Payment amount must be a positive number',
                     value: data.payment_amount
                });
           }
+
+          if (data.payment_account_id !== undefined && (!Number.isSafeInteger(data.payment_account_id) || data.payment_account_id <= 0)) errors.push({ field: 'payment_account_id', message: 'Select a valid payment source account', value: data.payment_account_id });
 
           if (data.payment_date && !/^\d{4}-\d{2}-\d{2}$/.test(data.payment_date)) {
                errors.push({
@@ -59,7 +63,7 @@ export class SupplierPaymentController {
                });
           }
 
-          const validPaymentMethods = ['cash', 'check', 'bank_transfer', 'credit_card', 'wire_transfer', 'other'];
+          const validPaymentMethods = ['cash', 'check', 'bank_transfer', 'credit_card', 'wire_transfer', 'other', 'mobile_money', 'cheque'];
           if (data.payment_method && !validPaymentMethods.includes(data.payment_method)) {
                errors.push({
                     field: 'payment_method',
@@ -102,7 +106,7 @@ export class SupplierPaymentController {
                });
           }
 
-          const validPaymentMethods = ['cash', 'check', 'bank_transfer', 'credit_card', 'wire_transfer', 'other'];
+          const validPaymentMethods = ['cash', 'check', 'bank_transfer', 'credit_card', 'wire_transfer', 'other', 'mobile_money', 'cheque'];
           if (data.payment_method && !validPaymentMethods.includes(data.payment_method)) {
                errors.push({
                     field: 'payment_method',
@@ -142,18 +146,10 @@ export class SupplierPaymentController {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
 
-               // Extract employeeid from query parameters
-               const employeeId = req.body.created_by as string;
-               if (!employeeId) {
-                    const response: ApiResponse<null> = {
-                         success: false,
-                         message: 'Employee ID is required',
-                         data: null
-                    };
-                    res.status(400).json(response);
-                    return;
-               }
-
+               const actor = getAuthUser(req);
+               if (!actor) { res.status(401).json({ success: false, message: 'Authentication required' }); return; }
+               const employeeId = actor.employeeid;
+               if (!Number.isSafeInteger(req.body.payment_account_id) || req.body.payment_account_id <= 0) { res.status(400).json({ success: false, message: 'Select a payment source account' }); return; }
                const validation = this.validateCreateSupplierPaymentRequest(req.body);
                if (!validation.isValid) {
                     const response: ApiResponse<null> = {
@@ -173,10 +169,10 @@ export class SupplierPaymentController {
                // Add created_by to the request
                const paymentRequest = {
                     ...req.body,
-                    created_by: employeeId
+                    created_by: String(employeeId)
                };
 
-               const payment = await model.create(paymentRequest as CreateSupplierPaymentRequest);
+               const payment = await model.create(paymentRequest as CreateSupplierPaymentRequest, actor);
 
                if (payment && payment.id) {
                     const status = String(payment.payment_status || '').toLowerCase();
@@ -207,7 +203,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to create supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -243,7 +239,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -279,7 +275,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -316,7 +312,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payments',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -414,7 +410,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve grouped supplier payments',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -440,7 +436,9 @@ export class SupplierPaymentController {
                     return;
                }
 
-               const payment = await model.update(id as string, req.body as UpdateSupplierPaymentRequest);
+               const actor = getAuthUser(req);
+               if (!actor) { res.status(401).json({ success: false, message: 'Authentication required' }); return; }
+               const payment = await model.update(id as string, req.body as UpdateSupplierPaymentRequest, actor);
 
                if (!payment) {
                     const response: ApiResponse<null> = {
@@ -454,18 +452,18 @@ export class SupplierPaymentController {
 
                const status = String((payment as any).payment_status || req.body?.payment_status || '').toLowerCase();
                const supplierId = (payment as any).supplier_id || id;
-               const actor = Number((req.body as any)?.updated_by || (req.query as any)?.employeeid || 0) || undefined;
+               const actorId = actor.employeeid;
                if (status === 'completed') {
-                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PROCESSED', { supplierId }, actor).catch(() => { });
-                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PROCESSED', { supplierId }, actorId).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_RECEIVED', { supplierId }, actorId).catch(() => { });
                } else if (status === 'failed') {
-                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
-                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_FAILED', { supplierId }, actorId).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_FAILED', { supplierId }, actorId).catch(() => { });
                } else if (status === 'pending') {
-                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
-                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'SUPPLIER_PAYMENT_PENDING', { supplierId }, actorId).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_PENDING', { supplierId }, actorId).catch(() => { });
                } else if (status === 'refunded') {
-                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REVERSED', { supplierId }, actor).catch(() => { });
+                    NotificationDispatcher.dispatch(tenantId, 'PAYMENT_REVERSED', { supplierId }, actorId).catch(() => { });
                }
 
                const response: ApiResponse<any> = {
@@ -482,7 +480,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to update supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -491,19 +489,10 @@ export class SupplierPaymentController {
                const tenantId = this.getTenantId(req);
                const model = new SupplierPaymentModel(tenantId);
                const id = req.params.id as string;
-               const { approved_by, branchid: bodyBranchId } = req.body;
-
-               if (!approved_by || typeof approved_by !== "number" || isNaN(approved_by)) {
-                    const response: ApiResponse<null> = {
-                         success: false,
-                         message: 'Approved by is required',
-                         data: null
-                    };
-                    res.status(400).json(response);
-                    return;
-               }
-
-               const payment = await model.approve(id, approved_by);
+               const actor = getAuthUser(req);
+               if (!actor) { res.status(401).json({ success: false, message: 'Authentication required' }); return; }
+               const approved_by = actor.employeeid;
+               const payment = await model.approve(id, actor, { payment_account_id: req.body.payment_account_id, payment_method: req.body.payment_method });
 
                if (!payment) {
                     const response: ApiResponse<null> = {
@@ -515,22 +504,7 @@ export class SupplierPaymentController {
                     return;
                }
 
-               let branchid = bodyBranchId;
-               if (!branchid || typeof branchid !== "number" || isNaN(branchid)) {
-                    const connection = await KnexConnection(tenantId);
-                    const actor = await connection('roles')
-                         .select('branch')
-                         .where({ employeeid: approved_by })
-                         .first();
-                    branchid = actor?.branch;
-
-                    if (!branchid) {
-                         const fallbackBranch = await connection('branch')
-                              .select('branchid')
-                              .first();
-                         branchid = fallbackBranch?.branchid;
-                    }
-               }
+               const branchid = payment.branchid;
 
                let expenseSync: any = null;
                try {
@@ -574,7 +548,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to approve supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -617,7 +591,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to cancel supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -677,7 +651,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to reject supplier payment',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -719,7 +693,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to add payment allocation',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -745,7 +719,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to remove payment allocation',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -776,7 +750,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve payment summary',
                     data: null
                };
-               res.status(500).json(response);
+               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
           }
      }
 }

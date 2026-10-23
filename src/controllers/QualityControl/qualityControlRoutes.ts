@@ -1,3 +1,6 @@
+import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkflowAuthority';
+import { getAuthUser } from '../../middleware/authority';
+import { roleAllowed } from '../../middleware/roles';
 import express from 'express';
 import { DeviceController } from './DeviceController';
 import { ControlMaterialController } from './ControlMaterialController';
@@ -52,8 +55,9 @@ router.delete('/api/v1/controlparameters/:id', controlParameterController.delete
 router.post('/api/v1/qc-sessions', qcReadingsController.createSession.bind(qcReadingsController));
 router.get('/api/v1/qc-sessions/:id', qcReadingsController.getSessionById.bind(qcReadingsController));
 router.put('/api/v1/qc-sessions/:id', qcReadingsController.updateSession.bind(qcReadingsController));
-router.post('/api/v1/qc-sessions/:id/accept-for-results', isAuthorizedRoleScientistPhelobotomist, qcReadingsController.acceptForResultEntry.bind(qcReadingsController));
-router.post('/api/v1/qc-sessions/:id/bypass-for-results', isAuthorizedRoleAdmin, qcReadingsController.bypassForResultEntry.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions/:id/accept-for-results', requireLaboratoryWorkflowRole, qcReadingsController.acceptForResultEntry.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions/:id/bypass-for-results', requireLaboratoryWorkflowRole, (req, res, next) => roleAllowed(getAuthUser(req)?.role, ['admin', 'manager']) ? next() : res.status(403).json({ error: 'Supervisor access required' }), qcReadingsController.bypassForResultEntry.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions/:id/revoke-for-results', requireLaboratoryWorkflowRole, qcReadingsController.revokeForResultEntry.bind(qcReadingsController));
 router.delete('/api/v1/qc-sessions/:id', qcReadingsController.deleteSession.bind(qcReadingsController));
 router.get('/api/v1/qc-sessions', qcReadingsController.getSessionsPaginated.bind(qcReadingsController));
 

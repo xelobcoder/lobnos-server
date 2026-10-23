@@ -21,13 +21,14 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
      try {
           const db = trx || (await KnexConnection(tenantId));
           const payment = await db('inv_supplier_payments')
-               .select('id', 'payment_amount', 'payment_method', 'payment_date', 'approved_by', 'payment_id', 'supplier_id')
+               .select('id', 'payment_amount', 'payment_method', 'payment_date', 'approved_by', 'payment_id', 'supplier_id', 'payment_status', 'payment_account_id', 'payment_account_gl_code', 'branchid')
                .where({ id: paymentId })
                .first();
 
-          if (!payment || Number(payment.payment_amount) <= 0) return;
+          if (!payment || payment.payment_status !== 'completed' || Number(payment.payment_amount) <= 0) return;
+          if (payment.payment_account_id && !payment.payment_account_gl_code) throw new Error('Supplier payment source ledger account is missing');
 
-          const shared = { amount: Number(payment.payment_amount) };
+          const shared = { amount: Number(payment.payment_amount), branchid: payment.branchid ? Number(payment.branchid) : null };
 
           await enqueuePosting(
                tenantId,
@@ -43,7 +44,7 @@ export async function enqueueSupplierPayment(tenantId: number, paymentId: string
                     createdBy: payment.approved_by ? Number(payment.approved_by) : null,
                     lines: [
                          { accountCode: ACCOUNTS_PAYABLE, direction: NormalBalance.DEBIT, ...shared },
-                         { accountCode: resolveCashAccountCode(payment.payment_method), direction: NormalBalance.CREDIT, ...shared },
+                         { accountCode: payment.payment_account_gl_code || resolveCashAccountCode(payment.payment_method), direction: NormalBalance.CREDIT, ...shared },
                     ],
                },
                db

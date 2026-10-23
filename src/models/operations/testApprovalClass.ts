@@ -1,3 +1,4 @@
+import { ResultApprovalService } from './ResultApprovalService';
 import {
 	q_insert_result_printing_tracking,
 	q_get_result_printing_tracking_by_id,
@@ -32,74 +33,9 @@ export class TestApprovalClass extends Operations {
 		this.ascensionid = ascensionid;
 	}
 
-	public static async updateTestApprovalStatus(ascensionid: number, approvedBy: number, tenantId: number): Promise<boolean | string> {
-		const validatedBy = approvedBy;
-		if (ascensionid && approvedBy) {
-			const approvedDetails = await new TestApprovalClass(ascensionid).getAscensionApprovedList(tenantId);
-
-			const canStaffApproveResult = await ResultSettings.canStaffApproveResult(tenantId, approvedBy);
-
-			const isMaximumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, approvedDetails, ascensionid, "maximum");
-
-			const minListUnverified = Array.isArray(approvedDetails) ? [...approvedDetails, approvedBy] : [approvedDetails, approvedBy];
-
-			const isMinimumApprovalReached = await ResultSettings.isApprovalLimitReached(tenantId, minListUnverified, ascensionid, 'minimum');
-			const _approvalState = isMinimumApprovalReached == true ? 1 : 0;
-
-			if (!canStaffApproveResult) return OperationsFailures.dontHaveAccessPermission;
-			if (isMaximumApprovalReached) return OperationsFailures.maximumResultValidation;
-
-			if (Array.isArray(approvedDetails) && approvedDetails.length == 0) {
-				return await updateQueryExecutor(approvedBy.toString(), _approvalState, ascensionid, tenantId);
-			} else if (typeof approvedDetails === "number") {
-
-				if (approvedDetails === approvedBy) {
-					return OperationsFailures.resourceExist + " .Resource was already validated by the current user";
-				}
-
-				const newApproved = [approvedDetails, approvedBy].join(",");
-
-				return await updateQueryExecutor(newApproved, _approvalState, ascensionid, tenantId);
-			} else if (Array.isArray(approvedDetails) && approvedDetails.length > 0) {
-				if (approvedDetails.includes(approvedBy as never) == false) {
-					const newApproved = [...approvedDetails, approvedBy].join(",");
-
-					return await updateQueryExecutor(newApproved, _approvalState, ascensionid, tenantId);
-				}
-				return OperationsFailures.resourceExist + " .Resource was already validated by the current user";
-			}
-
-		}
-
-		return false;
-
-		async function updateQueryExecutor(approvedBy: string, isApproved: number, ascensionid: number, tenantId: number) {
-			try {
-				const connection = await KnexConnection(tenantId);
-				const ascension = await connection('test_ascension').select('testid', 'billingid').where({ id: ascensionid }).first();
-				const auditImaging = ascension?.testid ? await ImagingResultAuditRepository.isImagingTest(connection, ascension.testid) : false;
-				// DDL implicitly commits, so ensure the audit table before opening the transaction.
-				if (auditImaging) await ImagingResultAuditRepository.ensureTable(tenantId);
-
-				return await connection.transaction(async (trx: any) => {
-					const previous = auditImaging ? await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first() : null;
-					const result = await trx.raw(q_updateTestApprovalStatus, [isApproved, approvedBy, ascensionid]);
-					const updated = Number((Array.isArray(result) ? result[0] : result)?.affectedRows || 0) > 0;
-					if (auditImaging && updated) {
-						const action = isApproved === 1 ? 'FINALIZE' : 'UPDATE';
-						const base = { ascensionid, testid: ascension.testid, billingid: ascension.billingid, entityType: 'APPROVAL' as const, entityId: ascensionid, action: action as 'FINALIZE' | 'UPDATE', employeeid: validatedBy };
-						await ImagingResultAuditRepository.record(trx, [
-							{ ...base, fieldName: 'approvedBy', oldValue: previous?.approvedBy == null ? null : String(previous.approvedBy), newValue: approvedBy },
-							{ ...base, fieldName: 'isapproved', oldValue: previous?.isapproved == null ? null : String(previous.isapproved), newValue: String(isApproved) },
-						]);
-					}
-					return updated;
-				});
-			} catch (error) {
-				console.log(error)
-			}
-		}
-	}
+	public static async updateTestApprovalStatus(ascensionid: number, approvedBy: number, tenantId: number, branchid?: number | null): Promise<boolean | string> {
+          return new ResultApprovalService(tenantId).approve(ascensionid, approvedBy, branchid);
+     }
 
 	public static async getAscensionPrintCount(ascensionid: number, tenantId: number): Promise<boolean | number> {
 		let count = await promisifyQuery(tenantId, q_get_print_count_for_test, [ascensionid]);

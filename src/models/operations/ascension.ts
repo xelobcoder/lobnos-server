@@ -38,7 +38,8 @@ export class TestAscension {
 		ascensionId: number,
 		stage: keyof typeof ascensionStages,
 		value: Date,
-		employeeid: number
+		employeeid: number,
+          trx?: any
 	): Promise<boolean | null> {
 		if (!ascensionId || !ascensionStages[stage] || !value) return false;
 
@@ -65,10 +66,11 @@ export class TestAscension {
 		}
 		query = query.replace('{stage}', stage);
 		const sanitizedDate = new Date(value);
-		const result = await promisifyQuery(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
+		const result = trx ? (await trx.raw(query, [sanitizedDate, employeeid, ascensionId]))[0] : await promisifyQuery(tenantId, query, [sanitizedDate, employeeid, ascensionId]);
 		if (stage === 'resultEntryEnd') {
 			// Saving results implies entry started; without this the test never reaches VALIDATION.
-			await promisifyQuery(tenantId, `UPDATE test_ascension SET resultEntryStart = ? WHERE id = ? AND resultEntryStart IS NULL`, [sanitizedDate, ascensionId]);
+			if (trx) await trx('test_ascension').where({ id: ascensionId }).whereNull('resultEntryStart').update({ resultEntryStart: sanitizedDate });
+               else await promisifyQuery(tenantId, `UPDATE test_ascension SET resultEntryStart = ? WHERE id = ? AND resultEntryStart IS NULL`, [sanitizedDate, ascensionId]);
 		}
 		return rowAffected(result);
 	}

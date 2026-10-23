@@ -1,3 +1,4 @@
+import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from "express";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
@@ -608,7 +609,10 @@ export const setResultDeliveryPreference = async (req: Request, res: Response) =
 		}
 
 		const conn = await KnexConnection(tenantId);
-		const billing = await conn('billing').select('patientid').where({ billingid: pBillingId }).first();
+		const billing = await conn('billing').select('patientid', 'branchid').where({ billingid: pBillingId }).first();
+          if (!billing || (actor.branch != null && Number(billing.branchid) !== Number(actor.branch))) return res.status(403).json({ status: false, message: 'Billing access denied' });
+          const receiver = await conn('roles').where({ employeeid: pTo }).first('branch');
+          if (!receiver || Number(receiver.branch) !== Number(billing.branchid)) return res.status(400).json({ status: false, message: 'Handover recipient must belong to the request branch' });
 		if (!billing || !billing.patientid) {
 			return customError("billing record not found", 404, res);
 		}
@@ -704,7 +708,12 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 		const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes, failurenotes } = req.body || {};
 		const pBillingId = parseInt(String(billingid), 10);
 		const pAscensionId = ascensionid !== undefined && ascensionid !== null ? parseInt(String(ascensionid), 10) : null;
-		const pEmployeeId = parseInt(String(delivered_by_employeeid), 10);
+		const actor = getAuthUser(req);
+          if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+          const pEmployeeId = actor.employeeid;
+          const scopeDb = await KnexConnection(tenantId);
+          const scopeBill = await scopeDb('billing').where({ billingid: pBillingId }).first('branchid');
+          if (!scopeBill || (actor.branch != null && Number(scopeBill.branchid) !== Number(actor.branch))) return res.status(403).json({ status: false, message: 'Billing access denied' });
 
 		if (!pBillingId || isNaN(pBillingId)) return customError("billingid must be a number", 400, res);
 		if (pAscensionId !== null && isNaN(pAscensionId)) return customError("ascensionid must be a number", 400, res);
@@ -746,7 +755,8 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 		res.status(201).send({ status: true, result });
 	} catch (err) {
 		console.log(err);
-		responseError(res, err);
+		if ((err as any)?.statusCode) return res.status((err as any).statusCode).json({ status: false, message: (err as any).message });
+          responseError(res, err);
 	}
 };
 
@@ -755,7 +765,9 @@ export const recordResultHandover = async (req: Request, res: Response) => {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
 		const { billingid, from_employeeid, to_employeeid, status, notes } = req.body || {};
 		const pBillingId = parseInt(String(billingid), 10);
-		const pFrom = parseInt(String(from_employeeid), 10);
+		const actor = getAuthUser(req);
+          if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+          const pFrom = actor.employeeid;
 		const pTo = parseInt(String(to_employeeid), 10);
 		if (!pBillingId || isNaN(pBillingId) || !pFrom || isNaN(pFrom) || !pTo || isNaN(pTo)) {
 			return customError("billingid, from_employeeid and to_employeeid must be numbers", 400, res);
@@ -777,7 +789,8 @@ export const recordResultHandover = async (req: Request, res: Response) => {
 
 		res.status(201).send({ status: true, id });
 	} catch (err) {
-		responseError(res, err);
+		if ((err as any)?.statusCode) return res.status((err as any).statusCode).json({ status: false, message: (err as any).message });
+          responseError(res, err);
 	}
 };
 

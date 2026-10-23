@@ -131,8 +131,8 @@ router.delete('/api/v1/result/entry/ultrasound/templates/:templateid', deleteUlt
 
 // TEST APPROVAL
 
-router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, getAscensionApprovalDetailsHandler);
-router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, updateAscensionApprovalDetailsHandler);
+router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, requireLaboratoryWorkflowRole, getAscensionApprovalDetailsHandler);
+router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, requireLaboratoryWorkflowRole, updateAscensionApprovalDetailsHandler);
 
 
 // TEST MULTI CONDITIONS CREATION

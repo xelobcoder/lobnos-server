@@ -1,3 +1,4 @@
+import { ensureSupplierPaymentFundingColumns } from './SupplierPaymentFunding';
 import KnexConnection from '../../database/KnexConnections';
 
 const DEFAULT_CATEGORIES = [
@@ -389,6 +390,8 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
                table.index(['reference_number'], 'idx_payment_reference');
           });
      }
+
+     await ensureSupplierPaymentFundingColumns(connection);
 
      if (!(await connection.schema.hasTable('inv_supplier_payment_allocations'))) {
           await connection.schema.createTable('inv_supplier_payment_allocations', (table) => {

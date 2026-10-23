@@ -13,3 +13,10 @@ export function requireLaboratoryWorkflowRole(req: Request, res: Response, next:
     if (req.body) req.body.employeeid = actor.employeeid;
     return next();
 }
+
+export function requireResultDeliveryRole(req: Request, res: Response, next: NextFunction) {
+    const actor = getAuthUser(req);
+    if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+    if (!roleAllowed(actor.role, ['admin', 'manager', 'scientist', 'customer service representative'])) return res.status(403).json({ status: false, message: 'Result delivery access denied' });
+    return next();
+}
