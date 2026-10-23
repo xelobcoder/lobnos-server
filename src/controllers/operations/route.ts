@@ -1,3 +1,5 @@
+import { getAuthUser } from '../../middleware/authority';
+import labWorkbenchRoutes from './labWorkbenchRoutes';
 import express from "express"
 import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
@@ -73,6 +75,14 @@ import { CreateTestConditionDefinitionDto } from "../../models/operations/dto/Mu
 
 
 const router = express.Router();
+router.use(checkTokenExists, (req, res, next) => {
+     const actor = getAuthUser(req);
+     if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+     if (['clinician', 'patient'].includes(String(actor.role).toLowerCase())) return res.status(403).json({ status: false, message: 'Staff operations access required' });
+     req.query.employeeid = String(actor.employeeid);
+     next();
+});
+router.use('/api/v1/operations/laboratory/workbench', labWorkbenchRoutes);
 
 // Imaging analytics + audit trail: static paths registered before any parameterized route.
 router.get(`/api/v1/operations/imaging/analytics`, handleOverLoad(ImagingAnalyticsController.getImagingAnalytics));

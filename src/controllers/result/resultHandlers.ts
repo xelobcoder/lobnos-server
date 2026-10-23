@@ -601,7 +601,10 @@ export const completeFlowByPassMultipleHandler = async (req: Request, res: Respo
 export const setResultDeliveryPreference = async (req: Request, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
-		const { billingid, preferences, employeeid } = req.body || {};
+		const { billingid, preferences } = req.body || {};
+          const actor = getAuthUser(req);
+          if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+          const employeeid = actor.employeeid;
 		const pBillingId = parseInt(String(billingid), 10);
 
 		if (!pBillingId || isNaN(pBillingId)) {
@@ -611,8 +614,6 @@ export const setResultDeliveryPreference = async (req: Request, res: Response) =
 		const conn = await KnexConnection(tenantId);
 		const billing = await conn('billing').select('patientid', 'branchid').where({ billingid: pBillingId }).first();
           if (!billing || (actor.branch != null && Number(billing.branchid) !== Number(actor.branch))) return res.status(403).json({ status: false, message: 'Billing access denied' });
-          const receiver = await conn('roles').where({ employeeid: pTo }).first('branch');
-          if (!receiver || Number(receiver.branch) !== Number(billing.branchid)) return res.status(400).json({ status: false, message: 'Handover recipient must belong to the request branch' });
 		if (!billing || !billing.patientid) {
 			return customError("billing record not found", 404, res);
 		}
@@ -692,7 +693,7 @@ export const getResultRecordUndelivered = async (req: Request<{}, {}, {}, { tena
 		const endDate = req.query.endDate;
 		const count = req.query.count ? parseInt(req.query.count as unknown as string, 10) : 0;
 		const page = req.query.page ? parseInt(req.query.page as unknown as string, 10) : 1;
-		const undeliveredRecords = await new ResultDeliveryClass(0, tenantId).getResultsUndelivered(startDate, endDate, page, count);
+		const undeliveredRecords = await new ResultDeliveryClass(0, tenantId, getAuthUser(req)?.branch).getResultsUndelivered(startDate, endDate, page, count);
 
 		res.send({
 			status: true,
@@ -724,23 +725,27 @@ export const recordResultDelivery = async (req: Request, res: Response) => {
 			return customError("either delivered_mode or failurenotes is required", 400, res);
 		}
 
+		const normalizedFailureNotes = typeof failurenotes === 'string' ? failurenotes.trim() : null;
+          if ((notes != null && typeof notes !== 'string') || String(notes || '').length > 2000 || String(normalizedFailureNotes || '').length > 2000) return res.status(400).json({ status: false, message: 'Delivery notes must be text of at most 2000 characters' });
 		const normalizedDeliveredMode = delivered_mode && typeof delivered_mode === 'string'
 			? delivered_mode.trim().toLowerCase()
 			: null;
 
 
+          if ((!normalizedDeliveredMode || normalizedDeliveredMode === 'not_delivered') && !normalizedFailureNotes) return res.status(400).json({ status: false, message: 'Select a delivery mode or enter a failure reason' });
+          if (normalizedDeliveredMode && normalizedDeliveredMode.length > 30) return res.status(400).json({ status: false, message: 'Delivery mode is too long' });
 		const result = await new ResultDeliveryClass(pBillingId, tenantId).updateResultDeliveryLog({
 			ascensionid: pAscensionId,
 			billingid: pBillingId,
-			delivered_mode: failurenotes ? null : normalizedDeliveredMode,
+			delivered_mode: normalizedFailureNotes ? null : normalizedDeliveredMode,
 			delivered_by_employeeid: pEmployeeId,
 			notes: notes ?? null,
-			failurenotes: failurenotes ?? null
+			failurenotes: normalizedFailureNotes || null
 		});
 
 
 
-		if (result && normalizedDeliveredMode) {
+		if (result && normalizedDeliveredMode && !normalizedFailureNotes) {
 			InAppNotificationService.publish(tenantId, {
 				eventCode: 'RESULT_DELIVERED',
 				module: 'result',
@@ -799,10 +804,11 @@ export const getResultDeliveryChain = async (req: Request, res: Response) => {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
 		const billingid = parseInt(String(req.params.billingid), 10);
 		if (!billingid || isNaN(billingid)) return customError("billingid must be a number", 400, res);
-		const deliveryChain = await new ResultDeliveryClass(billingid, tenantId).getResultDeliveryChain();
+		const deliveryChain = await new ResultDeliveryClass(billingid, tenantId, getAuthUser(req)?.branch).getResultDeliveryChain();
 		if (deliveryChain && deliveryChain.status === true) return res.send(deliveryChain);
 		return res.send({ status: false, message: "No delivery chain found" });
-	} catch (err) {
+	} catch (err: any) {
+          if (err.statusCode) return res.status(err.statusCode).json({ status: false, message: err.message });
 		responseError(res, err);
 	}
 };

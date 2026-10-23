@@ -31,7 +31,7 @@ export async function getDailyQcStatus(tenantId: number, testId: number, scope?:
      }
      return { required: true, allowed: !reason, reason, sessionId: review?.session_id || null, decision: review?.decision || null, branchid: scope.branchid, deviceId: scope.deviceId || null };
 }
-export async function requireDailyQcAcceptance(tenantId: number, testId: number, scope?: QCScope): Promise<void> {
-     const status = await getDailyQcStatus(tenantId, testId, scope);
+export async function requireDailyQcAcceptance(tenantId: number, testId: number, scope?: QCScope, connection?: any): Promise<void> {
+     const status = await getDailyQcStatus(tenantId, testId, scope, connection);
      if (!status.allowed) throw new QCRequiredError(status.reason);
 }

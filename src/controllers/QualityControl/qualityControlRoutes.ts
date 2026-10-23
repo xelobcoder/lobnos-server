@@ -52,9 +52,9 @@ router.get('/api/v1/controlparameters', controlParameterController.getAll.bind(c
 router.delete('/api/v1/controlparameters/:id', controlParameterController.delete.bind(controlParameterController));
 
 // QC Sessions Routes
-router.post('/api/v1/qc-sessions', qcReadingsController.createSession.bind(qcReadingsController));
+router.post('/api/v1/qc-sessions', requireLaboratoryWorkflowRole, qcReadingsController.createSession.bind(qcReadingsController));
 router.get('/api/v1/qc-sessions/:id', qcReadingsController.getSessionById.bind(qcReadingsController));
-router.put('/api/v1/qc-sessions/:id', qcReadingsController.updateSession.bind(qcReadingsController));
+router.put('/api/v1/qc-sessions/:id', requireLaboratoryWorkflowRole, qcReadingsController.updateSession.bind(qcReadingsController));
 router.post('/api/v1/qc-sessions/:id/accept-for-results', requireLaboratoryWorkflowRole, qcReadingsController.acceptForResultEntry.bind(qcReadingsController));
 router.post('/api/v1/qc-sessions/:id/bypass-for-results', requireLaboratoryWorkflowRole, (req, res, next) => roleAllowed(getAuthUser(req)?.role, ['admin', 'manager']) ? next() : res.status(403).json({ error: 'Supervisor access required' }), qcReadingsController.bypassForResultEntry.bind(qcReadingsController));
 router.post('/api/v1/qc-sessions/:id/revoke-for-results', requireLaboratoryWorkflowRole, qcReadingsController.revokeForResultEntry.bind(qcReadingsController));

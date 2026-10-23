@@ -1,3 +1,4 @@
+import { invalidateResultApprovals } from '../operations/ResultApprovalService';
 import { testpanel } from "../../testpanel/testpanelList";
 import { LaboratoryWorkflowService } from "../operations/LaboratoryWorkflow";
 import {
@@ -415,7 +416,10 @@ export default class Creator {
 		try {
 			await connection.transaction(async (trx) => {
                     await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
-                    await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: null, isapproved: 0, approval_revision: trx.raw('approval_revision + 1'), lastupdatedon: new Date() });
+                    await trx('test_panels').where({ id: testid }).forUpdate().first();
+                    const currentQcWork = await trx('lab_work_assignments').where({ ascensionid }).first('device_id');
+                    await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: currentQcWork?.device_id || null }, trx);
+                    await invalidateResultApprovals(trx, ascensionid, employeeid);
 				let previousImagingValues: Record<string, string> = {};
 				if (auditImaging) {
 					const previousRows = await trx("test_results").select("fieldid", "value").where({ ascensionid, testid });

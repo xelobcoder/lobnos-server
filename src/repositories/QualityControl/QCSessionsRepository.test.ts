@@ -15,11 +15,12 @@ function makeDatabase() {
           const records = table === 'qc_readings' ? state.readings : [];
           const query: any = {
                select: () => query,
+               forUpdate: () => query,
                innerJoin: () => query,
                where: () => query,
                whereRaw: () => query,
                raw: (value: string) => value,
-               first: async () => table === 'qc_sessions as qs' ? { id: 'session-1', testId: 10 } : undefined,
+               first: async () => table === 'qc_sessions as qs' ? { id: 'session-1', testId: 10, branchid: 4, device_id: null, deviceId: null } : table === 'roles' ? { branch: 4 } : undefined,
                insert: async (review: any) => { state.insertedReview = review; return [1]; },
                then: (resolve: any, reject: any) => Promise.resolve(records).then(resolve, reject),
           };

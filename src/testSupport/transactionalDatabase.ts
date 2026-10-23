@@ -21,9 +21,15 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                let first = false;
                let sum: { field: string; alias: string } | undefined;
                const equal = (a: any, b: any) => a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
+               const column = (key: string) => key.split('.').pop()!;
                const query: any = {
+                    select() { return query; }, join() { return query; }, leftJoin() { return query; }, groupBy() { return query; },
+                    async columnInfo() { return { type: 'int' }; },
+                    orderByRaw() { return query; }, havingRaw() { return query; },
+                    whereNotNull(key: string) { filters.push(row => row[column(key)] != null); return query; },
+                    whereNull(key: string) { filters.push(row => row[column(key)] == null); return query; },
                     where(key: string | Record<string, any>, value?: any) {
-                         filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[k], v)) : row => equal(row[key], value));
+                         filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => equal(row[column(key)], value));
                          return query;
                     },
                     whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[key])); return query; },
@@ -57,6 +63,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                };
                return query;
           };
+          trx.raw = (sql: string) => ({ sql });
           try {
                const result = await callback(trx);
                if (local) tables = local;

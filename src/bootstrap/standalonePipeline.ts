@@ -31,6 +31,8 @@ export const LOCAL_MIGRATIONS = [
      '20261021_patient_portal_engagement',
      '20261022_organization_credit_invoices',
      '20261023_appointment_workflow',
+     '20261023_supplier_payment_funding',
+     '20261023_operations_workflow_integrity',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

@@ -4,7 +4,7 @@ export default class ResultDeliveryClass {
      private billingid: number;
      private tenantId: number;
      private connection: any
-     constructor(billingid: number, tenantId: number) {
+     constructor(billingid: number, tenantId: number, private branchid?: number | null) {
           this.billingid = billingid;
           this.tenantId = tenantId;
           this.connection = KnexConnection(this.tenantId);
@@ -35,39 +35,25 @@ export default class ResultDeliveryClass {
 
      async getResultsUndelivered(startDate: string, endDate: string, page: number, count: number) {
           const connection = await this.connection;
-          const query = connection('patient_result_delivery_preference')
-               .leftJoin('result_delivery_log', 'patient_result_delivery_preference.ascension', 'result_delivery_log.ascensionid')
-               .innerJoin('new_patients', 'patient_result_delivery_preference.patientid', 'new_patients.patientid')
-               .where(function (this: any) {
-                    this.whereNull('result_delivery_log.delivered_mode')
-                         .orWhere('result_delivery_log.delivered_mode', 'not_delivered');
-               });
-
-          if (startDate && endDate) {
-               query.andWhereRaw(
-                    'DATE(patient_result_delivery_preference.created_at) BETWEEN ? AND ?',
-                    [startDate, endDate]
-               );
-          }
-
-          const totalcountofUndeliveredResults = await query.clone().count('* as total').first();
-          const totalcount = totalcountofUndeliveredResults?.total || 0;
-
-          if (page && count) {
-               const offset = (page - 1) * count;
-               query.offset(offset).limit(count);
-          }
-
-          const dataset = await query.select('result_delivery_log.*',
-               'patient_result_delivery_preference.ascension as ascensionid',
-               'new_patients.patientid',
-               'new_patients.firstname', 'new_patients.lastname',
-               'new_patients.age', 'new_patients.gender',
-               'new_patients.ageType', 'new_patients.dob', 'new_patients.mobile_number as contact',
-               'new_patients.fullpatientid', 'new_patients.designation',
-               'patient_result_delivery_preference.*');
-          return { totalcount, dataset };
-
+          const query = connection('test_ascension as test')
+               .join('billing as bill', 'bill.billingid', 'test.billingid')
+               .join('dbotestresultapproval as approval', 'approval.ascensionid', 'test.id')
+               .join('new_patients', 'new_patients.patientid', 'bill.patientid')
+               .leftJoin('patient_result_delivery_preference as preference', 'preference.ascension', 'test.id')
+               .leftJoin('result_delivery_log as delivery', 'delivery.ascensionid', 'test.id')
+               .where('approval.isapproved', 1).whereNotNull('test.resultEntryEnd')
+               .where(function () { this.whereNull('delivery.delivered_mode').orWhere('delivery.delivered_mode', 'not_delivered'); });
+          if (this.branchid != null) query.where('bill.branchid', this.branchid);
+          if (startDate) query.whereRaw('DATE(test.resultEntryEnd) >= ?', [startDate]);
+          if (endDate) query.whereRaw('DATE(test.resultEntryEnd) <= ?', [endDate]);
+          const total = await query.clone().countDistinct('test.id as total').first();
+          const safeCount = Math.min(100, Math.max(1, Number(count) || 20));
+          const safePage = Math.max(1, Number(page) || 1);
+          const dataset = await query.select('new_patients.*', 'preference.requested_mode', 'preference.requested_mode_detail',
+               'delivery.delivered_mode', 'delivery.delivered_at', 'delivery.delivered_by_employeeid', 'delivery.failurenotes',
+               'test.id as ascensionid', 'test.billingid', 'test.testid')
+               .orderBy('test.resultEntryEnd').orderBy('test.id').limit(safeCount).offset((safePage - 1) * safeCount);
+          return { totalcount: Number(total?.total || 0), dataset };
      }
 
      async setMultipleTestResultDeliveryPreferences(preferences: {
@@ -132,8 +118,8 @@ export default class ResultDeliveryClass {
                          notes: entry.notes || null, failure_notes: entry.failurenotes || null, created_at: now });
                     const existing = await trx('result_delivery_log').where({ ascensionid: test.id }).first();
                     // A failed retry must not erase an earlier successful delivery.
-                    const values: any = { billingid: entry.billingid, ascensionid: test.id,
-                         notes: entry.notes || null, failurenotes: entry.failurenotes || null };
+                    const values: any = { ascensionid: test.id,
+                         notes: entry.notes?.slice(0, 255) || null, failurenotes: entry.failurenotes || null };
                     if (!entry.failurenotes) Object.assign(values, { delivered_mode: entry.delivered_mode, delivered_by_employeeid: entry.delivered_by_employeeid, delivered_at: now });
                     if (existing) await trx('result_delivery_log').where({ ascensionid: test.id }).update(values);
                     else await trx('result_delivery_log').insert(values);
@@ -147,6 +133,8 @@ export default class ResultDeliveryClass {
      async getResultDeliveryChain(): Promise<{ status: boolean, billingid: number, handovers: any[], deliveries: any[]; attempts?: any[] }> {
           try {
                const connection = await this.connection;
+               const bill = await connection('billing').where({ billingid: this.billingid }).first('branchid');
+               if (!bill || (this.branchid != null && Number(bill.branchid) !== Number(this.branchid))) throw Object.assign(new Error('Billing access denied'), { statusCode: 403 });
                const handovers = await connection('result_handover_log')
                     .leftJoin('roles as r_from', 'result_handover_log.from_employeeid', 'r_from.employeeid')
                     .leftJoin('roles as r_to', 'result_handover_log.to_employeeid', 'r_to.employeeid')
@@ -173,10 +161,12 @@ export default class ResultDeliveryClass {
 
 
 
-               const attempts = await connection('result_delivery_attempts').where({ billingid: this.billingid }).orderBy('id', 'asc');
+               const attempts = await connection('result_delivery_attempts as attempt').leftJoin('roles as operator', 'operator.employeeid', 'attempt.employeeid')
+                    .where('attempt.billingid', this.billingid).select('attempt.*', 'operator.username').orderBy('attempt.id', 'asc');
                return { status: true, billingid: this.billingid, handovers, deliveries, attempts }
           } catch (err: any) {
                console.log(err)
+               if (err.statusCode) throw err;
                throw new Error("Error fetching result delivery chain")
           }
      }

@@ -3,6 +3,16 @@ import ResultSettings from '../application/appsettings/result-settings/resultSet
 import { OperationsFailures } from './types';
 import ImagingResultAuditRepository from './imaging/ImagingResultAuditRepository';
 
+export async function invalidateResultApprovals(trx: any, ascensionid: number, employeeid: number) {
+     const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
+     if (!previous) throw Object.assign(new Error('Result approval configuration is missing'), { statusCode: 409 });
+     const revision = Number(previous.approval_revision || 0) + 1;
+     await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: null, isapproved: 0, approval_revision: revision, lastupdatedon: new Date() });
+     await trx('lab_work_actions').insert({ ascensionid, employeeid, action: 'result_saved', reason: null,
+          metadata: JSON.stringify({ revision, invalidated_validators: previous.approvedBy || null }), created_at: new Date() });
+     return revision;
+}
+
 export class ResultApprovalService {
      constructor(private tenantId: number) { }
      async approve(ascensionid: number, employeeid: number, branchid?: number | null): Promise<boolean | string> {

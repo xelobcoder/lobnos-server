@@ -16,7 +16,13 @@ export class QCReadingsController {
         try {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
-            const sessionData = req.body;
+            const actor = getAuthUser(req);
+            if (!actor?.branch) return res.status(403).json({ error: 'A branch must be assigned to the QC operator' });
+            const db = await import('../../database/KnexConnections').then(module => module.default(tenantId));
+            const material = await db('control_materials').where({ id: req.body.controlMaterialId, status: 'active' }).first();
+            if (!material) return res.status(400).json({ error: 'Select an active control material' });
+            const sessionData = { controlMaterialId: material.id, comments: req.body.comments || null,
+                createdby: actor.employeeid, branchid: actor.branch, device_id: material.deviceId || null };
 
             const status = await repository.create(sessionData);
             res.status(201).json({ status: typeof status == "number" && status > -1 ? true : false });
@@ -82,7 +88,10 @@ export class QCReadingsController {
             const tenantId = this.getTenantId(req);
             const repository = new QCSessionsRepository(tenantId);
             const id = req.params.id as string;
-            const updates = req.body;
+            const actor = getAuthUser(req);
+            const session = await repository.findById(id);
+            if (!actor || !session || Number(session.branchid) !== Number(actor.branch)) return res.status(403).json({ error: 'QC session access denied' });
+            const updates = { comments: req.body.comments || null, updatedby: actor.employeeid };
 
             const result = await repository.update(id, updates);
             res.json({ status: result });

@@ -32,7 +32,8 @@ export const getAscensionApprovalDetailsHandler = async (req: Request, res: Resp
 
 export const updateAscensionApprovalDetailsHandler = async (req: Request, res: Response) => {
 	try {
-		const { ascensionid, employeeid, tenantId } = req.query;
+		const { ascensionid, tenantId } = req.query;
+          const employeeid = getAuthUser(req)?.employeeid;
 		if (!ascensionid || !employeeid || !tenantId) {
 			res.send({ statusCode: 404, message: OperationsFailures.invalidResquestQuery + '. Invalid or absent ascensionid, employeeid or tenantId' });
 		} else {
@@ -43,7 +44,9 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
 			const tId = parseInt(tenantId.toString());
 			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch);
 			if (typeof updateTestApproval === "boolean" && updateTestApproval) {
-				InAppNotificationService.publish(tId, {
+                const approval = await new TestApprovalClass(ascensionId).getAscensionApprovedDetail(tId);
+                const finalized = Number(approval?.isapproved) === 1;
+				if (finalized) InAppNotificationService.publish(tId, {
 					eventCode: 'RESULT_VALIDATED',
 					module: 'result',
 					title: 'Result validated',
@@ -52,7 +55,7 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
 					referenceId: ascensionId,
 					actorEmployeeId: employeeId,
 				}).catch(() => { });
-				res.send({ status: updateTestApproval });
+				res.send({ status: updateTestApproval, finalized, staff: await new TestApprovalClass(ascensionId).getAscensionAprovedListDetails(tId) });
 			} else {
 				res.send({ status: false, message: updateTestApproval });
 			}

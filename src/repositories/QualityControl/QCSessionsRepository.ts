@@ -5,6 +5,8 @@ import { v4 as uuidv4 } from 'uuid';
 
 
 interface QCSession {
+    branchid?: number;
+    device_id?: string | null;
     id?: string;
     controlMaterialId?: string;
     comments?: string;
@@ -177,13 +179,14 @@ export class QCSessionsRepository {
         return connection.transaction(async (trx: any) => {
             const session = await trx('qc_sessions as qs')
                 .innerJoin('control_materials as cm', 'cm.id', 'qs.controlMaterialId')
-                .select('qs.id', 'cm.testId', 'cm.deviceId')
+                .select('qs.id', 'cm.testId', 'cm.deviceId', 'qs.branchid', 'qs.device_id')
                 .where('qs.id', sessionId)
                 .whereRaw('DATE(qs.createdAt) = CURRENT_DATE()')
                 .where('cm.status', 'active')
                 .whereRaw('DATE(cm.expiryDate) >= CURRENT_DATE()')
                 .first();
             if (!session) throw new Error('QC session must be linked to an active, unexpired control material and recorded today.');
+            await trx('test_panels').where({ id: Number(session.testId) }).forUpdate().first();
 
             if (['bypassed', 'rejected'].includes(decision) && !reason?.trim()) {
                 throw new Error('A reason is required to bypass or revoke QC enforcement.');
@@ -198,6 +201,8 @@ export class QCSessionsRepository {
 
             const actor = await trx('roles').where({ employeeid: employeeId }).first('branch');
             if (!Number(actor?.branch)) throw new Error('A branch must be assigned to the QC reviewer');
+            if (!session.branchid || Number(session.branchid) !== Number(actor.branch)) throw new Error('QC session must be recorded for your branch. Recreate legacy sessions without a branch.');
+            if (String(session.device_id || '') !== String(session.deviceId || '')) throw new Error('The control analyzer changed. Record a new QC session.');
             await trx('qc_session_review_audit').insert({
                 branchid: Number(actor.branch), device_id: session.deviceId || null,
                 session_id: sessionId,

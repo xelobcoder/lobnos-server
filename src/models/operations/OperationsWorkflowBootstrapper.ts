@@ -43,6 +43,10 @@ export async function ensureOperationsWorkflowSchema(db: Knex): Promise<void> {
      if (await db.schema.hasTable('dbotestresultapproval') && !(await db.schema.hasColumn('dbotestresultapproval', 'approval_revision'))) {
           await db.schema.alterTable('dbotestresultapproval', t => t.integer('approval_revision').unsigned().notNullable().defaultTo(0));
      }
+     if (await db.schema.hasTable('dbotestresultapproval')) {
+          const summary = await db('dbotestresultapproval').columnInfo('approvedBy');
+          if (Number(summary.maxLength) > 0 && Number(summary.maxLength) < 2048) await db.schema.alterTable('dbotestresultapproval', t => t.string('approvedBy', 2048).nullable().alter());
+     }
      if (!(await db.schema.hasTable('lab_consumption_records'))) await db.schema.createTable('lab_consumption_records', t => {
           t.increments('id'); t.integer('ascensionid').unsigned().notNullable();
           t.string('idempotency_key', 100).notNullable(); t.string('request_hash', 64).notNullable();
@@ -64,6 +68,9 @@ export async function ensureOperationsWorkflowSchema(db: Knex): Promise<void> {
           if (!String(columns[0]?.Type).includes('rejected')) await db.schema.alterTable('qc_session_review_audit', t => {
                t.enum('decision', ['accepted', 'bypassed', 'rejected']).notNullable().alter();
           });
+     }
+     if (await db.schema.hasTable('qc_sessions') && !(await db.schema.hasColumn('qc_sessions', 'branchid'))) {
+          await db.schema.alterTable('qc_sessions', t => { t.integer('branchid').unsigned().nullable(); t.string('device_id', 50).nullable(); });
      }
 }
 

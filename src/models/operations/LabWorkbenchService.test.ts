@@ -1,0 +1,73 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { transactionalDatabase } from '../../testSupport/transactionalDatabase';
+const stock = vi.hoisted(() => ({ createBulk: vi.fn() }));
+vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
+vi.mock('../inventory/InventoryTransaction', () => ({ InventoryTransactionModel: class { createBulk = stock.createBulk; } }));
+import KnexConnection from '../../database/KnexConnections';
+import { LabWorkbenchService } from './LabWorkbenchService';
+
+const actor: any = { employeeid: 7, branch: 4, role: 'scientist', tenantId: 1 };
+function setup(overrides: any = {}) {
+     const store = transactionalDatabase({
+          'test_ascension as ta': [{ id: 1, serviceid: 6, testid: 3, billingid: 2, patientid: 4, branchid: 4, processingStartDate: new Date() }],
+          dboservices: [{ serviceid: 6, status: 'active', isDeleted: 0 }],
+          roles: [{ employeeid: 7, role: 'scientist', branch: 4 }, { employeeid: 8, role: 'scientist', branch: 4 }],
+          inv_inventory_templates: [{ id: 2, testId: 3, name: 'Test materials' }],
+          'inv_inventory_template_items as template': [{ template_id: 2, item_id: 'material', expected: 2, name: 'Reagent', current_stock: 10, cost_price: 5 }],
+          inv_inventory_items: [{ id: 'material' }],
+          inv_inventory_transactions: [{ item_id: 'material', transaction_type: 'addition', ascensionid: null, batch_number: 'lot', available: 10, expiry_date: '2099-01-01' }],
+          ...overrides,
+     });
+     vi.mocked(KnexConnection).mockResolvedValue(store.db);
+     return { store, service: new LabWorkbenchService(1) };
+}
+const usage = () => ({ idempotency_key: 'intent-1', template_id: 2, lines: [{ item_id: 'material', quantity: 2 }] });
+beforeEach(() => { vi.clearAllMocks(); stock.createBulk.mockResolvedValue([{ id: 'txn-1', total_cost: 10 }]); });
+describe('laboratory work and actual material usage', () => {
+     it('claims work as the signed-in scientist and records an audit action', async () => {
+          const { store, service } = setup();
+          await service.update(actor, 1, { version: 0, assigned_employeeid: 7, reason: 'Starting my bench work' });
+          expect(store.rows('lab_work_assignments')[0]).toMatchObject({ assigned_employeeid: 7, version: 1 });
+          expect(store.rows('lab_work_actions')[0]).toMatchObject({ employeeid: 7, action: 'update' });
+     });
+     it('rejects a stale reassignment and another branch', async () => {
+          const { store, service } = setup({ lab_work_assignments: [{ ascensionid: 1, version: 2, assigned_employeeid: 7 }] });
+          await expect(service.update(actor, 1, { version: 1, assigned_employeeid: 7 })).rejects.toThrow('changed');
+          await expect(service.update({ ...actor, branch: 9 }, 1, { version: 2 })).rejects.toThrow('your branch');
+          expect(store.rows('lab_work_actions')).toHaveLength(0);
+     });
+     it('requires a supervisor and reason to hand over another staff member work', async () => {
+          const { service } = setup({ lab_work_assignments: [{ ascensionid: 1, version: 2, assigned_employeeid: 7 }] });
+          await expect(service.update(actor, 1, { version: 2, assigned_employeeid: 8 })).rejects.toThrow('supervisor');
+          await expect(service.update({ ...actor, role: 'admin' }, 1, { version: 2, assigned_employeeid: 8 })).rejects.toThrow('handover reason');
+     });
+     it('records stock and audit once for concurrent retries of the same usage intent', async () => {
+          const { store, service } = setup();
+          const results = await Promise.all([service.consume(actor, 1, usage()), service.consume(actor, 1, usage())]);
+          expect(results.map(row => row.retried)).toEqual([false, true]);
+          expect(stock.createBulk).toHaveBeenCalledTimes(1);
+          expect(stock.createBulk).toHaveBeenCalledWith([expect.objectContaining({ quantity: 2, performed_by: 7, batch_number: 'lot', ascensionid: 1 })], expect.any(Function));
+          expect(store.rows('lab_consumption_records')).toHaveLength(1);
+     });
+     it('rejects reusing a retry key for different quantities', async () => {
+          const { service } = setup(); await service.consume(actor, 1, usage());
+          await expect(service.consume(actor, 1, { ...usage(), lines: [{ item_id: 'material', quantity: 3 }] })).rejects.toThrow('different quantities');
+          expect(stock.createBulk).toHaveBeenCalledTimes(1);
+     });
+     it('rejects cancelled services and fractional usage when the inventory stores whole units', async () => {
+          const cancelled = setup({ dboservices: [{ serviceid: 6, status: 'cancelled' }] });
+          await expect(cancelled.service.consume(actor, 1, usage())).rejects.toThrow('cancelled');
+          const { service } = setup();
+          await expect(service.consume(actor, 1, { ...usage(), lines: [{ item_id: 'material', quantity: 0.5 }] })).rejects.toThrow('whole quantities');
+          expect(stock.createBulk).not.toHaveBeenCalled();
+     });
+     it('does not use expired batch stock or leave usage recorded after an accounting failure', async () => {
+          const expired = setup({ inv_inventory_transactions: [{ item_id: 'material', transaction_type: 'addition', batch_number: 'lot', available: 10, expiry_date: '2000-01-01' }] });
+          await expect(expired.service.consume(actor, 1, usage())).rejects.toThrow('unexpired');
+          expect(stock.createBulk).not.toHaveBeenCalled();
+          const { store, service } = setup(); stock.createBulk.mockRejectedValue(new Error('Accounting outbox unavailable'));
+          await expect(service.consume(actor, 1, usage())).rejects.toThrow('outbox');
+          expect(store.rows('lab_consumption_records')).toHaveLength(0);
+          expect(store.rows('lab_work_actions')).toHaveLength(0);
+     });
+});
