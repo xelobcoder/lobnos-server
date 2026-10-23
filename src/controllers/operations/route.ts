@@ -75,38 +75,38 @@ import { CreateTestConditionDefinitionDto } from "../../models/operations/dto/Mu
 
 
 const router = express.Router();
-router.use(checkTokenExists, (req, res, next) => {
+const operationsStaffMiddleware: express.RequestHandler<any, any, any, any>[] = [checkTokenExists, (req, res, next) => {
      const actor = getAuthUser(req);
      if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
      if (['clinician', 'patient'].includes(String(actor.role).toLowerCase())) return res.status(403).json({ status: false, message: 'Staff operations access required' });
      req.query.employeeid = String(actor.employeeid);
      next();
-});
-router.use('/api/v1/operations/laboratory/workbench', labWorkbenchRoutes);
+}];
+router.use('/api/v1/operations/laboratory/workbench', ...operationsStaffMiddleware, labWorkbenchRoutes);
 
 // Imaging analytics + audit trail: static paths registered before any parameterized route.
-router.get(`/api/v1/operations/imaging/analytics`, handleOverLoad(ImagingAnalyticsController.getImagingAnalytics));
-router.get(`/api/v1/operations/imaging/audit`, handleOverLoad(checkTokenExists), ImagingAuditController.requireAdmin, handleOverLoad(ImagingAuditController.list));
+router.get(`/api/v1/operations/imaging/analytics`, ...operationsStaffMiddleware, handleOverLoad(ImagingAnalyticsController.getImagingAnalytics));
+router.get(`/api/v1/operations/imaging/audit`, ...operationsStaffMiddleware, handleOverLoad(checkTokenExists), ImagingAuditController.requireAdmin, handleOverLoad(ImagingAuditController.list));
 
-router.get(`/api/v1/operations/collection`, getAllCollections);
-router.get(`/api/v1/operations/laboratory/search`, handleOverLoad(searchLaboratoryOperations));
-router.get(`/api/v1/operations/ascension/staging`, handleOverLoad(ascensionStagingHandler));
-router.get(`/api/v1/operations/collection/result`, getAllEnterResult);
-router.get('/api/v1/operations/overview/folder', getAscensionOverViewModelHandler);
-router.post('/api/v1/ultrasound/images/upload', uploadUltrasoundImagesHandler);
-router.get('/api/v1/ultrasound/images/:ascensionid', getUltrasoundImagesHandler);
-router.delete('/api/v1/ultrasound/images/:id', deleteUltrasoundImageHandler);
-router.get('/api/v1/ultrasound/images/file/:filename', serveUltrasoundImageHandler);
-router.get('/api/v1/operations/overview/folder/open/transaction', getAscensionOverViewModelTransactionHandler);
-router.get(`/api/v1/operations/test/result`, getAllTestPreview);
-router.get(`/api/v1/operation/pendingcases/all`, getAllPendingCases);
-router.get(`/api/v1/operations/imaging/ultrasound`, getUltrasoundWaitingList);
-router.get(`/api/v1/test/ascension/pendingCases`, PendingTestAscensionHandler)
-router.get(`/api/v1/test/ascension/all/pending`, getAllPendingAscensionsHandler)
-router.get(`/api/v1/phelobotomy/transaction/ascensions`, isAuthorizedRoleScientistPhelobotomist, handleOverLoad(TransactionTestAscensionHandler));
-router.get(`/api/v1/phelobotomy/sample/assesment/list`, sampleAssessmentHandler);
-router.get(`/api/v1/sample/client/list/unvalidated`, getPendingUnvalidatedSamplesHandler)
-router.get(`/api/v1/rejected/sample/list`, getRejectedCollectedSampleListHandler)
+router.get(`/api/v1/operations/collection`, ...operationsStaffMiddleware, getAllCollections);
+router.get(`/api/v1/operations/laboratory/search`, ...operationsStaffMiddleware, handleOverLoad(searchLaboratoryOperations));
+router.get(`/api/v1/operations/ascension/staging`, ...operationsStaffMiddleware, handleOverLoad(ascensionStagingHandler));
+router.get(`/api/v1/operations/collection/result`, ...operationsStaffMiddleware, getAllEnterResult);
+router.get('/api/v1/operations/overview/folder', ...operationsStaffMiddleware, getAscensionOverViewModelHandler);
+router.post('/api/v1/ultrasound/images/upload', ...operationsStaffMiddleware, uploadUltrasoundImagesHandler);
+router.get('/api/v1/ultrasound/images/:ascensionid', ...operationsStaffMiddleware, getUltrasoundImagesHandler);
+router.delete('/api/v1/ultrasound/images/:id', ...operationsStaffMiddleware, deleteUltrasoundImageHandler);
+router.get('/api/v1/ultrasound/images/file/:filename', ...operationsStaffMiddleware, serveUltrasoundImageHandler);
+router.get('/api/v1/operations/overview/folder/open/transaction', ...operationsStaffMiddleware, getAscensionOverViewModelTransactionHandler);
+router.get(`/api/v1/operations/test/result`, ...operationsStaffMiddleware, getAllTestPreview);
+router.get(`/api/v1/operation/pendingcases/all`, ...operationsStaffMiddleware, getAllPendingCases);
+router.get(`/api/v1/operations/imaging/ultrasound`, ...operationsStaffMiddleware, getUltrasoundWaitingList);
+router.get(`/api/v1/test/ascension/pendingCases`, ...operationsStaffMiddleware, PendingTestAscensionHandler)
+router.get(`/api/v1/test/ascension/all/pending`, ...operationsStaffMiddleware, getAllPendingAscensionsHandler)
+router.get(`/api/v1/phelobotomy/transaction/ascensions`, ...operationsStaffMiddleware, isAuthorizedRoleScientistPhelobotomist, handleOverLoad(TransactionTestAscensionHandler));
+router.get(`/api/v1/phelobotomy/sample/assesment/list`, ...operationsStaffMiddleware, sampleAssessmentHandler);
+router.get(`/api/v1/sample/client/list/unvalidated`, ...operationsStaffMiddleware, getPendingUnvalidatedSamplesHandler)
+router.get(`/api/v1/rejected/sample/list`, ...operationsStaffMiddleware, getRejectedCollectedSampleListHandler)
 
 
 
@@ -114,63 +114,63 @@ router.get(`/api/v1/rejected/sample/list`, getRejectedCollectedSampleListHandler
 // TEST ASCENSION ROUTER
 
 
-router.post('/api/v1/ascension/collection/update/stage', requireLaboratoryWorkflowRole, updateAscensionStageHandler);
-router.get(`/api/v1/ascension/edit/count`, getAscensionEditCountHandler);
-router.get(`/api/v1/ascension/analytics/summary`, getAscensionAnalyticSummary)
-router.get(`/api/v1/ascension/analytics/getCollectionToDisputeToApprovedToRedrawnLast30days`, getCollectionToDisputeToApprovedToRedrawnLast30daysHandler)
-router.get(`/api/v1/ascension/analytics/month/year/cadr`, getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear);
-router.get(`/api/v1/ascension/analytics/getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler`, getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler);
-router.get(`/api/v1/ascension/analytics/phelobotomist/summary`, phelobotomistSummaryHandler)
-router.get(`/api/v1/ascension/analytics/getTotalTestByYears`, getTotalTestByYears)
-router.get(`/api/v1/ascension/analytics/monthlyApprovalRate`, monthlyApprovalRateHandler)
-router.get(`/api/v1/ascension/phelobotomistAnalyticsSummary`, phelobotomistAnalyticsSummary)
-router.get(`/api/v1/result/entry/record/collection`, getTransactionAscentionTestQualifiedForResultEntryHandler)
+router.post('/api/v1/ascension/collection/update/stage', ...operationsStaffMiddleware, requireLaboratoryWorkflowRole, updateAscensionStageHandler);
+router.get(`/api/v1/ascension/edit/count`, ...operationsStaffMiddleware, getAscensionEditCountHandler);
+router.get(`/api/v1/ascension/analytics/summary`, ...operationsStaffMiddleware, getAscensionAnalyticSummary)
+router.get(`/api/v1/ascension/analytics/getCollectionToDisputeToApprovedToRedrawnLast30days`, ...operationsStaffMiddleware, getCollectionToDisputeToApprovedToRedrawnLast30daysHandler)
+router.get(`/api/v1/ascension/analytics/month/year/cadr`, ...operationsStaffMiddleware, getCollectionToDisputeToApprovedToRedrawnOfAmonthOfAyear);
+router.get(`/api/v1/ascension/analytics/getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler`, ...operationsStaffMiddleware, getCollectionToDisputeToApprovedToRedrawnLastOverParticularYearHandler);
+router.get(`/api/v1/ascension/analytics/phelobotomist/summary`, ...operationsStaffMiddleware, phelobotomistSummaryHandler)
+router.get(`/api/v1/ascension/analytics/getTotalTestByYears`, ...operationsStaffMiddleware, getTotalTestByYears)
+router.get(`/api/v1/ascension/analytics/monthlyApprovalRate`, ...operationsStaffMiddleware, monthlyApprovalRateHandler)
+router.get(`/api/v1/ascension/phelobotomistAnalyticsSummary`, ...operationsStaffMiddleware, phelobotomistAnalyticsSummary)
+router.get(`/api/v1/result/entry/record/collection`, ...operationsStaffMiddleware, getTransactionAscentionTestQualifiedForResultEntryHandler)
 
 
 // SAMPLE VALIDATION
-router.put(`/api/v1/sample/transaction/sample/validation/update`, updateValidationSampleHandler)
+router.put(`/api/v1/sample/transaction/sample/validation/update`, ...operationsStaffMiddleware, updateValidationSampleHandler)
 
 
 // TEST LIST
-router.get(`/api/v1/testpanel/list/ultrasound`, getUltrasoundTestListHandler)
-router.post(`/api/v1/result/entry/ultrasound/templates/creation`, createUltrasoundTemplateHandler)
-router.get(`/api/v1/testpanel/list/ultrasound/get/template`, getUltrasoundTemplateSingleDetailHandler);
-router.put(`/api/v1/result/entry/ultrasound/templates/creation`, updateUltrasoundTemplateHandler);
-router.get(`/api/v1/result/entry/ultrasound/templates/list`, getUltrasoundScanTestListHandler)
-router.delete('/api/v1/result/entry/ultrasound/templates/:templateid', deleteUltrasoundTemplateHandler);
+router.get(`/api/v1/testpanel/list/ultrasound`, ...operationsStaffMiddleware, getUltrasoundTestListHandler)
+router.post(`/api/v1/result/entry/ultrasound/templates/creation`, ...operationsStaffMiddleware, createUltrasoundTemplateHandler)
+router.get(`/api/v1/testpanel/list/ultrasound/get/template`, ...operationsStaffMiddleware, getUltrasoundTemplateSingleDetailHandler);
+router.put(`/api/v1/result/entry/ultrasound/templates/creation`, ...operationsStaffMiddleware, updateUltrasoundTemplateHandler);
+router.get(`/api/v1/result/entry/ultrasound/templates/list`, ...operationsStaffMiddleware, getUltrasoundScanTestListHandler)
+router.delete('/api/v1/result/entry/ultrasound/templates/:templateid', ...operationsStaffMiddleware, deleteUltrasoundTemplateHandler);
 
 // TEST APPROVAL
 
-router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, requireLaboratoryWorkflowRole, getAscensionApprovalDetailsHandler);
-router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, requireLaboratoryWorkflowRole, updateAscensionApprovalDetailsHandler);
+router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireLaboratoryWorkflowRole, getAscensionApprovalDetailsHandler);
+router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireLaboratoryWorkflowRole, updateAscensionApprovalDetailsHandler);
 
 
 // TEST MULTI CONDITIONS CREATION
 
-router.post(`/api/v1/multi/definition`, validateDtoMiddleware(CreateTestConditionDefinitionDto, 'body'), createTestConditionDefinition)
-router.get(`/api/v1/multi/definition/test/:testid`, getTestDefinitionsTestId)
-router.get(`/api/v1/multi/definition/:id`, getTestConditionDefinition)
-router.put(`/api/v1/multi/definition/:id`, updateTestConditionDefinition)
-router.delete(`/api/v1/multi/definition/:id`, deleteTestConditionDefinition)
-router.post(`/api/v1/multi/condition`, createTestCondition)
-router.get(`/api/v1/multi/definition/conditions/:conditionId`, getTestDefinitionConditionsHandler)
-router.get(`/api/v1/multi/condition/:id`, getTestCondition)
-router.put(`/api/v1/multi/condition/update/:id`, updateTestCondition)
-router.delete(`/api/v1/multi/condition/delete/:id`, deleteTestCondition)
+router.post(`/api/v1/multi/definition`, ...operationsStaffMiddleware, validateDtoMiddleware(CreateTestConditionDefinitionDto, 'body'), createTestConditionDefinition)
+router.get(`/api/v1/multi/definition/test/:testid`, ...operationsStaffMiddleware, getTestDefinitionsTestId)
+router.get(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, getTestConditionDefinition)
+router.put(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, updateTestConditionDefinition)
+router.delete(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, deleteTestConditionDefinition)
+router.post(`/api/v1/multi/condition`, ...operationsStaffMiddleware, createTestCondition)
+router.get(`/api/v1/multi/definition/conditions/:conditionId`, ...operationsStaffMiddleware, getTestDefinitionConditionsHandler)
+router.get(`/api/v1/multi/condition/:id`, ...operationsStaffMiddleware, getTestCondition)
+router.put(`/api/v1/multi/condition/update/:id`, ...operationsStaffMiddleware, updateTestCondition)
+router.delete(`/api/v1/multi/condition/delete/:id`, ...operationsStaffMiddleware, deleteTestCondition)
 
 
 
 // TEST FIELDS CATEGORY CREATION
 
 
-router.post("/api/v1/test/fields/category", validateDtoMiddleware(CreateTestFieldsCategoryDto,'body'), TestDetailCategoryController.create);
-router.get("/api/v1/test/fields/category", TestDetailCategoryController.getAll);
-router.get("/api/v1/test/fields/category/:id", TestDetailCategoryController.getById);
-router.get("/api/v1/test/fields/category/test/:testid", TestDetailCategoryController.getByTestId);
-router.put("/api/v1/test/fields/category/:id", TestDetailCategoryController.update);
-router.patch("/api/v1/test/fields/category/soft-delete/:id", TestDetailCategoryController.softDelete);
-router.patch("/api/v1/test/fields/category/restore/:id", TestDetailCategoryController.restore);
-router.delete("/api/v1/test/fields/category/:id", TestDetailCategoryController.delete);
+router.post("/api/v1/test/fields/category", ...operationsStaffMiddleware, validateDtoMiddleware(CreateTestFieldsCategoryDto,'body'), TestDetailCategoryController.create);
+router.get("/api/v1/test/fields/category", ...operationsStaffMiddleware, TestDetailCategoryController.getAll);
+router.get("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.getById);
+router.get("/api/v1/test/fields/category/test/:testid", ...operationsStaffMiddleware, TestDetailCategoryController.getByTestId);
+router.put("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.update);
+router.patch("/api/v1/test/fields/category/soft-delete/:id", ...operationsStaffMiddleware, TestDetailCategoryController.softDelete);
+router.patch("/api/v1/test/fields/category/restore/:id", ...operationsStaffMiddleware, TestDetailCategoryController.restore);
+router.delete("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.delete);
 
 
 
@@ -181,13 +181,13 @@ router.delete("/api/v1/test/fields/category/:id", TestDetailCategoryController.d
 
 
 
-router.post('/api/v1/ultrasound/chx', handleOverLoad(createHistory));
-router.get('/api/v1/ultrasound/chx/:id', handleOverLoad(getHistoryById));
-router.get('/api/v1/ultrasound/chx/ascension/:ascensionid', handleOverLoad(getHistoryByAscensionId));
-router.put('/api/v1/ultrasound/chx/:id', handleOverLoad(updateHistory));
-router.delete('/api/v1/ultrasound/chx/:id', handleOverLoad(deleteHistory));
-router.get('/api/v1/ultrasound/chx', handleOverLoad(getAllHistories));
-router.post('/api/v1/ultrasound/chx/batch', handleOverLoad(getHistoriesByAscensionIds));
-router.post('/api/v1/ultrasound/chx/upsert', handleOverLoad(upsertHistory));
+router.post('/api/v1/ultrasound/chx', ...operationsStaffMiddleware, handleOverLoad(createHistory));
+router.get('/api/v1/ultrasound/chx/:id', ...operationsStaffMiddleware, handleOverLoad(getHistoryById));
+router.get('/api/v1/ultrasound/chx/ascension/:ascensionid', ...operationsStaffMiddleware, handleOverLoad(getHistoryByAscensionId));
+router.put('/api/v1/ultrasound/chx/:id', ...operationsStaffMiddleware, handleOverLoad(updateHistory));
+router.delete('/api/v1/ultrasound/chx/:id', ...operationsStaffMiddleware, handleOverLoad(deleteHistory));
+router.get('/api/v1/ultrasound/chx', ...operationsStaffMiddleware, handleOverLoad(getAllHistories));
+router.post('/api/v1/ultrasound/chx/batch', ...operationsStaffMiddleware, handleOverLoad(getHistoriesByAscensionIds));
+router.post('/api/v1/ultrasound/chx/upsert', ...operationsStaffMiddleware, handleOverLoad(upsertHistory));
 
 export default router;
