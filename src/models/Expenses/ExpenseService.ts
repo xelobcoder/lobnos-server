@@ -1,7 +1,6 @@
 
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import logger from "../../hooks/logger";
-import { readdir, unlink } from 'fs/promises';
 import User from "../../LobnosAuth/user";
 import {
      calculateDailyExpenseQuery,
@@ -15,13 +14,10 @@ import {
      getExpensesRecordQuery,
      isExpenseExistQuery,
      isRecordExistQuery,
-     RECEIPTS_PATH,
      updateExpenseCategoryQuery,
-     updateExpenseDecisionQuery,
-     updateExpenseQuery
+     updateExpenseDecisionQuery
 } from "./queries";
 import { IExpenseRepository } from "./interfaces/IExpenseRepository";
-import path from "path";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import { OperationsFailures } from "../operations/types";
 import { primeTenancyConnector } from '../../models/Tenancy/tenantConnections';
@@ -30,6 +26,8 @@ import { configuration } from '../../hooks/configuration';
 import KnexConnection from "../../database/KnexConnections";
 import { roleAllowed } from "../../middleware/roles";
 import { enqueueExpenseAccrual, enqueueExpenseAccrualReversal } from "../../accountingModule/integrations/ExpenseAccounting";
+import { listTenantReceipts } from './ExpenseReceiptService';
+import { FinancialFinalizationGuard } from '../../accountingModule/services/FinancialFinalizationGuard';
 
 export default class Expenses implements IExpenseRepository {
      private employeeid: number;
@@ -185,7 +183,8 @@ export default class Expenses implements IExpenseRepository {
           pageQuery: { count: number; page: number } = { count: 10, page: 1 },
           from?: string | null,
           to?: string | null,
-          state?: string
+          state?: string,
+          ownerOnly = false
      ): Promise<any> {
           const record = await new User(null, null, null, null, null).userExistWithId(employeeid, tenantId);
 
@@ -210,13 +209,19 @@ export default class Expenses implements IExpenseRepository {
                values.push(...params);
                hasWhereClause = true;
           };
+          addCondition('er.branchid = ?', [branchid]);
+          if (ownerOnly && isAdmin) addCondition('er.employeeid = ?', [employeeid]);
 
           if (status === 'approved') {
                addCondition('er.approved = 1');
           } else if (status === 'rejected') {
                addCondition('er.approved = 2');
           } else if (status === 'pending' || status === 'requested') {
-               addCondition('er.approved = 0');
+               addCondition("er.approved = 0 AND COALESCE(er.workflow_status, 'pending_approval') = 'pending_approval'");
+          } else if (status === 'awaiting_payment') {
+               addCondition("er.approved = 1 AND COALESCE((SELECT SUM(ep.amount) FROM expense_payments ep WHERE ep.expense_id = er.id AND ep.status = 'Paid' AND COALESCE(ep.is_reversed, 0) = 0), 0) < er.amount");
+          } else if (status === 'paid') {
+               addCondition("er.approved = 1 AND COALESCE((SELECT SUM(ep.amount) FROM expense_payments ep WHERE ep.expense_id = er.id AND ep.status = 'Paid' AND COALESCE(ep.is_reversed, 0) = 0), 0) >= er.amount");
           }
 
           if (from && to) {
@@ -239,15 +244,7 @@ export default class Expenses implements IExpenseRepository {
 
 
      async getExpenseImageList(expenseid: string): Promise<string[]> {
-          try {
-               let images = await readdir(path.join(__dirname, RECEIPTS_PATH));
-               if (images.length > 0) {
-                    images = images.filter((item) => item.split("-")[0] === expenseid);
-               }
-               return images;
-          } catch (err: any) {
-               throw err?.message || err;
-          }
+          return listTenantReceipts(this.tenantId, Number(expenseid));
      }
 
      async getSingleExpense(tenantId: number, expenseid: string): Promise<any[]> {
@@ -276,81 +273,29 @@ export default class Expenses implements IExpenseRepository {
      }
 
      public async updateExpenseRecord(expenseData: PrimeLimsTableexpensesrecord) {
-          try {
-
-               const isValidExpenseRecord = await this.isExpenseRecordAvailable();
-
-               if (!isValidExpenseRecord) return OperationsFailures.unfoundID;
-               const approvalQuery = `SELECT approved, workflow_status, employeeid, branchid FROM expensesrecord WHERE id = ?`;
-               const approvalResult = await promisifyQuery(this.tenantId, approvalQuery, [this.expenseId]);
-
-               if (approvalResult && approvalResult.length > 0) {
-                    const currentStatus = String(approvalResult[0].workflow_status || (Number(approvalResult[0].approved) === 1 ? 'approved' : Number(approvalResult[0].approved) === 2 ? 'rejected' : 'pending_approval'));
-                    if (!['draft', 'rejected', 'pending_approval'].includes(currentStatus)) return `Cannot edit an expense in ${currentStatus.replace(/_/g, ' ')} status.`;
-                    if (Number(approvalResult[0].employeeid) !== Number(this.employeeid) || Number(approvalResult[0].branchid) !== Number(this.branchid)) return 'You can only edit your own branch expense.';
-               }
-
-               const {
-                    id,
-                    name,
-                    amount,
-                    category,
-                    branchid,
-                    description,
-                    merchant,
-                    employeeid,
-                    date,
-               } = expenseData;
-
-               const dateObj = new Date(date);
-
-               const queryParams = [
-                    name,
-                    amount,
-                    employeeid,
-                    branchid,
-                    description,
-                    merchant,
-                    category,
-                    dateObj,
-                    id,
-               ];
-
-               const insertionStatus = await promisifyQuery(this.tenantId, updateExpenseQuery, queryParams);
-               if (approvalResult?.[0]?.workflow_status === 'rejected' || Number(approvalResult?.[0]?.approved) === 2) {
-                    const connection = await KnexConnection(this.tenantId);
-                    await connection('expensesrecord').where({ id: this.expenseId }).update({ approved: 0, approvedby: null, approvedon: null, workflow_status: 'draft', workflow_version: connection.raw('workflow_version + 1') });
-               }
-               return rowAffected(insertionStatus);
-          } catch (error) {
-               console.error('Error updating expense record:', error);
-               return false;
-          }
+          const connection = await KnexConnection(this.tenantId);
+          return connection.transaction(async (trx: any) => {
+               const before = await trx('expensesrecord').where({ id: this.expenseId }).forUpdate().first();
+               if (!before) return OperationsFailures.unfoundID;
+               const status = String(before.workflow_status || (Number(before.approved) === 1 ? 'approved' : Number(before.approved) === 2 ? 'rejected' : 'pending_approval'));
+               if (!['draft', 'rejected', 'pending_approval'].includes(status)) return `Cannot edit an expense in ${status.replace(/_/g, ' ')} status.`;
+               if (Number(before.employeeid) !== Number(this.employeeid) || Number(before.branchid) !== Number(this.branchid)) return 'You can only edit your own branch expense.';
+               const { name, amount, description, merchant, category, date } = expenseData;
+               if (!String(name || '').trim() || !Number.isFinite(Number(amount)) || Number(amount) <= 0 || !category || !merchant || !Number.isFinite(new Date(date).getTime())) return 'Enter a name, positive amount, category, merchant and valid date.';
+               const guard = new FinancialFinalizationGuard(this.tenantId, trx);
+               await guard.assertRecordMutable('expensesrecord', this.expenseId!);
+               await guard.assertDateOpen(this.branchid, before.date);
+               await guard.assertDateOpen(this.branchid, date);
+               const version = Number(before.workflow_version || 1) + 1;
+               await trx('expensesrecord').where({ id: this.expenseId }).update({ name, amount, description, merchant, category, date: new Date(date), approved: 0, approvedby: null, approvedon: null, rejectionmessage: null, rejected_by: null, rejected_at: null, workflow_status: 'pending_approval', workflow_version: version, submitted_by: this.employeeid, submitted_at: new Date() });
+               await trx('expense_approval_actions').insert({ expense_id: this.expenseId, action: 'resubmitted', from_status: status, to_status: 'pending_approval', actor_employeeid: this.employeeid, actor_branchid: this.branchid, amount, authority_source: 'submitter', workflow_version: version, metadata: JSON.stringify({ previous_amount: before.amount }), created_at: new Date() });
+               return true;
+          });
      }
 
 
      async deleteReceiptsList(data: string[]): Promise<boolean> {
-          if (!data) {
-               throw new Error('data not provided');
-          }
-          if (!Array.isArray(data)) {
-               throw new TypeError('Array required');
-          }
-          if (data.length === 0) return true;
-
-          const status = await Promise.all(
-               data.map(async (item) => {
-                    try {
-                         const filepath = path.join(__dirname, '../../../../', `/public/uploads/expenses/receipts/${item}`)
-                         await unlink(filepath);
-                         return true;
-                    } catch {
-                         return false;
-                    }
-               })
-          );
-
-          return !status.includes(false);
+          throw new Error('Use the authenticated expense receipt service to delete attachments');
      }
 
      async calculateDailyExpense(tenantId: number, branchid?: number, requireddate?: string | null): Promise<number | null> {

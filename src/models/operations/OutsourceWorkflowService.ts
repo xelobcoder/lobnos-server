@@ -16,18 +16,59 @@ export const outsourceTransitions: Record<string, string[]> = {
 export class OutsourceWorkflowService {
      constructor(private db: any) {}
      async providerOptions() { return this.db('outsourcingorganization').select('outsourceid', 'name', 'contactNumber', 'contactPerson', 'organizationType').orderBy('name'); }
+     async organizationServices(actor: AuthUser, outsourceid: number) {
+          if (!labSupervisor(actor)) return controlsFail('Only supervisors may configure outsourcing providers', 403);
+          if (!await this.db('outsourcingorganization').where({ outsourceid }).first()) return controlsFail('Organization not found', 404);
+          const [tests, configured, legacy] = await Promise.all([
+               this.db('test_panels').select('id', 'name', 'lab_outsource_version').orderBy('name'),
+               this.db('lab_outsource_providers').where({ outsourceid }),
+               this.db('outsourceorganizationservices').where({ outsourceid }),
+          ]);
+          return { tests, configured, legacy };
+     }
+     async saveOrganizationServices(actor: AuthUser, outsourceid: number, input: any) {
+          if (!labSupervisor(actor)) return controlsFail('Only supervisors may configure outsourcing providers', 403);
+          const data = z.object({ reason: z.string().trim().min(3).max(2000), services: z.array(z.object({
+               testid: z.number().int().positive(), version: z.number().int().min(0), provider: providerSchema,
+          })).min(1).max(1000) }).parse(input);
+          if (new Set(data.services.map(row => row.testid)).size !== data.services.length) return controlsFail('Choose each test once');
+          if (data.services.some(row => row.provider.outsourceid !== outsourceid)) return controlsFail('Provider must match this organization');
+          const result = await this.db.transaction(async (trx: any) => {
+               const results = [];
+               // Lock panels in a stable order. A conflict rolls the entire batch back.
+               for (const item of [...data.services].sort((a, b) => a.testid - b.testid)) {
+                    const panel = await trx('test_panels').where({ id: item.testid }).forUpdate().first();
+                    if (!panel) return controlsFail('Test panel not found', 404);
+                    const others = await trx('lab_outsource_providers').where({ testid: item.testid });
+                    const providers = others.filter((row: any) => Number(row.outsourceid) !== outsourceid).map((row: any) => ({
+                         outsourceid: Number(row.outsourceid), cost: Number(row.cost), currency: row.currency,
+                         tat_hours: Number(row.tat_hours), preferred: item.provider.preferred && item.provider.active ? false : Boolean(row.preferred),
+                         active: Boolean(row.active), effective_from: this.dateOnly(row.effective_from), effective_to: row.effective_to ? this.dateOnly(row.effective_to) : null,
+                    }));
+                    providers.push(item.provider);
+                    results.push(await this.saveProvidersInTransaction(trx, actor, item.testid, { providers, version: item.version, reason: data.reason }));
+               }
+               return results;
+          });
+          await testPanelCache.invalidate(actor.tenantId);
+          return result;
+     }
+     private dateOnly(value: any) { return value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10); }
      async providers(testid: number) {
           const configured = await this.db('lab_outsource_providers as provider').join('outsourcingorganization as org', 'org.outsourceid', 'provider.outsourceid').where('provider.testid', testid).select('provider.*', 'org.name');
           const legacy = await this.db('outsourceorganizationservices as service').join('outsourcingorganization as org', 'org.outsourceid', 'service.outsourceid').where('service.generalTestId', testid).select('service.outsourceid', 'service.outsourcePrice', 'org.name');
           return { configured, legacy, options: await this.providerOptions(), version: Number((await this.db('test_panels').where({ id: testid }).first())?.lab_outsource_version || 0) };
      }
      async saveProviders(actor: AuthUser, testid: number, input: any) {
+          const result = await this.db.transaction((trx: any) => this.saveProvidersInTransaction(trx, actor, testid, input));
+          await testPanelCache.invalidate(actor.tenantId); return result;
+     }
+     private async saveProvidersInTransaction(trx: any, actor: AuthUser, testid: number, input: any) {
           if (!labSupervisor(actor)) return controlsFail('Only supervisors may configure outsourcing providers', 403);
           const data = z.object({ providers: z.array(providerSchema).max(100), reason: z.string().trim().min(3).max(2000), version: z.number().int().min(0) }).parse(input);
           if (new Set(data.providers.map(p => p.outsourceid)).size !== data.providers.length) return controlsFail('Choose each organization once');
           if (data.providers.filter(p => p.active && p.preferred).length > 1) return controlsFail('Choose only one active preferred provider');
           for (const row of data.providers) if (row.effective_to && row.effective_to < row.effective_from) return controlsFail('Provider end date precedes its start date');
-          const result = await this.db.transaction(async (trx: any) => {
                const panel = await trx('test_panels').where({ id: testid }).forUpdate().first();
                if (!panel) return controlsFail('Test panel not found', 404);
                const before = await trx('lab_outsource_providers').where({ testid }).forUpdate();
@@ -40,15 +81,15 @@ export class OutsourceWorkflowService {
                     const key = { testid, outsourceid: provider.outsourceid };
                     const row = { ...key, ...provider, version: version + 1, updated_by: actor.employeeid, updated_at: new Date() };
                     if (before.some((r: any) => Number(r.outsourceid) === provider.outsourceid)) await trx('lab_outsource_providers').where(key).update(row); else await trx('lab_outsource_providers').insert(row);
-                    await trx('outsourceorganizationservices').insert({ outsourceid: provider.outsourceid, generalTestId: testid, outsourcePrice: provider.cost, addedby: actor.employeeid })
-                         .onConflict(['outsourceid', 'generalTestId']).merge({ outsourcePrice: provider.cost, updatedby: actor.employeeid });
+                    const serviceKey = { outsourceid: provider.outsourceid, generalTestId: testid };
+                    if (await trx('outsourceorganizationservices').where(serviceKey).first()) {
+                         await trx('outsourceorganizationservices').where(serviceKey).update({ outsourcePrice: provider.cost, updatedby: actor.employeeid });
+                    } else await trx('outsourceorganizationservices').insert({ ...serviceKey, outsourcePrice: provider.cost, addedby: actor.employeeid });
                }
                await trx('test_panels').where({ id: testid }).update({ lab_outsource_version: version + 1 });
                await trx('testdetails').where({ testid }).update({ OutSourcingList: data.providers.filter(p => p.active).map(p => p.outsourceid).join(',') });
                await controlAudit(trx, actor.employeeid, 'outsource_providers', testid, 'updated', data.reason, { before, providers: data.providers });
                return { version: version + 1 };
-          });
-          await testPanelCache.invalidate(actor.tenantId); return result;
      }
      private async base(actor: AuthUser) {
           const db = this.db;

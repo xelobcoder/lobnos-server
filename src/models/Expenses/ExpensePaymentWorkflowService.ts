@@ -47,17 +47,10 @@ export class ExpensePaymentWorkflowService {
           const connection = await (this.dependencies.connectionFactory?.() || KnexConnection(this.tenantId));
           return connection.transaction(async (trx: any) => {
                const existing = await trx('expense_payments').where({ idempotency_key: input.idempotencyKey }).first();
-               if (existing) return this.toExistingResult(trx, existing);
 
                const expense = await trx('expensesrecord').where({ id: expenseId }).forUpdate().first();
                if (!expense) throw new Error('Expense not found');
-               const finalizationGuard = new FinancialFinalizationGuard(this.tenantId, trx);
-               await finalizationGuard.assertRecordMutable('expensesrecord', expense.id);
-               await finalizationGuard.assertDateOpen(Number(expense.branchid), input.paymentDate);
-               const currentStatus = this.statusOf(expense);
-               if (!['approved', 'payment_pending'].includes(currentStatus) || Number(expense.approved) !== 1) {
-                    throw new Error('Expense must be approved before payment');
-               }
+               if (actor.branch != null && Number(expense.branchid) !== Number(actor.branch)) throw new Error('Expense is outside your branch');
 
                const account = await trx('payment_accounts').where({ id: accountId, is_active: true }).first();
                if (!account) throw new Error('Payment source account was not found or is inactive');
@@ -79,6 +72,16 @@ export class ExpensePaymentWorkflowService {
                     const override = await authority.can(actor.employeeid, 'expense.override_sod', amount, Number(expense.branchid));
                     if (!override.allowed) throw new Error('The expense approver cannot also record its payment because Require a separate payer is enabled for this branch. Disable it in Application Settings > Expense Controls, or have another authorized user pay.');
                }
+
+               if (existing) {
+                    if (Number(existing.expense_id) !== expenseId || Number(existing.amount) !== amount || existing.payment_account_id != null && Number(existing.payment_account_id) !== accountId || existing.recorded_by != null && Number(existing.recorded_by) !== actor.employeeid) throw new Error('Payment retry does not match the original payment');
+                    return this.toExistingResult(trx, existing);
+               }
+               const finalizationGuard = new FinancialFinalizationGuard(this.tenantId, trx);
+               await finalizationGuard.assertRecordMutable('expensesrecord', expense.id);
+               await finalizationGuard.assertDateOpen(Number(expense.branchid), input.paymentDate);
+               const currentStatus = this.statusOf(expense);
+               if (!['approved', 'payment_pending'].includes(currentStatus) || Number(expense.approved) !== 1) throw new Error('Expense must be approved before payment');
 
                if (input.invoiceId) {
                     const invoice = await trx('invoices').where({ id: input.invoiceId }).forUpdate().first();

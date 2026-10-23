@@ -19,6 +19,7 @@ data/
 backups/
 cert/
 public/uploads/
+private/expense-receipts/
 public/asserts/
 *.exe
 /dist

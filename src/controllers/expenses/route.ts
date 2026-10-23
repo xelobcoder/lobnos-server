@@ -1,11 +1,9 @@
 import express from "express";
 import multer from "multer";
-import path from "node:path";
 import {
   createExpenses,
   getExpensesRecord,
   getSingleExpense,
-  uploadReceipts,
   getReceiptImage,
   getExpenseImageList,
   deleteReceiptsList,
@@ -15,9 +13,6 @@ import {
   getAllExpenseCategory,
   updateExpenseRecord,
   getExpenseLog,
-  createExpenseMerchant,
-  updateExpenseMerchant,
-  getAllExpenseMerchants,
   markOutsourceCasesAsExpense,
   markCaseAsDone,
   createExpensesAndInvoice,
@@ -36,19 +31,15 @@ import { checkTokenExists } from "../../middleware/validateTenancy";
 import { requireAuthority } from "../../middleware/authority";
 import { PaymentAccountController } from "./PaymentAccountController";
 import { ExpenseWorkflowController } from "./ExpenseWorkflowController";
+import { getAuthUser } from '../../middleware/authority';
+import { assertExpenseAccess, ExpenseReceiptService } from '../../models/Expenses/ExpenseReceiptService';
+import { ExpenseNextActions } from './ExpenseNextActions';
+import { bindExpenseIdentity } from '../../middleware/expenseIdentity';
+import { createExpenseMerchant, updateExpenseMerchant, getAllExpenseMerchants } from './ExpenseMerchantController';
 
 const router = express.Router();
-const RECEIPTS_PATH = "/../../../../public/uploads/expenses/receipts"
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, RECEIPTS_PATH));
-  },
-  filename: function (req, file, cb) {
-    cb(null, req.query.id + "-" + Date.now() + path.extname(file.originalname));
-  },
-});
-
-const upload = multer({ storage: storage });
+router.use(['/api/v1/expenses', '/api/v1/expense', '/api/v1/supplier-payments', '/api/v1/outsourced/cases'], bindExpenseIdentity);
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 2 } });
 
 router.post("/api/v1/expense/merchant", handleOverLoad(createExpenseMerchant));
 router.put("/api/v1/expense/merchant", handleOverLoad(updateExpenseMerchant));
@@ -60,11 +51,23 @@ router.put('/api/v1/expenses', checkTokenExists, requireAuthority('expense.edit'
 router.get("/api/v1/expenses/records", getExpensesRecord);
 router.get('/api/v1/expenses/audit/:expenseId', handleOverLoad(getExpenseLog))
 router.get('/api/v1/expenses/:expenseId/workflow-history', checkTokenExists, ExpenseWorkflowController.history);
+router.get('/api/v1/expenses/:expenseId/next-actions', checkTokenExists, ExpenseNextActions);
 router.get('/api/v1/expenses/workflow/controls', checkTokenExists, requireAuthority('expense.configure'), ExpenseWorkflowController.controls);
 router.put('/api/v1/expenses/workflow/controls', checkTokenExists, requireAuthority('expense.configure'), ExpenseWorkflowController.updateControls);
 router.get("/api/v1/expenses/record/single", getSingleExpense);
 router.put('/api/v1/expense/record/single', checkTokenExists, requireAuthority('expense.edit'), handleOverLoad(updateExpenseRecord));
-router.post("/api/v1/expenses/receipt/upload", upload.array("images", 10), uploadReceipts);
+router.post('/api/v1/expenses/receipt/upload', async (req, res) => {
+  try {
+    await assertExpenseAccess(getAuthUser(req)!, Number(req.query.id));
+    upload.array('images', 10)(req, res, async (error: any) => {
+      if (error) return res.status(400).json({ status: 'error', message: error.code === 'LIMIT_FILE_SIZE' ? 'Each receipt must be 5 MB or smaller' : 'Choose up to 10 receipt files' });
+      try {
+        const files = await new ExpenseReceiptService(getAuthUser(req)!).upload(Number(req.query.id), (req.files || []) as Express.Multer.File[]);
+        res.json({ status: 'success', files });
+      } catch (failure: any) { res.status(failure.statusCode || 400).json({ status: 'error', message: failure.message }); }
+    });
+  } catch (error: any) { res.status(error.statusCode || 403).json({ status: 'error', message: error.message }); }
+});
 router.get("/api/v1/expenses/receipt/upload/images", getReceiptImage);
 router.get("/api/v1/expenses/receipt/uploaded/images/list", getExpenseImageList);
 router.delete("/api/v1/expenses/receipt/uploaded/images", deleteReceiptsList);
@@ -81,7 +84,7 @@ router.post('/api/v1/outsourced/cases/mark-expense', handleOverLoad(markOutsourc
 router.put('/api/v1/outsourced/cases/confirm-done', handleOverLoad(markCaseAsDone));
 router.post('/api/v1/supplier-payments/mark-expense', handleOverLoad(markSupplierPaymentAsExpense));
 
-router.post('/api/v1/expenses/invoice/create-with-expenses', handleOverLoad(createExpensesAndInvoice));
+router.post('/api/v1/expenses/invoice/create-with-expenses', requireAuthority('expense.create'), handleOverLoad(createExpensesAndInvoice));
 router.post('/api/v1/expenses/invoice', handleOverLoad(createInvoice));
 router.get('/api/v1/expenses/invoices', handleOverLoad(getInvoices));
 router.post(

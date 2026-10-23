@@ -15,7 +15,10 @@ SELECT
     er.employeeid,
     er.rejectionmessage,
     er.groupId,
-    er.amount
+    er.amount,
+    er.workflow_status,
+    COALESCE((SELECT SUM(ep.amount) FROM expense_payments ep WHERE ep.expense_id = er.id AND ep.status = 'Paid' AND COALESCE(ep.is_reversed, 0) = 0), 0) AS paid_amount,
+    GREATEST(0, er.amount - COALESCE((SELECT SUM(ep.amount) FROM expense_payments ep WHERE ep.expense_id = er.id AND ep.status = 'Paid' AND COALESCE(ep.is_reversed, 0) = 0), 0)) AS outstanding_amount
 FROM expensesrecord AS er 
 INNER JOIN roles AS r ON r.employeeid = er.employeeid
 LEFT JOIN expense_merchants AS em ON em.id = er.merchant

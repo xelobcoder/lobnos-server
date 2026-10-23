@@ -121,13 +121,14 @@ export default class ExpenseInvoiceRepo {
           }
 
           for (const expenseId of expense_ids) {
-               const expenseQuery = 'SELECT id, employeeid, approved FROM expensesrecord WHERE id = ?';
+               const expenseQuery = 'SELECT id, employeeid, approved, branchid FROM expensesrecord WHERE id = ?';
                const expense = trx ? await trx.raw(expenseQuery, [expenseId]) : await promisifyQuery(this.tenantId, expenseQuery, [expenseId]);
                const expenseData = trx ? expense[0] : expense;
                if (!expenseData || expenseData.length === 0) {
                     throw new Error(`Expense with ID ${expenseId} not found`);
                }
                const expenseRecord = trx ? expenseData[0] : expenseData[0];
+               if (Number(expenseRecord.branchid) !== Number(this.branchid)) throw new Error(`Expense ${expenseId} is outside your branch`);
                if (!isAdminOrManager && expenseRecord.employeeid !== this.employeeid) {
                     throw new Error(`Unauthorized to include expense ${expenseId}`);
                }
@@ -223,6 +224,7 @@ export default class ExpenseInvoiceRepo {
                baseQuery.where('i.status', filters.status);
           }
 
+          baseQuery.where('i.branch_id', this.branchid);
           if (filters.invoiceId) baseQuery.where('i.id', filters.invoiceId);
           if (filters.expenseId) baseQuery.where('er.id', filters.expenseId);
 
@@ -253,6 +255,7 @@ export default class ExpenseInvoiceRepo {
                countQuery.where('i.status', filters.status);
           }
 
+          countQuery.where('i.branch_id', this.branchid);
           if (filters.invoiceId) countQuery.where('i.id', filters.invoiceId);
           if (filters.expenseId) countQuery.where('er.id', filters.expenseId);
 
@@ -505,6 +508,7 @@ export default class ExpenseInvoiceRepo {
                values.push(...params);
                hasWhere = true;
           };
+          addCondition('expense_id IN (SELECT id FROM expensesrecord WHERE branchid = ?)', [this.branchid]);
 
           if (!isAdminOrManager) {
                const subQuery = `

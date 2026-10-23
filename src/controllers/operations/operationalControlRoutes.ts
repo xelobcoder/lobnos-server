@@ -32,6 +32,8 @@ router.get('/critical/legacy/:id', run(async (db, actor, req) => { const event =
 router.get('/critical/:id', run((db, actor, req) => new CriticalActionService(db).detail(actor, Number(req.params.id))));
 router.post('/critical/:id/actions', run((db, actor, req) => new CriticalActionService(db).act(actor, Number(req.params.id), req.body)));
 router.get('/providers', run((db) => new OutsourceWorkflowService(db).providerOptions()));
+router.get('/providers/:id/services', run((db, actor, req) => new OutsourceWorkflowService(db).organizationServices(actor, Number(req.params.id))));
+router.put('/providers/:id/services', run((db, actor, req) => new OutsourceWorkflowService(db).saveOrganizationServices(actor, Number(req.params.id), req.body)));
 router.get('/tests/:id/providers', run((db, _actor, req) => new OutsourceWorkflowService(db).providers(Number(req.params.id))));
 router.put('/tests/:id/providers', run((db, actor, req) => new OutsourceWorkflowService(db).saveProviders(actor, Number(req.params.id), req.body)));
 router.get('/outsourcing', run((db, actor, req) => new OutsourceWorkflowService(db).list(actor, req.query)));

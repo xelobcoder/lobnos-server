@@ -36,8 +36,8 @@ export default class expenseMerchants {
      }
      async create(merchantData: any): Promise<any> {
           const conn = await this.connection;
-          const [newMerchant] = await conn(this.tablename).insert(merchantData).returning('*');
-          return newMerchant;
+          const [id] = await conn(this.tablename).insert(merchantData);
+          return conn(this.tablename).where({ id }).first();
      }
 
 
@@ -49,14 +49,16 @@ export default class expenseMerchants {
 
      async update(merchantData: any): Promise<any> {
           const conn = await this.connection;
-          const { name, email, phone, address, website, notes, id } = merchantData;
-          const dataToUpdate: Partial<ExpenseMerchant> = { name, email, phone, address, website, notes };
+          const { name, email, phone, address, website, notes, id, updated_by } = merchantData;
+          const dataToUpdate: Partial<ExpenseMerchant> = { name, email, phone, address, website, notes, ...(updated_by != null ? { updated_by } : {}) };
           const result = await conn(this.tablename).where({ id: id }).update(dataToUpdate);
           return result;
      }
 
 
      async findAll(limit: number = 10, page: number = 1): Promise<any[]> {
+          limit = Number.isSafeInteger(limit) && limit > 0 ? Math.min(limit, 500) : 10;
+          page = Number.isSafeInteger(page) && page > 0 ? page : 1;
           const conn = await this.connection;
           const offset = (page - 1) * limit;
           const rows = await conn(this.tablename)
@@ -65,7 +67,6 @@ export default class expenseMerchants {
                .orderBy('expense_merchants.created_at', 'desc')
                .limit(limit)
                .offset(offset);
-               console.log(rows);
           return rows;
      }
 

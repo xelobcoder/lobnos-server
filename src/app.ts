@@ -27,6 +27,7 @@ import MedicalRecordHandler from './controllers/medicalRecords/route';
 import BillingRouter from "./controllers/billing/index";
 import testPanelRouter from "./controllers/testpanel/routes";
 import expenseRouter from "./controllers/expenses/route";
+import { blockPublicExpenseReceipts } from './middleware/expenseIdentity';
 import SecurityRouter from "./controllers/security/route";
 import AppointmentRouter from "./controllers/appointments/appointment";
 import BillingPackages from './controllers/billing/packages/packages';
@@ -107,6 +108,8 @@ app.use(signedLicenseGuard);
 // Recovery is authenticated but not gated by an activated certificate.
 app.use(licenseRoutes);
 app.use(blockPublicPatientImages);
+// Expense evidence is available only through authenticated, tenant-scoped receipt APIs.
+app.use(blockPublicExpenseReceipts);
 app.use(express.static("public"));
 // Marketplace routes validate/reject query strings before the generic request
 // logger, keeping tracking credentials, payment references and patient details

@@ -25,12 +25,10 @@ function parseDateParam(dateStr: unknown): string | null {
 import { Request, Response } from "express";
 import Expenses from "../../models/Expenses/ExpenseService";
 import ExpenseInvoiceRepo from "../../models/Expenses/ExpenseInvoiceRepo";
-import path, { parse } from "node:path";
 import { customError, responseError, promisifyQuery } from "../../hooks/helper";
-import { RECEIPTS_PATH } from "../../models/Expenses/queries";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import ExpenseAuditLog from "../../models/Expenses/ExpenseAuditLog";
-import expenseMerchants, { ExpenseMerchant } from "../../models/Expenses/expenseMerchants";
+
 import logger from "../../hooks/logger";
 import { request } from "node:http";
 import OutsourcedCases from "../../models/organization/outsourcingOrganization/outsourcedCases";
@@ -43,6 +41,7 @@ import { getAuthUser } from "../../middleware/authority";
 import { roleAllowed } from "../../middleware/roles";
 import { ExpenseDecisionInput, ExpenseWorkflowService } from "../../models/Expenses/ExpenseWorkflowService";
 import { ExpensePaymentWorkflowService } from "../../models/Expenses/ExpensePaymentWorkflowService";
+import { assertExpenseAccess, ExpenseReceiptService } from '../../models/Expenses/ExpenseReceiptService';
 
 type ExpenseQueryType = {
 	employeeid: number;
@@ -167,7 +166,9 @@ export const getExpensesRecord = async (req: Request, res: Response) => {
 			status?.toString(),
 			{ page: parseInt(page?.toString() || "1"), count: parseInt(count?.toString() || "10") },
 			formatedDateFrom,
-			formatedDateTo
+			formatedDateTo,
+			undefined,
+			req.query.scope === 'mine'
 		);
 
 		res.send(records);
@@ -180,6 +181,7 @@ export const getExpensesRecord = async (req: Request, res: Response) => {
 export const getSingleExpense = async (req: Request, res: Response) => {
 	try {
 		const { expenseid, tenantId, employeeid, branchid } = req.query;
+		await assertExpenseAccess(getAuthUser(req)!, Number(expenseid));
 
 		if (!expenseid || !tenantId || !employeeid || !branchid) {
 			return customError("Required parameters not provided", 404, res);
@@ -201,8 +203,9 @@ export const getSingleExpense = async (req: Request, res: Response) => {
 };
 
 
-export const getExpenseLog = async (request: Request<{ expenseId: string | number }, {}, {}, { tenantId: string }>, response: Response) => {
+export const getExpenseLog = async (request: Request<{ expenseId: string }, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
+		await assertExpenseAccess(getAuthUser(request)!, Number(request.params.expenseId));
 		const { tenantId } = request.query;
 		const pTenantId = parseInt(tenantId.toString());
 		const expenseId = parseInt(request.params.expenseId.toString());
@@ -256,15 +259,22 @@ export const getReceiptImage = async (req: Request, res: Response) => {
 	try {
 		const { imageid } = req.query;
 		if (!imageid) return customError("imageid not provided", 404, res);
-		res.sendFile(path.join(__dirname, RECEIPTS_PATH, `${imageid}`));
-	} catch (err) {
-		responseError(res);
+		const filename = String(imageid);
+		const content = await new ExpenseReceiptService(getAuthUser(req)!).download(filename);
+		const mime = filename.endsWith('.pdf') ? 'application/pdf' : filename.endsWith('.jpg') ? 'image/jpeg' : filename.endsWith('.webp') ? 'image/webp' : 'image/png';
+		res.setHeader('Cache-Control', 'no-store');
+		res.setHeader('X-Content-Type-Options', 'nosniff');
+		if (req.query.encoding === 'base64') return res.json({ success: true, filename, mime, base64: content.toString('base64') });
+		res.type(mime).send(content);
+	} catch (err: any) {
+		customError('Receipt is unavailable or outside your access', err.statusCode || 404, res);
 	}
 };
 
 export const getExpenseImageList = async (req: Request, res: Response) => {
 	try {
 		const { expenseid, tenantId, employeeid, branchid } = req.query;
+		await assertExpenseAccess(getAuthUser(req)!, Number(expenseid));
 
 		if (!expenseid || !tenantId || !employeeid || !branchid) {
 			return customError("Required parameters not provided", 404, res);
@@ -284,25 +294,10 @@ export const getExpenseImageList = async (req: Request, res: Response) => {
 };
 
 export const deleteReceiptsList = async (req: Request, res: Response) => {
-	const { data } = req.body;
-	const { employeeid, branchid, tenantId } = req.query;
-
-	if (!employeeid || !branchid || !tenantId) {
-		return customError("Required identifiers missing", 404, res);
-	}
-
-	if (data && Array.isArray(data) && data.length > 0) {
-		const expenses = initializeExpense({
-			employeeid: parseInt(employeeid.toString()),
-			branchid: parseInt(branchid.toString()),
-			tenantId: parseInt(tenantId.toString()),
-			expenseId: null
-		});
-		const status = await expenses.deleteReceiptsList(data);
-		res.send({ status: status ? "success" : "failed" });
-	} else {
-		return customError("image list not provided", 404, res);
-	}
+	try {
+		await new ExpenseReceiptService(getAuthUser(req)!).remove(req.body.data);
+		return res.json({ status: 'success' });
+	} catch (error: any) { return customError(error.message, error.statusCode || 400, res); }
 };
 
 export const updateExpenseDecision = async (req: Request<{}, {}, {
@@ -450,61 +445,7 @@ export const getAllExpenseCategory = async (req: Request, res: Response) => {
 
 
 
-export const createExpenseMerchant = async (req: Request, res: Response) => {
-	try {
-		const { employeeid, branchid, tenantId, name, email, phone, address, website, notes } = req.body;
-		if (!employeeid || !branchid || !name) {
-			return customError("employeeid, branchid, name, and address are required", 400, res);
-		}
-		const repo = new expenseMerchants(employeeid)
-		const existing = await repo.findByMerchantName(name);
-		if (existing) {
-			return res.send({ message: "Merchant already exists", statusCode: 200, status: "success" });
-		}
-		const merchantData: ExpenseMerchant = { name, email, phone, address, website, notes, created_by: employeeid };
-		const created = await repo.create(merchantData);
-		res.send({ message: "Merchant created successfully", statusCode: 200, status: "success", merchant: created });
-	} catch (err) {
-		responseError(res);
-	}
-};
-
-
-export const updateExpenseMerchant = async (req: Request<{}, {}, {
-	name: string;
-	employeeid: number;
-	branchid: number;
-	id: number;
-}, { tenantId: string }>, res: Response) => {
-	try {
-		const { name, employeeid, branchid, id } = req.body;
-		const { tenantId } = req.query;
-		if (!employeeid || !branchid || !name || !id) return customError("Required update parameters missing", 404, res);
-		const repo = await new expenseMerchants(parseInt(tenantId.toString())).update(req.body);
-
-		if (!repo) return customError("Merchant not found", 404, res);
-		res.send({ status: "success", message: "Merchant updated successfully" });
-
-	} catch (err: any) {
-		logger.log(err);
-		responseError(res);
-	}
-};
-
-
-export const getAllExpenseMerchants = async (req: Request, res: Response) => {
-	try {
-		const { tenantId, employeeid, branchid, page, count } = req.query;
-		if (!employeeid || !branchid) return customError("Required query parameters missing", 404, res);
-		const repo = new expenseMerchants(tenantId as unknown as number);
-		const result = await repo.findAll(parseInt(count as string), parseInt(page as string));
-		res.send(result);
-	} catch (err) {
-		console.log(err);
-		responseError(res);
-	}
-};
-
+export { createExpenseMerchant, updateExpenseMerchant, getAllExpenseMerchants } from './ExpenseMerchantController';
 
 export const markOutsourceCasesAsExpenseHandler = async (request: Request<{}, {}, {}, { tenantId: string }>, response: Response) => {
 	try {
@@ -583,7 +524,7 @@ export const createExpensesAndInvoice = async (req: Request, res: Response) => {
 
 		const invoiceRepo = new ExpenseInvoiceRepo(parseInt(employeeid.toString()), parseInt(branchid.toString()), parseInt(tenantId.toString()));
 		const result = await invoiceRepo.createExpensesAndInvoice(
-			expenses,
+			expenses.map((expense: any) => ({ ...expense, employeeid: Number(employeeid), branchid: Number(branchid) })),
 			invoiceData || {}
 		);
 		res.send({ status: result });
@@ -850,7 +791,9 @@ export const markSupplierPaymentAsExpense = async (request: Request<{}, {}, { pa
 
 export const reverseExpensePayment = async (request: Request, response: Response): Promise<any> => {
 	try {
-		const { tenantId, employeeid } = request.query;
+		const actor = getAuthUser(request);
+		if (!actor) return customError('Authentication required', 401, response);
+		const tenantId = actor.tenantId, employeeid = actor.employeeid;
 		const { paymentId, reversalReason } = request.body;
 
 		// Validate required parameters
@@ -888,6 +831,8 @@ export const reverseExpensePayment = async (request: Request, response: Response
 		}
 
 		const payment = paymentRow[0];
+		if (payment.expense_id) await assertExpenseAccess(actor, Number(payment.expense_id));
+		else return customError('Payment is not linked to a verifiable expense', 409, response);
 		const payrollPeriod = await promisifyQuery(
 			pTenantId,
 			`

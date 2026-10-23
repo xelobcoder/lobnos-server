@@ -14,6 +14,24 @@ function fixture(extra: any = {}) {
 }
 beforeEach(() => vi.clearAllMocks());
 describe('outsourcing workflow', () => {
+ it('saves multiple organization services atomically while preserving other partners and case costs', async () => {
+  const { service, store } = fixture({ test_panels: [{ id: 5, lab_outsource_version: 0 }, { id: 8, lab_outsource_version: 0 }], outsourcingorganization: [{ outsourceid: 6 }, { outsourceid: 7 }],
+   lab_outsource_providers: [{ testid: 5, outsourceid: 7, cost: 40, currency: 'GHS', tat_hours: 48, preferred: true, active: true, effective_from: today, effective_to: null }],
+   testdetails: [{ testid: 5 }, { testid: 8 }] });
+  const provider = { outsourceid: 6, cost: 20, currency: 'GHS', tat_hours: 24, preferred: true, active: true, effective_from: today, effective_to: null };
+  await service.saveOrganizationServices(admin, 6, { reason: 'Configure partner catalogue', services: [{ testid: 5, version: 0, provider }, { testid: 8, version: 0, provider: { ...provider, cost: 30 } }] });
+  expect(store.rows('lab_outsource_providers')).toEqual(expect.arrayContaining([expect.objectContaining({ testid: 5, outsourceid: 7, active: true, preferred: false, cost: 40 }), expect.objectContaining({ testid: 8, outsourceid: 6, cost: 30 })]));
+  expect(store.rows('test_panels').every(row => row.lab_outsource_version === 1)).toBe(true);
+  expect(store.rows('outsourcedtesttracking')[0].snapshot_cost).toBe(20);
+ });
+ it('rolls the entire organization catalogue save back if a later panel has changed', async () => {
+  const { service, store } = fixture({ test_panels: [{ id: 5, lab_outsource_version: 0 }, { id: 8, lab_outsource_version: 2 }], outsourcingorganization: [{ outsourceid: 6 }], lab_outsource_providers: [] });
+  const provider = { outsourceid: 6, cost: 20, tat_hours: 24, preferred: false, active: true, effective_from: today, effective_to: null };
+  await expect(service.saveOrganizationServices(admin, 6, { reason: 'Configure partner catalogue', services: [{ testid: 5, version: 0, provider }, { testid: 8, version: 0, provider }] })).rejects.toThrow('changed');
+  expect(store.rows('lab_outsource_providers')).toHaveLength(0);
+  expect(store.rows('test_panels')[0].lab_outsource_version).toBe(0);
+  expect(store.rows('lab_control_audit')).toHaveLength(0);
+ });
  it('records dispatch and due dates without replacing the original agreed cost', async () => {
   const { store, service } = fixture(); await service.transition(admin, 1, { status: 'sent', version: 1, reason: 'Specimen handed to courier', external_reference: 'EXT-001' });
   expect(store.rows('outsourcedtesttracking')[0]).toMatchObject({ snapshot_cost: 20, workflow_status: 'sent', external_reference: 'EXT-001', workflow_version: 2 });

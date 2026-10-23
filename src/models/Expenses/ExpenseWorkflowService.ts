@@ -129,9 +129,10 @@ export class ExpenseWorkflowService {
           const connection = await (this.dependencies.connectionFactory?.() || KnexConnection(this.tenantId));
           const expense = await connection('expensesrecord').where({ id: expenseId }).first();
           if (!expense) throw new Error('Expense not found');
+          if (actor.branch != null && Number(expense.branchid) !== Number(actor.branch)) throw new Error('Expense is outside your branch');
           const authority = this.dependencies.authorityFactory?.() || new AuthorityService(this.tenantId);
           const decision = await authority.can(actor.employeeid, 'expense.view_audit', null, Number(expense.branchid));
-          if (!decision.allowed) throw new Error(decision.reason);
+          if (Number(expense.employeeid) !== Number(actor.employeeid) && !decision.allowed) throw new Error(decision.reason);
 
           const [actions, payments] = await Promise.all([
                connection('expense_approval_actions as action')

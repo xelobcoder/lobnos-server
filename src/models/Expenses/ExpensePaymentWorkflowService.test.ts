@@ -152,6 +152,14 @@ describe('ExpensePaymentWorkflowService', () => {
           expect(test.state.expense_payments).toHaveLength(1);
           expect(test.enqueue).not.toHaveBeenCalled();
      });
+     it('does not let a retry key bypass account access or match a different amount', async () => {
+          const existing = [{ id: 9, expense_id: 10, amount: 200, status: 'Paid', is_reversed: false, idempotency_key: 'idem-100' }];
+          const unauthorized = service({ existingPayments: existing, accountAccess: false });
+          await expect(unauthorized.workflow.record(actor, paymentInput())).rejects.toThrow('not authorized');
+          const mismatch = service({ existingPayments: existing });
+          await expect(mismatch.workflow.record(actor, paymentInput({ amount: 100 }))).rejects.toThrow('does not match');
+          expect(mismatch.state.expense_payments).toHaveLength(1);
+     });
 
      it('rolls back payment, expense state and audit when accounting enqueue fails', async () => {
           const test = service({ enqueueFails: true });
