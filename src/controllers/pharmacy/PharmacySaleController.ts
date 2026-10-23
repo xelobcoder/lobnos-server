@@ -3,9 +3,11 @@ import { PHARMACY_REVERSED_STATUSES } from '../../models/pharmacy/constants/phar
 import { PharmacySaleReversalType } from '../../models/pharmacy/interfaces/IPharmacySaleService';
 import { PharmacySaleRepository } from '../../models/pharmacy/repositories/PharmacySaleRepository';
 import { PharmacySaleService } from '../../models/pharmacy/services/PharmacySaleService';
-import { actorOf, tenantOf } from './pharmacyContext';
+import { actorOf, tenantOf, branchOf } from './pharmacyContext';
+import { roleAllowed } from '../../middleware/roles';
+import { PHARMACY_REVERSAL_ROLES } from '../../models/pharmacy/constants/pharmacy.constants';
 
-const saleService = (request: Request) => new PharmacySaleService(new PharmacySaleRepository(tenantOf(request)));
+const saleService = (request: Request) => new PharmacySaleService(new PharmacySaleRepository(tenantOf(request), branchOf(request),roleAllowed((request as any).authUser.role,PHARMACY_REVERSAL_ROLES)), branchOf(request));
 
 const listParams = (request: Request) => ({
      page: Number(request.query.page || 1),

@@ -33,11 +33,14 @@ export interface PrescriptionItemDetail {
      quantityDispensed: number;
      status: PrescriptionItemStatus;
      saleId: string | null;
+     availableStock?: number;
+     salePrice?: number;
 }
 
 export interface PrescriptionDetail {
      id: string;
      patientId: number;
+     patientName?: string;
      consultationId: number | null;
      clinicianId: number;
      status: PrescriptionStatus;
@@ -88,6 +91,9 @@ export interface FulfillPrescriptionLineInput {
 }
 
 export interface FulfillPrescriptionInput {
+     idempotencyKey: string;
+     paymentAccountId: number;
+     expectedTotal?: number;
      lines: FulfillPrescriptionLineInput[];
      paymentMethod: PharmacyPaymentMethod;
      customerName?: string;
@@ -133,3 +139,4 @@ export interface IPrescriptionService {
      /** Marks whatever is still outstanding as referred out and returns printable referral-slip data for the patient to take elsewhere. */
      referRemaining(id: string, actorId: number): Promise<ReferRemainingResult>;
 }
+

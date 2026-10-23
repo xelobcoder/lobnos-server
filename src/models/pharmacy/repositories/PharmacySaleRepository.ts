@@ -1,3 +1,5 @@
+import { allocateBatches, quantity } from '../PharmacyRules';
+import { collectPharmacyPayment, refundPharmacyPayment } from '../PharmacyPayments';
 import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
 import KnexConnection from '../../../database/KnexConnections';
@@ -16,23 +18,32 @@ import {
 export class PharmacySaleRepository implements IPharmacySaleRepository {
      private readonly connection: Promise<Knex>;
 
-     constructor(tenantId: number) {
+     constructor(private readonly tenantId: number, private readonly branchId: number | null = null, private readonly includeUnassigned=false) {
           this.connection = KnexConnection(tenantId);
+     }
+
+     private scopeBranch(query:Knex.QueryBuilder): void {
+          if(this.branchId==null)return;
+          if(this.includeUnassigned)query.where(builder=>builder.where('branchid',this.branchId).orWhereNull('branchid'));
+          else query.where('branchid',this.branchId);
      }
 
      async withTransaction<T>(work: (unitOfWork: PharmacyUnitOfWork) => Promise<T>): Promise<T> {
           const connection = await this.connection;
-          return connection.transaction(async (trx) => work(trx));
+          for(let attempt=0;;attempt++) {
+               try { return await connection.transaction(async trx=>work(trx)); }
+               catch(error:any) { if(attempt>=2 || !['ER_LOCK_DEADLOCK','ER_LOCK_WAIT_TIMEOUT'].includes(error.code))throw error; }
+          }
      }
 
      async findSaleByIdempotencyKey(idempotencyKey: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySaleRow | null> {
-          const row = await this.scope(unitOfWork)('pharmacy_sales').where({ idempotency_key: idempotencyKey }).first();
+          const row = await this.scope(unitOfWork)('pharmacy_sales').where({ idempotency_key: idempotencyKey }).forUpdate().first();
           return row ? this.toSaleRow(row) : null;
      }
 
      async lockSellableItems(itemIds: string[], unitOfWork: PharmacyUnitOfWork): Promise<PharmacySellableItemRow[]> {
           const rows = await this.scope(unitOfWork)('inv_inventory_items as item')
-               .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.min_stock', 'item.sale_price', 'item.cost_price')
+               .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.min_stock', 'item.sale_price', 'item.cost_price', 'item.requires_prescription', 'item.pharmacy_batch_tracking')
                .whereIn('item.id', itemIds)
                .where('item.is_active', true)
                .where('item.inventory_domain', 'pharmacy')
@@ -51,7 +62,11 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      }
 
      async lockSale(saleId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySaleRow | null> {
-          const row = await this.scope(unitOfWork)('pharmacy_sales').where({ id: saleId }).forUpdate().first();
+          const snapshot=await this.scope(unitOfWork)('pharmacy_sales').where({id:saleId}).first();
+          if(snapshot?.prescription_id)await this.scope(unitOfWork)('prescriptions').where({id:snapshot.prescription_id}).forUpdate().first();
+          const query=this.scope(unitOfWork)('pharmacy_sales').where({id:saleId});
+          this.scopeBranch(query);
+          const row=await query.forUpdate().first();
           return row ? this.toSaleRow(row) : null;
      }
 
@@ -60,6 +75,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                id: sale.id,
                receipt_number: sale.receiptNumber,
                idempotency_key: sale.idempotencyKey,
+               request_hash: sale.requestHash, prescription_id: sale.prescriptionId || null, held_sale_id: sale.heldSaleId || null,
+               payment_account_id: sale.paymentAccountId, branchid: sale.branchid,
                customer_name: sale.customerName,
                patient_id: sale.patientId,
                payment_method: sale.paymentMethod,
@@ -96,6 +113,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      async insertHeldSale(sale: PharmacyHeldSaleRow, lines: PharmacySaleLineRow[], unitOfWork: PharmacyUnitOfWork): Promise<void> {
           await this.scope(unitOfWork)('pharmacy_held_sales').insert({
                id: sale.id,
+               branchid: this.branchId,
                hold_number: sale.holdNumber,
                customer_name: sale.customerName,
                patient_id: sale.patientId,
@@ -118,7 +136,9 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      }
 
      async lockHeldSale(heldSaleId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacyHeldSaleRow | null> {
-          const row = await this.scope(unitOfWork)('pharmacy_held_sales').where({ id: heldSaleId }).forUpdate().first();
+          const query=this.scope(unitOfWork)('pharmacy_held_sales').where({ id: heldSaleId });
+          this.scopeBranch(query);
+          const row=await query.forUpdate().first();
           return row ? this.toHeldSaleRow(row) : null;
      }
 
@@ -143,6 +163,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      async listHeldSales(page: number, count: number, search?: string): Promise<{ sales: PharmacyHeldSaleRow[]; total: number }> {
           const connection = await this.connection;
           let query = connection('pharmacy_held_sales').orderBy('created_at', 'desc');
+          this.scopeBranch(query);
           if (search?.trim()) {
                const term = `%${search.trim()}%`;
                query = query.where((builder) => builder.where('id', search.trim()).orWhere('hold_number', 'like', term).orWhere('customer_name', 'like', term));
@@ -159,32 +180,63 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           await scope('pharmacy_held_sales').where({ id: heldSaleId }).delete();
      }
 
-     async applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork): Promise<void> {
+     async applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork, costPrice?:number): Promise<void> {
           await this.scope(unitOfWork)('inv_inventory_items')
                .where({ id: itemId })
-               .update({ current_stock: newStock, status, last_updated: occurredAt, updated_at: occurredAt });
+               .update({ current_stock: newStock, status, last_updated: occurredAt, updated_at: occurredAt, ...(costPrice!==undefined?{cost_price:costPrice}:{}) });
      }
 
+     async collectPayment(sale: PharmacySaleRow, unitOfWork: PharmacyUnitOfWork): Promise<void> {
+          await collectPharmacyPayment(this.scope(unitOfWork),this.tenantId,sale);
+     }
+     async reversePayment(sale: PharmacySaleRow, actor: number, reason: string, disposition: string, unitOfWork: PharmacyUnitOfWork): Promise<void> {
+          const db=this.scope(unitOfWork);
+          await refundPharmacyPayment(db,this.tenantId,sale,actor,reason,disposition==='restock');
+          const lines=await this.findSaleLines(sale.id,unitOfWork);
+          await db('pharmacy_returns').insert(lines.map(line=>({sale_id:sale.id,inventory_item_id:line.inventoryItemId,quantity:line.quantity,disposition,recorded_by:actor,created_at:new Date()})));
+          if(disposition==='not_returned')return;
+          const dispenses=await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false});
+          // Lock prescriptions before items in every dispensing/referral/reversal path.
+          for(const id of [...new Set(dispenses.map((row:any)=>String(row.prescription_id)))].sort()) {
+               await db('prescriptions').where({id}).forUpdate().first();
+               const items=await db('prescription_items').where({prescription_id:id}).orderBy('id').forUpdate();
+               for(const item of items) {
+                    const returned=dispenses.filter((row:any)=>row.prescription_item_id===item.id).reduce((sum:number,row:any)=>sum+Number(row.quantity),0);
+                    if(!returned)continue;
+                    const remaining=quantity(Math.max(0,Number(item.quantity_dispensed)-returned));
+                    await db('prescription_items').where({id:item.id}).update({quantity_dispensed:remaining,status:remaining>=Number(item.quantity_ordered)?'dispensed':'pending',updated_at:new Date()});
+                    item.quantity_dispensed=remaining; item.status=remaining>=Number(item.quantity_ordered)?'dispensed':'pending';
+               }
+               const resolved=items.every((item:any)=>['dispensed','referred','cancelled'].includes(item.status));
+               const status=resolved?'fulfilled':items.some((item:any)=>Number(item.quantity_dispensed)>0||item.status==='referred')?'partially_fulfilled':'pending';
+               await db('prescriptions').where({id}).update({status,updated_at:new Date()});
+          }
+          await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false}).update({is_reversed:true});
+     }
+     async assertReturnable(sale: PharmacySaleRow, itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<void> {
+          const issues=await this.scope(unitOfWork)('inv_inventory_transactions').where({reference_id:sale.id,item_id:itemId,transaction_type:'consumption'});
+          const today=new Date().toISOString().slice(0,10);
+          if(!issues.length || issues.some((row:any)=>row.expiry_date && new Date(row.expiry_date).toISOString().slice(0,10)<today))throw new Error('Expired or untraceable goods must be quarantined, not restocked');
+     }
      async recordStockMovement(movement: PharmacyStockMovement, unitOfWork: PharmacyUnitOfWork): Promise<void> {
-          const isReturn = movement.direction === 'return';
-          await this.scope(unitOfWork)('inv_inventory_transactions').insert({
-               id: `${isReturn ? 'PHM-REV' : 'PHM-TXN'}-${randomUUID()}`,
-               item_id: movement.itemId,
-               transaction_type: isReturn ? 'addition' : 'consumption',
-               quantity: movement.quantity,
-               unit_type: 'consumption',
-               previous_stock: movement.previousStock,
-               new_stock: movement.newStock,
-               unit_cost: movement.unitCost,
-               total_cost: movement.totalCost,
-               reason: movement.reason,
-               reference_id: movement.referenceId,
-               patientid: movement.patientId,
-               performed_by: movement.performedBy,
-               transaction_date: movement.occurredAt,
-               notes: movement.receiptNumber,
-               created_at: movement.occurredAt
-          });
+          const db=this.scope(unitOfWork);
+          let allocations:Array<{batchNumber:string|null;quantity:number;expiryDate:string|null}>;
+          if(movement.direction==='issue') {
+               const item=await db('inv_inventory_items').where({id:movement.itemId}).first();
+               const rows=await db('inv_inventory_transactions').select('batch_number').min('expiry_date as expiry_date')
+                    .select(db.raw('SUM(new_stock - previous_stock) as available')).where({item_id:movement.itemId}).whereNotNull('batch_number').groupBy('batch_number');
+               allocations=allocateBatches(rows.map((row:any)=>({batchNumber:row.batch_number,available:Number(row.available),expiryDate:row.expiry_date?new Date(row.expiry_date).toISOString().slice(0,10):null})),movement.quantity,movement.previousStock,Boolean(item.pharmacy_batch_tracking),new Date().toISOString().slice(0,10));
+          } else {
+               const issues=await db('inv_inventory_transactions').where({reference_id:movement.referenceId,item_id:movement.itemId,transaction_type:'consumption'}).orderBy('id');
+               allocations=issues.map((row:any)=>({batchNumber:row.batch_number,quantity:Number(row.quantity),expiryDate:row.expiry_date}));
+               if(quantity(allocations.reduce((sum,row)=>sum+row.quantity,0))!==movement.quantity)throw new Error('Original stock movements do not match the return');
+          }
+          let previous=movement.previousStock;
+          for(const allocation of allocations) {
+               const next=quantity(previous+(movement.direction==='issue'?-allocation.quantity:allocation.quantity));
+               await db('inv_inventory_transactions').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:movement.unitCost*allocation.quantity,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
+               previous=next;
+          }
      }
 
      async markSaleReversed(
@@ -202,9 +254,11 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           });
      }
 
-     async findSaleById(saleId: string): Promise<PharmacySaleRow | null> {
-          const connection = await this.connection;
-          const row = await connection('pharmacy_sales').where({ id: saleId }).first();
+     async findSaleById(saleId: string,unitOfWork?:PharmacyUnitOfWork): Promise<PharmacySaleRow | null> {
+          const connection = unitOfWork?this.scope(unitOfWork):await this.connection;
+          const query=connection('pharmacy_sales').where({id:saleId});
+          this.scopeBranch(query);
+          const row=await query.first();
           return row ? this.toSaleRow(row) : null;
      }
 
@@ -229,6 +283,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      async listSales(filters: PharmacySaleListFilters): Promise<{ sales: PharmacySaleRow[]; total: number }> {
           const connection = await this.connection;
           let query = connection('pharmacy_sales').orderBy('completed_at', 'desc');
+          this.scopeBranch(query);
           if (filters.statuses?.length) {
                query = query.whereIn('status', filters.statuses);
           }
@@ -260,6 +315,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                currentStock: Number(row.current_stock || 0),
                minimumStock: Number(row.min_stock || 0),
                salePrice: Number(row.sale_price || 0),
+               requiresPrescription: Boolean(row.requires_prescription),
+               batchTracking: row.pharmacy_batch_tracking !== false && row.pharmacy_batch_tracking !== 0,
                costPrice: Number(row.cost_price || 0)
           };
      }
@@ -269,6 +326,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                id: row.id,
                receiptNumber: row.receipt_number,
                idempotencyKey: row.idempotency_key,
+               requestHash: row.request_hash, prescriptionId: row.prescription_id, heldSaleId: row.held_sale_id,
+               paymentAccountId: Number(row.payment_account_id) || undefined, branchid: row.branchid == null ? null : Number(row.branchid),
                customerName: row.customer_name,
                patientId: row.patient_id ?? null,
                paymentMethod: row.payment_method,

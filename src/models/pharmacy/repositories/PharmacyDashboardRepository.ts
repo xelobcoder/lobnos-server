@@ -5,20 +5,23 @@ import { IPharmacyDashboardRepository, PharmacyDashboardData } from '../interfac
 export class PharmacyDashboardRepository implements IPharmacyDashboardRepository {
      private readonly connection: Promise<Knex>;
 
-     constructor(tenantId: number) {
+     constructor(tenantId: number,private readonly branchId:number|null=null) {
           this.connection = KnexConnection(tenantId);
      }
 
      async getDashboard(): Promise<PharmacyDashboardData> {
           const connection = await this.connection;
-          const [todayResult, recentSales, lowStockResult] = await Promise.all([
-               connection('pharmacy_sales').where('status', 'completed').whereRaw('DATE(completed_at) = CURDATE()').select(connection.raw('COUNT(*) as saleCount'), connection.raw('COALESCE(SUM(total_amount), 0) as revenue')).first(),
-               connection('pharmacy_sales').where('status', 'completed').orderBy('completed_at', 'desc').limit(5),
+          const sales=connection('pharmacy_sales');const payments=connection('pharmacy_payments');
+          if(this.branchId!=null){sales.where('branchid',this.branchId);payments.where('branchid',this.branchId);}
+          const [todayResult, refundResult, recentSales, lowStockResult] = await Promise.all([
+               payments.clone().whereRaw('DATE(collected_at) = CURDATE()').select(connection.raw('COUNT(*) as saleCount'), connection.raw('COALESCE(SUM(amount), 0) as revenue')).first(),
+               payments.clone().where('status','refunded').whereRaw('DATE(reversed_at) = CURDATE()').sum('amount as amount').first(),
+               sales.clone().where('status', 'completed').orderBy('completed_at', 'desc').limit(5),
                connection('inv_inventory_items as item').where('item.inventory_domain', 'pharmacy').where('item.is_active', true).whereRaw('item.current_stock <= item.min_stock').count('* as count').first()
           ]);
           const today = todayResult as { saleCount?: number | string; revenue?: number | string } | undefined;
           return {
-               todaySales: Number(today?.revenue || 0),
+               todaySales: Number((Number(today?.revenue || 0)-Number(refundResult?.amount||0)).toFixed(2)),
                completedSales: Number(today?.saleCount || 0),
                lowStockItems: Number(lowStockResult?.count || 0),
                recentSales: recentSales.map((sale: any) => ({ receiptNumber: sale.receipt_number, customerName: sale.customer_name, paymentMethod: sale.payment_method, total: Number(sale.total_amount), completedAt: sale.completed_at }))

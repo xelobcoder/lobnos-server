@@ -1,9 +1,11 @@
+import { PharmacyUnitOfWork } from '../../pharmacy/interfaces/IPharmacySaleRepository';
 export type PrescriptionStatus = 'pending' | 'partially_fulfilled' | 'fulfilled' | 'referred' | 'cancelled';
 export type PrescriptionItemStatus = 'pending' | 'dispensed' | 'referred' | 'cancelled';
 
 export interface PrescriptionRow {
      id: string;
      patientId: number;
+     patientName?: string;
      consultationId: number | null;
      clinicianId: number;
      status: PrescriptionStatus;
@@ -26,6 +28,8 @@ export interface PrescriptionItemRow {
      quantityDispensed: number;
      status: PrescriptionItemStatus;
      saleId: string | null;
+     availableStock?: number;
+     salePrice?: number;
 }
 
 /** A prescription row enriched with the patient/clinician names a queue listing needs to render. */
@@ -58,6 +62,9 @@ export interface PrescriptionItemFulfillmentUpdate {
 }
 
 export interface IPrescriptionRepository {
+     withTransaction<T>(work: (repository: IPrescriptionRepository, trx: PharmacyUnitOfWork) => Promise<T>): Promise<T>;
+     recordDispense(saleId: string, prescriptionId: string, lines: Array<{prescriptionItemId: string; quantityDispensed: number}>): Promise<void>;
+     findFulfillment(key: string): Promise<{prescriptionId: string; saleId: string; requestHash: string; lines: Array<{prescriptionItemId:string;quantityDispensed:number}>} | null>;
      createPrescription(prescription: PrescriptionRow, items: PrescriptionItemRow[]): Promise<void>;
      findById(id: string): Promise<PrescriptionRow | null>;
      findItemsByPrescriptionId(prescriptionId: string): Promise<PrescriptionItemRow[]>;
@@ -71,3 +78,4 @@ export interface IPrescriptionRepository {
      /** Atomically marks the given items as referred out and updates the prescription's overall status. */
      markItemsReferred(prescriptionId: string, itemIds: string[], prescriptionStatus: PrescriptionStatus, occurredAt: Date): Promise<void>;
 }
+

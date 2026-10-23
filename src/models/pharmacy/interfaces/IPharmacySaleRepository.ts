@@ -11,12 +11,19 @@ export interface PharmacySellableItemRow {
      minimumStock: number;
      salePrice: number;
      costPrice: number;
+     requiresPrescription?: boolean;
+     batchTracking?: boolean;
 }
 
 export interface PharmacySaleRow {
      id: string;
      receiptNumber: string;
      idempotencyKey: string;
+     requestHash?: string;
+     prescriptionId?: string | null;
+     heldSaleId?: string | null;
+     paymentAccountId?: number;
+     branchid?: number | null;
      customerName: string;
      patientId: number | null;
      paymentMethod: string;
@@ -84,6 +91,9 @@ export interface PharmacySaleListFilters {
 
 export interface IPharmacySaleRepository {
      /** Runs the supplied work inside a single database transaction. */
+     collectPayment(sale: PharmacySaleRow, unitOfWork: PharmacyUnitOfWork): Promise<void>;
+     reversePayment(sale: PharmacySaleRow, actor: number, reason: string, disposition: string, unitOfWork: PharmacyUnitOfWork): Promise<void>;
+     assertReturnable(sale: PharmacySaleRow, itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<void>;
      withTransaction<T>(work: (unitOfWork: PharmacyUnitOfWork) => Promise<T>): Promise<T>;
 
      findSaleByIdempotencyKey(idempotencyKey: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySaleRow | null>;
@@ -101,7 +111,7 @@ export interface IPharmacySaleRepository {
      listHeldSales(page: number, count: number, search?: string): Promise<{ sales: PharmacyHeldSaleRow[]; total: number }>;
      deleteHeldSale(heldSaleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<void>;
      /** Writes the new stock level together with its recomputed status. */
-     applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork): Promise<void>;
+     applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork, costPrice?:number): Promise<void>;
      recordStockMovement(movement: PharmacyStockMovement, unitOfWork: PharmacyUnitOfWork): Promise<void>;
      markSaleReversed(
           saleId: string,
@@ -109,7 +119,8 @@ export interface IPharmacySaleRepository {
           unitOfWork: PharmacyUnitOfWork
      ): Promise<void>;
 
-     findSaleById(saleId: string): Promise<PharmacySaleRow | null>;
+     findSaleById(saleId: string,unitOfWork?:PharmacyUnitOfWork): Promise<PharmacySaleRow | null>;
      findSaleLines(saleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleLineRow[]>;
      listSales(filters: PharmacySaleListFilters): Promise<{ sales: PharmacySaleRow[]; total: number }>;
 }
+

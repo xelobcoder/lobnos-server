@@ -4,11 +4,13 @@ import { PharmacySaleService } from '../../models/pharmacy/services/PharmacySale
 import { PrescriptionRepository } from '../../models/prescriptions/repositories/PrescriptionRepository';
 import { PrescriptionService } from '../../models/prescriptions/services/PrescriptionService';
 import { PrescriptionStatus } from '../../models/prescriptions/interfaces/IPrescriptionRepository';
-import { actorOf, tenantOf } from '../pharmacy/pharmacyContext';
+import { actorOf, tenantOf, branchOf } from '../pharmacy/pharmacyContext';
+import KnexConnection from '../../database/KnexConnections';
+import { roleAllowed } from '../../middleware/roles';
 
 const prescriptionService = (request: Request) => {
      const tenantId = tenantOf(request);
-     return new PrescriptionService(new PrescriptionRepository(tenantId), new PharmacySaleService(new PharmacySaleRepository(tenantId)));
+     return new PrescriptionService(new PrescriptionRepository(tenantId), new PharmacySaleService(new PharmacySaleRepository(tenantId,branchOf(request)),branchOf(request)));
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -109,11 +111,14 @@ export class PrescriptionController {
                     response.status(400).json({ success: false, error: { code: 'INVALID_REQUEST', message: 'prescriptionIds, patientId and consultationId are required' } });
                     return;
                }
-               const linked = await prescriptionService(request).linkToConsultation(
-                    prescriptionIds.map(String),
-                    Number(patientId),
-                    Number(consultationId)
-               );
+               const db=await KnexConnection(tenantOf(request));
+               const linked=await db.transaction(async trx=>{
+                    const query=trx('prescriptions').whereIn('id',prescriptionIds.map(String)).where('patient_id',Number(patientId));
+                    if(!roleAllowed((request as any).authUser.role,['admin']))query.where('clinician_id',actorOf(request));
+                    const owned=await query.forUpdate();
+                    if(owned.length!==new Set(prescriptionIds).size)throw new Error('One or more prescriptions are unavailable for this prescriber');
+                    return trx('prescriptions').whereIn('id',owned.map(row=>row.id)).whereNull('consultation_id').update({consultation_id:Number(consultationId)});
+               });
                response.json({ success: true, data: { linked } });
           } catch (error: any) {
                response.status(500).json({ success: false, error: { code: 'LINK_FAILED', message: error.message } });

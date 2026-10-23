@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { pharmacyAvailability } from '../../pharmacy/PharmacyAvailability';
 import KnexConnection from '../../../database/KnexConnections';
 import {
      IPrescriptionRepository,
@@ -32,13 +33,34 @@ export function applyPrescriptionScopeFilters<T extends Knex.QueryBuilder>(query
 export class PrescriptionRepository implements IPrescriptionRepository {
      private readonly connection: Promise<Knex>;
 
-     constructor(tenantId: number) {
-          this.connection = KnexConnection(tenantId);
+     constructor(private readonly tenantId: number, private readonly trx?: Knex.Transaction) {
+          this.connection = trx ? Promise.resolve(trx) : KnexConnection(tenantId);
      }
 
+     async withTransaction<T>(work: (repository: IPrescriptionRepository, trx: any) => Promise<T>): Promise<T> {
+          if (this.trx) return work(this, this.trx);
+          const db = await this.connection;
+          for(let attempt=0;;attempt++) {
+               try { return await db.transaction(trx => work(new PrescriptionRepository(this.tenantId, trx), trx)); }
+               catch(error:any) { if(attempt>=2 || !['ER_LOCK_DEADLOCK','ER_LOCK_WAIT_TIMEOUT'].includes(error.code))throw error; }
+          }
+     }
+     private async transaction<T>(work: (trx: Knex.Transaction) => Promise<T>): Promise<T> {
+          if (this.trx) return work(this.trx);
+          return (await this.connection).transaction(work);
+     }
+     async findFulfillment(key: string) {
+          const row = await (await this.connection)('pharmacy_sales').where({idempotency_key:key}).first();
+          if(!row)return null;
+          const lines=await (await this.connection)('pharmacy_dispenses').where({sale_id:row.id});
+          return {prescriptionId:row.prescription_id, saleId:row.id, requestHash:row.request_hash,lines:lines.map((line:any)=>({prescriptionItemId:String(line.prescription_item_id),quantityDispensed:Number(line.quantity)}))};
+     }
+     async recordDispense(saleId: string, prescriptionId: string, lines: Array<{prescriptionItemId:string; quantityDispensed:number}>): Promise<void> {
+          await (await this.connection)('pharmacy_dispenses').insert(lines.map(line=>({sale_id:saleId,prescription_id:prescriptionId,prescription_item_id:line.prescriptionItemId,quantity:line.quantityDispensed,is_reversed:false})));
+     }
      async createPrescription(prescription: PrescriptionRow, items: PrescriptionItemRow[]): Promise<void> {
           const connection = await this.connection;
-          await connection.transaction(async (trx) => {
+          await this.transaction(async (trx) => {
                await trx('prescriptions').insert({
                     id: prescription.id,
                     patient_id: prescription.patientId,
@@ -72,13 +94,24 @@ export class PrescriptionRepository implements IPrescriptionRepository {
 
      async findById(id: string): Promise<PrescriptionRow | null> {
           const connection = await this.connection;
-          const row = await connection('prescriptions').where({ id }).first();
+          const query = connection('prescriptions').where({ id });
+          if (this.trx) query.forUpdate();
+          const row = await query.first();
+          if(row) {
+               const patient=await connection('new_patients').select('firstname','lastname').where({patientid:row.patient_id}).first();
+               row.patient_name=patient ? `${patient.firstname || ''} ${patient.lastname || ''}`.trim() : 'Unknown patient';
+          }
           return row ? this.toPrescriptionRow(row) : null;
      }
 
      async findItemsByPrescriptionId(prescriptionId: string): Promise<PrescriptionItemRow[]> {
           const connection = await this.connection;
-          const rows = await connection('prescription_items').where({ prescription_id: prescriptionId }).orderBy('created_at', 'asc');
+          const query = connection('prescription_items as pi').leftJoin('inv_inventory_items as inventory','inventory.id','pi.inventory_item_id')
+               .select('pi.*','inventory.current_stock as available_stock','inventory.sale_price','inventory.pharmacy_batch_tracking').where('pi.prescription_id',prescriptionId).orderBy('pi.id');
+          if (this.trx) query.forUpdate();
+          const rows = await query;
+          const availability=await pharmacyAvailability(connection,rows.filter((row:any)=>row.inventory_item_id).map((row:any)=>({id:row.inventory_item_id,currentStock:Number(row.available_stock),batchTracking:Boolean(row.pharmacy_batch_tracking)})));
+          rows.forEach((row:any)=>{row.available_stock=availability.get(row.inventory_item_id)||0;});
           return rows.map((row: any) => this.toItemRow(row));
      }
 
@@ -133,7 +166,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
 
      async applyFulfillment(prescriptionId: string, itemUpdates: PrescriptionItemFulfillmentUpdate[], prescriptionStatus: PrescriptionStatus, occurredAt: Date): Promise<void> {
           const connection = await this.connection;
-          await connection.transaction(async (trx) => {
+          await this.transaction(async (trx) => {
                for (const update of itemUpdates) {
                     await trx('prescription_items').where({ id: update.id }).update({
                          quantity_dispensed: update.quantityDispensed,
@@ -148,7 +181,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
 
      async markItemsReferred(prescriptionId: string, itemIds: string[], prescriptionStatus: PrescriptionStatus, occurredAt: Date): Promise<void> {
           const connection = await this.connection;
-          await connection.transaction(async (trx) => {
+          await this.transaction(async (trx) => {
                await trx('prescription_items').whereIn('id', itemIds).update({ status: 'referred', updated_at: occurredAt });
                await trx('prescriptions').where({ id: prescriptionId }).update({ status: prescriptionStatus, updated_at: occurredAt });
           });
@@ -158,6 +191,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
           return {
                id: row.id,
                patientId: Number(row.patient_id),
+               patientName: row.patient_name,
                consultationId: row.consultation_id ?? null,
                clinicianId: Number(row.clinician_id),
                status: row.status,
@@ -181,7 +215,10 @@ export class PrescriptionRepository implements IPrescriptionRepository {
                quantityOrdered: Number(row.quantity_ordered),
                quantityDispensed: Number(row.quantity_dispensed),
                status: row.status,
+               availableStock: Number(row.available_stock || 0),
+               salePrice: Number(row.sale_price || 0),
                saleId: row.sale_id ?? null
           };
      }
 }
+

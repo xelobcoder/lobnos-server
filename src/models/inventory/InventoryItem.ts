@@ -15,6 +15,7 @@ import {
 import KnexConnection from '../../database/KnexConnections';
 import { UnitValidationService } from '../../services/UnitValidationService';
 import { enqueueGoodsReceipt } from '../../accountingModule/integrations/InventoryAccounting';
+import { validatePharmacyReceipt } from '../pharmacy/PharmacyRules';
 
 export class InventoryItemModel {
      private connection: Promise<Knex<any, any[]>>;
@@ -63,6 +64,11 @@ export class InventoryItemModel {
           await connection.transaction(async (trx) => {
                const item = await trx('inv_inventory_items').where({ id, is_active: true }).forUpdate().first();
                if (!item) throw new Error('Inventory item not found');
+               validatePharmacyReceipt(item,request);
+               if(item.inventory_domain==='pharmacy'&&request.batch_number) {
+                    const prior=await trx('inv_inventory_transactions').where({item_id:id,batch_number:request.batch_number.trim()}).whereNotNull('expiry_date').first();
+                    if(prior&&request.expiry_date&&new Date(prior.expiry_date).toISOString().slice(0,10)!==request.expiry_date)throw new Error('This batch already has a different expiry date');
+               }
                const supplier = await trx('inv_suppliers').where({ id: supplierId, is_active: true }).first();
                if (!supplier) throw new Error('Supplier not found or inactive');
 

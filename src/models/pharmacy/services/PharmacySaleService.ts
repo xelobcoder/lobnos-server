@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js';
+import { money, quantity, saleRequestHash, validateSaleInput } from '../PharmacyRules';
 import { randomUUID } from 'crypto';
 import {
      PHARMACY_REVERSAL_MAX_REASON_LENGTH,
@@ -30,13 +32,15 @@ import {
 } from '../interfaces/IPharmacySaleService';
 
 export class PharmacySaleService implements IPharmacySaleService {
-     constructor(private readonly saleRepository: IPharmacySaleRepository) { }
+     constructor(private readonly saleRepository: IPharmacySaleRepository, private readonly branchId: number | null = null) { }
 
-     async completeSale(input: CreatePharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt> {
+     async completeSale(input: CreatePharmacySaleInput, cashierId: number, trx?: PharmacyUnitOfWork, prescriptionId?: string): Promise<PharmacySaleReceipt> {
+          if(trx)return this.completeSaleInTransaction(input,cashierId,trx,prescriptionId);
           return this.saleRepository.withTransaction((unitOfWork) => this.completeSaleInTransaction(input, cashierId, unitOfWork));
      }
 
      async holdSale(input: HoldPharmacySaleInput, cashierId: number): Promise<PharmacyHeldSale> {
+          if(!this.branchId)throw new Error('Select an operating branch before holding a sale');
           if (!input.lines?.length) throw new Error('A held sale requires at least one line');
           if (new Set(input.lines.map((line) => line.inventoryItemId)).size !== input.lines.length) throw new Error('Duplicate inventory items are not allowed');
 
@@ -53,17 +57,17 @@ export class PharmacySaleService implements IPharmacySaleService {
                     const item = itemsById.get(requested.inventoryItemId)!;
                     if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
                     if (item.salePrice <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
-                    const lineTotal = item.salePrice * requested.quantity;
-                    const lineCost = item.costPrice * requested.quantity;
+                    const lineTotal = money(new Decimal(item.salePrice).mul(requested.quantity));
+                    const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
                     total += lineTotal;
                     return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice: item.salePrice, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: lineTotal - lineCost };
                });
                const sale = {
                     id: heldSaleId,
-                    holdNumber: `HOLD-${Date.now()}`,
+                    holdNumber: `HOLD-${heldSaleId}`,
                     customerName: input.customerName?.trim() || 'Walk-in customer',
                     patientId: input.patientId || null,
-                    totalAmount: total,
+                    totalAmount: money(total),
                     cashierId,
                     createdAt: now,
                     updatedAt: now
@@ -89,7 +93,13 @@ export class PharmacySaleService implements IPharmacySaleService {
      }
 
      async completeHeldSale(heldSaleId: string, input: CompleteHeldPharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt> {
+          validateSaleInput(input);
           return this.saleRepository.withTransaction(async (unitOfWork) => {
+               const existing=await this.saleRepository.findSaleByIdempotencyKey(input.idempotencyKey,unitOfWork);
+               if(existing) {
+                    if(existing.heldSaleId!==heldSaleId || existing.requestHash!==saleRequestHash(input,cashierId))throw new Error('Checkout retry does not match the original request');
+                    return this.toReceipt(existing,unitOfWork);
+               }
                const heldSale = await this.saleRepository.lockHeldSale(heldSaleId, unitOfWork);
                if (!heldSale) throw new Error('Held sale not found');
                const heldLines = await this.saleRepository.findHeldSaleLines(heldSaleId, unitOfWork);
@@ -98,7 +108,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                     customerName: input.customerName || heldSale.customerName,
                     patientId: input.patientId ?? heldSale.patientId,
                     lines: input.lines?.length ? input.lines : heldLines.map((line) => ({ inventoryItemId: line.inventoryItemId, quantity: line.quantity }))
-               }, cashierId, unitOfWork);
+               }, cashierId, unitOfWork, undefined, heldSaleId);
                await this.saleRepository.deleteHeldSale(heldSaleId, unitOfWork);
                return receipt;
           });
@@ -112,12 +122,18 @@ export class PharmacySaleService implements IPharmacySaleService {
           });
      }
 
-     private async completeSaleInTransaction(input: CreatePharmacySaleInput, cashierId: number, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySaleReceipt> {
+     private async completeSaleInTransaction(input: CreatePharmacySaleInput, cashierId: number, unitOfWork: PharmacyUnitOfWork, prescriptionId?: string, heldSaleId?: string): Promise<PharmacySaleReceipt> {
+          validateSaleInput(input);
+          if (!Number.isInteger(this.branchId) || Number(this.branchId)<=0)throw new Error('Select an operating branch before checkout');
+          const requestHash=saleRequestHash(input,cashierId,prescriptionId);
           if (!input.idempotencyKey || !input.lines?.length) throw new Error('A sale requires an idempotency key and at least one line');
           if (new Set(input.lines.map((line) => line.inventoryItemId)).size !== input.lines.length) throw new Error('Duplicate inventory items are not allowed');
 
           const existing = await this.saleRepository.findSaleByIdempotencyKey(input.idempotencyKey, unitOfWork);
-          if (existing) return this.toReceipt(existing);
+          if (existing) {
+               if(existing.requestHash!==requestHash || existing.branchid!==this.branchId)throw new Error('Checkout retry does not match the original request');
+               return this.toReceipt(existing,unitOfWork);
+          }
 
           const itemIds = input.lines.map((line) => line.inventoryItemId);
           const items = await this.saleRepository.lockSellableItems(itemIds, unitOfWork);
@@ -134,10 +150,11 @@ export class PharmacySaleService implements IPharmacySaleService {
                const item = itemsById.get(requested.inventoryItemId)!;
                if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
                if (item.salePrice <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
+               if(item.requiresPrescription && !prescriptionId)throw new Error(`${item.name} requires a prescription; dispense it from the prescription queue`);
                if (item.currentStock < requested.quantity) throw new Error(`${item.name} has insufficient stock`);
 
-               const lineTotal = item.salePrice * requested.quantity;
-               const lineCost = item.costPrice * requested.quantity;
+               const lineTotal = money(new Decimal(item.salePrice).mul(requested.quantity));
+               const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
                total += lineTotal;
                totalCost += lineCost;
                lines.push({
@@ -155,17 +172,19 @@ export class PharmacySaleService implements IPharmacySaleService {
                });
           }
 
+          if(input.expectedTotal!=null && (!Number.isFinite(input.expectedTotal)||money(total)!==input.expectedTotal))throw new Error('Prices changed. Refresh the item prices and review the total before paying');
           const sale: PharmacySaleRow = {
                id: saleId,
-               receiptNumber: `PHM-${Date.now()}`,
+               receiptNumber: `PHM-${saleId}`,
+               requestHash, prescriptionId, heldSaleId, paymentAccountId:input.paymentAccountId, branchid:this.branchId,
                idempotencyKey: input.idempotencyKey,
                customerName: input.customerName?.trim() || 'Walk-in customer',
                patientId: input.patientId || null,
                paymentMethod: input.paymentMethod,
                paymentReference: input.paymentReference?.trim() || null,
-               totalAmount: total,
-               totalCost,
-               grossProfit: total - totalCost,
+               totalAmount: money(total),
+               totalCost: money(totalCost),
+               grossProfit: money(new Decimal(total).minus(totalCost)),
                cashierId,
                status: PHARMACY_SALE_STATUS_COMPLETED,
                completedAt: now,
@@ -189,7 +208,8 @@ export class PharmacySaleService implements IPharmacySaleService {
                });
           }
 
-          return this.toReceipt(sale);
+          await this.saleRepository.collectPayment(sale,unitOfWork);
+          return this.toReceipt(sale,unitOfWork);
      }
 
      async getSalesHistory(request: PharmacySaleHistoryRequest): Promise<PharmacySaleHistory> {
@@ -219,6 +239,7 @@ export class PharmacySaleService implements IPharmacySaleService {
 
           return {
                ...this.toHistoryItem(sale),
+               paymentAccountId:sale.paymentAccountId,branchid:sale.branchid,
                paymentReference: sale.paymentReference,
                patientId: sale.patientId,
                reversedBy: sale.reversedBy,
@@ -238,6 +259,7 @@ export class PharmacySaleService implements IPharmacySaleService {
      }
 
      async reverseSale(saleId: string, input: ReversePharmacySaleInput, actorId: number): Promise<PharmacySaleReversal> {
+          if(!['restock','quarantine','not_returned'].includes(input?.disposition))throw new Error('Choose what happened to the goods: restock, quarantine or not returned');
           const status = PHARMACY_REVERSAL_STATUSES[input?.type as keyof typeof PHARMACY_REVERSAL_STATUSES];
           if (!status) throw new Error('Reversal type must be refund, void or cancel');
           const reason = input.reason?.trim() || '';
@@ -256,8 +278,11 @@ export class PharmacySaleService implements IPharmacySaleService {
                const now = new Date();
                const restockedItems: PharmacySaleReversal['restockedItems'] = [];
 
-               for (const line of lines) {
+               for (const line of [...lines].sort((a,b)=>a.inventoryItemId.localeCompare(b.inventoryItemId))) {
+                    if(input.disposition!=='restock')continue;
+                    await this.saleRepository.assertReturnable(sale,line.inventoryItemId,unitOfWork);
                     const item = await this.saleRepository.lockItem(line.inventoryItemId, unitOfWork);
+                    if (!item)throw new Error('Original inventory item is missing; quarantine the return');
                     if (item) {
                          await this.applyStockChange(item, line.quantity, {
                               direction: 'return',
@@ -265,12 +290,14 @@ export class PharmacySaleService implements IPharmacySaleService {
                               sale,
                               performedBy: actorId,
                               occurredAt: now,
+                              unitCost:line.unitCost,
                               unitOfWork
                          });
                     }
                     restockedItems.push({ inventoryItemId: line.inventoryItemId, name: line.name, quantity: line.quantity });
                }
 
+               await this.saleRepository.reversePayment(sale,actorId,reason,input.disposition,unitOfWork);
                await this.saleRepository.markSaleReversed(sale.id, { status, type: input.type, reason, actorId, occurredAt: now }, unitOfWork);
 
                return {
@@ -297,17 +324,19 @@ export class PharmacySaleService implements IPharmacySaleService {
                performedBy: number;
                occurredAt: Date;
                unitOfWork: PharmacyUnitOfWork;
+               unitCost?: number;
           }
      ): Promise<void> {
           const previousStock = item.currentStock;
-          const newStock = previousStock + delta;
+          const newStock = quantity(previousStock + delta);
 
           await this.saleRepository.applyStockLevel(
                item.id,
                newStock,
                resolveStockStatus(newStock, item.minimumStock),
                context.occurredAt,
-               context.unitOfWork
+               context.unitOfWork,
+               delta>0&&newStock>0 ? money(new Decimal(previousStock).mul(item.costPrice).plus(new Decimal(delta).mul(context.unitCost??item.costPrice)).div(newStock)) : undefined
           );
           await this.saleRepository.recordStockMovement({
                itemId: item.id,
@@ -321,8 +350,8 @@ export class PharmacySaleService implements IPharmacySaleService {
                performedBy: context.performedBy,
                receiptNumber: context.sale.receiptNumber,
                occurredAt: context.occurredAt,
-               unitCost: item.costPrice,
-               totalCost: item.costPrice * Math.abs(delta)
+               unitCost: context.unitCost ?? item.costPrice,
+               totalCost: money(new Decimal(context.unitCost ?? item.costPrice).mul(Math.abs(delta)))
           }, context.unitOfWork);
      }
 
@@ -344,11 +373,13 @@ export class PharmacySaleService implements IPharmacySaleService {
           };
      }
 
-     private toReceipt(sale: PharmacySaleRow): PharmacySaleReceipt {
+     private async toReceipt(sale: PharmacySaleRow, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleReceipt> {
           return {
                id: sale.id,
                receiptNumber: sale.receiptNumber,
                total: sale.totalAmount,
+               customerName:sale.customerName,
+               lines:await this.saleRepository.findSaleLines(sale.id,unitOfWork),
                paymentMethod: sale.paymentMethod as PharmacyPaymentMethod,
                completedAt: sale.completedAt as Date
           };

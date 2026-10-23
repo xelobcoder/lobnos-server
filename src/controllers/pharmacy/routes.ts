@@ -4,6 +4,7 @@ import { PharmacyCatalogueController } from './PharmacyCatalogueController';
 import { PharmacyDashboardController } from './PharmacyDashboardController';
 import { PharmacySaleController } from './PharmacySaleController';
 import { pharmacyAccess, pharmacyReversalAccess } from './pharmacyAccess.middleware';
+import { PharmacyOperationsController } from './PharmacyOperationsController';
 
 const router = Router();
 
@@ -14,6 +15,10 @@ router.use(checkTokenExists);
 // remain restricted to pharmacy roles below.
 router.get('/catalogue', PharmacyCatalogueController.getCatalogue);
 router.use(pharmacyAccess);
+router.get('/collection-accounts', PharmacyOperationsController.collectionAccounts);
+router.get('/cashier', PharmacyOperationsController.cashier);
+router.post('/cashier/reconcile', PharmacyOperationsController.reconcile);
+router.put('/catalogue/:itemId/profile', pharmacyReversalAccess, PharmacyOperationsController.updateItemProfile);
 router.get('/stock', PharmacyCatalogueController.getStock);
 router.get('/dashboard', PharmacyDashboardController.getDashboard);
 router.get('/sales-history', PharmacySaleController.getSalesHistory);
@@ -24,6 +29,7 @@ router.get('/sales/held/:heldSaleId', PharmacySaleController.getHeldSale);
 router.post('/sales/held/:heldSaleId/complete', PharmacySaleController.completeHeldSale);
 router.delete('/sales/held/:heldSaleId', PharmacySaleController.deleteHeldSale);
 router.post('/sales', PharmacySaleController.completeSale);
+router.post('/sales/:saleId/reconcile-collection', pharmacyReversalAccess, PharmacyOperationsController.reconcileHistoricalCollection);
 router.get('/sales/:saleId', PharmacySaleController.getSaleDetail);
 router.post('/sales/:saleId/reverse', pharmacyReversalAccess, PharmacySaleController.reverseSale);
 

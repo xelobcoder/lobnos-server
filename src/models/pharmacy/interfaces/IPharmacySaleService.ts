@@ -1,3 +1,4 @@
+import { PharmacyUnitOfWork } from './IPharmacySaleRepository';
 export type PharmacyPaymentMethod = 'cash' | 'mobile_money' | 'card';
 
 export interface CreatePharmacySaleInput {
@@ -6,6 +7,8 @@ export interface CreatePharmacySaleInput {
      patientId?: number | null;
      paymentMethod: PharmacyPaymentMethod;
      paymentReference?: string;
+     paymentAccountId: number;
+     expectedTotal?: number;
      lines: Array<{ inventoryItemId: string; quantity: number }>;
 }
 
@@ -23,6 +26,8 @@ export interface PharmacySaleReceipt {
      total: number;
      paymentMethod: PharmacyPaymentMethod;
      completedAt: Date;
+     customerName?: string;
+     lines?: PharmacySaleLine[];
 }
 
 export type PharmacySaleReversalType = 'refund' | 'void' | 'cancel';
@@ -30,6 +35,7 @@ export type PharmacySaleReversalType = 'refund' | 'void' | 'cancel';
 export interface ReversePharmacySaleInput {
      type: PharmacySaleReversalType;
      reason: string;
+     disposition: 'restock' | 'quarantine' | 'not_returned';
 }
 
 export interface PharmacySaleReversal {
@@ -101,6 +107,8 @@ export interface PharmacyHeldSale {
 }
 
 export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
+     paymentAccountId?:number;
+     branchid?:number|null;
      paymentReference: string | null;
      patientId: number | null;
      reversedBy: number | null;
@@ -109,7 +117,7 @@ export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
 
 export interface IPharmacySaleService {
      /** Completes an idempotent sale and atomically records the resulting inventory issue. */
-     completeSale(input: CreatePharmacySaleInput, cashierId: number): Promise<PharmacySaleReceipt>;
+     completeSale(input: CreatePharmacySaleInput, cashierId: number, unitOfWork?: PharmacyUnitOfWork, prescriptionId?: string): Promise<PharmacySaleReceipt>;
      holdSale(input: HoldPharmacySaleInput, cashierId: number): Promise<PharmacyHeldSale>;
      getHeldSales(page: number, count: number, search?: string): Promise<{ sales: PharmacyHeldSale[]; total: number; page: number; count: number; totalPages: number }>;
      getHeldSale(heldSaleId: string): Promise<PharmacyHeldSale>;

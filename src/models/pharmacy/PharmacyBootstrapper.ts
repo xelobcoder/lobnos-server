@@ -1,3 +1,4 @@
+import { ensurePharmacyIntegritySchema } from './PharmacyIntegritySchema';
 import KnexConnection from '../../database/KnexConnections';
 
 export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
@@ -101,4 +102,5 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
                table.decimal('gross_profit', 14, 2).notNullable().defaultTo(0);
           });
      }
+     await ensurePharmacyIntegritySchema(connection);
 }

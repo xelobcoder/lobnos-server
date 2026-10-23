@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { pharmacyAvailability } from '../PharmacyAvailability';
 import KnexConnection from '../../../database/KnexConnections';
 import {
      LOW_STOCK_CONDITION,
@@ -41,7 +42,8 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                     .count('* as total').first()
           ]);
 
-          return { items: rows.map((row: any) => this.toCatalogueItem(row)), total: Number((totalResult as any)?.total || 0) };
+          const availability=await pharmacyAvailability(connection,rows.map((row:any)=>({id:row.inventory_item_id,currentStock:Number(row.current_stock),batchTracking:Boolean(row.pharmacy_batch_tracking)})));
+          return { items: rows.map((row: any) => ({...this.toCatalogueItem(row),requiresPrescription:Boolean(row.requires_prescription),batchTracking:Boolean(row.pharmacy_batch_tracking),dispensableStock:availability.get(row.inventory_item_id)||0})), total: Number((totalResult as any)?.total || 0) };
      }
 
      async summarise(filters: PharmacyCatalogueFilters = {}): Promise<PharmacyStockSummary> {
@@ -97,6 +99,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                'item.min_stock',
                'item.wholesale_price',
                'item.sale_price'
+               ,'item.requires_prescription','item.pharmacy_batch_tracking'
           ];
      }
 

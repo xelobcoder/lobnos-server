@@ -1,3 +1,5 @@
+import { PharmacyUnitOfWork } from '../../pharmacy/interfaces/IPharmacySaleRepository';
+import { quantity } from '../../pharmacy/PharmacyRules';
 import { randomUUID } from 'crypto';
 import { IPharmacySaleService } from '../../pharmacy/interfaces/IPharmacySaleService';
 import {
@@ -25,7 +27,8 @@ const OPEN_STATUSES: PrescriptionStatus[] = ['pending', 'partially_fulfilled'];
 export class PrescriptionService implements IPrescriptionService {
      constructor(
           private readonly repository: IPrescriptionRepository,
-          private readonly saleService: IPharmacySaleService
+          private readonly saleService: IPharmacySaleService,
+          private readonly trx?: PharmacyUnitOfWork
      ) { }
 
      async createPrescription(input: CreatePrescriptionInput, clinicianId: number): Promise<PrescriptionDetail> {
@@ -118,8 +121,24 @@ export class PrescriptionService implements IPrescriptionService {
      }
 
      async fulfill(id: string, input: FulfillPrescriptionInput, cashierId: number): Promise<FulfillPrescriptionResult> {
+          if (!this.trx) return this.repository.withTransaction((repository,trx)=>new PrescriptionService(repository,this.saleService,trx).fulfill(id,input,cashierId));
+          if (!input.idempotencyKey || !/^[A-Za-z0-9:_-]{8,128}$/.test(input.idempotencyKey)) throw new Error('A valid dispensing idempotency key is required');
+          if (!Array.isArray(input.lines) || !input.lines.length || input.lines.length > 100) throw new Error('Select 1 to 100 prescription items');
+          if (new Set(input.lines.map(line=>line.prescriptionItemId)).size !== input.lines.length) throw new Error('Duplicate prescription items are not allowed');
           const prescription = await this.repository.findById(id);
           if (!prescription) throw new Error('Prescription not found');
+          const retry = await this.repository.findFulfillment(input.idempotencyKey);
+          if (retry) {
+               if (retry.prescriptionId !== id) throw new Error('Dispensing retry does not match the original prescription');
+               const canonical=(lines: typeof input.lines)=>JSON.stringify([...lines].sort((a,b)=>a.prescriptionItemId.localeCompare(b.prescriptionItemId)));
+               if(canonical(retry.lines)!==canonical(input.lines))throw new Error('Dispensing retry quantities do not match the original request');
+               // The normal sale path verifies the request fingerprint, even after an order has closed.
+               const items = await this.repository.findItemsByPrescriptionId(id);
+               const totals = new Map<string,number>();
+               for (const line of input.lines) { const item=items.find(item=>item.id===line.prescriptionItemId); if(!item?.inventoryItemId)throw new Error('Dispensing retry does not match'); totals.set(item.inventoryItemId,(totals.get(item.inventoryItemId)||0)+line.quantityDispensed); }
+               const receipt=await this.saleService.completeSale({idempotencyKey:input.idempotencyKey,patientId:prescription.patientId,customerName:input.customerName,paymentMethod:input.paymentMethod,paymentReference:input.paymentReference,paymentAccountId:input.paymentAccountId,expectedTotal:input.expectedTotal,lines:Array.from(totals,([inventoryItemId,quantity])=>({inventoryItemId,quantity}))},cashierId,this.trx,id);
+               return {receipt,prescription:await this.getById(id)};
+          }
           if (!OPEN_STATUSES.includes(prescription.status)) throw new Error(`This prescription is already ${prescription.status} and cannot be fulfilled`);
           if (!input.lines?.length) throw new Error('At least one line is required to fulfill a prescription');
 
@@ -132,27 +151,30 @@ export class PrescriptionService implements IPrescriptionService {
           for (const line of input.lines) {
                const item = itemsById.get(line.prescriptionItemId);
                if (!item) throw new Error(`Prescription item ${line.prescriptionItemId} was not found on this prescription`);
+               if (item.status !== 'pending') throw new Error('Only pending prescription items can be dispensed');
                if (!item.inventoryItemId) throw new Error(`${item.drugName} is not linked to a pharmacy inventory item and cannot be dispensed here`);
-               if (!Number.isFinite(line.quantityDispensed) || line.quantityDispensed <= 0) throw new Error('Quantities to dispense must be positive');
-               const remaining = item.quantityOrdered - item.quantityDispensed;
+               if (!Number.isFinite(line.quantityDispensed) || line.quantityDispensed <= 0 || quantity(line.quantityDispensed)!==line.quantityDispensed) throw new Error('Quantities to dispense must be positive with at most 3 decimal places');
+               const remaining = quantity(item.quantityOrdered - item.quantityDispensed);
                if (line.quantityDispensed > remaining) throw new Error(`${item.drugName}: cannot dispense more than the ${remaining} unit(s) remaining`);
 
                requestedUpdates.push({ item, quantityDispensed: line.quantityDispensed });
-               saleQuantitiesByInventoryItem.set(item.inventoryItemId, (saleQuantitiesByInventoryItem.get(item.inventoryItemId) || 0) + line.quantityDispensed);
+               saleQuantitiesByInventoryItem.set(item.inventoryItemId, quantity((saleQuantitiesByInventoryItem.get(item.inventoryItemId) || 0) + line.quantityDispensed));
           }
 
           const receipt = await this.saleService.completeSale({
-               idempotencyKey: randomUUID(),
+               idempotencyKey: input.idempotencyKey,
+               paymentAccountId: input.paymentAccountId,
+               expectedTotal: input.expectedTotal,
                customerName: input.customerName,
                patientId: prescription.patientId,
                paymentMethod: input.paymentMethod,
                paymentReference: input.paymentReference,
                lines: Array.from(saleQuantitiesByInventoryItem, ([inventoryItemId, quantity]) => ({ inventoryItemId, quantity }))
-          }, cashierId);
+          }, cashierId, this.trx, id);
 
           const now = new Date();
           const itemUpdates: PrescriptionItemFulfillmentUpdate[] = requestedUpdates.map(({ item, quantityDispensed }) => {
-               const newDispensed = item.quantityDispensed + quantityDispensed;
+               const newDispensed = quantity(item.quantityDispensed + quantityDispensed);
                return {
                     id: item.id,
                     quantityDispensed: newDispensed,
@@ -169,14 +191,16 @@ export class PrescriptionService implements IPrescriptionService {
           };
           const prescriptionStatus: PrescriptionStatus = items.every(isItemResolved)
                ? 'fulfilled'
-               : (items.some(isItemResolved) || items.some((item) => item.quantityDispensed > 0)) ? 'partially_fulfilled' : prescription.status;
+               : (items.some(isItemResolved) || items.some((item) => (updatesById.get(item.id)?.quantityDispensed ?? item.quantityDispensed) > 0)) ? 'partially_fulfilled' : prescription.status;
 
           await this.repository.applyFulfillment(id, itemUpdates, prescriptionStatus, now);
+          await this.repository.recordDispense(receipt.id, id, input.lines);
 
           return { receipt, prescription: await this.getById(id) };
      }
 
      async referRemaining(id: string, actorId: number): Promise<ReferRemainingResult> {
+          if (!this.trx) return this.repository.withTransaction((repository,trx)=>new PrescriptionService(repository,this.saleService,trx).referRemaining(id,actorId));
           const prescription = await this.repository.findById(id);
           if (!prescription) throw new Error('Prescription not found');
           if (!OPEN_STATUSES.includes(prescription.status)) throw new Error(`This prescription is already ${prescription.status} and has nothing left to refer`);
@@ -224,7 +248,10 @@ export class PrescriptionService implements IPrescriptionService {
                quantityOrdered: item.quantityOrdered,
                quantityDispensed: item.quantityDispensed,
                status: item.status,
+               availableStock: item.availableStock,
+               salePrice: item.salePrice,
                saleId: item.saleId
           };
      }
 }
+

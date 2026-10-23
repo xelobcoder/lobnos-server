@@ -18,7 +18,7 @@ export const prescriptionListAccess = (request: Request, response: Response, nex
      if (roleAllowed(roleOf(request), Array.from(accessRoles))) return next();
      const requestedClinicianId = Number((request.query as any)?.clinicianId);
      const selfId = actorOf(request);
-     if (requestedClinicianId && selfId && requestedClinicianId === selfId) return next();
+     if (roleAllowed(roleOf(request), ['doctor', 'clinician', 'medical_officer', 'consultant']) && requestedClinicianId && selfId && requestedClinicianId === selfId) return next();
      return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only view your own drug orders' } });
 };
 
