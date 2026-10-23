@@ -1,3 +1,4 @@
+import { scopeLabWork, labAccessSettings, assertLabTestAccess } from './LabAccessPolicy';
 import { createHash } from 'crypto';
 import KnexConnection from '../../database/KnexConnections';
 import { AuthUser } from '../../middleware/authority';
@@ -21,6 +22,7 @@ export class LabWorkbenchService {
           if (lock) query = query.forUpdate();
           const row = await query.first();
           if (!row) fail('Ordered test not found in your branch', 404);
+          await assertLabTestAccess(db, actor, id);
           return row;
      }
 
@@ -48,6 +50,7 @@ export class LabWorkbenchService {
                .whereRaw("LOWER(COALESCE(service.status, 'active')) NOT IN ('voided', 'cancelled', 'refunded', 'written-off')");
           if (actor.branch != null) query = query.where('bill.branchid', actor.branch);
           if (filters.include_completed !== 'true') query = query.where(function () { this.whereNull('ta.resultEntryEnd').orWhereRaw('COALESCE(approval.isapproved, 0) <> 1'); });
+          await scopeLabWork(query, db, actor, 'ta.id');
           if (filters.view === 'mine') query = query.where('work.assigned_employeeid', actor.employeeid);
           if (filters.view === 'unassigned') query = query.whereNull('work.assigned_employeeid');
           if (filters.view === 'urgent') query = query.whereIn('work.priority', ['urgent', 'stat']);
@@ -94,6 +97,8 @@ export class LabWorkbenchService {
                     Object.assign(values, { acknowledged_at: new Date(), acknowledged_by: actor.employeeid });
                }
                if (action === 'update') {
+                    const access = await labAccessSettings(trx);
+                    if (!supervisor(actor) && !previous?.assigned_employeeid && !access?.allow_claim) fail('Ask a supervisor to assign this work item', 403);
                     const assignee = input.assigned_employeeid === null ? null : input.assigned_employeeid === undefined ? previous?.assigned_employeeid ?? null : Number(input.assigned_employeeid);
                     if (!supervisor(actor) && assignee !== actor.employeeid) fail('Only a supervisor may assign another staff member or unassign work', 403);
                     if (!supervisor(actor) && previous?.assigned_employeeid && Number(previous.assigned_employeeid) !== actor.employeeid) fail('This work item belongs to another staff member', 403);

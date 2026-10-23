@@ -1,3 +1,6 @@
+import { captureReportRevision, assertReportRevision } from '../operations/ResultReleaseGuard';
+import KnexConnection from '../../database/KnexConnections';
+import { assertCriticalRelease } from '../operations/CriticalActionService';
 import type { resultPrintOutDataset } from '../../controllers/result/resultHandlers';
 import Creator from '../creator/creator';
 import ResultPrint from './resultPrint';
@@ -11,8 +14,11 @@ import { Services } from '../services/services';
 /** Call only after the caller has authorized this patient, bill and ascension. */
 export async function loadLaboratoryReportData(
      tenantId: number, patientid: number, billingid: number, testid: number, ascensionId: number,
-     decrypt: boolean,
+     decrypt: boolean, channel: 'print' | 'release' = 'print',
 ): Promise<resultPrintOutDataset> {
+     const controlDb = await KnexConnection(tenantId);
+     const revision = await captureReportRevision(controlDb, ascensionId);
+     await assertCriticalRelease(controlDb, ascensionId, channel);
      const creator = new Creator(testid);
      const view = await creator.resultPresentationView(tenantId, testid, billingid, patientid);
      if (!view || typeof view === 'string' || Array.isArray(view)) {
@@ -27,7 +33,7 @@ export async function loadLaboratoryReportData(
      const hostname = process.env.NODE_ENV === 'development'
           ? `${process.env.APPHOST_DEVELOPMENT}:${process.env.DEVELOPMENT_PORT}` : process.env.APPHOST_PRODUCTION;
      const protocol = process.env.NODE_ENV === 'development' ? 'http' : 'https';
-     return {
+     const dataset: resultPrintOutDataset = {
           resultsettings: typeof settings === 'boolean' ? null : settings,
           records: Array.isArray(records) ? [...records].sort((a, b) => (a.ordering ?? 0) - (b.ordering ?? 0)) : records,
           companyInfo: await getAllCompanyProfiles(tenantId),
@@ -49,4 +55,6 @@ export async function loadLaboratoryReportData(
           logourl: `${protocol}://${hostname}/api/v1/settings/companyprofile/images?tenantId=${tenantId}`,
           patientid, billingid,
      };
+     await assertReportRevision(controlDb, ascensionId, revision, channel);
+     return dataset;
 }

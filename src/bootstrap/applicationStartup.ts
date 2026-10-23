@@ -1,3 +1,4 @@
+import { bootstrapOperationalControls } from '../models/operations/OperationalControlsBootstrapper';
 import { startCrmReminderWorker } from '../models/crm/CrmReminderService';
 import { bootstrapCrm } from '../models/crm/CrmBootstrapper';
 import { bootstrapOperationsWorkflow } from '../models/operations/OperationsWorkflowBootstrapper';
@@ -84,6 +85,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapBillingTables(tenantId);
 	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapOperationsWorkflow(tenantId);
+	await bootstrapOperationalControls(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapWalkInQueueTables(tenantId);

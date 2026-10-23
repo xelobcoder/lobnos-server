@@ -1,3 +1,4 @@
+import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from "express";
 import { OperationsFailures } from "../../models/operations/types";
 import Operations from "../../models/operations/operations";
@@ -36,6 +37,8 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 			sortby: request.query.sortby as 'DESC' | 'ASC'
 		});
 
+		const actor = getAuthUser(request);
+          if (actor?.branch != null) (queryParams as any).branchid = actor.branch;
 		let list = await Operations.getAscensionBasedOnStage(tenantIdP, queryParams);
 
 		if (operationsStaging === 'VALIDATION' && Array.isArray(list)) {

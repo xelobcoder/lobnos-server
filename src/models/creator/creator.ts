@@ -1,3 +1,4 @@
+import { evaluateCriticalActions } from '../operations/CriticalActionService';
 import { invalidateResultApprovals } from '../operations/ResultApprovalService';
 import { testpanel } from "../../testpanel/testpanelList";
 import { LaboratoryWorkflowService } from "../operations/LaboratoryWorkflow";
@@ -461,9 +462,10 @@ export default class Creator {
 				});
 				await drugProcessor(trx);
 				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
+                    await evaluateCriticalActions(trx, { testid, ascensionid, billingid, employeeid }, entryFields);
 			});
 
-			await CriticalValueEvaluator.criticalValueDetermination(tenantId, testid, billingid, ascensionid, entryFields, employeeid);
+			// Critical findings and holds were saved atomically with the result revision.
 
 			// Fire-and-forget result value analytics processing
 			const { ResultValueAnalyticsService } = await import("../result-value-analytics/ResultValueAnalyticsService");

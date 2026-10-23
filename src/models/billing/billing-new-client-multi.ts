@@ -904,7 +904,13 @@ export class SubmitCustomerBilling {
                     if (!result) {
                         throw new Error("Invalid outsource organization");
                     }
-                    data['outsourceprice'] = result.outsourcePrice;
+                    const configurations = await trx('lab_outsource_providers').where({ testid: item.testid });
+                    if (configurations.length) {
+                         const today = new Date().toISOString().slice(0,10), day = (v: any) => v instanceof Date ? v.toISOString().slice(0,10) : String(v || '').slice(0,10);
+                         const eligible = configurations.find(p => Number(p.outsourceid) === Number(data.outsourceid) && Number(p.active) === 1 && day(p.effective_from) <= today && (!p.effective_to || day(p.effective_to) >= today));
+                         if (!eligible) throw new Error('This outsourcing provider is inactive or outside its agreed validity dates');
+                         data['outsourceprice'] = eligible.cost;
+                    } else data['outsourceprice'] = result.outsourcePrice;
                 }
                 return data;
             })

@@ -58,6 +58,10 @@ class ResultSettings extends ApplicationSettings {
 			.where({ ascensionid: ascensionId }).first();
 		if (!recordApproval || type === 'minimum' && Number(recordApproval.requires_revalidation) === 1) return false;
 
+		if (type === 'minimum' && ascensionId) {
+               const hold = await connection('lab_critical_events').where({ ascensionid: ascensionId }).whereNull('resolved_at').whereRaw("JSON_EXTRACT(policy_snapshot, '$.hold_print') = true").first();
+               if (hold) return false;
+          }
 		const { maxvalidation, minvalidation } = recordApproval;
 
 		currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0;

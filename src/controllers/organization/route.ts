@@ -1,3 +1,5 @@
+import { getAuthUser } from '../../middleware/authority';
+import { labSupervisor } from '../../models/operations/LabAccessPolicy';
 import express from 'express'
 import {
      createOrganizationOutSource, updateOrganizationOutSource, updateOrganizationOutSourceServices, getOrganizationOutSourceServices, getOrganizationOutSourceBasic, getOrganizationOutsourcingAll, checkIsServiceRenderedByOutsourceOrganization,
@@ -18,6 +20,7 @@ import { quickAddClinicianHandler, quickAddOrganizationHandler } from './quickAd
 
 
 const router = express.Router();
+const configureOutsource: express.RequestHandler = (req, res, next) => { const actor = getAuthUser(req); if (!actor || !labSupervisor(actor)) return res.status(403).json({ status: false, message: 'Supervisor access is required for outsourcing configuration' }); if (req.body) req.body.employeeid = actor.employeeid; next(); };
 
 router.get('/api/v1/organization/referral-codes', checkTokenExists, ReferralCodeController.authorizeRead, handleOverLoad(ReferralCodeController.list));
 // Name-only quick add from the billing page; phone and email are optional.
@@ -47,9 +50,9 @@ router.post('/api/v1/organization/bulk/registration', handleOverLoad(bulkInsertO
 
 
 // ROUTES FOR OUTSOURCING ORGANIZATIONS
-router.post("/api/v1/outsourcing/organization", createOrganizationOutSource);
-router.put("/api/v1/outsourcing/organization/services", updateOrganizationOutSourceServices);
-router.put("/api/v1/outsourcing/organization", updateOrganizationOutSource);
+router.post("/api/v1/outsourcing/organization", configureOutsource, createOrganizationOutSource);
+router.put("/api/v1/outsourcing/organization/services", configureOutsource, updateOrganizationOutSourceServices);
+router.put("/api/v1/outsourcing/organization", configureOutsource, updateOrganizationOutSource);
 router.get("/api/v1/outsourcing/organization/services", getOrganizationOutSourceServices);
 router.get("/api/v1/outsourcing/organization/all", getOrganizationOutsourcingAll);
 // router.post("/api/v1/outsourcing/organization", );

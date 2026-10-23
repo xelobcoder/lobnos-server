@@ -129,6 +129,9 @@ export async function applyDboservicesAfterInsert(tenantId: number, db: DbRunner
 			employeeid: service.employeeid,
 			status: 0,
 			comments: "New outsourced service added, waiting for dispatch",
+               workflow_status: "awaiting_dispatch",
+               snapshot_cost: (await db("dboservices").where({ serviceid: service.serviceid }).first())?.outsourceprice ?? null,
+               snapshot_currency: "GHS",
 		});
 
 

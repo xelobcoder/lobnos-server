@@ -584,7 +584,7 @@ export default class Operations {
 
 	public static async getAscensionBasedOnStage(tenantId: number, queryParams: {
 		sortby: 'DESC' | 'ASC', _dateFrom: Date | string, _dateEnd: Date | string, stage: string,
-		grouped?: 'grouped' | 'ungrouped',
+		grouped?: 'grouped' | 'ungrouped', branchid?: number,
 		ascensionid?: number,
 		billingid?: number,
 		patientid?: number,
@@ -606,6 +606,7 @@ export default class Operations {
 			let conditionValues = conditionx;
 
 			if (query == null) return null;
+               if (queryParams.branchid != null) { query += ` AND b.branchid = ? `; conditionValues.push(queryParams.branchid as any); }
 
 			if (queryParams.grouped === 'grouped') {
 				query += `ORDER BY b.billingid {sorting} LIMIT ? OFFSET ? `;

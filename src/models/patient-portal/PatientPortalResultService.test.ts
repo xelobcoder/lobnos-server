@@ -48,7 +48,7 @@ describe('patient canonical laboratory reports', () => {
           mocks.load.mockResolvedValue(report());
           const result = await service.getReport(21, 31);
           expect(list).toHaveBeenCalledWith(21, { billingid: 31 });
-          expect(mocks.load).toHaveBeenCalledExactlyOnceWith(4, 21, 31, 8, 108, true);
+          expect(mocks.load).toHaveBeenCalledExactlyOnceWith(4, 21, 31, 8, 108, true, 'release');
           expect(result.reports).toHaveLength(1);
           const document = result.reports[0];
           expect(document.records[0]).toMatchObject({ value: '8.2', units: 'g/dL', flag: 'L', lowerlimit: 12, upperlimit: 16, categoryid: 4 });

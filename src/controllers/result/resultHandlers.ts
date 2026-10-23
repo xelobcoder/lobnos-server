@@ -1,3 +1,5 @@
+import { captureReportRevision, assertReportRevision } from '../../models/operations/ResultReleaseGuard';
+import { assertCriticalRelease } from '../../models/operations/CriticalActionService';
 import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from "express";
 import { OperationsFailures, validatorsFinalFormatType } from "../../models/operations/types";
@@ -298,7 +300,8 @@ export const getResultPrintoutHandler = async (request: Request<
 		}
 
 		response.send(dataset)
-	} catch (err) {
+	} catch (err: any) {
+          if (err?.statusCode) return response.status(err.statusCode).send({ status: 'error', message: err.message });
 		console.log(err)
 		responseError(response);
 	}
@@ -378,6 +381,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item: any, index) => {
 					const { testid, ascensionid } = item;
+                    const controlDb = await KnexConnection(tenantIdP);
+                    const reportRevision = await captureReportRevision(controlDb, ascensionid);
 					let dataset = {
 						literatureReview: null,
 						records: null,
@@ -442,7 +447,9 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						tenantIdP,
 						billingid, testid);
 					dataset.comments = typeof comments === "string" ? comments : '';
-					return dataset
+					await assertReportRevision(controlDb, ascensionid, reportRevision, 'print');
+                    await assertReportRevision(controlDb, ascensionid, reportRevision, 'print');
+                    return dataset
 				}))
 
 				const distinctTestIds = Array.from(new Set(qualifiedForPrintOut.map((item: any) => item?.testid).filter(Boolean)));
@@ -492,7 +499,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 		return response.send({ status: false, message: OperationsFailures.invalidResquestQuery })
 
-	} catch (err) {
+	} catch (err: any) {
+          if (err?.statusCode) return response.status(err.statusCode).send({ status: 'error', message: err.message });
 		const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
 		responseError(response, errorMessage)
 	}

@@ -184,20 +184,7 @@ export const getOutsourcedTestBasedStageHandler = async function (request: Reque
 
 
 
-export const updateToResolveOutsourcedHandler = async function (request: Request<{}, {}, { serviceid: number, employeeid: number }>, response: Response) {
-    try {
-        const { serviceid, employeeid } = request.body
-
-        if (!serviceid || !employeeid || typeof serviceid != "number" || typeof employeeid != "number") {
-            return response.send({ status: false, message: OperationsFailures.invalidResponseBodyParams })
-        }
-        const tenantId = getTenantId(request);
-        const status = await Outsourcing.updateToResolveOutsourced(tenantId, serviceid, employeeid);
-        response.send({ status })
-    } catch (err) {
-        responseError(response);
-    }
-}
+export const updateToResolveOutsourcedHandler = async (_request: Request, response: Response) => response.status(409).json({ status: false, message: 'Use the outsourcing workbench to attach, review and complete returned results.' });
 
 export const getOutsourcedCasesPaginated = async (request: Request<{}, {}, {}, { tenantId: string, count?: string, page?: string, orderby?: 'ASC' | 'DESC' }>, response: Response) => {
     try {

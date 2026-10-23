@@ -12,7 +12,7 @@ export interface ResultReleaseInput {
      processingStartDate?: unknown;
      resultEntryEnd?: unknown;
      paymentstatus?: string | null;
-     approval?: { requires_revalidation?: unknown; isapproved?: unknown; approvedBy?: unknown; minvalidation?: unknown } | null;
+     approval?: { critical_release_hold?: unknown; requires_revalidation?: unknown; isapproved?: unknown; approvedBy?: unknown; minvalidation?: unknown } | null;
      release?: { status?: string } | null;
 }
 
@@ -36,7 +36,7 @@ export function portalResultDateRange(from: unknown, to: unknown): { from?: stri
 
 /** Mirrors ResultSettings.isApprovalLimitReached(..., 'minimum') without a query per test. */
 export function isResultApproved(approval: ResultReleaseInput['approval']): boolean {
-     if (!approval || Number(approval.requires_revalidation) === 1) return false;
+     if (!approval || Number(approval.requires_revalidation) === 1 || Number(approval.critical_release_hold) === 1) return false;
      if (Number(approval.isapproved) === 1) return true;
      const approvers = String(approval.approvedBy ?? '').split(',')
           .map(value => parseInt(value.trim(), 10)).filter(value => !isNaN(value));
@@ -143,7 +143,7 @@ export class PatientPortalResultService {
 
           const ids = rows.map(row => Number(row.ascensionid));
           const [approvals, releases] = await Promise.all([
-               connection('dbotestresultapproval').select('ascensionid', 'isapproved', 'approvedBy', 'minvalidation', 'requires_revalidation', 'lastupdatedon').whereIn('ascensionid', ids),
+               connection('dbotestresultapproval').select('ascensionid', 'isapproved', 'approvedBy', 'minvalidation', 'requires_revalidation', 'lastupdatedon', connection.raw("EXISTS(SELECT 1 FROM lab_critical_events ce WHERE ce.ascensionid = dbotestresultapproval.ascensionid AND ce.resolved_at IS NULL AND JSON_EXTRACT(ce.policy_snapshot, '$.hold_release') = true) as critical_release_hold")).whereIn('ascensionid', ids),
                connection('patient_portal_result_releases').select('ascension_id', 'status', 'decided_at').whereIn('ascension_id', ids),
           ]);
           const approvalBy = new Map(approvals.map((row: any) => [Number(row.ascensionid), row]));
@@ -190,7 +190,7 @@ export class PatientPortalResultService {
           for (const test of tests) {
                if (seen.has(test.testid)) continue;
                seen.add(test.testid);
-               const report = await loadLaboratoryReportData(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true);
+               const report = await loadLaboratoryReportData(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true, 'release');
                const safe = toExternalLaboratoryReport(report, test.ascensionid, billingid, patientid);
                const records = safe.records;
                reports.push(safe);

@@ -94,7 +94,7 @@ export function defaultClinicianPortalDeps(tenantId: number): ClinicianPortalDep
                return Operations.getAscensionOverViewModelTransaction(tenantId, billingid);
           },
           loadReport: (patientid, billingid, testid, ascensionid) =>
-               loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionid, true),
+               loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionid, true, 'release'),
      };
 }
 
@@ -185,7 +185,7 @@ export class ClinicianPortalResultService {
                     'ta.collectionEndDate', 'ta.processingStartDate', 'ta.processingEndDate', 'ta.resultEntryEnd',
                     'tp.name as testname', 'b.patientid', 'b.billedon', 'b.clientstatus as payment_status',
                     'p.fullpatientid', 'p.firstname', 'p.middlename', 'p.lastname', 'p.gender', 'p.age', 'p.agetype',
-                    'ra.isapproved', 'ra.approvedBy', 'ra.minvalidation', 'ra.requires_revalidation',
+                    'ra.isapproved', 'ra.approvedBy', 'ra.minvalidation', 'ra.requires_revalidation', db.raw("EXISTS(SELECT 1 FROM lab_critical_events ce WHERE ce.ascensionid = ra.ascensionid AND ce.resolved_at IS NULL AND JSON_EXTRACT(ce.policy_snapshot, '$.hold_release') = true) as critical_release_hold"),
                )
                .orderBy('ta.billingid', 'desc').orderBy('ta.id', 'asc')
                .limit(5000);

@@ -1,4 +1,6 @@
 import "reflect-metadata";
+import operationalControlRoutes from './controllers/operations/operationalControlRoutes';
+import { labAssignmentAccess } from './middleware/labAssignmentAccess';
 import acquisitionRoutes from './controllers/crm/acquisitionRoutes';
 import { signedLicenseGuard } from './licensing/policy';
 import licenseRoutes from './controllers/security/licenseRoutes';
@@ -127,6 +129,8 @@ app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
+app.use(labAssignmentAccess);
+app.use('/api/v1/operations/control', operationalControlRoutes);
 app.use('/api/v1/queue', walkInQueueRouter);
 app.use(patientPortalRouter);
 app.use(createTenantPaymentsRouter());
