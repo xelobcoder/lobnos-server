@@ -1,14 +1,12 @@
 import { Router } from 'express';
-import { createLead, updateLead, getAllLeads, getLeadById, deleteLead } from './leads.controller';
-import LeadsAnalyticsController from '../../analytics/leadsAnalytics';
-
-const router = Router();
-
-router.post('/', createLead);
-router.put('/:id', updateLead);
-router.get('/analytics', LeadsAnalyticsController.getLeadsAnalytics);
-router.get('/', getAllLeads);
-router.get('/:id', getLeadById);
-router.delete('/:id', deleteLead);
-
+import { requireCrmRole, crmManager } from '../../../middleware/crmAuthority';
+import { crmAction } from '../acquisitionRoutes';
+import { crmFail } from '../../../models/crm/CrmService';
+const router = Router(); router.use(requireCrmRole);
+router.post('/', crmAction((service, actor, req) => service.save(actor, req.body)));
+router.put('/:id', crmAction((service, actor, req) => service.save(actor, req.body, Number(req.params.id))));
+router.get('/analytics', crmAction(async (service, actor) => { if (!crmManager(actor)) crmFail('Manager access required', 403); return service.list(actor, { count: 100 }); }));
+router.get('/', crmAction((service, actor, req) => service.list(actor, req.query)));
+router.get('/:id', crmAction(async (service, actor, req) => (await service.detail(actor, Number(req.params.id))).lead));
+router.delete('/:id', crmAction((service, actor, req) => service.archive(actor, Number(req.params.id))));
 export default router;

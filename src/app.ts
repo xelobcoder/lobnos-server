@@ -1,4 +1,5 @@
 import "reflect-metadata";
+import acquisitionRoutes from './controllers/crm/acquisitionRoutes';
 import { signedLicenseGuard } from './licensing/policy';
 import licenseRoutes from './controllers/security/licenseRoutes';
 import express, { Request, Response } from "express";
@@ -179,6 +180,7 @@ app.use('/api/v1', prescriptionRouter);
 app.use(entityOrdersRouter);
 app.use(homeCollectionRouter);
 app.use(CommissionPaymentsRouter);
+app.use('/api/v1/crm', acquisitionRoutes);
 app.use('/api/v1/leads', leadsRouter);
 app.use('/api/v1/followups', followupsRouter);
 app.use('/api/v1/payroll', payrollRouter);

@@ -1,3 +1,4 @@
+import { bootstrapCrm } from '../models/crm/CrmBootstrapper';
 import { bootstrapOperationsWorkflow } from '../models/operations/OperationsWorkflowBootstrapper';
 import { bootstrapNotificationDefinitions } from '../models/application/notifications/services/NotificationBootstrapService';
 import { bootstrapHomeCollectionSeeds, bootstrapHomeCollectionTables } from '../models/operations/sample/HomeCollection/BootstrapHomeCollection';
@@ -88,6 +89,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapRefundTableSanitization(tenantId, strict);
 	await bootstrapStaffFocTables(tenantId, strict);
 	await bootstrapCommissionTables(tenantId);
+	await bootstrapCrm(tenantId);
 	await bootstrapExpenseCategories(tenantId);
 	await bootstrapExpenseWorkflow(tenantId);
 	await bootstrapPayrollTables(tenantId);

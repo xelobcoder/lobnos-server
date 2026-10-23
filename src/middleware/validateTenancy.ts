@@ -1,3 +1,4 @@
+import { marketerRouteAllowed } from './marketerAccess';
 import { NextFunction, Request, Response } from "express";
 import { customError, responseError } from "../hooks/helper";
 import { OperationsFailures } from "../models/operations/types";
@@ -184,6 +185,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
                tenantId,
           };
 
+          if (String(roleRow?.role).toLowerCase() === 'marketer' && !marketerRouteAllowed(request.method, request.path)) return customError('Marketer sessions may only access referral acquisition services', 403, response);
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);

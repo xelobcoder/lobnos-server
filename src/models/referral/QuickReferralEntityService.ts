@@ -20,8 +20,8 @@ export interface QuickReferralEntityResult {
 export class QuickReferralEntityService {
      constructor(private tenantId: number) { }
 
-     async createOrganization(input: QuickReferralEntityInput): Promise<QuickReferralEntityResult> {
-          const connection = await KnexConnection(this.tenantId);
+     async createOrganization(input: QuickReferralEntityInput, parent?: Knex.Transaction): Promise<QuickReferralEntityResult> {
+          const connection = parent || await KnexConnection(this.tenantId);
           return connection.transaction(async (trx: Knex.Transaction): Promise<QuickReferralEntityResult> => {
                const existing = await trx('organization').select('id', 'name')
                     .whereRaw('LOWER(TRIM(name)) = ?', [input.name.toLowerCase()]).first();
@@ -34,8 +34,8 @@ export class QuickReferralEntityService {
           });
      }
 
-     async createClinician(input: QuickReferralEntityInput): Promise<QuickReferralEntityResult> {
-          const connection = await KnexConnection(this.tenantId);
+     async createClinician(input: QuickReferralEntityInput, parent?: Knex.Transaction): Promise<QuickReferralEntityResult> {
+          const connection = parent || await KnexConnection(this.tenantId);
           return connection.transaction(async (trx: Knex.Transaction): Promise<QuickReferralEntityResult> => {
                const result = await this.findOrCreateClinician(trx, input);
                // The same clinician can refer from several organizations, so an existing match is linked too.

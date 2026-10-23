@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 export interface IEmployee {
 	employeeid?: number;
 	username: string;
-	role: 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
+	role: 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
 	password: string;
 	pin?: number | string | null;
 	pin_hash?: string | null;
@@ -47,7 +47,7 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
-			const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer','clinician'];
+			const allowedRoles = ['marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer','clinician'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');
@@ -108,7 +108,7 @@ export default class RolesRepository {
 
 	async getEmployeeRole(employeeId: number): Promise<IEmployee['role'] | undefined> {
 		const employee = await this.getRoleById(employeeId);
-		const allowedRoles = ['scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
+		const allowedRoles = ['marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 		return employee && roleAllowed(employee.role, allowedRoles) ? employee.role as IEmployee['role'] : undefined;
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {

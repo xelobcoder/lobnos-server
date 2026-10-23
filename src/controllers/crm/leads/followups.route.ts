@@ -1,24 +1,14 @@
 import { Router } from 'express';
-import {
-     createFollowUp,
-     updateFollowUp,
-     getAllFollowUps,
-     getFollowUpById,
-     getFollowUpsByLeadId,
-     getFollowUpsByStatus,
-     getPendingFollowUps,
-     deleteFollowUp
-} from './followups.controller';
-
-const router = Router();
-
-router.post('/', createFollowUp);
-router.put('/:id', updateFollowUp);
-router.get('/', getAllFollowUps);
-router.get('/:id', getFollowUpById);
-router.get('/lead/:leadId', getFollowUpsByLeadId);
-router.get('/status/:status', getFollowUpsByStatus);
-router.get('/pending/all', getPendingFollowUps);
-router.delete('/:id', deleteFollowUp);
-
+import { requireCrmRole } from '../../../middleware/crmAuthority';
+import { crmAction } from '../acquisitionRoutes';
+import { crmFail } from '../../../models/crm/CrmService';
+const router = Router(); router.use(requireCrmRole);
+router.post('/', crmAction((service, actor, req) => service.saveFollowup(actor, req.body)));
+router.put('/:id', crmAction((service, actor, req) => service.saveFollowup(actor, req.body, Number(req.params.id))));
+router.get('/lead/:leadId', crmAction((service, actor, req) => service.followups(actor, { ...req.query, lead_id: req.params.leadId })));
+router.get('/status/:status', crmAction((service, actor, req) => service.followups(actor, { ...req.query, status: req.params.status })));
+router.get('/pending/all', crmAction((service, actor, req) => service.followups(actor, { ...req.query, status: 'pending', due: 'due' })));
+router.get('/', crmAction((service, actor, req) => service.followups(actor, req.query)));
+router.get('/:id', crmAction(async (service, actor, req) => { const result = await service.followups(actor, { id: req.params.id }); if (!result.data[0]) crmFail('Follow-up not found', 404); return result.data[0]; }));
+router.delete('/:id', crmAction(async () => crmFail('Follow-up history is retained. Cancel the follow-up instead.', 405)));
 export default router;

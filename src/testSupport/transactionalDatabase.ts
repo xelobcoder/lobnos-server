@@ -23,14 +23,25 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                const equal = (a: any, b: any) => a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
                const column = (key: string) => key.split('.').pop()!;
                const query: any = {
+                    _filters: filters,
+                    clone() { const copy = trx(table); copy._filters.push(...filters); return copy; },
                     select() { return query; }, join() { return query; }, leftJoin() { return query; }, groupBy() { return query; },
                     async columnInfo() { return { type: 'int' }; },
                     orderByRaw() { return query; }, havingRaw() { return query; },
                     whereRaw() { return query; },
                     whereNotNull(key: string) { filters.push(row => row[column(key)] != null); return query; },
                     whereNull(key: string) { filters.push(row => row[column(key)] == null); return query; },
-                    where(key: string | Record<string, any>, value?: any) {
-                         filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => equal(row[column(key)], value));
+                    where(key: string | Record<string, any> | Function, value?: any, operand?: any) {
+                         if (typeof key === 'function') {
+                              let condition: ((row: any) => boolean) | undefined;
+                              const nested: any = {
+                                   where(field: string, expected: any) { const previous = condition; condition = row => (!previous || previous(row)) && equal(row[column(field)], expected); return nested; },
+                                   whereNull(field: string) { const previous = condition; condition = row => (!previous || previous(row)) && row[column(field)] == null; return nested; },
+                                   orWhere(field: string, expected: any, operand?: any) { const previous = condition; condition = row => !!previous?.(row) || (operand === undefined ? equal(row[column(field)], expected) : expected === '>=' ? row[column(field)] >= operand : equal(row[column(field)], operand)); return nested; },
+                                   orWhereNull(field: string) { const previous = condition; condition = row => !!previous?.(row) || row[column(field)] == null; return nested; },
+                              };
+                              key(nested); filters.push(row => !condition || condition(row));
+                         } else filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => operand === undefined ? equal(row[column(key)], value) : value === '>=' ? row[column(key)] >= operand : value === '<=' ? row[column(key)] <= operand : value === '<' ? row[column(key)] < operand : equal(row[column(key)], operand));
                          return query;
                     },
                     whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[column(key)])); return query; },
@@ -56,7 +67,8 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                     async then(resolve: any, reject: any) {
                          try {
                               if (locking) await lock();
-                              const rows = (local?.[table] || tables[table] || []).filter(row => filters.every(filter => filter(row)));
+                              const baseTable = table.split(' as ')[0];
+                              const rows = (local?.[table] || local?.[baseTable] || tables[table] || tables[baseTable] || []).filter(row => filters.every(filter => filter(row)));
                               if (sum) return resolve({ [sum.alias]: rows.reduce((total, row) => total + Number(row[sum!.field] || 0), 0) });
                               return resolve(structuredClone(first ? rows[0] : rows));
                          } catch (error) { return reject(error); }
