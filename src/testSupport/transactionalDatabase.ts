@@ -26,6 +26,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                     select() { return query; }, join() { return query; }, leftJoin() { return query; }, groupBy() { return query; },
                     async columnInfo() { return { type: 'int' }; },
                     orderByRaw() { return query; }, havingRaw() { return query; },
+                    whereRaw() { return query; },
                     whereNotNull(key: string) { filters.push(row => row[column(key)] != null); return query; },
                     whereNull(key: string) { filters.push(row => row[column(key)] == null); return query; },
                     where(key: string | Record<string, any>, value?: any) {

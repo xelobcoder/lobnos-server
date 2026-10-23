@@ -24,6 +24,28 @@ function setup(overrides: any = {}) {
 const usage = () => ({ idempotency_key: 'intent-1', template_id: 2, lines: [{ item_id: 'material', quantity: 2 }] });
 beforeEach(() => { vi.clearAllMocks(); stock.createBulk.mockResolvedValue([{ id: 'txn-1', total_cost: 10 }]); });
 describe('laboratory work and actual material usage', () => {
+     it('records collection supplies before laboratory processing, once for a shared physical sample', async () => {
+          const { store, service } = setup({
+               'test_ascension as ta': [{ id: 1, serviceid: 6, testid: 3, billingid: 2, patientid: 4, branchid: 4 }],
+               physical_samples: [{ id: 10, billingid: 2, patientid: 4, status: 'collected' }],
+               test_ascension_samples: [{ sample_id: 10, ascension_id: 1 }, { sample_id: 10, ascension_id: 2 }],
+               inv_inventory_items: [{ id: 'material', is_active: true, current_stock: 10 }],
+          });
+          const input = { ...usage(), reason: 'Extra tube during collection' };
+          const results = await Promise.all([service.consume(actor, 1, input, 10), service.consume(actor, 1, input, 10)]);
+          expect(results.map(result => result.retried)).toEqual([false, true]);
+          expect(stock.createBulk).toHaveBeenCalledTimes(1);
+          expect(stock.createBulk).toHaveBeenCalledWith([expect.objectContaining({ reference_id: 'PHL-10-intent-1', reason: 'Phlebotomy actual supply usage', performed_by: 7 })], expect.any(Function));
+          expect(store.rows('lab_work_actions')[0]).toMatchObject({ action: 'collection_supplies_recorded', reason: input.reason });
+     });
+     it('rejects collection supplies for another patient, unstarted samples or missing usage notes', async () => {
+          const { service } = setup({ physical_samples: [{ id: 10, billingid: 2, patientid: 99, status: 'collected' }], test_ascension_samples: [{ sample_id: 10, ascension_id: 1 }] });
+          await expect(service.consume(actor, 1, { ...usage(), reason: 'Collection' }, 10)).rejects.toThrow('does not belong');
+          await expect(service.consume(actor, 1, usage(), 10)).rejects.toThrow('usage note');
+          const unstarted = setup({ physical_samples: [{ id: 10, billingid: 2, patientid: 4, status: 'planned' }], test_ascension_samples: [{ sample_id: 10, ascension_id: 1 }] });
+          await expect(unstarted.service.consume(actor, 1, { ...usage(), reason: 'Collection' }, 10)).rejects.toThrow('Start collection');
+          expect(stock.createBulk).not.toHaveBeenCalled();
+     });
      it('claims work as the signed-in scientist and records an audit action', async () => {
           const { store, service } = setup();
           await service.update(actor, 1, { version: 0, assigned_employeeid: 7, reason: 'Starting my bench work' });

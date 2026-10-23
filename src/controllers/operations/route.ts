@@ -1,5 +1,6 @@
 import { getAuthUser } from '../../middleware/authority';
 import labWorkbenchRoutes from './labWorkbenchRoutes';
+import collectionSupplyRoutes from './collectionSupplyRoutes';
 import express from "express"
 import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
@@ -83,6 +84,7 @@ const operationsStaffMiddleware: express.RequestHandler<any, any, any, any>[] = 
      next();
 }];
 router.use('/api/v1/operations/laboratory/workbench', ...operationsStaffMiddleware, labWorkbenchRoutes);
+router.use('/api/v1/operations/phlebotomy/supplies', ...operationsStaffMiddleware, collectionSupplyRoutes);
 
 // Imaging analytics + audit trail: static paths registered before any parameterized route.
 router.get(`/api/v1/operations/imaging/analytics`, ...operationsStaffMiddleware, handleOverLoad(ImagingAnalyticsController.getImagingAnalytics));

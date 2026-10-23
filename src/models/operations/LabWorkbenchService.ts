@@ -165,6 +165,7 @@ export class LabWorkbenchService {
           const planned = await db('inv_inventory_template_items as template').join('inv_inventory_items as item', 'item.id', 'template.itemId')
                .where('template.template_id', selected.id).select('template.itemId as item_id', 'template.quantity as expected', 'item.name', 'item.current_stock', 'item.cost_price');
           const consumed = await db('inv_inventory_transactions').where({ ascensionid: id, transaction_type: 'consumption' }).groupBy('item_id')
+               .whereRaw("COALESCE(reason, '') <> ?", ['Phlebotomy actual supply usage'])
                .select('item_id', db.raw('SUM(CAST(previous_stock AS DECIMAL(20,6)) - CAST(new_stock AS DECIMAL(20,6))) as used'));
           const totals = new Map(consumed.map(row => [String(row.item_id), Number(row.used)]));
           // A template may contain repeated item rows; sum them rather than double-recording a material.
@@ -178,15 +179,46 @@ export class LabWorkbenchService {
           return { status, templates, template_id: Number(selected.id), items };
      }
 
-     async consume(actor: AuthUser, id: number, input: any) {
-          const key = String(input.idempotency_key || '').trim();
+     async collectionSupplies(actor: AuthUser, sampleId: number, search = '') {
+          const db = await KnexConnection(this.tenantId);
+          const link = await db('test_ascension_samples').where({ sample_id: sampleId }).orderBy('ascension_id').first();
+          if (!link) fail('Collection sample not found', 404);
+          const test = await this.orderedTest(db, Number(link.ascension_id), actor);
+          const sample = await db('physical_samples').where({ id: sampleId, billingid: test.billingid, patientid: test.patientid }).first();
+          if (!sample) fail('Collection sample not found in your branch', 404);
+          let items = db('inv_inventory_items').where('is_active', true).select('id', 'name', 'current_stock', 'consumption_unit', 'cost_price').orderBy('name').limit(100);
+          if (search.trim()) items = items.where('name', 'like', `%${search.trim().slice(0, 100)}%`);
+          const records = await db('lab_consumption_records').where({ ascensionid: test.id }).where('idempotency_key', 'like', `PHL:${sampleId}:%`).orderBy('id', 'desc').limit(100);
+          return { sample, ascensionid: Number(test.id), items: await items, records };
+     }
+
+     async consumeCollectionSupplies(actor: AuthUser, sampleId: number, input: any) {
+          if (!Number.isSafeInteger(sampleId) || sampleId <= 0) fail('Invalid collection sample');
+          const db = await KnexConnection(this.tenantId);
+          const link = await db('test_ascension_samples').where({ sample_id: sampleId }).orderBy('ascension_id').first();
+          if (!link) fail('Collection sample not found', 404);
+          return this.consume(actor, Number(link.ascension_id), input, sampleId);
+     }
+
+     async consume(actor: AuthUser, id: number, input: any, collectionSampleId?: number) {
+          const rawKey = String(input.idempotency_key || '').trim();
+          const key = collectionSampleId ? `PHL:${collectionSampleId}:${rawKey}` : rawKey;
           if (!key || key.length > 100 || !Array.isArray(input.lines) || !input.lines.length) fail('Consumption lines and a retry key are required');
+          if (!rawKey || input.lines.length > 50) fail('A retry key and at most 50 supply lines are required');
+          const reason = String(input.reason || '').trim();
+          if (collectionSampleId && (!reason || reason.length > 1000)) fail('Enter a usage note (up to 1000 characters), including any redraw or extra supplies');
           const lines = input.lines.map(line => ({ item_id: String(line.item_id), quantity: Number(line.quantity) })).sort((a, b) => a.item_id.localeCompare(b.item_id));
           if (new Set(lines.map(line => line.item_id)).size !== lines.length || lines.some(line => !Number.isFinite(line.quantity) || line.quantity <= 0)) fail('Enter one positive actual quantity per item');
-          const hash = createHash('sha256').update(JSON.stringify({ template_id: input.template_id, lines })).digest('hex');
+          const hash = createHash('sha256').update(JSON.stringify({ template_id: collectionSampleId ? null : input.template_id, lines, ...(collectionSampleId ? { collectionSampleId, reason } : {}) })).digest('hex');
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async trx => {
                const test = await this.orderedTest(trx, id, actor, true);
+               if (collectionSampleId) {
+                    const sample = await trx('physical_samples').where({ id: collectionSampleId, billingid: test.billingid, patientid: test.patientid }).forUpdate().first();
+                    const link = await trx('test_ascension_samples').where({ sample_id: collectionSampleId, ascension_id: id }).first();
+                    if (!sample || !link) fail('Collection sample does not belong to this patient and test', 404);
+                    if (!['collection_started', 'collected', 'received', 'accepted', 'rejected', 'recollection_required'].includes(sample.status)) fail('Start collection before recording supplies', 409);
+               }
                const prior = await trx('lab_consumption_records').where({ ascensionid: id, idempotency_key: key }).first();
                if (prior) {
                     if (prior.request_hash !== hash) fail('This retry key was used for different quantities', 409);
@@ -197,11 +229,18 @@ export class LabWorkbenchService {
                const stockColumn = await trx('inv_inventory_items').columnInfo('current_stock');
                const quantityColumn = await trx('inv_inventory_transactions').columnInfo('quantity');
                if ((/int/i.test(stockColumn.type) || /int/i.test(quantityColumn.type)) && lines.some(line => !Number.isSafeInteger(line.quantity))) fail('These inventory items use whole consumption units. Enter whole quantities.');
-               if (!test.processingStartDate && !test.processingEndDate && !test.resultEntryEnd) fail('Start the laboratory work before recording materials used', 409);
-               const plan = await this.consumptionPlan(actor, id, Number(input.template_id), trx);
-               if (!plan.template_id || !plan.items.length) fail('Configure and select a test inventory template first', 409);
-               if (lines.some(line => !plan.items.some(item => item.item_id === line.item_id))) fail('A material is not part of the selected test template');
-               await trx('inv_inventory_items').whereIn('id', lines.map(line => line.item_id)).orderBy('id').forUpdate();
+               if (!collectionSampleId && !test.processingStartDate && !test.processingEndDate && !test.resultEntryEnd) fail('Start the laboratory work before recording materials used', 409);
+               const plan = collectionSampleId
+                    ? { template_id: null, items: (await trx('inv_inventory_items').whereIn('id', lines.map(line => line.item_id)).where('is_active', true).select('id')).map(item => ({ item_id: item.id })) }
+                    : await this.consumptionPlan(actor, id, Number(input.template_id), trx);
+               if ((!collectionSampleId && !plan.template_id) || !plan.items.length) fail('Configure and select a test inventory template first', 409);
+               if (lines.some(line => !plan.items.some(item => item.item_id === line.item_id))) fail(collectionSampleId ? 'A selected supply is unavailable or inactive' : 'A material is not part of the selected test template');
+               const lockedItems = await trx('inv_inventory_items').whereIn('id', lines.map(line => line.item_id)).orderBy('id').forUpdate();
+               if (collectionSampleId) for (const line of lines) {
+                    const item = lockedItems.find(item => item.id === line.item_id);
+                    if (!item || !item.is_active) fail('A selected supply is unavailable or inactive', 409);
+                    if (!Number.isFinite(Number(item.current_stock)) || Number(item.current_stock) < line.quantity) fail(`Insufficient stock for ${item.name || line.item_id}`, 409);
+               }
                const movements: any[] = [];
                for (const line of lines) {
                     const batches = await trx('inv_inventory_transactions').where({ item_id: line.item_id }).whereNotNull('batch_number')
@@ -216,7 +255,8 @@ export class LabWorkbenchService {
                          movements.push({ item_id: line.item_id, transaction_type: 'consumption', quantity, unit_type: 'consumption',
                               batch_number: batch.batch_number, expiry_date: batch.expiry_date || undefined,
                               patientid: test.patientid, ascensionid: id, performed_by: actor.employeeid,
-                              reference_id: `LAB-${id}-${key}`.slice(0, 100), reason: 'Laboratory actual material usage' });
+                              reference_id: collectionSampleId ? `PHL-${collectionSampleId}-${rawKey}`.slice(0, 100) : `LAB-${id}-${key}`.slice(0, 100), reason: collectionSampleId ? 'Phlebotomy actual supply usage' : 'Laboratory actual material usage',
+                              notes: collectionSampleId ? `Physical sample ${collectionSampleId}: ${reason}` : undefined });
                          remaining = Number((remaining - quantity).toFixed(6));
                          if (!remaining) break;
                     }
@@ -225,8 +265,8 @@ export class LabWorkbenchService {
                const transactions = await new InventoryTransactionModel(this.tenantId).createBulk(movements, trx);
                await trx('lab_consumption_records').insert({ ascensionid: id, idempotency_key: key, request_hash: hash, employeeid: actor.employeeid,
                     transactions: JSON.stringify(transactions), created_at: new Date() });
-               await trx('lab_work_actions').insert({ ascensionid: id, action: 'materials_recorded', employeeid: actor.employeeid,
-                    reason: null, metadata: JSON.stringify({ lines, template_id: plan.template_id, idempotency_key: key }), created_at: new Date() });
+               await trx('lab_work_actions').insert({ ascensionid: id, action: collectionSampleId ? 'collection_supplies_recorded' : 'materials_recorded', employeeid: actor.employeeid,
+                    reason: collectionSampleId ? reason : null, metadata: JSON.stringify({ lines, template_id: plan.template_id, sample_id: collectionSampleId || null, idempotency_key: key }), created_at: new Date() });
                return { transactions, retried: false };
           });
      }
