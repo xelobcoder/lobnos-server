@@ -5,6 +5,8 @@ import { CommissionTrackingRepo } from "../../models/commissions/CommissionTrack
 import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { CommissionBatchPaymentServicesRepo } from "../../models/commissions/CommissionBatchPaymentServicesRepo";
 import KnexConnection from "../../database/KnexConnections";
+import { assertCommissionServiceBranch } from '../../middleware/commissionAuthority';
+import { getAuthUser } from '../../middleware/authority';
 
 export class CommissionTrackingController {
      private commissionTrackingRepo: CommissionTrackingRepo;
@@ -12,8 +14,8 @@ export class CommissionTrackingController {
      private connection: any;
 
 
-     constructor(tenantId: number) {
-          this.commissionTrackingRepo = new CommissionTrackingRepo(tenantId);
+     constructor(tenantId: number, branchId?: number) {
+          this.commissionTrackingRepo = new CommissionTrackingRepo(tenantId, branchId);
           this.batchServicesRepo = new CommissionBatchPaymentServicesRepo(tenantId);
           this.connection = KnexConnection(tenantId);
      }
@@ -53,6 +55,7 @@ export class CommissionTrackingController {
           try {
                const { id } = request.params;
                const { serviceid, commissionRate, recipientType, recipientId } = request.body;
+               await assertCommissionServiceBranch(getAuthUser(request)!, Number(serviceid));
 
                if (!serviceid || !commissionRate || !recipientType || !recipientId) {
                     return customError("Missing required fields", 400, response);
@@ -66,6 +69,8 @@ export class CommissionTrackingController {
                const commissionTrackingRepo = this.commissionTrackingRepo;
                const batchServicesRepo = this.batchServicesRepo;
                const conn = await this.connection;
+               const existing = await conn('commission_tracking').where({ id: commissionId }).first();
+               if (!existing || Number(existing.service_id) !== Number(serviceid) || existing.recipient_type !== recipientType || Number(existing.recipient_id) !== Number(recipientId)) return customError('Commission record does not match the selected service and recipient', 409, response);
                const isBatched = await batchServicesRepo.isServiceBatched(serviceid);
 
                if (isBatched) return customError("Cannot update commission rate for a service that is already included in a batch payment", 400, response);
@@ -163,6 +168,7 @@ export class CommissionTrackingController {
      async addUntrackedService(request: Request, response: Response) {
           try {
                const { serviceid, recipient_type, recipient_id } = request.body;
+               await assertCommissionServiceBranch(getAuthUser(request)!, Number(serviceid));
 
                if (!serviceid || !recipient_type || !recipient_id) {
                     return customError("Missing required fields: serviceid, recipient_type, recipient_id", 400, response);

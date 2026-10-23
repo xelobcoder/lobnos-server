@@ -321,8 +321,7 @@ export default class Creator {
 
 		const connection = await KnexConnection(tenantId);
 		const calculationService = new CalculationFormulaService();
-		const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[]);
-		const entryFields = calculatedEntry.fields;
+          let entryFields = fields as any[];
 		const shouldCreateRecord = async (trx: any, fieldid: number, ascensionId: number, testid: number) => {
                return !(await trx('test_results').where({ ascensionid: ascensionId, testid, fieldid }).first());
           };
@@ -418,6 +417,8 @@ export default class Creator {
 			await connection.transaction(async (trx) => {
                     await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
                     await trx('test_panels').where({ id: testid }).forUpdate().first();
+                    const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[], trx);
+                    entryFields = calculatedEntry.fields;
                     const currentQcWork = await trx('lab_work_assignments').where({ ascensionid }).first('device_id');
                     await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: currentQcWork?.device_id || null }, trx);
                     await invalidateResultApprovals(trx, ascensionid, employeeid);

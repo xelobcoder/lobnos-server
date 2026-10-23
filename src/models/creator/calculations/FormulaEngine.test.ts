@@ -1,7 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { evaluateFormula } from './FormulaEngine';
+import { evaluateFormula, validateFormula } from './FormulaEngine';
 
 describe('evaluateFormula', () => {
+     it('applies conventional unary minus, right-associative powers and negative exponents', () => {
+          expect(evaluateFormula('-2^2', {})).toBe(-4);
+          expect(evaluateFormula('(-2)^2', {})).toBe(4);
+          expect(evaluateFormula('2^-2', {})).toBe(0.25);
+          expect(evaluateFormula('2^3^2', {})).toBe(512);
+     });
+     it('validates grammar without inventing sample input values', () => {
+          expect(() => validateFormula('A/(B-C)', ['A', 'B', 'C'])).not.toThrow();
+          expect(evaluateFormula('A/(B-C)', { A: 10, B: 5, C: 3 })).toBe(5);
+          expect(() => validateFormula('A/(D-C)', ['A', 'B', 'C'])).toThrow('missing');
+          expect(() => validateFormula('sqrt(A,B)', ['A', 'B'])).toThrow('one argument');
+     });
      it('applies arithmetic precedence and parentheses', () => {
           expect(evaluateFormula('(A * B) / D', { A: 10, B: 5, D: 2 })).toBe(25);
      });

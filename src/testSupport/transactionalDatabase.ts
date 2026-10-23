@@ -45,6 +45,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                          return query;
                     },
                     whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[column(key)])); return query; },
+                    andWhere(...args: any[]) { return query.where(...args); },
                     whereNotIn(key: string, values: any[]) { filters.push(row => !values.includes(row[key])); return query; },
                     orderBy() { return query; },
                     forUpdate() { locking = true; events.push('lock:' + table); return query; },

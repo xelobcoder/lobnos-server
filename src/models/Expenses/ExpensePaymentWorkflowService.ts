@@ -3,6 +3,7 @@ import { enqueueExpensePayment } from '../../accountingModule/integrations/Expen
 import { AuthorityService } from '../../accountingModule/services/AuthorityService';
 import { AuthUser } from '../../middleware/authority';
 import { FinancialFinalizationGuard } from '../../accountingModule/services/FinancialFinalizationGuard';
+import { syncCommissionExpenseSettlement } from '../commissions/CommissionExpenseSettlement';
 
 export interface RecordExpensePaymentInput {
      expenseId: number;
@@ -149,6 +150,7 @@ export class ExpensePaymentWorkflowService {
                });
 
                if (input.invoiceId) await this.updateInvoiceStatus(trx, input.invoiceId);
+               await syncCommissionExpenseSettlement(trx, expenseId);
                await (this.dependencies.enqueuePayment || enqueueExpensePayment)(this.tenantId, Number(paymentId), trx);
 
                return { paymentId: Number(paymentId), expenseId, amountPaid: amount, totalPaid, outstanding, status: nextStatus };

@@ -4,6 +4,7 @@ import User from "../../LobnosAuth/user";
 import ExpenseService from "./ExpenseService";
 import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
+import { reverseControlledCommissionPayment } from '../commissions/CommissionExpenseSettlement';
 import { enqueueExpensePayment, enqueueExpensePaymentReversal } from "../../accountingModule/integrations/ExpenseAccounting";
 import { roleAllowed } from "../../middleware/roles";
 
@@ -737,6 +738,8 @@ export default class ExpenseInvoiceRepo {
                }
 
                const payment = paymentResult[0];
+               const controlled = await reverseControlledCommissionPayment(this.tenantId, this.employeeid, this.branchid, payment, reversalReason || '');
+               if (controlled) return controlled;
                const { expense_id, invoice_id, amount, method } = payment;
 
                // Create reversal record in audit table

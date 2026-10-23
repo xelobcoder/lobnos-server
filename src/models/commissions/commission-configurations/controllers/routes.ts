@@ -4,8 +4,10 @@ import { CommissionAssignmentController } from './CommissionAssignmentController
 import { CommissionTrackingController } from './CommissionTrackingController';
 import { CommissionDefaultController } from './CommissionDefaultController';
 import { CommissionAnalyticsController } from './CommissionAnalyticsController';
+import { bindCommissionActor, commissionAccess } from '../../../../middleware/commissionAuthority';
 
 const router = Router();
+router.use(bindCommissionActor, commissionAccess);
 
 // COMMISSION CONFIGS
 router.post('/configs', CommissionConfigController.createConfig);
@@ -23,13 +25,13 @@ router.put('/assignments/:id', CommissionAssignmentController.updateAssignment);
 router.delete('/assignments/:id', CommissionAssignmentController.deleteAssignment);
 
 // COMMISSION TRACKING
-router.get('/tracking/:id', CommissionTrackingController.getTracking);
 router.get('/tracking/service/:serviceId', CommissionTrackingController.getServiceTracking);
 router.get('/commission-tracking/tracking/unpaid', CommissionTrackingController.getUnpaidTracking);
 router.get('/tracking/summary', CommissionTrackingController.getSummary);
 router.get('/tracking/status/:status', CommissionTrackingController.getByStatus);
 router.get('/tracking/recipient', CommissionTrackingController.getByRecipient);
 router.get('/tracking/period-total', CommissionTrackingController.getPeriodTotal);
+router.get('/tracking/:id', CommissionTrackingController.getTracking);
 router.put('/tracking/:id/status', CommissionTrackingController.updateStatus);
 router.post('/tracking/:id/adjustments', CommissionTrackingController.createAdjustment);
 

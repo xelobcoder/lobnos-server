@@ -1,6 +1,6 @@
 import logger from "../../hooks/logger";
 import KnexConnection from "../../database/KnexConnections";
-import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";
+import ExpenseInvoiceRepo from '../Expenses/ExpenseInvoiceRepo';
 
 export class CommissionPaymentExpenseSync {
      static async markCommissionPaymentAsExpense(tenantId: number, data: {
@@ -17,6 +17,7 @@ export class CommissionPaymentExpenseSync {
 
                const batchPayment = await useTransaction('commission_batch_payments')
                     .where('id', batchPaymentId)
+                    .forUpdate()
                     .first();
 
                if (!batchPayment) {
@@ -51,28 +52,36 @@ export class CommissionPaymentExpenseSync {
                     recipientName = org?.name || `Organization ${batchPayment.recipient_id}`;
                }
 
-               const lifecycle = new AutomatedExpenseLifecycle(tenantId);
-               const lifecycleResult = await lifecycle.process({
-                    amount: batchPayment.payment_amount,
-                    name: `Commission Payment - ${batchPayment.batch_reference}`,
-                    description: `Commission payment to ${batchPayment.recipient_type} - ${recipientName} for period ${batchPayment.start_date} to ${batchPayment.end_date}. Batch Reference: ${batchPayment.batch_reference}`,
-                    categoryName: "commission_payments",
-                    merchantName: "COMMISSION PAYMENTS",
-                    merchantEmail: "system-commission-automated",
+               const amount = Number(batchPayment.total_commission_amount) - Number(batchPayment.waived_amount || 0);
+               if (!(amount > 0)) throw new Error('A payment request must have a positive payable balance');
+               const category = await useTransaction('dboexpensecategory').whereRaw("LOWER(REPLACE(REPLACE(category, ' ', '_'), '-', '_')) = ?", ['commission_payments']).first();
+               if (!category) throw new Error('Commission payments expense category is not configured');
+               let merchant = await useTransaction('expense_merchants').where({ name: 'COMMISSION PAYMENTS' }).first();
+               if (!merchant) {
+                    const [id] = await useTransaction('expense_merchants').insert({ name: 'COMMISSION PAYMENTS', created_by: employeeid });
+                    merchant = { id };
+               }
+               let requestNotes: any = {};
+               try { requestNotes = JSON.parse(batchPayment.notes || '{}'); } catch { /* Legacy notes remain descriptive text. */ }
+               const lifecycleResult = await new ExpenseInvoiceRepo(employeeid, branchid, tenantId).createExpensesAndInvoice([{
+                    amount,
+                    name: `Commission Request - ${batchPayment.batch_reference}`,
+                    description: `Commission request for ${recipientName}. Batch: ${batchPayment.batch_reference}. Payable obligation: GHS ${amount.toFixed(2)}. Requested initial payment: GHS ${Number(requestNotes.requested_payment || amount).toFixed(2)}. Approval and account-authorized payment are separate. ${requestNotes.waiver_reason ? 'Waiver reason: ' + requestNotes.waiver_reason : 'Unpaid amounts remain outstanding.'}`,
+                    category: category.id,
+                    merchant: merchant.id,
                     date: new Date(batchPayment.payment_date || batchPayment.created_at),
                     branchid,
                     employeeid,
-                    paymentMethod: batchPayment.payment_method || 'SYSTEM_AUTO',
-                    invoicePrefix: "COMM"
-               }, useTransaction);
+               } as any], { invoice_number: `COMM-${batchPayment.batch_reference}`, invoice_date: new Date().toISOString().slice(0, 10), merchant_id: merchant.id, total_amount: amount, status: 'Pending' }, useTransaction);
+               const expenseId = lifecycleResult.expenseIds[0];
 
                await useTransaction('commission_batch_payments')
                     .where('id', batchPaymentId)
                     .update({
                          expense_synced: true,
-                         expense_id: lifecycleResult.expenseId,
+                         expense_id: expenseId,
                          expense_invoice_id: lifecycleResult.invoiceId,
-                         expense_payment_id: lifecycleResult.paymentId || null,
+                         expense_payment_id: null,
                          updated_at: new Date() as any
                     });
 
@@ -84,7 +93,7 @@ export class CommissionPaymentExpenseSync {
                          .where('id', service.id)
                          .update({
                               expense_synced: true,
-                              expense_id: lifecycleResult.expenseId
+                              expense_id: expenseId
                          });
                }
 
@@ -93,10 +102,10 @@ export class CommissionPaymentExpenseSync {
                return {
                     success: true,
                     message: "Commission payment successfully converted to expense",
-                    expense_id: lifecycleResult.expenseId,
+                    expense_id: expenseId,
                     invoice_id: lifecycleResult.invoiceId,
-                    expense_payment_id: lifecycleResult.paymentId || null,
-                    requiresApproval: false
+                    expense_payment_id: null,
+                    requiresApproval: true
                };
 
           } catch (error: any) {

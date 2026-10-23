@@ -281,6 +281,8 @@ export default class Expenses implements IExpenseRepository {
                if (!['draft', 'rejected', 'pending_approval'].includes(status)) return `Cannot edit an expense in ${status.replace(/_/g, ' ')} status.`;
                if (Number(before.employeeid) !== Number(this.employeeid) || Number(before.branchid) !== Number(this.branchid)) return 'You can only edit your own branch expense.';
                const { name, amount, description, merchant, category, date } = expenseData;
+               const commission = !trx.schema || await trx.schema.hasTable('commission_batch_payments') ? await trx('commission_batch_payments').where({ expense_id: this.expenseId }).first() : null;
+               if (commission && Number(amount) !== Number((Number(commission.total_commission_amount) - Number(commission.waived_amount || 0)).toFixed(2))) return 'A commission request must retain its approved commission obligation; adjust the commission before changing its amount.';
                if (!String(name || '').trim() || !Number.isFinite(Number(amount)) || Number(amount) <= 0 || !category || !merchant || !Number.isFinite(new Date(date).getTime())) return 'Enter a name, positive amount, category, merchant and valid date.';
                const guard = new FinancialFinalizationGuard(this.tenantId, trx);
                await guard.assertRecordMutable('expensesrecord', this.expenseId!);

@@ -61,7 +61,7 @@ function tokenize(expression: string): Token[] {
 class FormulaParser {
      private index = 0;
 
-     constructor(private readonly tokens: Token[], private readonly variables: Record<string, number>) { }
+     constructor(private readonly tokens: Token[], private readonly variables: Record<string, number>, private readonly syntaxOnly = false) { }
 
      parse(): number {
           const value = this.parseExpression(0);
@@ -81,21 +81,21 @@ class FormulaParser {
      }
 
      private parseTerm(depth: number): number {
-          let value = this.parsePower(depth + 1);
+          let value = this.parseUnary(depth + 1);
           while (this.matchOperator('*') || this.matchOperator('/')) {
                const operator = this.consume().value;
-               const right = this.parsePower(depth + 1);
-               if (operator === '/' && right === 0) throw new Error('Formula cannot divide by zero.');
+               const right = this.parseUnary(depth + 1);
+               if (!this.syntaxOnly && operator === '/' && right === 0) throw new Error('Formula cannot divide by zero.');
                value = operator === '*' ? value * right : value / right;
           }
           return this.assertFinite(value);
      }
 
      private parsePower(depth: number): number {
-          const value = this.parseUnary(depth + 1);
+          const value = this.parsePrimary(depth + 1);
           if (!this.matchOperator('^')) return value;
           this.consume();
-          return this.assertFinite(Math.pow(value, this.parsePower(depth + 1)));
+          return this.assertFinite(Math.pow(value, this.parseUnary(depth + 1)));
      }
 
      private parseUnary(depth: number): number {
@@ -104,7 +104,7 @@ class FormulaParser {
                const value = this.parseUnary(depth + 1);
                return operator === '-' ? -value : value;
           }
-          return this.parsePrimary(depth + 1);
+          return this.parsePower(depth + 1);
      }
 
      private parsePrimary(depth: number): number {
@@ -147,8 +147,8 @@ class FormulaParser {
           if ((name === 'min' || name === 'max') && args.length === 0) {
                throw new Error(`Formula function "${name}" requires at least one argument.`);
           }
-          if (name === 'sqrt' && args[0] < 0) throw new Error('sqrt() requires a non-negative input.');
-          if (name === 'log' && args[0] <= 0) throw new Error('log() requires a positive input.');
+          if (!this.syntaxOnly && name === 'sqrt' && args[0] < 0) throw new Error('sqrt() requires a non-negative input.');
+          if (!this.syntaxOnly && name === 'log' && args[0] <= 0) throw new Error('log() requires a positive input.');
           return this.assertFinite(fn(...args));
      }
 
@@ -157,6 +157,7 @@ class FormulaParser {
      }
 
      private assertFinite(value: number): number {
+          if (this.syntaxOnly) return 1;
           if (!Number.isFinite(value)) throw new Error('Formula result is not a finite number.');
           return value;
      }
@@ -183,4 +184,9 @@ class FormulaParser {
 
 export function evaluateFormula(expression: string, variables: Record<string, number>): number {
      return new FormulaParser(tokenize(expression), variables).parse();
+}
+
+/** Validate grammar and identifiers without assuming any particular patient input values. */
+export function validateFormula(expression: string, tokens: string[]): void {
+     new FormulaParser(tokenize(expression), Object.fromEntries(tokens.map(token => [token, 1])), true).parse();
 }

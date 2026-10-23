@@ -4,6 +4,9 @@ import { customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import { CommissionBatchPaymentsRepo } from "../../models/commissions/CommissionBatchPaymentsRepo";
 import { CommissionPaymentValidationError } from "../../models/commissions/CommissionPaymentAllocation";
+import { getAuthUser } from '../../middleware/authority';
+import { assertCommissionServiceBranch } from '../../middleware/commissionAuthority';
+import KnexConnection from '../../database/KnexConnections';
 
 interface ServiceBatchingRequestBody {
      startDate: string;
@@ -31,20 +34,19 @@ export class CommissionBatchServicesController {
           try {
                const batchServicesRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
+               const actor = getAuthUser(request);
+               if (!actor || actor.branch == null) return customError('An authenticated operating branch is required', 403, response);
                if (!Array.isArray(services) || !services.length || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
                     return customError('Provide a nonempty list of unique positive service IDs', 400, response);
                }
                if (typeof startDate !== 'string' || typeof endDate !== 'string') return customError('Start and end dates are required', 400, response);
 
                const parseDate = (dateStr: string): Date => {
-                    const parts = dateStr.split('/');
-                    if (parts.length === 3) {
-                         const day = parseInt(parts[0], 10);
-                         const month = parseInt(parts[1], 10);
-                         const year = parseInt(parts[2], 10);
-                         return new Date(year, month - 1, day);
-                    }
-                    return new Date(dateStr);
+                    const parts = dateStr.trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+                    const iso = parts ? `${parts[3]}-${parts[2].padStart(2, '0')}-${parts[1].padStart(2, '0')}` : dateStr.trim();
+                    if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return new Date(NaN);
+                    const date = new Date(`${iso}T00:00:00Z`);
+                    return Number.isFinite(date.getTime()) && date.toISOString().slice(0, 10) === iso ? date : new Date(NaN);
                };
 
                const startDateObj = parseDate(startDate);
@@ -58,6 +60,8 @@ export class CommissionBatchServicesController {
                if (startDateObj > endDateObj) {
                     return customError("Start date cannot be after end date", 400, response);
                }
+
+               for (const serviceId of services) await assertCommissionServiceBranch(actor, serviceId);
 
                const eligibleServices = await batchServicesRepo.getUnbatchedServicesFromList(services);
 
@@ -73,8 +77,11 @@ export class CommissionBatchServicesController {
                     commissionDue,
                     amountPaid,
                     services: eligibleServices,
-                    employeeid,
-                    branchid,
+                    employeeid: actor.employeeid,
+                    branchid: actor.branch,
+                    actor,
+                    settlementMode: (request.body as any).settlementMode,
+                    waiverReason: (request.body as any).waiverReason,
                     paymentMethod,
                     recipientId: recipientid,
                     recipientType: recipient_type
@@ -86,7 +93,7 @@ export class CommissionBatchServicesController {
 
                return response.send({
                     status: true,
-                    message: "Service batching validation successful. Services can be batched.",
+                    message: processPayment.requiresApproval ? 'Commission payment request submitted for expense approval' : 'Commission waiver recorded',
                     data: processPayment
                });
 
@@ -113,6 +120,7 @@ export class CommissionBatchServicesController {
                               endDate: endDate ? new Date(endDate as string) : undefined,
                               recipient_id: recipient_id ? parseInt(recipient_id as string) : undefined,
                               recipient_type: recipient_type ? recipient_type as 'clinician' | 'organization' : undefined
+                              , branchId: getAuthUser(request)!.branch
                          }
                     )
                return response.send({
@@ -131,6 +139,7 @@ export class CommissionBatchServicesController {
      async getServiceCommissionPaymentHistory(request: Request, response: Response) {
           try {
                const { serviceid } = request.params;
+               await assertCommissionServiceBranch(getAuthUser(request)!, Number(serviceid));
                const commissionTrackingRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const paymentHistory = await commissionTrackingRepo.getsServicePaymentHistory(parseInt(serviceid.toString()));
                return response.send({
@@ -149,6 +158,10 @@ export class CommissionBatchServicesController {
      getBatchBreakdown = async (request: Request, response: Response) => {
           try {
                const { batchid } = request.params;
+               const db = await KnexConnection(getAuthUser(request)!.tenantId);
+               const allocations = await db('commission_batch_payment_services').where({ batch_payment_id: Number(batchid) });
+               if (!allocations.length) return customError('Batch not found', 404, response);
+               for (const allocation of allocations) await assertCommissionServiceBranch(getAuthUser(request)!, Number(allocation.serviceid));
                const batchPaymentsRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const batchBreakdown = await batchPaymentsRepo.getBatchPaymentServices(parseInt(batchid.toString()));
                return response.send({

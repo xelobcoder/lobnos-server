@@ -1,5 +1,7 @@
 import KnexConnection from '../../../database/KnexConnections';
-import { evaluateFormula } from './FormulaEngine';
+import { evaluateFormula, validateFormula } from './FormulaEngine';
+import { orderFormulaDependencies } from './FormulaDependencies';
+import { decrypt_value } from '../../../utils/encryptionModels';
 
 export interface FormulaInputParameter {
      fieldId: number;
@@ -84,7 +86,7 @@ export class CalculationFormulaService {
           if (!Number.isInteger(precision) || precision < 0 || precision > 12) {
                throw new Error('decimalPrecision must be an integer between 0 and 12.');
           }
-          if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom) || Number.isNaN(Date.parse(`${effectiveFrom}T00:00:00Z`))) {
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(effectiveFrom) || Number.isNaN(Date.parse(`${effectiveFrom}T00:00:00Z`)) || new Date(`${effectiveFrom}T00:00:00Z`).toISOString().slice(0, 10) !== effectiveFrom) {
                throw new Error('effectiveFrom must be a valid YYYY-MM-DD date.');
           }
           if (!Array.isArray(config.inputParameters) || config.inputParameters.length === 0 || config.inputParameters.length > 32) {
@@ -111,7 +113,7 @@ export class CalculationFormulaService {
                     throw new Error('Each formula condition must reference an input token and use a supported numeric comparison.');
                }
           }
-          evaluateFormula(config.expression, Object.fromEntries([...tokens].map((token) => [token, 1])));
+          validateFormula(config.expression, [...tokens]);
 
           const connection = await KnexConnection(tenantId);
           const fieldIds = [config.outputFieldId, ...inputFieldIds];
@@ -138,18 +140,32 @@ export class CalculationFormulaService {
           }
 
           return connection.transaction(async (trx: any) => {
+               if (!await trx('test_panels').where({ id: config.testId }).forUpdate().first()) throw new Error('Test panel not found.');
                const previousFormula = await trx('calculated_parameter_formulas')
                     .where({ testid: config.testId, output_field_id: config.outputFieldId })
                     .orderBy('version', 'desc')
                     .first();
-               if (previousFormula?.effective_from && effectiveFrom < String(previousFormula.effective_from).slice(0, 10)) {
+               const previousStart = previousFormula?.effective_from instanceof Date ? dateOnly(previousFormula.effective_from) : String(previousFormula?.effective_from || '').slice(0, 10);
+               if (previousStart && effectiveFrom < previousStart) {
                     throw new Error('A new formula version cannot become effective before the latest version starts.');
                }
 
+               const existingFormulas = await trx('calculated_parameter_formulas').where({ testid: config.testId }).orderBy('version', 'asc');
+               const futureConfiguration = [...existingFormulas.filter((row: any) => Number(row.output_field_id) !== config.outputFieldId), { output_field_id: config.outputFieldId, input_parameters: config.inputParameters, active: config.active !== false, effective_from: effectiveFrom, version: Number(previousFormula?.version || 0) + 1 }];
+               const boundaries = new Set<string>([effectiveFrom, ...futureConfiguration.map((row: any) => row.effective_from instanceof Date ? dateOnly(row.effective_from) : String(row.effective_from).slice(0, 10)).filter((day: string) => day >= effectiveFrom)]);
+               for (const day of boundaries) {
+                    const latest = new Map<number, any>();
+                    for (const row of futureConfiguration) {
+                         const start = row.effective_from instanceof Date ? dateOnly(row.effective_from) : String(row.effective_from).slice(0, 10);
+                         if (start <= day && Number(row.version) >= Number(latest.get(Number(row.output_field_id))?.version || 0)) latest.set(Number(row.output_field_id), row);
+                    }
+                    orderFormulaDependencies([...latest.values()].filter(row => row.active));
+               }
                if (previousFormula?.active) {
                     await trx('calculated_parameter_formulas')
                          .where({ testid: config.testId, output_field_id: config.outputFieldId, active: 1 })
-                         .update({ active: 0, effective_to: previousDate(effectiveFrom) });
+                         .whereNull('effective_to')
+                         .update({ effective_to: previousDate(effectiveFrom) });
                }
 
                const [id] = await trx('calculated_parameter_formulas').insert({
@@ -173,15 +189,19 @@ export class CalculationFormulaService {
           tenantId: number,
           testId: number,
           ascensionId: number,
-          fields: any[]
+          fields: any[],
+          trx?: any
      ): Promise<{ fields: any[]; auditRecords: FormulaAuditRecord[] }> {
-          const connection = await KnexConnection(tenantId);
+          const connection = trx || await KnexConnection(tenantId);
           const today = dateOnly(new Date());
-          const formulas = await connection('calculated_parameter_formulas')
+          const applicable = await connection('calculated_parameter_formulas')
                .where({ testid: testId, active: 1 })
                .where('effective_from', '<=', today)
                .andWhere((query: any) => query.whereNull('effective_to').orWhere('effective_to', '>=', today))
                .orderBy('version', 'asc');
+          const latest = new Map<number, any>();
+          for (const formula of applicable) if (Number(formula.version) >= Number(latest.get(Number(formula.output_field_id))?.version || 0)) latest.set(Number(formula.output_field_id), formula);
+          const formulas = orderFormulaDependencies([...latest.values()]);
           if (formulas.length === 0) return { fields, auditRecords: [] };
 
           const ruleIds = new Set<number>();
@@ -201,6 +221,8 @@ export class CalculationFormulaService {
                : [];
           const storedById = new Map<number, any>(storedRows.map((row: any) => [Number(row.fieldid), row]));
           const outputIds = new Set(formulas.map((formula: any) => Number(formula.output_field_id)));
+          // Never trust submitted or historical calculated output values as dependencies.
+          for (const outputId of outputIds) incomingById.delete(outputId);
           const computedFields: any[] = [];
           const auditRecords: FormulaAuditRecord[] = [];
 
@@ -210,7 +232,11 @@ export class CalculationFormulaService {
                const inputValues: Record<string, number> = {};
                for (const input of inputs) {
                     const incoming = incomingById.get(Number(input.fieldId));
-                    const rawValue = incoming?.value ?? incoming?.originalvalue ?? storedById.get(Number(input.fieldId))?.originalvalue;
+                    let rawValue = incoming?.value ?? incoming?.originalvalue;
+                    if (rawValue == null && !outputIds.has(Number(input.fieldId))) {
+                         const stored = storedById.get(Number(input.fieldId))?.originalvalue;
+                         rawValue = stored == null ? stored : /^[-+]?(?:\d+\.?\d*|\.\d+)(?:e[-+]?\d+)?$/i.test(String(stored).trim()) ? stored : decrypt_value(stored);
+                    }
                     const value = rawValue === null || rawValue === undefined || String(rawValue).trim() === '' ? NaN : Number(rawValue);
                     if (!Number.isFinite(value)) {
                          throw new CalculationInputError(`Cannot calculate ${rulesById.get(Number(formula.output_field_id))?.name || 'result'}: input ${input.token} is missing or invalid.`);
@@ -247,6 +273,7 @@ export class CalculationFormulaService {
                     originalvalue: resultValue,
                     entrymode: 'calculated',
                });
+               incomingById.set(Number(formula.output_field_id), { value: resultValue, originalvalue: resultValue });
                auditRecords.push({
                     formulaId: Number(formula.id),
                     formulaVersion: Number(formula.version),

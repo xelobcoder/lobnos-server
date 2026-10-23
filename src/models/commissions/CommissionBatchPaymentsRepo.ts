@@ -3,6 +3,9 @@ import { allocateCommissionPayment, CommissionPaymentValidationError } from './C
 import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
 import CommissionPaymentExpenseSync from "./CommissionPaymentExpenseSync";
+import type { AuthUser } from '../../middleware/authority';
+import { AuthorityService } from '../../accountingModule/services/AuthorityService';
+import { roleAllowed } from '../../middleware/roles';
 
 
 interface CommissionBatchPayment {
@@ -33,10 +36,14 @@ interface CommissionPaymentParameter {
      branchid: number;
      amountPaid: number;
      services: Array<number>;
+     actor: AuthUser;
+     settlementMode?: 'partial' | 'full' | 'waiver';
+     waiverReason?: string;
 }
 
 
 interface GetBatchParameters {
+     branchId?: number | null;
      batchid?: number;
      recipient_id?: number;
      recipient_type?: 'clinician' | 'organization';
@@ -60,7 +67,10 @@ export class CommissionBatchPaymentsRepo {
 
      createBatchPaymentWithServices = async (data: CommissionPaymentParameter) => {
           const { startDate, endDate, services, branchid, employeeid, paymentMethod, recipientId, recipientType } = data;
-          if (!Array.isArray(services) || !services.length || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
+          if (!data.actor || data.actor.tenantId !== this.tenantId || data.actor.employeeid !== employeeid || data.actor.branch !== branchid) throw new CommissionPaymentValidationError('Authenticated employee and operating branch are required');
+          const permission = await new AuthorityService(this.tenantId).can(employeeid, 'expense.create', null, branchid);
+          if (!permission.allowed) throw new CommissionPaymentValidationError(permission.reason);
+          if (!Array.isArray(services) || !services.length || services.length > 500 || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
                throw new CommissionPaymentValidationError('Provide a nonempty list of unique positive service IDs');
           }
           if (!['clinician', 'organization'].includes(recipientType) || !Number.isSafeInteger(recipientId) || recipientId <= 0
@@ -73,6 +83,12 @@ export class CommissionBatchPaymentsRepo {
                // The same service locks protect all batches, including requests for a different recipient.
                const locked = await trx('dboservices').whereIn('serviceid', [...services].sort((a,b) => a-b)).orderBy('serviceid').forUpdate();
                if (locked.length !== services.length) throw new CommissionPaymentValidationError('One or more services do not exist');
+               for (const service of locked) {
+                    const bill = await trx('billing').where({ billingid: service.billingid }).first();
+                    const day = service.serviceAddedOn instanceof Date ? service.serviceAddedOn.toISOString().slice(0, 10) : String(service.serviceAddedOn || '').slice(0, 10);
+                    if (!bill || Number(bill.branchid) !== branchid) throw new CommissionPaymentValidationError('A selected service is outside your operating branch');
+                    if (!day || day < startDate.toISOString().slice(0, 10) || day > endDate.toISOString().slice(0, 10)) throw new CommissionPaymentValidationError('A selected service is outside the requested date range');
+               }
                const existing = await trx('commission_batch_payment_services').whereIn('serviceid', services).first();
                if (existing) throw new CommissionPaymentValidationError('One or more services have already been batched');
                const tracking = await trx('commission_tracking').whereIn('service_id', services).whereNotIn('status', ['voided', 'adjusted']).orderBy('id').forUpdate();
@@ -84,37 +100,46 @@ export class CommissionBatchPaymentsRepo {
                     if (!['pending', 'approved'].includes(row.status)) throw new CommissionPaymentValidationError('A service commission is not payable');
                     return row;
                });
-               const allocation = allocateCommissionPayment(rows.map((row: any) => row.final_commission), data.commissionDue, data.amountPaid);
+               const requested = allocateCommissionPayment(rows.map((row: any) => row.final_commission), data.commissionDue, data.amountPaid);
+               const mode = data.settlementMode || 'partial';
+               if (!['partial', 'full', 'waiver'].includes(mode)) throw new CommissionPaymentValidationError('Choose a valid settlement mode');
+               if (mode === 'full' && requested.paid !== requested.total) throw new CommissionPaymentValidationError('Full settlement requires the full commission amount');
+               if (mode !== 'waiver' && requested.paid <= 0) throw new CommissionPaymentValidationError('A positive requested payment is required');
+               if (mode === 'waiver' && (!roleAllowed(data.actor.role, ['admin', 'super-admin']) || typeof data.waiverReason !== 'string' || data.waiverReason.trim().length < 3 || data.waiverReason.length > 2000)) throw new CommissionPaymentValidationError('A commission waiver requires an administrator and a reason of 3 to 2000 characters');
+               const waiver = mode === 'waiver' ? Number((requested.total - requested.paid).toFixed(2)) : 0;
+               const allocation = allocateCommissionPayment(rows.map((row: any) => row.final_commission), data.commissionDue, 0, waiver);
                const now = new Date();
                const [batchPaymentId] = await trx('commission_batch_payments').insert({
                     batch_reference: 'BATCH-' + randomUUID(), recipient_type: recipientType, recipient_id: recipientId,
                     start_date: startDate, end_date: endDate, total_commission_amount: allocation.total,
-                    payment_amount: allocation.paid, waived_amount: allocation.waived, status: 'completed',
-                    created_by: employeeid, payment_date: now, created_at: now, payment_method: paymentMethod, updated_at: now
+                    payment_amount: 0, waived_amount: allocation.waived, status: allocation.outstanding === 0 ? 'completed' : 'pending',
+                    notes: JSON.stringify({ workflow: 'controlled_expense', requested_payment: requested.paid, settlement_mode: mode, waiver_reason: mode === 'waiver' ? data.waiverReason.trim() : null, waiver_approved_by: mode === 'waiver' ? employeeid : null }),
+                    created_by: employeeid, payment_date: null, created_at: now, payment_method: paymentMethod, updated_at: now
                });
                for (let index = 0; index < services.length; index++) {
                     const share = allocation.services[index];
                     await trx('commission_batch_payment_services').insert({
                          batch_payment_id: batchPaymentId, serviceid: services[index], commission_due: share.due,
                          amount_allocated: share.allocated, waived_amount: share.waived,
-                         status: share.allocated === 0 && share.waived > 0 ? 'waived' : share.waived > 0 ? 'partial' : 'paid', created_at: now
+                         status: share.waived === share.due ? 'waived' : 'partial', created_at: now
                     });
                }
-               // A short payment remains an explicit settlement with a waiver, as in the existing API.
-               if (allocation.paid > 0) {
+               let expenseId: number | undefined;
+               if (allocation.outstanding > 0) {
                     const expense = await CommissionPaymentExpenseSync.markCommissionPaymentAsExpense(this.tenantId, { batchPaymentId, employeeid, branchid }, trx);
                     if (!expense.success) throw new Error('Failed to convert commission payment to expense: ' + expense.message);
+                    expenseId = expense.expense_id;
                     await trx('commission_batch_payments').where('id', batchPaymentId).update({
                          expense_synced: true, expense_id: expense.expense_id, expense_invoice_id: expense.invoice_id,
                          expense_payment_id: expense.expense_payment_id, updated_at: now
                     });
                }
-               await trx('commission_tracking').whereIn('id', rows.map((row: any) => row.id)).update({ status: 'paid', updated_at: now });
-               return { batchPaymentId };
+               if (allocation.outstanding === 0) await trx('commission_tracking').whereIn('id', rows.map((row: any) => row.id)).update({ status: 'paid', updated_at: now });
+               return { batchPaymentId, expenseId, requiresApproval: allocation.outstanding > 0, outstanding: allocation.outstanding, waived: allocation.waived };
           });
      }
 
-     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby }: GetBatchParameters) => {
+     getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby, branchId }: GetBatchParameters) => {
           try {
                const conn = await this.connection;
                let batch = conn('commission_batch_payments')
@@ -130,6 +155,12 @@ export class CommissionBatchPaymentsRepo {
                     .leftJoin("paymentmodes", "paymentmodes.keyID", "commission_batch_payments.payment_method")
                     .leftJoin("organization", "organization.id", "commission_batch_payments.recipient_id")
                     .leftJoin("clinicianbasicinfo", "clinicianbasicinfo.id", "commission_batch_payments.recipient_id")
+               if (branchId != null) batch.whereExists(function (this: any) {
+                    this.select(conn.raw('1')).from('commission_batch_payment_services as scope')
+                         .join('dboservices as scoped_service', 'scoped_service.serviceid', 'scope.serviceid')
+                         .join('billing as scoped_bill', 'scoped_bill.billingid', 'scoped_service.billingid')
+                         .whereRaw('scope.batch_payment_id = commission_batch_payments.id').where('scoped_bill.branchid', branchId);
+               });
 
                if (recipient_id && recipient_type == "organization") {
                     batch = batch.where('recipient_type', recipient_type);

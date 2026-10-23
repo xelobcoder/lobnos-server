@@ -187,7 +187,7 @@ export class CommissionTrackingController {
                     return;
                }
 
-               const validStatuses = ['pending', 'approved', 'paid', 'voided', 'adjusted'];
+               const validStatuses = ['pending', 'approved', 'voided', 'adjusted'];
                if (!validStatuses.includes(status)) {
                     res.status(400).json({
                          status: 'error',
@@ -309,7 +309,7 @@ export class CommissionTrackingController {
                     return;
                }
 
-               const validStatuses = ['pending', 'approved', 'paid', 'voided', 'adjusted'];
+               const validStatuses = ['pending', 'approved', 'voided', 'adjusted'];
                if (!validStatuses.includes(status)) {
                     res.status(400).json({
                          status: 'error',

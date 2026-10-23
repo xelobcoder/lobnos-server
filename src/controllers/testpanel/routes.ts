@@ -25,7 +25,8 @@ import {
 	importMasterTestPanelToClientList,
 	putTestPanelQcRequirement
 } from "./testpanelHandlers";
-import { getCalculationFormulas, putCalculationFormula } from './CalculationFormulaController';
+import { getCalculationFormulas, putCalculationFormula, previewCalculationFormula } from './CalculationFormulaController';
+import { requireOwnerRole } from '../../middleware/authority';
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
 import { getTestReportSettingsHandler, putTestReportSettingsHandler, deleteTestReportSettingsHandler } from "./testReportSettingsHandlers";
@@ -56,8 +57,9 @@ router.put("/api/v1/testpanel/bulkpricing", putBulkTestPricingUpdate);
 router.post("/api/v1/testpanel/list", blockWhenMasterCatalogEnforced, handleOverLoad(postTestPanelCreate));
 router.put("/api/v1/testpanel/list", putTestPanelUpdate);
 router.put("/api/v1/testpanel/qc-requirement", isAuthorizedRoleAdmin, putTestPanelQcRequirement);
-router.get("/api/v1/testpanel/calculations", isAuthorizedRoleAdmin, getCalculationFormulas);
-router.put("/api/v1/testpanel/calculations", isAuthorizedRoleAdmin, putCalculationFormula);
+router.get("/api/v1/testpanel/calculations", requireOwnerRole, getCalculationFormulas);
+router.put("/api/v1/testpanel/calculations", requireOwnerRole, putCalculationFormula);
+router.post('/api/v1/testpanel/calculations/preview', requireOwnerRole, previewCalculationFormula);
 router.delete("/api/v1/testpanel/list", deleteTestPanel);
 router.get("/api/v1/testpanel/list/customtestrule", getTestPanelCreationRule);
 router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);

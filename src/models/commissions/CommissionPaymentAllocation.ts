@@ -17,14 +17,15 @@ function cents(value: unknown): number {
 }
 
 /** Allocate the actual payment proportionally; distribute remaining cents deterministically. */
-export function allocateCommissionPayment(dues: unknown[], submittedTotal: unknown, payment: unknown) {
+export function allocateCommissionPayment(dues: unknown[], submittedTotal: unknown, payment: unknown, waiver: unknown = 0) {
      if (!dues.length) throw new CommissionPaymentValidationError('At least one payable service is required');
      const dueCents = dues.map(cents);
      const total = dueCents.reduce((sum, due) => sum + due, 0);
      if (!Number.isSafeInteger(total)) throw new CommissionPaymentValidationError('Commission total is too large');
      if (cents(submittedTotal) !== total) throw new CommissionPaymentValidationError('Commission total does not match the current payable service amounts. Refresh and try again.');
      const paid = cents(payment);
-     if (paid > total) throw new CommissionPaymentValidationError('Payment cannot exceed the payable commission');
+     const waived = cents(waiver);
+     if (paid + waived > total) throw new CommissionPaymentValidationError('Payment and waiver cannot exceed the payable commission');
      const shares = dueCents.map((due, index) => {
           const exact = total ? new Decimal(due).mul(paid).div(total) : new Decimal(0);
           const allocated = exact.floor().toNumber();
@@ -35,12 +36,14 @@ export function allocateCommissionPayment(dues: unknown[], submittedTotal: unkno
           if (remaining <= 0) break;
           if (share.allocated < dueCents[share.index]) { share.allocated++; remaining--; }
      }
+     const remainingDues = dueCents.map((due, index) => due - shares[index].allocated);
+     const waiverShares = waived ? allocateCommissionPayment(remainingDues.map(value => value / 100), (total - paid) / 100, waived / 100).services : [];
      return {
-          total: total / 100, paid: paid / 100, waived: (total - paid) / 100,
+          total: total / 100, paid: paid / 100, waived: waived / 100, outstanding: (total - paid - waived) / 100,
           services: shares.map(share => ({
                due: dueCents[share.index] / 100,
                allocated: share.allocated / 100,
-               waived: (dueCents[share.index] - share.allocated) / 100,
+               waived: waiverShares[share.index]?.allocated || 0,
           })),
      };
 }

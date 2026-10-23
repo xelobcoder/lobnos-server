@@ -53,7 +53,7 @@ export class CommissionTrackingRepo {
      private connection: any;
      private batchRepo: CommissionBatchPaymentServicesRepo;
 
-     constructor(tenantId: number) {
+     constructor(tenantId: number, private readonly branchId?: number) {
           this.tenantId = tenantId;
           this.connection = KnexConnection(tenantId);
           this.batchRepo = new CommissionBatchPaymentServicesRepo(tenantId);
@@ -106,6 +106,7 @@ export class CommissionTrackingRepo {
                          builder.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
                     })
                     .whereNull('cbps.id');
+               if (this.branchId != null) query.whereIn('ds.billingid', conn('billing').select('billingid').where({ branchid: this.branchId }));
 
                if (type === 'clinician') {
                     query = query
@@ -269,6 +270,7 @@ export class CommissionTrackingRepo {
                     .whereNotIn('serviceid', trackedIds)
                     .andWhere(conn.raw("serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
                     .whereNotIn('status', ['voided', 'cancelled', 'refunded', 'written-off']);
+               if (this.branchId != null) query.whereIn('dboservices.billingid', conn('billing').select('billingid').where({ branchid: this.branchId }));
 
                if (recipientType === 'clinician' && recipientId !== undefined) {
                     query = query.andWhere('clinicianId', recipientId);
