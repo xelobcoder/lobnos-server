@@ -1,3 +1,4 @@
+import { applyResultValidationBypass } from './ResultApprovalService';
 import Operations from "./operations";
 import {
 	delete_test_ascension_billed,
@@ -84,7 +85,14 @@ export class TestAscension {
 
 
 
-	public static async incrementTestEditCount(tenantId: number, billingid: number, ascensionid: number): Promise<boolean> {
+	public static async incrementTestEditCount(tenantId: number, billingid: number, ascensionid: number, trx?: any): Promise<boolean> {
+          if (trx) {
+               const key = { billingid, ascensionid };
+               const row = await trx('dbogeneraltesteditcount').where(key).forUpdate().first();
+               if (row) await trx('dbogeneraltesteditcount').where(key).update({ counter: Number(row.counter || 0) + 1, updatedon: new Date() });
+               else await trx('dbogeneraltesteditcount').insert({ ...key, counter: 1, updatedon: new Date() });
+               return true;
+          }
 		const current_count_value = await promisifyQuery(tenantId, q_get_AscensionEditCount, [billingid, ascensionid]);
 		if (current_count_value.length > 0) {
 			const { counter } = current_count_value[0];
@@ -271,11 +279,7 @@ export class TestAscension {
 		// laod application settings to check if complete lab flow is enabled
 		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
 		if (!application_settings) return;
-		if (Number(application_settings.byPassValidation) === 1) {
-			await connection('dbotestresultapproval')
-				.update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() })
-				.where({ ascensionid: ascensionid })
-		}
+          await applyResultValidationBypass(connection, ascensionid, employeeid, Number(application_settings.byPassValidation) === 1);
 
 	}
 

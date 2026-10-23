@@ -108,7 +108,7 @@ export default class ResultDeliveryClass {
                let affected = 0;
                for (const test of ascensions) {
                     const approval = await trx('dbotestresultapproval').where({ ascensionid: test.id }).first();
-                    if (entry.delivered_mode && !entry.failurenotes && (!test.resultEntryEnd || Number(approval?.isapproved) !== 1)) {
+                    if (entry.delivered_mode && !entry.failurenotes && (!test.resultEntryEnd || Number(approval?.isapproved) !== 1 || Number(approval?.requires_revalidation) === 1)) {
                          if (entry.ascensionid == null) continue;
                          throw Object.assign(new Error('Only finalized results can be marked delivered'), { statusCode: 409 });
                     }

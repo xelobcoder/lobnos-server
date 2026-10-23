@@ -9,7 +9,7 @@ vi.mock('./PatientPortalBootstrapper', () => ({
 vi.mock('./PatientPortalSettings', () => ({
      PatientPortalSettingsService: class { async get() { return { result_release_policy: 'approved', require_payment_for_results: true }; } },
 }));
-import { PatientPortalResultService, portalResultDateRange } from './PatientPortalResultService';
+import { PatientPortalResultService, portalResultDateRange, isResultApproved } from './PatientPortalResultService';
 import knex from 'knex';
 
 describe('patient canonical laboratory reports', () => {
@@ -122,5 +122,12 @@ describe('patient canonical laboratory reports', () => {
           expect(queries[0].sql).toContain('`b`.`patientid` = ?');
           expect(queries[0].bindings).toEqual(expect.arrayContaining([21, '2020-01-01', '2020-01-31', 500]));
           await database.destroy();
+     });
+});
+
+describe('amended result release gate', () => {
+     it('withholds edited results even if a stale approval summary remains set', () => {
+          expect(isResultApproved({ isapproved: 1, approvedBy: '7,8', minvalidation: 2, requires_revalidation: 1 })).toBe(false);
+          expect(isResultApproved({ isapproved: 1, approvedBy: '7,8', minvalidation: 2, requires_revalidation: 0 })).toBe(true);
      });
 });

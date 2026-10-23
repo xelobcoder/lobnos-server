@@ -12,7 +12,7 @@ export interface ResultReleaseInput {
      processingStartDate?: unknown;
      resultEntryEnd?: unknown;
      paymentstatus?: string | null;
-     approval?: { isapproved?: unknown; approvedBy?: unknown; minvalidation?: unknown } | null;
+     approval?: { requires_revalidation?: unknown; isapproved?: unknown; approvedBy?: unknown; minvalidation?: unknown } | null;
      release?: { status?: string } | null;
 }
 
@@ -36,7 +36,7 @@ export function portalResultDateRange(from: unknown, to: unknown): { from?: stri
 
 /** Mirrors ResultSettings.isApprovalLimitReached(..., 'minimum') without a query per test. */
 export function isResultApproved(approval: ResultReleaseInput['approval']): boolean {
-     if (!approval) return false;
+     if (!approval || Number(approval.requires_revalidation) === 1) return false;
      if (Number(approval.isapproved) === 1) return true;
      const approvers = String(approval.approvedBy ?? '').split(',')
           .map(value => parseInt(value.trim(), 10)).filter(value => !isNaN(value));
@@ -143,7 +143,7 @@ export class PatientPortalResultService {
 
           const ids = rows.map(row => Number(row.ascensionid));
           const [approvals, releases] = await Promise.all([
-               connection('dbotestresultapproval').select('ascensionid', 'isapproved', 'approvedBy', 'minvalidation', 'lastupdatedon').whereIn('ascensionid', ids),
+               connection('dbotestresultapproval').select('ascensionid', 'isapproved', 'approvedBy', 'minvalidation', 'requires_revalidation', 'lastupdatedon').whereIn('ascensionid', ids),
                connection('patient_portal_result_releases').select('ascension_id', 'status', 'decided_at').whereIn('ascension_id', ids),
           ]);
           const approvalBy = new Map(approvals.map((row: any) => [Number(row.ascensionid), row]));

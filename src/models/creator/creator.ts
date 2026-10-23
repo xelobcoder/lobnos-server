@@ -390,13 +390,13 @@ export default class Creator {
 		};
 
 
-		async function drugProcessor() {
+		async function drugProcessor(trx: any) {
 			if (hasDrugs) {
 				if (!Array.isArray(drugs)) throw new Error('Culture and sensitivity drug results are required');
 				let refinedDrugsArray = drugs.map((item) => { return { ...item, ascensionid, testid, sensitivity: item.sensitivity, drugid: item.id, reaction: item.sensitivity }; });
-				let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, ascensionid, testid, refinedDrugsArray as DrugSqlInsertion[]);
+				let isDrugsInserted = await Creator.insertResultDrugReactionBulk(tenantId, ascensionid, testid, refinedDrugsArray as DrugSqlInsertion[], trx);
 				if (isDrugsInserted) {
-					await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+					await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid, trx);
 				} else {
 					throw new Error('Unable to save culture and sensitivity drug results');
 				}
@@ -459,7 +459,7 @@ export default class Creator {
 					ascensionId: ascensionid,
 					employeeId: employeeid,
 				});
-				await drugProcessor();
+				await drugProcessor(trx);
 				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
 			});
 
@@ -604,9 +604,20 @@ export default class Creator {
 		tenantId: number,
 		ascensionId: number,
 		testId: number,
-		drugs: DrugSqlInsertion[]
+		drugs: DrugSqlInsertion[], trx?: any
 	): Promise<boolean> {
-		const insertPromises = drugs.map((item) =>
+		if (trx) {
+               for (const item of drugs) {
+                    const key = { ascensionid: ascensionId, testid: testId, drugid: item.drugid };
+                    const prior = await trx('resultentrydrugsreaction').where(key).first();
+                    if (prior) await trx('resultentrydrugsreaction').where(key).update({ reaction: item.sensitivity ?? '' });
+                    else await trx('resultentrydrugsreaction').insert({ ...key, reaction: item.sensitivity ?? '' });
+               }
+               const deletion = buildStaleDrugReactionDelete(ascensionId, testId, drugs.map(item => item.drugid));
+               await trx.raw(deletion.query, deletion.params);
+               return true;
+          }
+          const insertPromises = drugs.map((item) =>
 			this.insertResultDrugReaction(tenantId, item)
 		);
 		const results = await Promise.allSettled(insertPromises);

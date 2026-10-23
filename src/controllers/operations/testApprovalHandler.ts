@@ -1,3 +1,4 @@
+import KnexConnection from '../../database/KnexConnections';
 import { getAuthUser } from '../../middleware/authority';
 import { TestApprovalClass } from "../../models/operations/testApprovalClass";
 import { Request, Response } from "express";
@@ -7,27 +8,21 @@ import { customError, responseError } from "../../hooks/helper";
 import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 
 export const getAscensionApprovalDetailsHandler = async (req: Request, res: Response) => {
-	const { ascensionid, tenantId } = req.query;
-     const employeeid = getAuthUser(req)?.employeeid;
-
-	if (!ascensionid || !employeeid) {
-		res.send({ statusCode: 404, message: OperationsFailures.invalidResquestQuery + '. Invalid or absent ascensionid, employeeid or tenantId' });
-	} else {
-		const actor = getAuthUser(req);
+     try {
+          const actor = getAuthUser(req);
           if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
-          const employeeId = actor.employeeid;
-		const ascensionId = parseInt(ascensionid.toString());
-		const tId = parseInt(tenantId.toString());
-
-		const canStaffApproveResult = await ResultSettings.canStaffApproveResult(tId, employeeId);
-
-		if (!canStaffApproveResult) {
-			customError(OperationsFailures.dontHaveAccessPermission + ' .You do not have permission to approve test', 404, res);
-		} else {
-			const approvalDetails = await new TestApprovalClass(ascensionId).getAscensionAprovedListDetails(tId);
-			res.send({ staff: approvalDetails });
-		}
-	}
+          const id = Number(req.query.ascensionid);
+          if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ status: false, message: 'Invalid ordered test ID' });
+          if (!await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) return res.status(403).json({ status: false, message: 'You do not have permission to validate results' });
+          const db = await KnexConnection(actor.tenantId);
+          const row = await db('test_ascension as test').join('billing as bill', 'bill.billingid', 'test.billingid').where('test.id', id).select('bill.branchid').first();
+          if (!row || actor.branch != null && Number(row.branchid) !== Number(actor.branch)) return res.status(404).json({ status: false, message: 'Ordered test not found in your branch' });
+          // Read the revision before the UI renders the result. Any intervening edit invalidates the approval request.
+          const approval = await new TestApprovalClass(id).getAscensionApprovedDetail(actor.tenantId);
+          if (!approval) return res.status(409).json({ status: false, message: 'Result approval configuration is missing' });
+          const staff = await new TestApprovalClass(id).getAscensionAprovedListDetails(actor.tenantId);
+          return res.json({ staff, approval_revision: Number(approval.approval_revision || 0), requires_revalidation: Number(approval.requires_revalidation) === 1 });
+     } catch (error: any) { return res.status(Number(error.statusCode) || 500).json({ status: false, message: 'Unable to load result validation details' }); }
 };
 
 export const updateAscensionApprovalDetailsHandler = async (req: Request, res: Response) => {
@@ -41,8 +36,8 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
           if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
           const employeeId = actor.employeeid;
 			const ascensionId = parseInt(ascensionid.toString());
-			const tId = parseInt(tenantId.toString());
-			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch);
+			const tId = actor.tenantId;
+			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch, req.body?.approval_revision);
 			if (typeof updateTestApproval === "boolean" && updateTestApproval) {
                 const approval = await new TestApprovalClass(ascensionId).getAscensionApprovedDetail(tId);
                 const finalized = Number(approval?.isapproved) === 1;

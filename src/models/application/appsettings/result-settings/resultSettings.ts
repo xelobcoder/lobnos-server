@@ -56,7 +56,7 @@ class ResultSettings extends ApplicationSettings {
 		const connection = await KnexConnection(tenantId);
 		const recordApproval = await connection('dbotestresultapproval')
 			.where({ ascensionid: ascensionId }).first();
-		if (!recordApproval) return false;
+		if (!recordApproval || type === 'minimum' && Number(recordApproval.requires_revalidation) === 1) return false;
 
 		const { maxvalidation, minvalidation } = recordApproval;
 

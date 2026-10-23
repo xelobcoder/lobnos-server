@@ -23,6 +23,8 @@ interface dbotestresultapproval {
 	approvedBy: string,
 	isapproved: number,
 	printCount: number,
+	approval_revision?: number,
+     requires_revalidation?: number,
 	lastupdatedon: Date | string
 }
 
@@ -33,8 +35,8 @@ export class TestApprovalClass extends Operations {
 		this.ascensionid = ascensionid;
 	}
 
-	public static async updateTestApprovalStatus(ascensionid: number, approvedBy: number, tenantId: number, branchid?: number | null): Promise<boolean | string> {
-          return new ResultApprovalService(tenantId).approve(ascensionid, approvedBy, branchid);
+	public static async updateTestApprovalStatus(ascensionid: number, approvedBy: number, tenantId: number, branchid?: number | null, expectedRevision?: number): Promise<boolean | string> {
+          return new ResultApprovalService(tenantId).approve(ascensionid, approvedBy, branchid, expectedRevision);
      }
 
 	public static async getAscensionPrintCount(ascensionid: number, tenantId: number): Promise<boolean | number> {

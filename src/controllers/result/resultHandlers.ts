@@ -64,7 +64,10 @@ export const resultEntry = async (req: Request, response: Response): Promise<voi
 					actorEmployeeId: actorId,
 				}).catch(() => { });
 			}
-			response.send({ status: "success", statusCode: 200, message: "records updated successfully" });
+			const connection = await KnexConnection(tenantIdP);
+               const approval = await connection('dbotestresultapproval').where({ ascensionid: Number(ascensionId) }).first();
+               const requiresRevalidation = Number(approval?.requires_revalidation) === 1;
+               response.send({ status: 'success', statusCode: 200, requires_revalidation: requiresRevalidation, approval_revision: Number(approval?.approval_revision || 0), message: requiresRevalidation ? 'Results saved. Previous validation was invalidated; validate this revision again before release.' : 'Results saved successfully' });
 		} else {
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
 		}
@@ -267,6 +270,8 @@ export const getResultPrintoutHandler = async (request: Request<
 			return customError(OperationsFailures.accessWindowExpired, 403, response);
 		}
 		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId as any, "minimum");
+		const releaseApproval = await (await KnexConnection(tenantIdP))('dbotestresultapproval').where({ ascensionid: numAscensionId }).first();
+          if (Number(releaseApproval?.requires_revalidation) === 1) return response.status(409).send({ message: 'This result was amended and requires revalidation before release.' });
 		if (!resultApproved && !isScan) {
 			return response.send({ message: OperationsFailures.minimumResultValidation })
 		}

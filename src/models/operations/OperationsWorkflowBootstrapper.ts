@@ -44,6 +44,7 @@ export async function ensureOperationsWorkflowSchema(db: Knex): Promise<void> {
           await db.schema.alterTable('dbotestresultapproval', t => t.integer('approval_revision').unsigned().notNullable().defaultTo(0));
      }
      if (await db.schema.hasTable('dbotestresultapproval')) {
+          if (!(await db.schema.hasColumn('dbotestresultapproval', 'requires_revalidation'))) await db.schema.alterTable('dbotestresultapproval', t => t.boolean('requires_revalidation').notNullable().defaultTo(false));
           const summary = await db('dbotestresultapproval').columnInfo('approvedBy');
           if (Number(summary.maxLength) > 0 && Number(summary.maxLength) < 2048) await db.schema.alterTable('dbotestresultapproval', t => t.string('approvedBy', 2048).nullable().alter());
      }

@@ -185,7 +185,7 @@ export class ClinicianPortalResultService {
                     'ta.collectionEndDate', 'ta.processingStartDate', 'ta.processingEndDate', 'ta.resultEntryEnd',
                     'tp.name as testname', 'b.patientid', 'b.billedon', 'b.clientstatus as payment_status',
                     'p.fullpatientid', 'p.firstname', 'p.middlename', 'p.lastname', 'p.gender', 'p.age', 'p.agetype',
-                    'ra.isapproved', 'ra.approvedBy', 'ra.minvalidation',
+                    'ra.isapproved', 'ra.approvedBy', 'ra.minvalidation', 'ra.requires_revalidation',
                )
                .orderBy('ta.billingid', 'desc').orderBy('ta.id', 'asc')
                .limit(5000);

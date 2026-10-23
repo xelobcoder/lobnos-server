@@ -109,6 +109,7 @@ export const q_get_all_result_entry_base: string = `
             ds.clinicianId,
             ss.approvalstatus,
             dta.printCount,
+            dta.approval_revision, dta.requires_revalidation,
             tp.id,
             b.clientstatus,
             org.name AS organization,
@@ -197,12 +198,12 @@ export const q_get_all_test_ready_for_various_stages = function (currentQuery: s
 AND (d.department <> 'ultrasound' OR d.department IS NULL)`
       return query;
     case OperationsStages.VALIDATION:
-      query += `AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL) AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 0
+      query += `AND ta.resultEntryEnd IS NOT NULL AND (dta.isapproved = 0 OR dta.requires_revalidation = 1)
 AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
       return query;
     case OperationsStages.VALIDATED:
-      query += `AND dta.isapproved = 1 AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)       AND ta.resultEntryEnd IS NOT NULL AND  dta.isapproved = 1
+      query += `AND dta.isapproved = 1 AND dta.requires_revalidation = 0 AND ta.resultEntryEnd IS NOT NULL
      AND (d.department <> 'ultrasound' OR d.department IS NULL)
       `
       return query;

@@ -14,4 +14,11 @@ describe("lab stage queries", () => {
 		expect(sql).toContain("ta.resultEntryEnd IS NULL");
 		expect(sql).not.toContain("resultEntryStart");
 	});
+     it('keeps saved amended results in validation even when processing timestamps were bypassed', () => {
+          const sql = q_get_all_test_ready_for_various_stages('', OperationsStages.VALIDATION)!;
+          expect(sql).toContain('dta.requires_revalidation = 1');
+          expect(sql).not.toContain('processingStartDate'); expect(sql).not.toContain('processingEndDATE');
+          expect(q_get_all_test_ready_for_various_stages('', OperationsStages.VALIDATED)).toContain('dta.requires_revalidation = 0');
+     });
+
 });

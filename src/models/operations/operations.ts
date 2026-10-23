@@ -397,8 +397,9 @@ export default class Operations {
 				finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
 			}
 
-			if (from && to) {
-				finalQuery = finalQuery + ` AND DATE(ta.ascension_date) BETWEEN ? AND ? `;
+			if (from && to && !ascensionid && !billingid) {
+                    const queueDate = stage === 'VALIDATION' ? 'COALESCE(dta.lastupdatedon, ta.resultEntryEnd, ta.ascension_date)' : 'ta.ascension_date';
+                    finalQuery = finalQuery + ` AND DATE(${queueDate}) BETWEEN ? AND ? `;
 				conditions.push(new Date(from));
 				conditions.push(new Date(to));
 			}

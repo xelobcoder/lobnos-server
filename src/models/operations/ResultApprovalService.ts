@@ -7,15 +7,22 @@ export async function invalidateResultApprovals(trx: any, ascensionid: number, e
      const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
      if (!previous) throw Object.assign(new Error('Result approval configuration is missing'), { statusCode: 409 });
      const revision = Number(previous.approval_revision || 0) + 1;
-     await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: null, isapproved: 0, approval_revision: revision, lastupdatedon: new Date() });
+     await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: null, isapproved: 0, approval_revision: revision, requires_revalidation: Number(previous.requires_revalidation) === 1 || Number(previous.isapproved) === 1 || !!previous.approvedBy ? 1 : 0, lastupdatedon: new Date() });
      await trx('lab_work_actions').insert({ ascensionid, employeeid, action: 'result_saved', reason: null,
           metadata: JSON.stringify({ revision, invalidated_validators: previous.approvedBy || null }), created_at: new Date() });
      return revision;
 }
 
+/** Initial-entry bypass must never release an amended result awaiting revalidation. */
+export async function applyResultValidationBypass(trx: any, ascensionid: number, employeeid: number, enabled: boolean) {
+     if (!enabled) return;
+     await trx('dbotestresultapproval').where({ ascensionid }).where('requires_revalidation', 0)
+          .update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() });
+}
+
 export class ResultApprovalService {
      constructor(private tenantId: number) { }
-     async approve(ascensionid: number, employeeid: number, branchid?: number | null): Promise<boolean | string> {
+     async approve(ascensionid: number, employeeid: number, branchid?: number | null, expectedRevision?: number): Promise<boolean | string> {
           if (!(await ResultSettings.canStaffApproveResult(this.tenantId, employeeid))) return OperationsFailures.dontHaveAccessPermission;
           const db = await KnexConnection(this.tenantId);
           const reference = await db('test_ascension').where({ id: ascensionid }).first();
@@ -29,6 +36,7 @@ export class ResultApprovalService {
                if (!ascension.resultEntryEnd) throw Object.assign(new Error('Save the test results before approval'), { statusCode: 409 });
                const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
                if (!previous) throw Object.assign(new Error('Result approval configuration is missing'), { statusCode: 409 });
+               if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) !== Number(previous.approval_revision || 0)) throw Object.assign(new Error('The result has changed. Reload and review the latest result before validating.'), { statusCode: 409 });
                const validators = [...new Set(String(previous.approvedBy || '').split(',').map(Number).filter(id => Number.isSafeInteger(id) && id > 0))];
                if (validators.includes(employeeid)) return true; // An identical retry is already applied.
                const maximum = Number(previous.maxvalidation);
@@ -39,7 +47,7 @@ export class ResultApprovalService {
                const approved = validators.length >= minimum ? 1 : 0;
                const revision = Number(previous.approval_revision || 0);
                await trx('lab_result_approval_events').insert({ ascensionid, revision, employeeid, created_at: new Date() });
-               await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: validators.join(','), isapproved: approved, lastupdatedon: new Date() });
+               await trx('dbotestresultapproval').where({ ascensionid }).update({ approvedBy: validators.join(','), isapproved: approved, requires_revalidation: approved ? 0 : Number(previous.requires_revalidation || 0), lastupdatedon: new Date() });
                if (imaging) await ImagingResultAuditRepository.record(trx, [
                     { ascensionid, testid: ascension.testid, billingid: ascension.billingid, entityType: 'APPROVAL', entityId: ascensionid,
                          action: approved ? 'FINALIZE' : 'UPDATE', employeeid, fieldName: 'approvedBy', oldValue: String(previous.approvedBy || ''), newValue: validators.join(',') },
