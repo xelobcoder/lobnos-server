@@ -29,6 +29,7 @@ export interface CreatePhysicalSampleInput {
      idempotencyKey?: string | null;
      allowAdditional?: boolean;
      replacesSampleId?: number | null;
+     manualOverride?: { sampleTypeId: number; containerTypeId: number; reason: string };
 }
 
 export interface SampleRejectionCommunicationInput {
@@ -225,14 +226,14 @@ export class PhysicalSampleService {
           return { billingid, patientid: Number(rows[0].patientid), groups: groupPhysicalSampleCandidates(rows), samples: await this.listByBilling(billingid) };
      }
 
-     async create(input: CreatePhysicalSampleInput, actorEmployeeId: number): Promise<any> {
+     async create(input: CreatePhysicalSampleInput, actorEmployeeId: number, parentTransaction?: Knex.Transaction): Promise<any> {
           const ascensionIds = [...new Set((input.ascensionIds || []).map(Number))].sort((left, right) => left - right);
           if (!Number.isInteger(input.billingid) || input.billingid <= 0) throw new Error('Valid billing ID is required');
           if (!ascensionIds.length || ascensionIds.some((id) => !Number.isInteger(id) || id <= 0)) throw new Error('At least one valid ascension ID is required');
           const action = input.action || 'collect';
           if (!['start', 'collect', 'receive'].includes(action)) throw new Error('Sample action must be start, collect or receive');
 
-          const connection = await KnexConnection(this.tenantId);
+          const connection = parentTransaction || await KnexConnection(this.tenantId);
           return connection.transaction(async (trx) => {
                if (input.idempotencyKey) {
                     const existing = await trx('physical_samples').where({ idempotency_key: input.idempotencyKey }).first();
@@ -248,7 +249,15 @@ export class PhysicalSampleService {
                if (new Set(rows.map((row: any) => Number(row.patientid))).size !== 1) throw new Error('All tests must belong to the same patient');
 
                const requirementKeys = new Set(rows.map((row: any) => [row.sample_type_id || 0, row.container_type_id || 0, String(row.unit || '').trim().toLowerCase()].join(':')));
-               if (requirementKeys.size !== 1) throw new Error('Selected tests require different specimen or container types');
+               if (requirementKeys.size !== 1 && !input.manualOverride) throw new Error('Selected tests require different specimen or container types');
+               let actual: any = null;
+               if (input.manualOverride) {
+                    if (!input.manualOverride.reason?.trim()) throw new Error('A reason is required for a manual container override');
+                    const specimen = await trx('sampletype').where({ id: input.manualOverride.sampleTypeId }).first();
+                    const container = await trx('samplecontainer').where({ id: input.manualOverride.containerTypeId }).first();
+                    if (!specimen || !container) throw new Error('Selected specimen or container type was not found');
+                    actual = { sample_type_id: specimen.id, sample_type_name: specimen.name, container_type_id: container.id, container_type_name: container.name };
+               }
                // Physical links, not legacy dates (which old bypasses populated), own collection.
                // Ascension row locks above serialize concurrent attempts to create the first container.
                const existingLinks = await trx('test_ascension_samples').whereIn('ascension_id', ascensionIds).first();
@@ -266,6 +275,7 @@ export class PhysicalSampleService {
                     sample_type_name: first.sample_type_name || null,
                     container_type_id: first.container_type_id || null,
                     container_type_name: first.container_type_name || null,
+                    ...(actual || {}),
                     quantity: input.quantity ?? this.quantityOf(first.qty_required),
                     unit: input.unit || first.unit || null,
                     status: action === 'receive' ? 'received' : action === 'collect' ? 'collected' : 'collection_started',
@@ -286,12 +296,13 @@ export class PhysicalSampleService {
                await trx('test_ascension_samples').insert(ascensionIds.map((ascensionId) => ({
                     sample_id: sampleId,
                     ascension_id: ascensionId,
-                    requirement_key: [...requirementKeys][0],
+                    requirement_key: (() => { const row = rows.find((row: any) => Number(row.ascension_id) === ascensionId); return [row.sample_type_id || 0, row.container_type_id || 0, String(row.unit || '').trim().toLowerCase()].join(':'); })(),
                     is_required: true,
                     created_at: now,
                })));
                const initialStatus = action === 'receive' ? 'received' : action === 'collect' ? 'collected' : 'collection_started';
-               await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: initialStatus, from_status: null, to_status: initialStatus, actor_employeeid: actorEmployeeId, reason: action === 'receive' ? 'Externally collected sample received by the laboratory' : null, sample_version: 1, idempotency_key: input.idempotencyKey ? `${input.idempotencyKey}:event` : null, created_at: now });
+               await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: initialStatus, from_status: null, to_status: initialStatus, actor_employeeid: actorEmployeeId, reason: input.manualOverride?.reason || (action === 'receive' ? 'Externally collected sample received by the laboratory' : null), sample_version: 1, idempotency_key: input.idempotencyKey ? `${input.idempotencyKey}:event` : null,
+                    ...(actual ? { metadata: JSON.stringify({ manual_override: true, actual: { ...actual, quantity: input.quantity, unit: input.unit }, original_requirements: rows.map((row: any) => ({ ascension_id: row.ascension_id, test_name: row.test_name, sample_type_id: row.sample_type_id, sample_type_name: row.sample_type_name, container_type_id: row.container_type_id, container_type_name: row.container_type_name, quantity: row.qty_required, unit: row.unit })) }) } : {}), created_at: now });
                if (action === 'receive') {
                     await trx('test_ascension').whereIn('id', ascensionIds).update({
                          collectionStartDate: trx.raw('COALESCE(collectionStartDate, ?)', [now]),

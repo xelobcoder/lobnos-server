@@ -2,10 +2,20 @@ import { Router } from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { PhysicalSampleController, requireSampleCollectionRole } from './PhysicalSampleController';
 import { SpecimenLifecycleController } from './SpecimenLifecycleController';
+import { CollectionPlanService } from '../../models/samples/CollectionPlanService';
+import { getAuthUser } from '../../middleware/authority';
 
 const router = Router();
 
 router.use(checkTokenExists, requireSampleCollectionRole);
+router.get('/collection-plan/options', async (req, res) => {
+     try { const actor = getAuthUser(req)!; res.json({ success: true, data: { ...await new CollectionPlanService(actor.tenantId).options(), tenantId: actor.tenantId } }); }
+     catch { res.status(500).json({ success: false, message: 'Unable to load specimen and container types' }); }
+});
+router.post('/collection-plan', async (req, res) => {
+     try { const actor = getAuthUser(req)!; res.json({ success: true, data: await new CollectionPlanService(actor.tenantId).create(actor, req.body) }); }
+     catch (error: any) { const status = error.code ? 500 : 409; res.status(status).json({ success: false, statusCode: status, message: status === 500 ? 'Unable to save collection plan. Retry the same plan.' : error.message || 'Unable to save collection plan' }); }
+});
 router.get('/lifecycle/worklist', SpecimenLifecycleController.worklist);
 router.get('/storage/positions', SpecimenLifecycleController.positions);
 router.post('/storage/positions', SpecimenLifecycleController.createPosition);

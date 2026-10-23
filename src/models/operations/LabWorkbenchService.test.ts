@@ -24,6 +24,18 @@ function setup(overrides: any = {}) {
 const usage = () => ({ idempotency_key: 'intent-1', template_id: 2, lines: [{ item_id: 'material', quantity: 2 }] });
 beforeEach(() => { vi.clearAllMocks(); stock.createBulk.mockResolvedValue([{ id: 'txn-1', total_cost: 10 }]); });
 describe('laboratory work and actual material usage', () => {
+     it('deducts a shared syringe once and adds traceability to both containers', async () => {
+          const { store, service } = setup({ physical_samples: [10, 11].map(id => ({ id, billingid: 2, patientid: 4, status: 'collected', version: 1 })),
+               test_ascension_samples: [{ sample_id: 10, ascension_id: 1 }, { sample_id: 11, ascension_id: 1 }],
+               inv_inventory_items: [{ id: 'material', is_active: true, current_stock: 10 }] });
+          const input = { idempotency_key: 'shared-draw', reason: 'One syringe for the EDTA and gel tubes', lines: [{ item_id: 'material', quantity: 1, sample_ids: [10, 11] }] };
+          await Promise.all([service.consume(actor, 1, input, 10), service.consume(actor, 1, input, 10)]);
+          expect(stock.createBulk).toHaveBeenCalledTimes(1);
+          expect(stock.createBulk.mock.calls[0][0]).toMatchObject([{ quantity: 1, notes: 'Physical samples 10, 11: One syringe for the EDTA and gel tubes' }]);
+          expect(store.rows('physical_sample_events')).toHaveLength(2);
+          expect(store.rows('physical_sample_events').map(event => event.sample_id)).toEqual([10, 11]);
+          expect(store.rows('lab_consumption_records')).toHaveLength(1);
+     });
      it('records collection supplies before laboratory processing, once for a shared physical sample', async () => {
           const { store, service } = setup({
                'test_ascension as ta': [{ id: 1, serviceid: 6, testid: 3, billingid: 2, patientid: 4, branchid: 4 }],

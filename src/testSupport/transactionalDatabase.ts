@@ -33,7 +33,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                          filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => equal(row[column(key)], value));
                          return query;
                     },
-                    whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[key])); return query; },
+                    whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[column(key)])); return query; },
                     whereNotIn(key: string, values: any[]) { filters.push(row => !values.includes(row[key])); return query; },
                     orderBy() { return query; },
                     forUpdate() { locking = true; events.push('lock:' + table); return query; },
@@ -42,9 +42,9 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                     async insert(data: any) {
                          if (!local) throw new Error('Write without a preceding lock');
                          events.push('insert:' + table);
-                         const row = { id: nextId++, ...data };
-                         (local[table] ||= []).push(row);
-                         return [row.id];
+                         const rows = (Array.isArray(data) ? data : [data]).map(value => ({ id: nextId++, ...value }));
+                         (local[table] ||= []).push(...rows);
+                         return rows.map(row => row.id);
                     },
                     async update(data: any) {
                          if (!local) throw new Error('Write without a preceding lock');

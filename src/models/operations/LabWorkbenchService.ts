@@ -188,7 +188,11 @@ export class LabWorkbenchService {
           if (!sample) fail('Collection sample not found in your branch', 404);
           let items = db('inv_inventory_items').where('is_active', true).select('id', 'name', 'current_stock', 'consumption_unit', 'cost_price').orderBy('name').limit(100);
           if (search.trim()) items = items.where('name', 'like', `%${search.trim().slice(0, 100)}%`);
-          const records = await db('lab_consumption_records').where({ ascensionid: test.id }).where('idempotency_key', 'like', `PHL:${sampleId}:%`).orderBy('id', 'desc').limit(100);
+          const linkedEvents = await db('physical_sample_events').where({ sample_id: sampleId, event_type: 'supplies_recorded' }).orderBy('id', 'desc').limit(100);
+          const recordIds = linkedEvents.map(event => { const meta = typeof event.metadata === 'string' ? JSON.parse(event.metadata) : event.metadata; return Number(meta?.consumption_record_id); }).filter(Number.isSafeInteger);
+          const ownRecords = await db('lab_consumption_records').where({ ascensionid: test.id }).where('idempotency_key', 'like', `PHL:${sampleId}:%`).orderBy('id', 'desc').limit(100);
+          const sharedRecords = recordIds.length ? await db('lab_consumption_records').whereIn('id', recordIds) : [];
+          const records = [...new Map([...ownRecords, ...sharedRecords].map(record => [record.id, record])).values()].sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 100);
           return { sample, ascensionid: Number(test.id), items: await items, records };
      }
 
@@ -205,23 +209,31 @@ export class LabWorkbenchService {
           const key = collectionSampleId ? `PHL:${collectionSampleId}:${rawKey}` : rawKey;
           if (!key || key.length > 100 || !Array.isArray(input.lines) || !input.lines.length) fail('Consumption lines and a retry key are required');
           if (!rawKey || input.lines.length > 50) fail('A retry key and at most 50 supply lines are required');
+          if (collectionSampleId && input.lines.some(line => line.sample_ids !== undefined && !Array.isArray(line.sample_ids))) fail('Select physical containers for each supply');
           const reason = String(input.reason || '').trim();
           if (collectionSampleId && (!reason || reason.length > 1000)) fail('Enter a usage note (up to 1000 characters), including any redraw or extra supplies');
-          const lines = input.lines.map(line => ({ item_id: String(line.item_id), quantity: Number(line.quantity) })).sort((a, b) => a.item_id.localeCompare(b.item_id));
+          const lines = input.lines.map(line => ({ item_id: String(line.item_id), quantity: Number(line.quantity),
+               ...(collectionSampleId ? { sample_ids: [...new Set<number>((line.sample_ids || [collectionSampleId]).map(Number))].sort((a, b) => a - b) } : {}) })).sort((a, b) => a.item_id.localeCompare(b.item_id));
+          if (collectionSampleId && lines.some(line => !line.sample_ids.length || line.sample_ids.length > 30 || line.sample_ids.some(id => !Number.isSafeInteger(id) || id <= 0))) fail('Select valid physical containers for each supply');
+          if (collectionSampleId && !lines.some(line => line.sample_ids.includes(collectionSampleId))) fail('Include the current container on a supply line, or record usage from the other container');
           if (new Set(lines.map(line => line.item_id)).size !== lines.length || lines.some(line => !Number.isFinite(line.quantity) || line.quantity <= 0)) fail('Enter one positive actual quantity per item');
           const hash = createHash('sha256').update(JSON.stringify({ template_id: collectionSampleId ? null : input.template_id, lines, ...(collectionSampleId ? { collectionSampleId, reason } : {}) })).digest('hex');
+          const legacyHash = collectionSampleId && lines.every(line => line.sample_ids.length === 1 && line.sample_ids[0] === collectionSampleId)
+               ? createHash('sha256').update(JSON.stringify({ template_id: null, lines: lines.map(({ item_id, quantity }) => ({ item_id, quantity })), collectionSampleId, reason })).digest('hex') : null;
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async trx => {
                const test = await this.orderedTest(trx, id, actor, true);
                if (collectionSampleId) {
-                    const sample = await trx('physical_samples').where({ id: collectionSampleId, billingid: test.billingid, patientid: test.patientid }).forUpdate().first();
+                    const sampleIds = [...new Set<number>([collectionSampleId, ...lines.flatMap(line => line.sample_ids)])].sort((a, b) => a - b);
+                    const samples = await trx('physical_samples').whereIn('id', sampleIds).where({ billingid: test.billingid, patientid: test.patientid }).orderBy('id').forUpdate();
+                    const sample = samples.find(sample => Number(sample.id) === collectionSampleId);
                     const link = await trx('test_ascension_samples').where({ sample_id: collectionSampleId, ascension_id: id }).first();
-                    if (!sample || !link) fail('Collection sample does not belong to this patient and test', 404);
-                    if (!['collection_started', 'collected', 'received', 'accepted', 'rejected', 'recollection_required'].includes(sample.status)) fail('Start collection before recording supplies', 409);
+                    if (!sample || !link || samples.length !== sampleIds.length) fail('Collection sample does not belong to this patient and test', 404);
+                    if (samples.some(sample => !['collection_started', 'collected', 'received', 'accepted', 'rejected', 'recollection_required'].includes(sample.status))) fail('Start collection before recording supplies', 409);
                }
                const prior = await trx('lab_consumption_records').where({ ascensionid: id, idempotency_key: key }).first();
                if (prior) {
-                    if (prior.request_hash !== hash) fail('This retry key was used for different quantities', 409);
+                    if (prior.request_hash !== hash && prior.request_hash !== legacyHash) fail('This retry key was used for different quantities', 409);
                     return { transactions: typeof prior.transactions === 'string' ? JSON.parse(prior.transactions) : prior.transactions, retried: true };
                }
                const service = await trx('dboservices').where({ serviceid: test.serviceid }).first();
@@ -256,15 +268,21 @@ export class LabWorkbenchService {
                               batch_number: batch.batch_number, expiry_date: batch.expiry_date || undefined,
                               patientid: test.patientid, ascensionid: id, performed_by: actor.employeeid,
                               reference_id: collectionSampleId ? `PHL-${collectionSampleId}-${rawKey}`.slice(0, 100) : `LAB-${id}-${key}`.slice(0, 100), reason: collectionSampleId ? 'Phlebotomy actual supply usage' : 'Laboratory actual material usage',
-                              notes: collectionSampleId ? `Physical sample ${collectionSampleId}: ${reason}` : undefined });
+                              notes: collectionSampleId ? `Physical samples ${line.sample_ids.join(', ')}: ${reason}` : undefined });
                          remaining = Number((remaining - quantity).toFixed(6));
                          if (!remaining) break;
                     }
                     if (remaining > 0) fail(`Insufficient unexpired batch stock for ${line.item_id}`, 409);
                }
                const transactions = await new InventoryTransactionModel(this.tenantId).createBulk(movements, trx);
-               await trx('lab_consumption_records').insert({ ascensionid: id, idempotency_key: key, request_hash: hash, employeeid: actor.employeeid,
+               const [consumptionRecordId] = await trx('lab_consumption_records').insert({ ascensionid: id, idempotency_key: key, request_hash: hash, employeeid: actor.employeeid,
                     transactions: JSON.stringify(transactions), created_at: new Date() });
+               if (collectionSampleId) {
+                    const affectedIds = [...new Set<number>([collectionSampleId, ...lines.flatMap(line => line.sample_ids)])];
+                    const affected = await trx('physical_samples').whereIn('id', affectedIds);
+                    await trx('physical_sample_events').insert(affected.map(sample => ({ sample_id: sample.id, event_type: 'supplies_recorded', from_status: sample.status, to_status: sample.status,
+                         actor_employeeid: actor.employeeid, reason, sample_version: sample.version || 1, metadata: JSON.stringify({ consumption_record_id: consumptionRecordId, lines: lines.filter(line => line.sample_ids.includes(Number(sample.id))), anchor_sample_id: collectionSampleId }), created_at: new Date() })));
+               }
                await trx('lab_work_actions').insert({ ascensionid: id, action: collectionSampleId ? 'collection_supplies_recorded' : 'materials_recorded', employeeid: actor.employeeid,
                     reason: collectionSampleId ? reason : null, metadata: JSON.stringify({ lines, template_id: plan.template_id, sample_id: collectionSampleId || null, idempotency_key: key }), created_at: new Date() });
                return { transactions, retried: false };
