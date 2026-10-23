@@ -6,11 +6,13 @@ import KnexConnection from '../../../../database/KnexConnections';
 import { ICommissionTierRepository } from '../interfaces/ICommissionTierRepository';
 
 export class CommissionTierRepository implements ICommissionTierRepository {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private transaction?: Knex | Knex.Transaction) { }
+
+     withTransaction(trx: any): ICommissionTierRepository { return new CommissionTierRepository(this.tenantId, trx); }
 
      async findById(id: number): Promise<ICommissionTier | null> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const record = await connection('commission_tiers').where('id', id).first();
                return record ? new CommissionTier(record) : null;
           } catch (error) {
@@ -20,7 +22,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
      async findByConfigId(configId: number): Promise<ICommissionTier[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const records = await connection('commission_tiers')
                     .where('commission_config_id', configId)
                     .orderBy('sort_order', 'asc');
@@ -33,7 +35,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
      async findMatchingTier(configId: number, amount: number): Promise<ICommissionTier | null> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const record = await connection('commission_tiers')
                     .where('commission_config_id', configId)
                     .where('min_amount_inclusive', '<=', amount)
@@ -53,7 +55,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
      async create(tier: Omit<ICommissionTier, 'id' | 'created_at'>): Promise<ICommissionTier> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const [id] = await connection('commission_tiers').insert({
                     ...tier,
                     created_at: new Date(),
@@ -75,7 +77,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
           commission_config_id: number
      ): Promise<ICommissionTier[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const tiersWithTimestamp = tiers.map((tier) => ({
                     ...tier,
                     created_at: new Date(),
@@ -98,7 +100,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
      async delete(id: number): Promise<void> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                await connection('commission_tiers').where('id', id).delete();
           } catch (error) {
                throw new DatabaseError(`Failed to delete commission tier ${id}`, error);
@@ -107,7 +109,7 @@ export class CommissionTierRepository implements ICommissionTierRepository {
 
      async deleteByConfigId(configId: number): Promise<void> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                await connection('commission_tiers').where('commission_config_id', configId).delete();
           } catch (error) {
                throw new DatabaseError(`Failed to delete tiers for config ${configId}`, error);

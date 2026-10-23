@@ -24,7 +24,8 @@ export class CommissionEngineService {
           private configRepo: ICommissionConfigRepository,
           private tierRepo: ICommissionTierRepository,
           private assignmentRepo: ICommissionAssignmentRepository,
-          private trackingRepo: ICommissionTrackingRepository
+          private trackingRepo: ICommissionTrackingRepository,
+          private transaction?: any
      ) {
           this.resolutionService = new CommissionResolutionService(configRepo, assignmentRepo);
           this.capService = new CommissionCapService(trackingRepo);
@@ -41,7 +42,7 @@ export class CommissionEngineService {
      }
 
      private async getRecipientDefaultConfig(recipientType: 'clinician' | 'organization'): Promise<{ config: any; defaultId: number; configId: number } | null> {
-          const defaultRepo = new CommissionDefaultRepository(this.getTenantId());
+          const defaultRepo = new CommissionDefaultRepository(this.getTenantId(), this.transaction);
           const defaultRow = await defaultRepo.findActiveByRecipientType(recipientType);
 
           if (!defaultRow?.commission_config_id) {
@@ -68,6 +69,30 @@ export class CommissionEngineService {
           const configuredPolicy = settings?.commissionRecipientPolicy;
           const policy: 'clinician' | 'organization' = configuredPolicy === 'organization' ? 'organization' : 'clinician';
           const { recipientType, recipientId } = resolveCommissionRecipient(input, policy);
+          try {
+               return await this.trackingRepo.withCalculationLock(recipientType, recipientId, input.service_id, async (repository, trx) => {
+                    const active = (await repository.findByServiceId(input.service_id)).filter(row => !['voided', 'adjusted'].includes(row.status));
+                    if (active.length) {
+                         if (active.length !== 1 || active[0].recipient_type !== recipientType || Number(active[0].recipient_id) !== recipientId) {
+                              throw new Error('Conflicting active commission calculations require reconciliation');
+                         }
+                         return { final_commission: Number(active[0].final_commission), tracking_id: active[0].id, reason: 'SUCCESS' as const };
+                    }
+                    const engine = new CommissionEngineService(this.tenantId,
+                         this.configRepo.withTransaction?.(trx) ?? this.configRepo,
+                         this.tierRepo.withTransaction?.(trx) ?? this.tierRepo,
+                         this.assignmentRepo.withTransaction?.(trx) ?? this.assignmentRepo, repository, trx);
+                    const result = await engine.executeLockedCalculation(input, recipientType, recipientId);
+                    if (result.reason === 'ERROR') throw new Error(result.error || 'Commission calculation failed');
+                    return result;
+               });
+          } catch (error: any) {
+               logger.error('Commission calculation transaction failed', { service_id: input.service_id, error: error.message });
+               return { final_commission: 0, reason: 'ERROR', error: error.message };
+          }
+     }
+
+     private async executeLockedCalculation(input: CommissionInput, recipientType: 'clinician' | 'organization', recipientId: number, fallbackConfig?: any): Promise<CommissionCalculationResult> {
           const resolvedInput: CommissionInput = {
                ...input,
                clinician_id: recipientType === 'clinician' ? input.clinician_id : null,
@@ -75,7 +100,7 @@ export class CommissionEngineService {
           };
 
           try {
-               const assignment = await this.resolutionService.resolveAssignment(resolvedInput);
+               const assignment = fallbackConfig ? null : await this.resolutionService.resolveAssignment(resolvedInput);
 
                let config: any = null;
                let assignmentId: number | undefined = undefined;
@@ -88,7 +113,7 @@ export class CommissionEngineService {
                     });
 
                     // Check commission_default (recipient type -> commission config)
-                    const defaultEntry = await this.getRecipientDefaultConfig(recipientType as 'clinician' | 'organization');
+                    const defaultEntry = fallbackConfig ? { config: fallbackConfig, configId: fallbackConfig.id, defaultId: undefined } : await this.getRecipientDefaultConfig(recipientType);
 
                     if (defaultEntry) {
                          config = defaultEntry.config;
@@ -274,7 +299,6 @@ export class CommissionEngineService {
                     status: 'pending',
                });
 
-               console.log(tracking)
 
                logger.info('Commission calculated successfully', {
                     service_id: input.service_id,
@@ -292,102 +316,12 @@ export class CommissionEngineService {
           } catch (error: any) {
                const errorMessage = error instanceof Error ? error.message : String(error);
 
-               if (
-                    error instanceof TierNotFoundError ||
-                    error instanceof ConfigNotFoundError ||
-                    error instanceof NoCommissionConfigFoundError
-               ) {
-                    logger.warn('Commission config/tier missing for assignment, attempting recipient default fallback', {
-                         service_id: input.service_id,
-                         recipient_type: recipientType,
-                         recipient_id: recipientId,
-                         error: errorMessage,
-                    });
-
-                    const defaultEntry = await this.getRecipientDefaultConfig(recipientType as 'clinician' | 'organization');
-
-                    logger.info('Default lookup result for fallback', {
-                         service_id: input.service_id,
-                         recipient_type: recipientType,
-                         recipient_id: recipientId,
-                         has_default: !!defaultEntry,
-                         default_id: defaultEntry?.defaultId,
-                         default_config_id: defaultEntry?.configId,
-                         default_config_type: defaultEntry?.config?.commission_type,
-                    });
-
-                    if (defaultEntry) {
-                         const fallbackConfig = defaultEntry.config as any;
-                         fallbackConfig.percentage_rate = this.toNumberOrUndefined(fallbackConfig.percentage_rate);
-                         fallbackConfig.fixed_component = this.toNumberOrUndefined(fallbackConfig.fixed_component);
-                         fallbackConfig.sliding_max_percentage = this.toNumberOrUndefined(fallbackConfig.sliding_max_percentage);
-
-                         const commissionableAmount = CommissionCalculator.getCommissionableAmount(
-                              fallbackConfig,
-                              input.service_amount,
-                              input.outsourced_lab_cost || 0
-                         );
-
-                         const rawCommission = CommissionCalculator.calculateRawCommission(
-                              fallbackConfig,
-                              commissionableAmount
-                         );
-
-                         const adjustments = await this.capService.applyCaps(
-                              fallbackConfig,
-                              rawCommission,
-                              input,
-                              recipientType,
-                              recipientId
-                         );
-
-                         const tracking = await this.trackingRepo.create({
-                              service_id: input.service_id,
-                              service_amount: input.service_amount,
-                              commission_type: fallbackConfig.commission_type,
-                              percentage_rate_applied: this.toNumberOrUndefined(fallbackConfig.percentage_rate),
-                              fixed_amount_applied: this.toNumberOrUndefined(fallbackConfig.fixed_component),
-                              tier_id: undefined,
-                              commission_due: rawCommission,
-                              min_cap_adjustment: adjustments.minCapAdjustment,
-                              max_cap_adjustment: adjustments.maxCapAdjustment,
-                              period_cap_adjustment: adjustments.periodCapAdjustment,
-                              final_commission: adjustments.final,
-                              config_id: undefined,
-                              assignment_id: undefined,
-                              recipient_type: recipientType,
-                              recipient_id: recipientId,
-                              cap_period_reference: undefined,
-                              calculated_at: new Date(),
-                              currency: 'GHS',
-                              status: 'pending',
-                         });
-
-                         logger.info('Commission calculated using recipient default fallback', {
-                              service_id: input.service_id,
-                              tracking_id: tracking.id,
-                              recipient_type: recipientType,
-                              recipient_id: recipientId,
-                              fallback_used: true,
-                              default_id: defaultEntry.defaultId,
-                              default_config_id: defaultEntry.configId,
-                              default_type: fallbackConfig.commission_type,
-                              commission_due: rawCommission,
-                              final_commission: adjustments.final,
-                         });
-
-                         return {
-                              final_commission: adjustments.final,
-                              tracking_id: tracking.id,
-                              reason: 'SUCCESS',
-                         };
+               if (error instanceof TierNotFoundError || error instanceof ConfigNotFoundError || error instanceof NoCommissionConfigFoundError) {
+                    if (!fallbackConfig) {
+                         const fallback = await this.getRecipientDefaultConfig(recipientType);
+                         if (fallback) return this.executeLockedCalculation(input, recipientType, recipientId, fallback.config);
                     }
-
-                    return {
-                         final_commission: 0,
-                         reason: 'NO_CONFIG',
-                         error: errorMessage,
-                    };
+                    return { final_commission: 0, reason: 'NO_CONFIG', error: errorMessage };
                }
 
                logger.error('Commission calculation failed', {

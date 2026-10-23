@@ -3,6 +3,7 @@ import { Request, Response } from "express";
 import { customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import { CommissionBatchPaymentsRepo } from "../../models/commissions/CommissionBatchPaymentsRepo";
+import { CommissionPaymentValidationError } from "../../models/commissions/CommissionPaymentAllocation";
 
 interface ServiceBatchingRequestBody {
      startDate: string;
@@ -30,6 +31,10 @@ export class CommissionBatchServicesController {
           try {
                const batchServicesRepo = new CommissionBatchPaymentServicesRepo(this.tenantId);
                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
+               if (!Array.isArray(services) || !services.length || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
+                    return customError('Provide a nonempty list of unique positive service IDs', 400, response);
+               }
+               if (typeof startDate !== 'string' || typeof endDate !== 'string') return customError('Start and end dates are required', 400, response);
 
                const parseDate = (dateStr: string): Date => {
                     const parts = dateStr.split('/');
@@ -82,12 +87,12 @@ export class CommissionBatchServicesController {
                return response.send({
                     status: true,
                     message: "Service batching validation successful. Services can be batched.",
-                    data: {}
+                    data: processPayment
                });
 
-          } catch (error) {
+          } catch (error: any) {
                logger.error('Error processing service batching:', error);
-               return false;
+               return customError(error instanceof CommissionPaymentValidationError ? error.message : 'Failed to process commission payment', error instanceof CommissionPaymentValidationError ? 400 : 500, response);
           }
      }
 

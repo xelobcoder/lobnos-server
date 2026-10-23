@@ -1,6 +1,7 @@
 import { ICommissionTier } from '../interfaces/CommissionTier.interface';
 
 export interface ICommissionTierRepository {
+     withTransaction?(trx: any): ICommissionTierRepository;
      findById(id: number): Promise<ICommissionTier | null>;
      findByConfigId(configId: number): Promise<ICommissionTier[]>;
      findMatchingTier(configId: number, amount: number): Promise<ICommissionTier | null>;

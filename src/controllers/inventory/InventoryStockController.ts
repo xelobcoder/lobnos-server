@@ -1,9 +1,9 @@
+import { expiredInventoryBatchQuery } from '../../models/inventory/InventoryBatchQuery';
 import { Request, Response } from 'express';
 import { InventoryTransactionModel } from '../../models/inventory/InventoryTransaction';
 import {
      ApiResponse,
-     AvailableStockDetails,
-     ExpiredBatchesResponse
+     AvailableStockDetails
 } from '../../models/inventory/types';
 
 export class InventoryStockController {
@@ -58,260 +58,56 @@ export class InventoryStockController {
      }
 
      async getExpiredBatches(req: Request, res: Response): Promise<void> {
-          try {
-               const model = this.getModel(req);
-               const tenantId = this.getTenantId(req);
-               const {
-                    page = 1,
-                    count = 10,
-                    sortby = 'DESC',
-                    item_id,
-                    batch_number,
-                    days_to_expiry = 30
-               } = req.query;
-
-               const connection = await (model as any).connection;
-
-               const sortOrder = (sortby as string).toUpperCase() === 'ASC' ? 'asc' : 'desc';
-
-               // Calculate expiry threshold date
-               const expiryThreshold = new Date();
-               expiryThreshold.setDate(expiryThreshold.getDate() + parseInt(days_to_expiry as string));
-
-               let query = connection('inv_purchase_order_receipts')
-                    .join('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
-                    .join('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                    .select(
-                         'inv_inventory_items.id as item_id',
-                         'inv_inventory_items.name as item_name',
-                         'inv_inventory_items.sku as item_sku',
-                         'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.expiry_date',
-                         'inv_purchase_order_receipts.unit_price',
-                         connection.raw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) as total_received'),
-                         connection.raw('(SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") as total_consumed')
-                    )
-                    .where('inv_purchase_order_receipts.expiry_date', '<', new Date().toISOString().split('T')[0])
-                    .groupBy(
-                         'inv_inventory_items.id',
-                         'inv_inventory_items.name',
-                         'inv_inventory_items.sku',
-                         'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.expiry_date',
-                         'inv_purchase_order_receipts.unit_price'
-                    )
-                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received), 0) + (SELECT COALESCE(SUM(quantity), 0) FROM inv_inventory_transactions WHERE TRIM(batch_number) = TRIM(inv_purchase_order_receipts.batch_number) AND transaction_type = "consumption") > 0')
-                    .orderBy('inv_purchase_order_receipts.expiry_date', sortOrder);
-
-               if (item_id) {
-                    query = query.where('inv_inventory_items.id', item_id);
-               }
-               if (batch_number) {
-                    query = query.where('inv_purchase_order_receipts.batch_number', batch_number);
-               }
-
-               // Get total count
-               const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
-               const totalResult = await totalQuery;
-               const total = parseInt(totalResult?.count as string) || 0;
-
-               // Apply pagination
-               const offset = (parseInt(page as string) - 1) * parseInt(count as string);
-               const rawData = await query.limit(parseInt(count as string)).offset(offset);
-
-               const expiredBatches = rawData.map((batch: any) => ({
-                    item_id: batch.item_id,
-                    item_name: batch.item_name,
-                    item_sku: batch.item_sku,
-                    batch_number: batch.batch_number,
-                    expiry_date: batch.expiry_date,
-                    unit_price: parseFloat(batch.unit_price),
-                    units_per_purchase_unit: parseFloat(batch.units_per_purchase_unit),
-                    total_received: parseInt(batch.total_received),
-                    total_consumed: parseInt(batch.total_consumed),
-                    available_quantity: parseInt(batch.total_received) - parseInt(batch.total_consumed),
-                    total_value: (parseInt(batch.total_received) - parseInt(batch.total_consumed)) * parseFloat(batch.unit_price),
-                    days_to_expiry: Math.ceil((new Date(batch.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-               }));
-
-               // Calculate summary
-               const totalExpiredQuantity = expiredBatches.reduce((sum: number, batch: any) => sum + batch.available_quantity, 0);
-               const totalExpiredValue = expiredBatches.reduce((sum: number, batch: any) => sum + batch.total_value, 0);
-               const uniqueItems = new Set(expiredBatches.map((batch: any) => batch.item_id)).size;
-               const uniqueBatches = expiredBatches.length;
-
-               const expiredBatchesResponse: ExpiredBatchesResponse = {
-                    expired_batches: expiredBatches,
-                    total,
-                    page: parseInt(page as string),
-                    count: parseInt(count as string),
-                    totalPages: Math.ceil(total / parseInt(count as string)),
-                    sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC',
-                    summary: {
-                         total_expired_batches: uniqueBatches,
-                         total_expired_quantity: totalExpiredQuantity,
-                         total_expired_value: totalExpiredValue,
-                         unique_items_affected: uniqueItems,
-                         expiry_threshold_days: parseInt(days_to_expiry as string),
-                         expiry_threshold_date: expiryThreshold.toISOString().split('T')[0]
-                    }
-               };
-
-               const response: ApiResponse = {
-                    success: true,
-                    data: expiredBatchesResponse,
-               };
-               res.json(response);
-          } catch (error: any) {
-               console.error('Error getting expired batches:', error);
-               const response: ApiResponse = {
-                    success: false,
-                    error: {
-                         code: 'INTERNAL_ERROR',
-                         message: error.message || 'Failed to get expired batches'
-                    }
-               };
-               res.status(500).json(response);
-          }
+          return this.respondExpiredBatches(req, res);
      }
 
      async getExpiredBatchesForItem(req: Request, res: Response): Promise<void> {
+          const itemId = req.params.item_id as string;
+          if (!itemId) { res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Item ID is required' } }); return; }
+          return this.respondExpiredBatches(req, res, itemId);
+     }
+
+     private async respondExpiredBatches(req: Request, res: Response, itemId?: string): Promise<void> {
           try {
+               const page = Number(req.query.page ?? 1);
+               const count = Number(req.query.count ?? 10);
+               const days = Number(req.query.days_to_expiry ?? 30);
+               if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(count) || count < 1 || count > 200 || !Number.isSafeInteger(days) || days < 0 || days > 36500) {
+                    res.status(400).json({ success: false, error: { code: 'VALIDATION_ERROR', message: 'Invalid pagination or expiry threshold' } }); return;
+               }
                const model = this.getModel(req);
-               const tenantId = this.getTenantId(req);
-               const { item_id } = req.params;
-               const {
-                    page = 1,
-                    count = 10,
-                    sortby = 'DESC',
-                    batch_number,
-                    days_to_expiry = 30
-               } = req.query;
-
-               if (!item_id) {
-                    const response: ApiResponse = {
-                         success: false,
-                         error: {
-                              code: 'VALIDATION_ERROR',
-                              message: 'Item ID is required'
-                         }
-                    };
-                    res.status(400).json(response);
-                    return;
-               }
-
                const connection = await (model as any).connection;
-
-               const sortOrder = (sortby as string).toUpperCase() === 'ASC' ? 'asc' : 'desc';
-
-               // Calculate expiry threshold date
-               const expiryThreshold = new Date();
-               expiryThreshold.setDate(expiryThreshold.getDate() + parseInt(days_to_expiry as string));
-
-               let query = connection('inv_purchase_order_receipts')
-                    .join('inv_purchase_order_items', 'inv_purchase_order_receipts.order_item_id', 'inv_purchase_order_items.id')
-                    .join('inv_inventory_items', 'inv_purchase_order_items.inventory_item_id', 'inv_inventory_items.id')
-                    .leftJoin('inv_inventory_transactions', function (this: any) {
-                         this.on('inv_inventory_transactions.batch_number', '=', 'inv_purchase_order_receipts.batch_number')
-                              .andOn('inv_inventory_transactions.item_id', '=', 'inv_inventory_items.id');
-                    })
-                    .select(
-                         'inv_inventory_items.id as item_id',
-                         'inv_inventory_items.name as item_name',
-                         'inv_inventory_items.sku as item_sku',
-                         'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.expiry_date',
-                         'inv_purchase_order_receipts.unit_price',
-                         'inv_purchase_order_receipts.units_per_purchase_unit',
-                         connection.raw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1)), 0) as total_received'),
-                         connection.raw('COALESCE(SUM(CASE WHEN inv_inventory_transactions.quantity < 0 THEN -inv_inventory_transactions.quantity / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1) ELSE 0 END), 0) as total_consumed')
-                    )
-                    .where('inv_inventory_items.id', item_id)
-                    .andWhere('inv_purchase_order_receipts.expiry_date', '<', new Date().toISOString().split('T')[0])
-                    .groupBy(
-                         'inv_inventory_items.id',
-                         'inv_inventory_items.name',
-                         'inv_inventory_items.sku',
-                         'inv_purchase_order_receipts.batch_number',
-                         'inv_purchase_order_receipts.expiry_date',
-                         'inv_purchase_order_receipts.unit_price',
-                         'inv_purchase_order_receipts.units_per_purchase_unit'
-                    )
-                    .havingRaw('COALESCE(SUM(inv_purchase_order_receipts.quantity_received / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1)), 0) - COALESCE(SUM(CASE WHEN inv_inventory_transactions.quantity < 0 THEN -inv_inventory_transactions.quantity / COALESCE(inv_purchase_order_receipts.units_per_purchase_unit, 1) ELSE 0 END), 0) > 0')
-                    .orderBy('inv_purchase_order_receipts.expiry_date', sortOrder);
-
-               if (batch_number) {
-                    query = query.where('inv_purchase_order_receipts.batch_number', batch_number);
-               }
-
-               // Get total count
-               const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
-               const totalResult = await totalQuery;
-               const total = parseInt(totalResult?.count as string) || 0;
-
-               // Apply pagination
-               const offset = (parseInt(page as string) - 1) * parseInt(count as string);
-               const rawData = await query.limit(parseInt(count as string)).offset(offset);
-
-               const expiredBatches = rawData.map((batch: any) => ({
-                    item_id: batch.item_id,
-                    item_name: batch.item_name,
-                    item_sku: batch.item_sku,
-                    batch_number: batch.batch_number,
-                    expiry_date: batch.expiry_date,
-                    unit_price: parseFloat(batch.unit_price),
-                    units_per_purchase_unit: parseFloat(batch.units_per_purchase_unit),
-                    total_received: parseInt(batch.total_received),
-                    total_consumed: parseInt(batch.total_consumed),
-                    available_quantity: parseInt(batch.total_received) - parseInt(batch.total_consumed),
-                    total_value: (parseInt(batch.total_received) - parseInt(batch.total_consumed)) * parseFloat(batch.unit_price),
-                    days_to_expiry: Math.ceil((new Date(batch.expiry_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))
-               }));
-
-               // Calculate summary for this specific item
-               const totalExpiredQuantity = expiredBatches.reduce((sum: number, batch: any) => sum + batch.available_quantity, 0);
-               const totalExpiredValue = expiredBatches.reduce((sum: number, batch: any) => sum + batch.total_value, 0);
-               const uniqueBatches = expiredBatches.length;
-
-               const expiredBatchesResponse: ExpiredBatchesResponse = {
-                    expired_batches: expiredBatches,
-                    total,
-                    page: parseInt(page as string),
-                    count: parseInt(count as string),
-                    totalPages: Math.ceil(total / parseInt(count as string)),
-                    sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC',
-                    summary: {
-                         total_expired_batches: uniqueBatches,
-                         total_expired_quantity: totalExpiredQuantity,
-                         total_expired_value: totalExpiredValue,
-                         unique_items_affected: 1, // Since we're filtering by specific item
-                         expiry_threshold_days: parseInt(days_to_expiry as string),
-                         expiry_threshold_date: expiryThreshold.toISOString().split('T')[0]
-                    }
-               };
-
-               const response: ApiResponse = {
+               const sortby = String(req.query.sortby).toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+               let query = expiredInventoryBatchQuery(connection);
+               const selectedItem = itemId || req.query.item_id;
+               if (selectedItem) query = query.where('movement.item_id', selectedItem as string);
+               if (req.query.batch_number) query = query.where('movement.batch_number', req.query.batch_number as string);
+               const summary = await connection.from(query.clone().as('expired')).select(
+                    connection.raw('COUNT(*) as total'), connection.raw('COUNT(DISTINCT item_id) as unique_items'),
+                    connection.raw('COALESCE(SUM(available_quantity), 0) as quantity'),
+                    connection.raw('COALESCE(SUM(available_quantity * unit_price), 0) as value')
+               ).first();
+               const total = Number(summary.total);
+               const rows = await query.orderBy('expiry_date', sortby).orderBy('movement.item_id').orderBy('movement.batch_number').limit(count).offset((page - 1) * count);
+               const threshold = new Date(); threshold.setDate(threshold.getDate() + days);
+               res.json({
                     success: true,
-                    data: expiredBatchesResponse,
-                    pagination: {
-                         page: parseInt(page as string),
-                         count: parseInt(count as string),
-                         total,
-                         totalPages: Math.ceil(total / parseInt(count as string)),
-                         sortby: (sortby as string).toUpperCase() as 'ASC' | 'DESC'
-                    }
-               };
-               res.json(response);
+                    data: {
+                         expired_batches: rows.map((batch: any) => ({
+                              ...batch, unit_price: Number(batch.unit_price || 0), total_received: Number(batch.total_received),
+                              total_consumed: Number(batch.total_consumed), available_quantity: Number(batch.available_quantity),
+                              total_value: Number(batch.available_quantity) * Number(batch.unit_price || 0),
+                              days_to_expiry: Math.ceil((new Date(batch.expiry_date).getTime() - Date.now()) / 86400000)
+                         })),
+                         total, page, count, totalPages: Math.ceil(total / count), sortby,
+                         summary: { total_expired_batches: total, total_expired_quantity: Number(summary.quantity), total_expired_value: Number(summary.value),
+                              unique_items_affected: Number(summary.unique_items), expiry_threshold_days: days, expiry_threshold_date: threshold.toISOString().slice(0, 10) }
+                    },
+                    pagination: { total, page, count, totalPages: Math.ceil(total / count), sortby }
+               });
           } catch (error: any) {
-               console.error('Error getting expired batches for item:', error);
-               const response: ApiResponse = {
-                    success: false,
-                    error: {
-                         code: 'INTERNAL_ERROR',
-                         message: error.message || 'Failed to get expired batches for item'
-                    }
-               };
-               res.status(500).json(response);
+               console.error('Error getting expired batches:', error);
+               res.status(500).json({ success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to get expired batches' } });
           }
      }
 

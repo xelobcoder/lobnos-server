@@ -6,11 +6,13 @@ import { ICommissionConfigRepository } from '../interfaces/ICommissionConfigRepo
 
 
 export class CommissionConfigRepository implements ICommissionConfigRepository {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private transaction?: Knex | Knex.Transaction) { }
+
+     withTransaction(trx: any): ICommissionConfigRepository { return new CommissionConfigRepository(this.tenantId, trx); }
 
      async findById(id: number): Promise<ICommissionConfig | null> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const record = await connection('commission_configs')
                     .where('id', id).first();
                return record ? new CommissionConfig(record) : null;
@@ -21,7 +23,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
 
      async findByName(name: string): Promise<ICommissionConfig | null> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const record = await connection('commission_configs')
                     .where('name', name).first();
                return record ? new CommissionConfig(record) : null;
@@ -32,7 +34,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
 
      async findActive(onDate: Date): Promise<ICommissionConfig[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const records = await connection('commission_configs')
                     .where('is_active', true)
                     .where('effective_from', '<=', onDate)
@@ -49,7 +51,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
 
      async findAll(): Promise<ICommissionConfig[]> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const records = await connection('commission_configs').orderBy('created_at', 'desc');
                return records.map((record) => new CommissionConfig(record));
           } catch (error) {
@@ -61,7 +63,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
           config: Omit<ICommissionConfig, 'id' | 'created_at' | 'updated_at'>
      ): Promise<ICommissionConfig> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                const [id] = await connection('commission_configs').insert({
                     ...config,
                     created_at: new Date(),
@@ -84,7 +86,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
           config: Partial<Omit<ICommissionConfig, 'id' | 'created_at' | 'updated_at'>>
      ): Promise<ICommissionConfig> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                await connection('commission_configs').where('id', id).update({
                     ...config,
                     updated_at: new Date(),
@@ -103,7 +105,7 @@ export class CommissionConfigRepository implements ICommissionConfigRepository {
 
      async softDelete(id: number): Promise<void> {
           try {
-               const connection = await KnexConnection(this.tenantId);
+               const connection = (this.transaction || await KnexConnection(this.tenantId));
                await connection('commission_configs').where('id', id).update({
                     is_active: false,
                     updated_at: new Date(),

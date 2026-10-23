@@ -1,6 +1,7 @@
 import { ICommissionTracking } from '../interfaces/CommissionTracking.interface';
 
 export interface ICommissionTrackingRepository {
+     withCalculationLock<T>(recipientType: 'clinician' | 'organization', recipientId: number, serviceId: number, callback: (repository: ICommissionTrackingRepository, trx: any) => Promise<T>): Promise<T>;
      findById(id: number): Promise<ICommissionTracking | null>;
      findByServiceId(serviceId: number): Promise<ICommissionTracking[]>;
      findByRecipient(

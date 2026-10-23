@@ -1,3 +1,4 @@
+import { commissionBalanceColumns } from './CommissionBalanceQuery';
 import KnexConnection from "../../database/KnexConnections";
 
 /**
@@ -48,15 +49,6 @@ export function clinicianCommissionBaseQuery(conn: any, scope: ClinicianCommissi
           .whereRaw('DATE(ds.serviceAddedOn) BETWEEN ? AND ?', [scope.from, scope.to]);
 }
 
-const AMOUNT_COLUMNS = (conn: any) => [
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN ct.status <> 'voided' THEN ct.commission_due ELSE 0 END), 0) AS DECIMAL(14,2)) AS earned"),
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN cbps.id IS NOT NULL THEN cbps.amount_allocated WHEN ct.status = 'paid' THEN ct.commission_due ELSE 0 END), 0) AS DECIMAL(14,2)) AS paid"),
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN cbps.id IS NOT NULL THEN cbps.waived_amount ELSE 0 END), 0) AS DECIMAL(14,2)) AS waived"),
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN cbps.id IS NULL AND ct.status = 'pending' THEN ct.commission_due ELSE 0 END), 0) AS DECIMAL(14,2)) AS pending"),
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN cbps.id IS NULL AND ct.status = 'approved' THEN ct.commission_due ELSE 0 END), 0) AS DECIMAL(14,2)) AS approved"),
-     conn.raw("CAST(COALESCE(SUM(CASE WHEN cbps.id IS NULL AND ct.status NOT IN ('voided', 'paid') THEN ct.commission_due ELSE 0 END), 0) AS DECIMAL(14,2)) AS outstanding"),
-];
-
 const toAmounts = (row: any) => ({
      earned: Number(row?.earned || 0),
      paid: Number(row?.paid || 0),
@@ -76,7 +68,7 @@ export class ClinicianCommissionPortalRepository {
      async getTotals(scope: ClinicianCommissionScope) {
           const conn = await this.connection;
           const row = await clinicianCommissionBaseQuery(conn, scope)
-               .select(conn.raw('COUNT(ct.id) AS transactions'), ...AMOUNT_COLUMNS(conn))
+               .select(conn.raw('COUNT(ct.id) AS transactions'), ...commissionBalanceColumns(conn))
                .first();
           return { transactions: Number(row?.transactions || 0), ...toAmounts(row) };
      }
@@ -88,7 +80,7 @@ export class ClinicianCommissionPortalRepository {
                     conn.raw('DATE_FORMAT(ds.serviceAddedOn, ?) AS bucket', [PERIOD_FORMATS[period]]),
                     conn.raw('MIN(DATE(ds.serviceAddedOn)) AS bucket_start'),
                     conn.raw('COUNT(ct.id) AS transactions'),
-                    ...AMOUNT_COLUMNS(conn)
+                    ...commissionBalanceColumns(conn)
                )
                .groupByRaw('bucket')
                .orderBy('bucket_start', 'asc');

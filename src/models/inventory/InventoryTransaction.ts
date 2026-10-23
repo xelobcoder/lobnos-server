@@ -1,4 +1,16 @@
+import { expiredInventoryBatchQuery } from './InventoryBatchQuery';
 import { Knex } from 'knex';
+import { randomUUID } from 'crypto';
+import { z } from 'zod';
+
+export const inventoryTransactionSchema = z.object({
+     item_id: z.string().trim().min(1),
+     transaction_type: z.enum(['addition', 'consumption', 'adjustment', 'transfer', 'wastage']),
+     quantity: z.number().finite().positive(),
+     unit_type: z.enum(['consumption', 'purchase']).default('consumption'),
+     units_per_purchase_unit: z.number().finite().positive().optional(),
+     unit_cost: z.number().finite().nonnegative().optional(),
+}).passthrough();
 import {
      InventoryTransaction,
      CreateInventoryTransactionRequest,
@@ -65,209 +77,70 @@ export class InventoryTransactionModel {
           }
      }
 
-     private generateTransactionId(): string {
-          const timestamp = Date.now().toString();
-          return `TXN-${timestamp}`;
-     }
-
      async create(request: CreateInventoryTransactionRequest): Promise<InventoryTransaction> {
-          const connection = await this.connection;
-
-          const inventoryItem = await connection('inv_inventory_items')
-               .where('id', request.item_id)
-               .where('is_active', true)
-               .first();
-
-          if (!inventoryItem) {
-               throw new Error('Inventory item not found or inactive');
-          }
-
-          // Validate transaction unit conversion
-          const unitValidation = UnitValidationService.validateTransactionUnitConversion(
-               request.unit_type || 'consumption',
-               request.purchase_unit || null,
-               inventoryItem.consumption_unit,
-               request.units_per_purchase_unit || null
-          );
-
-          if (!unitValidation.isValid) {
-               throw new Error(unitValidation.error);
-          }
-
-          // Handle unit conversion - convert to consumption units for stock tracking
-          let quantityInConsumptionUnits = request.quantity;
-          if (request.unit_type === 'purchase' && request.units_per_purchase_unit) {
-               quantityInConsumptionUnits = request.quantity * request.units_per_purchase_unit;
-          }
-
-          const previousStock = inventoryItem.current_stock;
-
-          let newStock: number;
-          switch (request.transaction_type) {
-               case 'addition':
-                    newStock = previousStock + quantityInConsumptionUnits;
-                    break;
-               case 'consumption':
-               case 'adjustment':
-               case 'transfer':
-               case 'wastage':
-                    newStock = previousStock - quantityInConsumptionUnits;
-                    break;
-               default:
-                    throw new Error('Invalid transaction type');
-          }
-
-          if (newStock < 0) {
-               throw new Error('Transaction would result in negative stock');
-          }
-
-          const effectiveUnitCost = Number(request.unit_cost) > 0 ? Number(request.unit_cost) : Number(inventoryItem.cost_price || 0);
-          const totalCost = request.unit_cost && request.quantity
-               ? request.unit_cost * request.quantity
-               : (effectiveUnitCost > 0 ? effectiveUnitCost * quantityInConsumptionUnits : null);
-
-          const transactionData = {
-               id: this.generateTransactionId(),
-               item_id: request.item_id,
-               transaction_type: request.transaction_type,
-               quantity: request.quantity,
-               unit_type: request.unit_type || 'consumption',
-               purchase_unit: request.purchase_unit || null,
-               units_per_purchase_unit: request.units_per_purchase_unit || null,
-               previous_stock: previousStock,
-               new_stock: newStock,
-               batch_number: request.batch_number || null,
-               expiry_date: request.expiry_date || null,
-               unit_cost: request.unit_cost || null,
-               total_cost: totalCost,
-               brand_name: request.brand_name || null,
-               reason: request.reason || null,
-               reference_id: request.reference_id || null,
-               patientid: request.patientid || null,
-               ascensionid: request.ascensionid || null,
-               performed_by: request.performed_by || null,
-               transaction_date: new Date() as any,
-               notes: request.notes || null,
-               wastage_type: request.wastage_type || null,
-               created_at: new Date() as any
-          };
-
-          const trx = await connection.transaction();
-
-          try {
-               await trx('inv_inventory_transactions').insert(transactionData);
-
-               const updateResult = await trx('inv_inventory_items')
-                    .where('id', request.item_id)
-                    .update({
-                         current_stock: newStock,
-                         last_updated: new Date() as any,
-                         updated_at: new Date() as any
-                    });
-
-               await enqueueStockMovement(this.tenantId, transactionData as any, trx);
-
-               await trx.commit();
-
-               this.dispatchTransactionLifecycle(request, request.item_id);
-               this.dispatchStockThresholdAlerts(
-                    request.item_id,
-                    newStock,
-                    Number(inventoryItem.min_stock || 0),
-                    previousStock,
-                    request.performed_by,
-               );
-
-               return await this.findById(transactionData.id) as InventoryTransaction;
-          } catch (error) {
-               await trx.rollback();
-               throw error;
-          }
+          const [transaction] = await this.createBulk([request]);
+          return transaction;
      }
 
-     async createBulk(transactions: CreateInventoryTransactionRequest[]): Promise<InventoryTransaction[]> {
+     async createBulk(requests: CreateInventoryTransactionRequest[]): Promise<InventoryTransaction[]> {
+          if (!Array.isArray(requests) || requests.length === 0) throw new Error('At least one transaction is required');
+          const transactions = requests.map(request => inventoryTransactionSchema.parse(request) as CreateInventoryTransactionRequest);
           const connection = await this.connection;
-          const trx = await connection.transaction();
-          const createdTransactions: InventoryTransaction[] = [];
-
-          try {
+          const alerts: Array<{ request: CreateInventoryTransactionRequest; previous: number; next: number; minimum: number }> = [];
+          const created = await connection.transaction(async trx => {
+               // Lock in a stable order so overlapping bulk requests do not deadlock.
+               const items = await trx('inv_inventory_items').whereIn('id', [...new Set(transactions.map(r => r.item_id))].sort())
+                    .where('is_active', true).orderBy('id').forUpdate();
+               const byId = new Map<string, any>(items.map(item => [item.id, item]));
+               const results: InventoryTransaction[] = [];
                for (const request of transactions) {
-                    const inventoryItem = await trx('inv_inventory_items')
-                         .where('id', request.item_id)
-                         .where('is_active', true)
-                         .first();
-
-                    if (!inventoryItem) {
-                         throw new Error(`Inventory item ${request.item_id} not found or inactive`);
-                    }
-
-                    const previousStock = inventoryItem.current_stock;
-
-                    let newStock: number;
-                    switch (request.transaction_type) {
-                         case 'addition':
-                              newStock = previousStock + request.quantity;
-                              break;
-                         case 'consumption':
-                         case 'adjustment':
-                         case 'transfer':
-                         case 'wastage':
-                              newStock = previousStock - request.quantity;
-                              break;
-                         default:
-                              throw new Error('Invalid transaction type');
-                    }
-
-                    if (newStock < 0) {
-                         throw new Error(`Transaction for item ${request.item_id} would result in negative stock`);
-                    }
-
-                    const totalCost = request.unit_cost && request.quantity
-                         ? request.unit_cost * request.quantity
-                         : (Number(inventoryItem.cost_price) > 0 ? Number(inventoryItem.cost_price) * request.quantity : null);
-
-                    const transactionData = {
-                         id: this.generateTransactionId(),
-                         item_id: request.item_id,
-                         transaction_type: request.transaction_type,
-                         quantity: request.quantity,
-                         previous_stock: previousStock,
-                         new_stock: newStock,
-                         batch_number: request.batch_number || null,
-                         expiry_date: request.expiry_date || null,
-                         unit_cost: request.unit_cost || null,
-                         total_cost: totalCost,
-                         brand_name: request.brand_name || null,
-                         reason: request.reason || null,
-                         reference_id: request.reference_id || null,
-                         patientid: request.patientid || null,
-                         ascensionid: request.ascensionid || null,
-                         performed_by: request.performed_by || null,
-                         transaction_date: new Date() as any,
-                         notes: request.notes || null,
-                         wastage_type: request.wastage_type || null,
-                         created_at: new Date() as any
+                    const item = byId.get(request.item_id);
+                    if (!item) throw new Error('Inventory item not found or inactive: ' + request.item_id);
+                    const validation = UnitValidationService.validateTransactionUnitConversion(
+                         request.unit_type, request.purchase_unit || null, item.consumption_unit,
+                         request.units_per_purchase_unit ?? null
+                    );
+                    if (!validation.isValid) throw new Error(validation.error);
+                    const quantity = request.quantity * (request.unit_type === 'purchase' ? request.units_per_purchase_unit! : 1);
+                    if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Invalid converted quantity');
+                    const previous = Number(item.current_stock);
+                    const next = previous + (request.transaction_type === 'addition' ? quantity : -quantity);
+                    if (!Number.isFinite(previous) || !Number.isFinite(next) || next < 0) throw new Error('Transaction would result in invalid or negative stock: ' + request.item_id);
+                    const totalCost = request.unit_cost !== undefined
+                         ? request.unit_cost * request.quantity : Number(item.cost_price || 0) * quantity;
+                    if (!Number.isFinite(totalCost) || totalCost < 0) throw new Error('Invalid transaction cost');
+                    const now = new Date();
+                    const data = {
+                         id: 'TXN-' + randomUUID(), item_id: request.item_id,
+                         transaction_type: request.transaction_type, quantity: request.quantity,
+                         unit_type: request.unit_type, purchase_unit: request.purchase_unit || null,
+                         units_per_purchase_unit: request.units_per_purchase_unit ?? null,
+                         previous_stock: previous, new_stock: next,
+                         batch_number: request.batch_number || null, expiry_date: request.expiry_date || null,
+                         unit_cost: request.unit_cost ?? null, total_cost: totalCost,
+                         brand_name: request.brand_name || null, reason: request.reason || null,
+                         reference_id: request.reference_id || null, patientid: request.patientid || null,
+                         ascensionid: request.ascensionid || null, performed_by: request.performed_by || null,
+                         transaction_date: now, notes: request.notes || null,
+                         wastage_type: request.wastage_type || null, created_at: now
                     };
-
-                    await trx('inv_inventory_transactions').insert(transactionData);
-
-                    await trx('inv_inventory_items')
-                         .where('id', request.item_id)
-                         .update({
-                              current_stock: newStock,
-                              last_updated: new Date() as any,
-                              updated_at: new Date() as any
-                         });
-
-                    createdTransactions.push(await this.findById(transactionData.id) as InventoryTransaction);
+                    await trx('inv_inventory_transactions').insert(data);
+                    await trx('inv_inventory_items').where('id', request.item_id).update({
+                         current_stock: next, status: next === 0 ? 'out_of_stock' : next <= Number(item.min_stock || 0) ? 'low_stock' : 'in_stock',
+                         last_updated: now, updated_at: now
+                    });
+                    await enqueueStockMovement(this.tenantId, data, trx);
+                    item.current_stock = next;
+                    results.push({ ...data, item_name: item.name, item_sku: item.sku } as any);
+                    alerts.push({ request, previous, next, minimum: Number(item.min_stock || 0) });
                }
-
-               await trx.commit();
-               return createdTransactions;
-          } catch (error) {
-               await trx.rollback();
-               throw error;
+               return results;
+          });
+          for (const alert of alerts) {
+               this.dispatchTransactionLifecycle(alert.request, alert.request.item_id);
+               this.dispatchStockThresholdAlerts(alert.request.item_id, alert.next, alert.minimum, alert.previous, alert.request.performed_by);
           }
+          return created;
      }
 
      async findById(id: string): Promise<InventoryTransaction | null> {
@@ -625,11 +498,11 @@ export class InventoryTransactionModel {
 
           let query = connection('inv_inventory_transactions')
                .select(
-                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_additions'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumptions'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN quantity ELSE 0 END) as total_adjustments'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "transfer" THEN quantity ELSE 0 END) as total_transfers'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity WHEN transaction_type IN ("consumption", "adjustment", "transfer") THEN -quantity ELSE 0 END) as net_change')
+                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN (CAST(new_stock AS DECIMAL(20, 6)) - CAST(previous_stock AS DECIMAL(20, 6))) ELSE 0 END) as total_additions'),
+                    connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN (CAST(previous_stock AS DECIMAL(20, 6)) - CAST(new_stock AS DECIMAL(20, 6))) ELSE 0 END) as total_consumptions'),
+                    connection.raw('SUM(CASE WHEN transaction_type = "adjustment" THEN (CAST(previous_stock AS DECIMAL(20, 6)) - CAST(new_stock AS DECIMAL(20, 6))) ELSE 0 END) as total_adjustments'),
+                    connection.raw('SUM(CASE WHEN transaction_type = "transfer" THEN (CAST(previous_stock AS DECIMAL(20, 6)) - CAST(new_stock AS DECIMAL(20, 6))) ELSE 0 END) as total_transfers'),
+                    connection.raw('SUM(CAST(new_stock AS DECIMAL(20, 6)) - CAST(previous_stock AS DECIMAL(20, 6))) as net_change')
                );
 
           if (filters?.item_id) {
@@ -651,11 +524,11 @@ export class InventoryTransactionModel {
           const result = await query.first() as any;
 
           return {
-               total_additions: parseInt(result?.total_additions || 0),
-               total_consumptions: parseInt(result?.total_consumptions || 0),
-               total_adjustments: parseInt(result?.total_adjustments || 0),
-               total_transfers: parseInt(result?.total_transfers || 0),
-               net_change: parseInt(result?.net_change || 0)
+               total_additions: Number(result?.total_additions || 0),
+               total_consumptions: Number(result?.total_consumptions || 0),
+               total_adjustments: Number(result?.total_adjustments || 0),
+               total_transfers: Number(result?.total_transfers || 0),
+               net_change: Number(result?.net_change || 0)
           };
      }
 
@@ -692,28 +565,29 @@ export class InventoryTransactionModel {
                .select(
                     'batch_number',
                     connection.raw('MAX(brand_name) as brand_name'),
-                    connection.raw('MAX(expiry_date) as expiry_date'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "consumption" THEN quantity ELSE 0 END) as total_consumed'),
+                    connection.raw('MIN(expiry_date) as expiry_date'),
+                    connection.raw('SUM(GREATEST(CAST(new_stock AS DECIMAL(20, 6)) - CAST(previous_stock AS DECIMAL(20, 6)), 0)) as total_received'),
+                    connection.raw('SUM(GREATEST(CAST(previous_stock AS DECIMAL(20, 6)) - CAST(new_stock AS DECIMAL(20, 6)), 0)) as total_consumed'),
                     connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received')
                )
                .where('item_id', itemId)
                .whereNotNull('batch_number')
                .groupBy('batch_number')
-               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0')
-               .orderBy('last_received', 'ASC');
+               .havingRaw('SUM(GREATEST(CAST(new_stock AS DECIMAL(20, 6)) - CAST(previous_stock AS DECIMAL(20, 6)), 0)) > 0')
+               .orderByRaw('MIN(expiry_date) IS NULL ASC').orderByRaw('MIN(expiry_date) ASC').orderBy('last_received', 'ASC');
 
           const all_batches = batchDetails.map((batch: any) => ({
                batch_number: batch.batch_number,
                brand_name: batch.brand_name,
-               total_received: parseInt(batch.total_received || 0),
-               total_consumed: parseInt(batch.total_consumed || 0),
-               available_quantity: parseInt(batch.total_received || 0) - parseInt(batch.total_consumed || 0),
+               total_received: Number(batch.total_received || 0),
+               total_consumed: Number(batch.total_consumed || 0),
+               available_quantity: Number(batch.total_received || 0) - Number(batch.total_consumed || 0),
                expiry_date: batch.expiry_date,
                last_received: batch.last_received
           }));
 
-          const available_batches = all_batches.filter(batch => batch.available_quantity > 0);
+          const today = new Date().toISOString().slice(0, 10);
+          const available_batches = all_batches.filter(batch => batch.available_quantity > 0 && (!batch.expiry_date || new Date(batch.expiry_date).toISOString().slice(0, 10) >= today));
 
           const fifo_batch = available_batches.length > 0 ? {
                batch_number: available_batches[0].batch_number,
@@ -745,41 +619,11 @@ export class InventoryTransactionModel {
      }>> {
           const connection = await this.connection;
 
-          const expiredBatches = await connection('inv_inventory_transactions')
-               .select(
-                    'inv_inventory_transactions.item_id',
-                    'inv_inventory_items.name as item_name',
-                    'inv_inventory_items.sku as item_sku',
-                    'inv_inventory_transactions.batch_number',
-                    'inv_inventory_transactions.brand_name',
-                    'inv_inventory_transactions.expiry_date',
-                    connection.raw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) as total_received'),
-                    connection.raw('SUM(CASE WHEN transaction_type IN ("consumption", "wastage") THEN quantity ELSE 0 END) as total_consumed'),
-                    connection.raw('SUM(CASE WHEN transaction_type = "wastage" AND (reason LIKE "%expired%" OR reason LIKE "%expiry%" OR wastage_type = "expired") THEN quantity ELSE 0 END) as expired_wastage_quantity'),
-                    connection.raw('MAX(CASE WHEN transaction_type = "addition" THEN transaction_date END) as last_received')
-               )
-               .leftJoin('inv_inventory_items', 'inv_inventory_transactions.item_id', 'inv_inventory_items.id')
-               .whereNotNull('expiry_date')
-               .where('expiry_date', '<', new Date().toISOString().split('T')[0])
-               .groupBy('inv_inventory_transactions.item_id', 'inv_inventory_items.name', 'inv_inventory_items.sku', 'inv_inventory_transactions.batch_number', 'inv_inventory_transactions.brand_name', 'inv_inventory_transactions.expiry_date')
-               .havingRaw('SUM(CASE WHEN transaction_type = "addition" THEN quantity ELSE 0 END) > 0')
-               .orderBy('expiry_date', 'ASC');
-
-          const filteredBatches = expiredBatches.filter((batch: any) => {
-               const totalReceived = parseInt(batch.total_received || 0);
-               const expiredWastageQuantity = parseInt(batch.expired_wastage_quantity || 0);
-               return expiredWastageQuantity < totalReceived;
-          });
-
-          return filteredBatches.map((batch: any) => ({
-               item_id: batch.item_id,
-               item_name: batch.item_name,
-               item_sku: batch.item_sku,
-               batch_number: batch.batch_number,
-               brand_name: batch.brand_name,
-               expiry_date: batch.expiry_date,
-               available_quantity: parseInt(batch.total_received || 0) - parseInt(batch.total_consumed || 0),
-               last_received: batch.last_received
+          const batches = await expiredInventoryBatchQuery(connection).orderBy('expiry_date', 'asc');
+          return batches.map((batch: any) => ({
+               item_id: batch.item_id, item_name: batch.item_name, item_sku: batch.item_sku,
+               batch_number: batch.batch_number, brand_name: batch.brand_name,
+               expiry_date: batch.expiry_date, available_quantity: Number(batch.available_quantity), last_received: batch.last_received
           }));
      }
 }

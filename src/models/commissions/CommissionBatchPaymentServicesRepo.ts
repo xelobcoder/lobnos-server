@@ -1,6 +1,7 @@
 import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
 import { CommissionTrackingRepo } from "./CommissionTrackingRepository";
+import { CommissionPaymentValidationError } from './CommissionPaymentAllocation';
 
 interface CommissionBatchPaymentService {
      id?: number;
@@ -49,7 +50,7 @@ export class CommissionBatchPaymentServicesRepo {
 
                const invalidIds = serviceIds.filter(id => !existingIds.includes(id));
                if (invalidIds.length > 0) {
-                    throw new Error(`Invalid service IDs: ${invalidIds.join(', ')}. These services do not exist in the database.`);
+                    throw new CommissionPaymentValidationError(`Invalid service IDs: ${invalidIds.join(', ')}. These services do not exist in the database.`);
                }
 
                const batchedServices = await conn('commission_batch_payment_services')
@@ -58,7 +59,7 @@ export class CommissionBatchPaymentServicesRepo {
                const batchedIds = batchedServices.map((row: any) => row.serviceid);
 
                if (batchedIds.length > 0) {
-                    throw new Error(`Some services have already been batched for commission payment: ${batchedIds.join(', ')}. Cannot proceed with this batch.`);
+                    throw new CommissionPaymentValidationError(`Some services have already been batched for commission payment: ${batchedIds.join(', ')}. Cannot proceed with this batch.`);
                }
 
                if (serviceIds.length > 0) {

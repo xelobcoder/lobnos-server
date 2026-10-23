@@ -1,3 +1,4 @@
+import { commissionBalanceColumns } from '../../CommissionBalanceQuery';
 import { Knex } from 'knex';
 import {
      ICommissionTracking,
@@ -16,6 +17,19 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
      connection: Promise<Knex>;
      constructor(private tenantId: number, trx?: any) {
           this.connection = trx ? trx : KnexConnection(this.tenantId);
+     }
+
+     async withCalculationLock<T>(recipientType: 'clinician' | 'organization', recipientId: number, serviceId: number, callback: (repository: ICommissionTrackingRepository, trx: any) => Promise<T>): Promise<T> {
+          const connection = await this.connection;
+          return connection.transaction(async trx => {
+               // Lock an existing recipient row, even when their first period has no tracking rows yet.
+               const recipient = await trx(recipientType === 'clinician' ? 'clinicianbasicinfo' : 'organization')
+                    .where('id', recipientId).forUpdate().first();
+               if (!recipient) throw new Error('Commission recipient not found');
+               const service = await trx('dboservices').where('serviceid', serviceId).forUpdate().first();
+               if (!service) throw new Error('Commission service not found');
+               return callback(new CommissionTrackingRepository(this.tenantId, trx), trx);
+          });
      }
 
      async findById(id: number): Promise<ICommissionTracking | null> {
@@ -146,7 +160,7 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                     .sum('final_commission as total')
                     .first();
 
-               return result?.total || 0;
+               return Number(result?.total || 0);
           } catch (error) {
                throw new DatabaseError(
                     `Failed to calculate period total for ${recipientType} ${recipientId}`,
@@ -271,24 +285,19 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
      async getSummary(recipientType?: string): Promise<Record<string, any>> {
           try {
                const connection = await this.connection;
-               let query = connection('commission_tracking')
-                    .where('status', '!=', 'voided');
-
-               if (recipientType) {
-                    query = query.where('recipient_type', recipientType);
-               }
-
-               const summary = await query
-                    .sum('commission_due as total_commission_due')
-                    .sum('final_commission as total_amount_paid')
-                    .count('* as payment_count')
-                    .first();
-
+               let query = connection('commission_tracking as ct')
+                    .leftJoin('commission_batch_payment_services as cbps', function (this: any) {
+                         this.on('cbps.serviceid', '=', 'ct.service_id').andOn(connection.raw('ct.status <> ?', ['adjusted']));
+                    })
+                    .where('ct.status', '!=', 'voided');
+               if (recipientType) query = query.where('ct.recipient_type', recipientType);
+               const summary = await query.select(...commissionBalanceColumns(connection)).count('ct.id as payment_count').first();
                return {
-                    total_commission_due: summary?.total_commission_due || 0,
-                    total_amount_paid: summary?.total_amount_paid || 0,
-                    total_outstanding: (summary?.total_commission_due || 0) - (summary?.total_amount_paid || 0),
-                    payment_count: summary?.payment_count || 0,
+                    total_commission_due: Number(summary?.earned || 0),
+                    total_amount_paid: Number(summary?.paid || 0),
+                    total_waived: Number(summary?.waived || 0),
+                    total_outstanding: Number(summary?.outstanding || 0),
+                    payment_count: Number(summary?.payment_count || 0),
                };
           } catch (error) {
                throw new DatabaseError('Failed to calculate commission summary', error);

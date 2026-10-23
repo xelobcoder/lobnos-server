@@ -1,6 +1,7 @@
 import { ICommissionAssignment } from '../interfaces/CommissionAssignment.interface';
 
 export interface ICommissionAssignmentRepository {
+     withTransaction?(trx: any): ICommissionAssignmentRepository;
      findById(id: number): Promise<ICommissionAssignment | null>;
      findByConfigId(configId: number, page?: number, count?: number): Promise<ICommissionAssignment[]>;
      findActive(params?: {

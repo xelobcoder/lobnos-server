@@ -1,6 +1,7 @@
 import { ICommissionConfig } from '../interfaces/CommissionConfig.interface';
 
 export interface ICommissionConfigRepository {
+     withTransaction?(trx: any): ICommissionConfigRepository;
      findById(id: number): Promise<ICommissionConfig | null>;
      findByName(name: string): Promise<ICommissionConfig | null>;
      findActive(onDate: Date): Promise<ICommissionConfig[]>;

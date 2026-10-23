@@ -13,6 +13,8 @@ export class CommissionAssignmentRepository implements ICommissionAssignmentRepo
           this.connection = trx || KnexConnection(this.tenantId);
      }
 
+     withTransaction(trx: any): ICommissionAssignmentRepository { return new CommissionAssignmentRepository(this.tenantId, trx); }
+
      private async getConnection(): Promise<Knex> {
           return this.connection;
      }

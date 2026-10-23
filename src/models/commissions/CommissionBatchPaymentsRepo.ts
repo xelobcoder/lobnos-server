@@ -1,3 +1,5 @@
+import { randomUUID } from 'crypto';
+import { allocateCommissionPayment, CommissionPaymentValidationError } from './CommissionPaymentAllocation';
 import KnexConnection from "../../database/KnexConnections";
 import logger from "../../hooks/logger";
 import CommissionPaymentExpenseSync from "./CommissionPaymentExpenseSync";
@@ -57,106 +59,60 @@ export class CommissionBatchPaymentsRepo {
      }
 
      createBatchPaymentWithServices = async (data: CommissionPaymentParameter) => {
-          let trx: any;
-          try {
-               const { startDate, endDate, commissionDue, amountPaid, services, branchid, employeeid, paymentMethod, recipientId, recipientType } = data;
-               const commissionAmount = parseFloat(commissionDue.toString());
-               const paid = parseFloat(amountPaid.toString());
-               const waivedAmount = commissionAmount - paid;
-               const isWaived = waivedAmount > 0;
-
-               const formatDate = (date: Date) => {
-                    const year = date.getFullYear();
-                    const month = (date.getMonth() + 1).toString().padStart(2, '0');
-                    const day = date.getDate().toString().padStart(2, '0');
-                    return `${year}${month}${day}`;
-               };
-
-               const commision_batch = `BATCH-${formatDate(startDate)}-${formatDate(endDate)}-${Date.now()}`;
-               const waiverAmountPerService = isWaived ? parseFloat((waivedAmount / services.length).toFixed(2)) : 0;
-
-               // create transacction connection 
-               const conn = await this.connection;
-               const trx = await conn.transaction();
-
-               const batchID = await trx('commission_batch_payments')
-                    .insert({
-                         batch_reference: commision_batch,
-                         recipient_type: recipientType,
-                         recipient_id: recipientId,
-                         start_date: startDate,
-                         end_date: endDate,
-                         total_commission_amount: commissionAmount,
-                         payment_amount: paid,
-                         waived_amount: waivedAmount,
-                         status: 'completed',
-                         created_by: employeeid,
-                         payment_date: new Date(),
-                         created_at: new Date(),
-                         payment_method: paymentMethod,
-                         updated_at: new Date()
-                    });
-
-               const batchPaymentId = batchID[0];
-
-               // insert each service into commission_batch_payment_services
-               for (const serviceId of services) {
-                    const commissionDueForService = await conn('commission_tracking')
-                         .where('service_id', serviceId)
-                         .first()
-                         .then((row: any) => row ? parseFloat(row.commission_due) : 0);
-                    const waivedForService = isWaived ? waiverAmountPerService : 0;
-
-                    await trx('commission_batch_payment_services')
-                         .insert({
-                              batch_payment_id: batchID[0],
-                              serviceid: serviceId,
-                              commission_due: commissionDueForService,
-                              amount_allocated: commissionDueForService - waivedForService,
-                              waived_amount: waivedForService,
-                              status: isWaived ? 'partial' : 'paid',
-                              created_at: new Date()
-                         });
-               }
-
-               // Automatically convert commission payment to expense within the same transaction
-               const expenseResult = await CommissionPaymentExpenseSync.markCommissionPaymentAsExpense(this.tenantId, {
-                    batchPaymentId: batchPaymentId,
-                    employeeid,
-                    branchid
-               }, trx); // Pass the transaction
-
-               if (!expenseResult.success) {
-                    throw new Error(`Failed to convert commission payment to expense: ${expenseResult.message}`);
-               }
-
-               // Update the commission batch payment with expense sync info
-               await trx('commission_batch_payments')
-                    .where('id', batchPaymentId)
-                    .update({
-                         expense_synced: true,
-                         expense_id: expenseResult.expense_id,
-                         expense_invoice_id: expenseResult.invoice_id,
-                         expense_payment_id: expenseResult.expense_payment_id,
-                         updated_at: new Date() as any
-                    });
-
-               await trx.commit();
-
-               return { batchPaymentId };
-          } catch (error) {
-               logger.error('Error creating batch payment with services:', error);
-               if (trx && typeof trx.rollback === 'function') {
-                    try {
-                         await trx.rollback();
-                    } catch (rollbackError) {
-                         logger.error('Failed to rollback commission batch payment transaction:', rollbackError);
-                    }
-               }
-               throw error;
+          const { startDate, endDate, services, branchid, employeeid, paymentMethod, recipientId, recipientType } = data;
+          if (!Array.isArray(services) || !services.length || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
+               throw new CommissionPaymentValidationError('Provide a nonempty list of unique positive service IDs');
           }
+          if (!['clinician', 'organization'].includes(recipientType) || !Number.isSafeInteger(recipientId) || recipientId <= 0
+               || !Number.isSafeInteger(branchid) || branchid <= 0 || !Number.isSafeInteger(employeeid) || employeeid <= 0
+               || !(startDate instanceof Date) || !(endDate instanceof Date) || !Number.isFinite(startDate.getTime()) || !Number.isFinite(endDate.getTime()) || startDate > endDate) {
+               throw new CommissionPaymentValidationError('Invalid payment recipient, employee, branch, or date range');
+          }
+          const conn = await this.connection;
+          return conn.transaction(async (trx: any) => {
+               // The same service locks protect all batches, including requests for a different recipient.
+               const locked = await trx('dboservices').whereIn('serviceid', [...services].sort((a,b) => a-b)).orderBy('serviceid').forUpdate();
+               if (locked.length !== services.length) throw new CommissionPaymentValidationError('One or more services do not exist');
+               const existing = await trx('commission_batch_payment_services').whereIn('serviceid', services).first();
+               if (existing) throw new CommissionPaymentValidationError('One or more services have already been batched');
+               const tracking = await trx('commission_tracking').whereIn('service_id', services).whereNotIn('status', ['voided', 'adjusted']).orderBy('id').forUpdate();
+               const rows = services.map(serviceId => {
+                    const matches = tracking.filter((row: any) => Number(row.service_id) === serviceId);
+                    if (matches.length !== 1) throw new CommissionPaymentValidationError('Each service must have exactly one active commission calculation');
+                    const row = matches[0];
+                    if (row.recipient_type !== recipientType || Number(row.recipient_id) !== recipientId) throw new CommissionPaymentValidationError('A service does not belong to the selected commission recipient');
+                    if (!['pending', 'approved'].includes(row.status)) throw new CommissionPaymentValidationError('A service commission is not payable');
+                    return row;
+               });
+               const allocation = allocateCommissionPayment(rows.map((row: any) => row.final_commission), data.commissionDue, data.amountPaid);
+               const now = new Date();
+               const [batchPaymentId] = await trx('commission_batch_payments').insert({
+                    batch_reference: 'BATCH-' + randomUUID(), recipient_type: recipientType, recipient_id: recipientId,
+                    start_date: startDate, end_date: endDate, total_commission_amount: allocation.total,
+                    payment_amount: allocation.paid, waived_amount: allocation.waived, status: 'completed',
+                    created_by: employeeid, payment_date: now, created_at: now, payment_method: paymentMethod, updated_at: now
+               });
+               for (let index = 0; index < services.length; index++) {
+                    const share = allocation.services[index];
+                    await trx('commission_batch_payment_services').insert({
+                         batch_payment_id: batchPaymentId, serviceid: services[index], commission_due: share.due,
+                         amount_allocated: share.allocated, waived_amount: share.waived,
+                         status: share.allocated === 0 && share.waived > 0 ? 'waived' : share.waived > 0 ? 'partial' : 'paid', created_at: now
+                    });
+               }
+               // A short payment remains an explicit settlement with a waiver, as in the existing API.
+               if (allocation.paid > 0) {
+                    const expense = await CommissionPaymentExpenseSync.markCommissionPaymentAsExpense(this.tenantId, { batchPaymentId, employeeid, branchid }, trx);
+                    if (!expense.success) throw new Error('Failed to convert commission payment to expense: ' + expense.message);
+                    await trx('commission_batch_payments').where('id', batchPaymentId).update({
+                         expense_synced: true, expense_id: expense.expense_id, expense_invoice_id: expense.invoice_id,
+                         expense_payment_id: expense.expense_payment_id, updated_at: now
+                    });
+               }
+               await trx('commission_tracking').whereIn('id', rows.map((row: any) => row.id)).update({ status: 'paid', updated_at: now });
+               return { batchPaymentId };
+          });
      }
-
 
      getBatch = async ({ batchid, recipient_id, recipient_type, startDate, endDate, page, count, sortby }: GetBatchParameters) => {
           try {
