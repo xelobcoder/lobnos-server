@@ -18,7 +18,7 @@ Managers see the portfolios permitted by their operating branch; managers with n
 
 ## Commission proposals
 
-Marketers select an existing active commission plan, propose current/future dates and record negotiated context. Create new rate templates in the existing commission configuration module when needed. Proposal cards display the full terms, including rate tiers and caps. Another administrator or manager approves or rejects the proposal with review notes. A user cannot approve their own proposal.
+Marketers select an existing active commission plan, propose current/future dates and record negotiated context. Create new rate templates in the existing commission configuration module when needed. Proposal cards display the full terms, including rate tiers and caps. An administrator or manager approves or rejects the proposal with review notes. Administrators and super administrators may approve their own proposals; managers require a different reviewer. The original proposer and reviewer remain recorded in the audit trail.
 
 Approval verifies that the template and tiers have not changed since submission and freezes the terms in a dedicated commission configuration. It creates a recipient-specific assignment used by the existing commission engine. Overlapping general assignments are ended immediately before the new start date while historical eligibility remains active for its original dates. Future/current conflicting assignments must be resolved in commission settings first. Service-specific overrides and existing recipient policies still apply. Approval does not recalculate or pay historical commissions. Failed approvals roll back configurations, tiers, assignments and decision changes together.
 

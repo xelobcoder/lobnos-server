@@ -60,20 +60,21 @@ describe('referrer acquisition integrity', () => {
           await expect(service.saveFollowup(actor, { lead_id: 1, followup_type: 'call', status: 'pending', priority: 'medium', notes: 'Call doctor' })).rejects.toThrow('next-action date');
           await expect(service.saveFollowup(actor, { version: 1, status: 'completed' }, 3)).rejects.toThrow('changed');
      });
-     it('requires an independent agreement reviewer and retains pending state after failure', async () => {
+     it('requires an independent reviewer for managers and retains pending state after failure', async () => {
           const { service, store } = setup({ crm_commission_proposals: [{ id: 2, lead_id: 1, status: 'pending', proposed_by: 8 }] });
           await expect(service.reviewProposal(manager, 1, 2, { decision: 'approved', notes: 'Agreed' })).rejects.toThrow('different');
           expect(store.rows('crm_commission_proposals')[0].status).toBe('pending');
      });
-     it('freezes approved terms, preserves historical assignment dates and prevents double approval', async () => {
+     it.each(['manager', 'admin', 'super_admin'])('freezes terms and prevents double approval for %s, including administrator self approval', async (role) => {
+          const reviewer = { ...manager, role };
           const config = { id: 10000, name: 'Ten percent', commission_type: 'percentage', percentage_rate: '10.00', effective_from: '2026-01-01', effective_to: null, is_active: true, crm_agreement_proposal_id: null };
           const reversed = Object.fromEntries(Object.entries(config).reverse());
           const { service, store } = setup({ leads: [{ id: 1, assigned_to: 7, branchid: 4, version: 1, prospect_type: 'clinician', referrer_id: 11 }],
                clinicianbasicinfo: [{ id: 11 }], commission_configs: [config], commission_tiers: [],
-               crm_commission_proposals: [{ id: 2, lead_id: 1, status: 'pending', proposed_by: 7, commission_config_id: 10000, effective_from: now, effective_to: null, terms_snapshot: JSON.stringify({ config: reversed, tiers: [] }) }],
+               crm_commission_proposals: [{ id: 2, lead_id: 1, status: 'pending', proposed_by: role === 'manager' ? 7 : 8, commission_config_id: 10000, effective_from: now, effective_to: null, terms_snapshot: JSON.stringify({ config: reversed, tiers: [] }) }],
                commission_assignments: [{ id: 5, scope_type: 'clinician', scope_id: 11, is_active: true, service_id: null, service_category: null, assigned_from: '2026-01-01', assigned_to: null }],
           });
-          await service.reviewProposal(manager, 1, 2, { decision: 'approved', notes: 'Negotiated terms verified' });
+          await service.reviewProposal(reviewer, 1, 2, { decision: 'approved', notes: 'Negotiated terms verified' });
           const frozen = store.rows('commission_configs').find(row => row.crm_agreement_proposal_id === 2)!;
           expect(frozen).toMatchObject({ percentage_rate: '10.00', effective_from: now });
           expect(frozen.id).not.toBe(10000);
@@ -81,7 +82,7 @@ describe('referrer acquisition integrity', () => {
           expect(store.rows('commission_assignments')[0].assigned_to).not.toBeNull();
           expect(store.rows('commission_assignments')[1].commission_config_id).toBe(frozen.id);
           expect(store.rows('crm_commission_proposals')[0]).toMatchObject({ status: 'approved', reviewed_by: 8 });
-          await expect(service.reviewProposal(manager, 1, 2, { decision: 'approved', notes: 'Retry' })).rejects.toThrow('already reviewed');
+          await expect(service.reviewProposal(reviewer, 1, 2, { decision: 'approved', notes: 'Retry' })).rejects.toThrow('already reviewed');
           expect(store.rows('commission_configs')).toHaveLength(2);
      });
 });

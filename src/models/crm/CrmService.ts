@@ -60,7 +60,7 @@ export class CrmService {
           const staff = (await staffQuery).filter(row => Number(row.activation) !== 0 && roleAllowed(row.role, ['marketer', 'admin', 'manager', 'customer service representative']));
           const lookup = (table: string) => db(table).select('id', 'name').where('name', 'like', `%${search.trim().slice(0, 80)}%`).orderBy('name').limit(50);
           const [clinicians, organizations, configs] = await Promise.all([lookup('clinicianbasicinfo'), lookup('organization'), db('commission_configs').where({ is_active: true }).whereNull('crm_agreement_proposal_id').select('id', 'name', 'commission_type', 'percentage_rate', 'fixed_component', 'effective_from', 'effective_to').orderBy('name')]);
-          return { staff, clinicians, organizations, configs, manager: crmManager(actor), tenantId: actor.tenantId };
+          return { staff, clinicians, organizations, configs, manager: crmManager(actor), canApproveOwnAgreement: roleAllowed(actor.role, ['admin']), tenantId: actor.tenantId };
      }
      async list(actor: AuthUser, filters: any = {}) {
           const db = await KnexConnection(this.tenantId);
@@ -130,7 +130,7 @@ export class CrmService {
                if (!lead.assigned_to) crmFail('Assign a marketer before linking the referrer');
                if (createEntity) {
                     const normalized = normalizeQuickReferralEntity(lead.prospect_type, { name: lead.display_name || lead.firstname, email: lead.contact_email });
-                    if (!normalized.value) crmFail(normalized.error!);
+                    if (!normalized.value) return crmFail(normalized.error || 'Invalid referrer details');
                     if (lead.contact_phone && !/^\+?[\d\s().-]{5,50}$/.test(lead.contact_phone)) crmFail('Enter a valid referrer contact phone before creating the entity');
                     normalized.value.phone = lead.contact_phone || null;
                     const creator = new QuickReferralEntityService(this.tenantId);
@@ -233,7 +233,7 @@ export class CrmService {
                const proposal = await trx('crm_commission_proposals').where({ id: proposalId, lead_id: id }).forUpdate().first();
                if (!proposal) crmFail('Proposal not found', 404);
                if (proposal.status !== 'pending') crmFail('This proposal was already reviewed', 409);
-               if (Number(proposal.proposed_by) === actor.employeeid) crmFail('A different administrator or manager must review this proposal', 403);
+               if (Number(proposal.proposed_by) === Number(actor.employeeid) && !roleAllowed(actor.role, ['admin'])) crmFail('A different administrator or manager must review this proposal', 403);
                let assignmentId: number | null = null;
                if (data.decision === 'approved') {
                     const from = String(proposal.effective_from instanceof Date ? proposal.effective_from.toISOString().slice(0, 10) : proposal.effective_from).slice(0, 10);
