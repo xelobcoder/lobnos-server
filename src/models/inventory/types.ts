@@ -657,7 +657,7 @@ export interface AvailableStockDetails {
 }
 
 // Consumption-specific interfaces
-export type ConsumptionType = 'manual' | 'test' | 'wastage';
+export type ConsumptionType = 'manual' | 'test' | 'wastage' | 'phlebotomy';
 
 export interface ManualConsumptionRequest {
      item_id: string;
@@ -712,6 +712,7 @@ export interface ConsumptionReportFilters {
 }
 
 export interface ConsumptionSummary {
+     phlebotomy_consumptions?: number;
      total_consumptions: number;
      manual_consumptions: number;
      test_consumptions: number;

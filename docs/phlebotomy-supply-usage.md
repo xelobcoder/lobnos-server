@@ -10,4 +10,6 @@ Usage validates active items, positive quantities, whole-unit storage constraint
 
 No additional schema migration is needed beyond the existing operations-workflow schema. Deploy the backend and Lobnos frontend together. The supply picker is manual; this change does not infer supply quantities from specimen volume or laboratory processing templates.
 
+The `/inventory/consumption` report combines legacy consumption history with actual phlebotomy and laboratory workflow stock movements. Existing workflow deductions appear without a backfill or another stock deduction. Workflow movements already represented by their transaction ID in legacy history are excluded from the added source. Pagination, date/staff filters and summary totals use the combined source. Phlebotomy has its own badge and summary count; details include patient, ordered test and usage reference. Decimal quantities are summed numerically.
+
 Validation: backend build, frontend TypeScript source check and 25 focused workflow, permissions and inventory tests. No live patient transaction or browser interaction was performed.

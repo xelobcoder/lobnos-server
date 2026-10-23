@@ -1,3 +1,4 @@
+import { consumptionReportSource, consumptionReportType } from '../../models/inventory/ConsumptionReportSource';
 import { Request, Response } from 'express';
 import { InventoryTransactionModel } from '../../models/inventory/InventoryTransaction';
 import { InventoryItemModel } from '../../models/inventory/InventoryItem';
@@ -752,7 +753,7 @@ export class InventoryConsumptionController {
                const connection = await (model as any).connection;
                const sortOrder = (sortby as string).toUpperCase() === 'ASC' ? 'asc' : 'desc';
 
-               let query = connection('inv_consumption_history')
+               let query = connection.from(consumptionReportSource(connection).as('inv_consumption_history'))
                     .leftJoin('inv_inventory_items', 'inv_consumption_history.item_id', 'inv_inventory_items.id')
                     .leftJoin('roles', 'inv_consumption_history.consumed_by', 'roles.employeeid')
                     .select(
@@ -789,7 +790,7 @@ export class InventoryConsumptionController {
                const offset = (parseInt(page as string) - 1) * parseInt(count as string);
                const rawData = await query.limit(parseInt(count as string)).offset(offset);
 
-               let allConsumptionQuery = connection('inv_consumption_history')
+               let allConsumptionQuery = connection.from(consumptionReportSource(connection).as('inv_consumption_history'))
                     .select('*')
                     .orderBy('consumption_date', sortOrder);
 
@@ -813,10 +814,11 @@ export class InventoryConsumptionController {
 
                const summary: ConsumptionSummary = {
                     total_consumptions: total,
-                    manual_consumptions: allConsumptionData.filter(c => !c.consumption_reason?.toLowerCase().includes('test') && !c.consumption_reason?.toLowerCase().includes('wastage')).length,
-                    test_consumptions: allConsumptionData.filter(c => c.consumption_reason?.toLowerCase().includes('test')).length,
-                    wastage_consumptions: allConsumptionData.filter(c => c.consumption_reason?.toLowerCase().includes('wastage')).length,
-                    total_quantity_consumed: allConsumptionData.reduce((sum, c) => sum + c.quantity_consumed, 0),
+                    manual_consumptions: allConsumptionData.filter(c => consumptionReportType(c) === 'manual').length,
+                    test_consumptions: allConsumptionData.filter(c => consumptionReportType(c) === 'test').length,
+                    wastage_consumptions: allConsumptionData.filter(c => consumptionReportType(c) === 'wastage').length,
+                    phlebotomy_consumptions: allConsumptionData.filter(c => consumptionReportType(c) === 'phlebotomy').length,
+                    total_quantity_consumed: allConsumptionData.reduce((sum, c) => sum + Number(c.quantity_consumed || 0), 0),
                     period_start: startDate as string || new Date(Date.now() - 30 * 24 * 60 * 60 * 1000) as any,
                     period_end: endDate as string || new Date() as any
                };
@@ -826,8 +828,10 @@ export class InventoryConsumptionController {
                     item_id: consumption.item_id,
                     item_name: consumption.item_name || '',
                     item_sku: consumption.item_sku || '',
-                    consumption_type: this.determineConsumptionTypeFromHistory(consumption),
-                    quantity: consumption.quantity_consumed,
+                    consumption_type: consumptionReportType(consumption),
+                    quantity: Number(consumption.quantity_consumed),
+                    ascensionid: consumption.ascensionid,
+                    reference_id: consumption.reference_id,
                     reason: consumption.consumption_reason,
                     batch_number: consumption.batch_number,
                     patientid: consumption.patientid,
