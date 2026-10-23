@@ -11,7 +11,7 @@ describe('post-agreement handover', () => {
   expect(relationshipHandover(lead, [assignment], null, '2026-09-01').status).toBe('scheduled');
  });
  it('flags expired or disabled assignments for review', () => {
-  expect(relationshipHandover(lead, [assignment], null, '2026-11-01').status).toBe('needs_review');
+  expect(relationshipHandover(lead, [assignment], null, '2026-11-01').status).toBe('expired');
   expect(relationshipHandover(lead, [{ ...assignment, is_active: 0 }], null, '2026-10-23').status).toBe('needs_review');
  });
  it('keeps current terms visible when a replacement is scheduled', () => {

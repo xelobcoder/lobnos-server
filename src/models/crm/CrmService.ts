@@ -1,3 +1,4 @@
+import { negotiatedTerms, applyNegotiatedTerms } from './negotiatedTerms';
 import { relationshipHandover } from './relationshipHandover';
 import { z } from 'zod';
 import { createHash } from 'crypto';
@@ -18,7 +19,7 @@ const leadSchema = z.object({
      contact_email: z.preprocess(value => value === '' ? null : value, z.string().trim().email().max(255).nullable().optional()),
      company_name: z.string().trim().max(255).optional(), location: z.string().trim().min(1).max(255),
      lead_source: z.enum(['website', 'referral', 'social_media', 'cold_call', 'trade_show']), priority: z.enum(['low', 'medium', 'high', 'urgent']),
-     acquisition_stage: z.enum(['prospect', 'contacted', 'pitched', 'negotiation', 'agreement_pending', 'active', 'lost']),
+     acquisition_stage: z.enum(['prospect', 'contacted', 'pitched', 'negotiation', 'agreement_pending', 'acquired', 'active', 'lost']),
      assigned_to: owner, notes: z.string().max(10000).optional()
 });
 const followSchema = z.object({
@@ -84,7 +85,10 @@ export class CrmService {
           let referralQuery = lead.referrer_id ? db('dboservices').where(lead.prospect_type === 'organization' ? 'organizationId' : 'clinicianId', lead.referrer_id).where('status', 'active').whereRaw('COALESCE(isRefunded, 0) = 0') : null;
           if (referralQuery && actor.branch != null) referralQuery = referralQuery.where('branchid', actor.branch);
           const firstReferral = referralQuery ? await referralQuery.orderBy('serviceAddedOn', 'asc').select('serviceAddedOn').first() : null;
-          return { lead, activities, followups, proposals, handover: relationshipHandover(lead, assignments, firstReferral) };
+          const pendingProposal = await db('crm_commission_proposals').where({ lead_id: id, status: 'pending' }).first();
+          const onboarding = await db('crm_onboarding').where({ lead_id: id });
+          const approvedAgreements = await db('crm_commission_proposals').where({ lead_id: id, status: 'approved' }).select('id', 'effective_from', 'effective_to', 'assignment_id').orderBy('effective_from', 'desc');
+          return { lead, activities, followups, proposals, pendingProposal, onboarding, approvedAgreements, historyLimits: { activities: 100, followups: 100, proposals: 50 }, handover: relationshipHandover(lead, assignments, firstReferral) };
      }
      async save(actor: AuthUser, input: any, id?: number) {
           const data = (id ? leadSchema.partial() : leadSchema).parse(input);
@@ -94,14 +98,14 @@ export class CrmService {
                if (prior && Number(input.version) !== Number(prior.version)) crmFail('Prospect changed. Reload before saving.', 409);
                if (!crmManager(actor) && data.assigned_to !== undefined && data.assigned_to !== actor.employeeid) crmFail('Only a manager can reassign a prospect', 403);
                if (data.prospect_type && prior?.referrer_id && data.prospect_type !== prior.prospect_type) crmFail('A linked referrer type cannot be changed');
-               if (data.acquisition_stage === 'active') {
+               if (data.acquisition_stage === 'active' || data.acquisition_stage === 'acquired') {
                     const agreement = prior?.referrer_id && await trx('crm_commission_proposals').where({ lead_id: id, status: 'approved' }).first();
                     if (!agreement) crmFail('Link the referrer and approve an agreement before marking it active');
                }
                const assigned_to = data.assigned_to === undefined ? prior?.assigned_to ?? actor.employeeid : data.assigned_to;
                await this.validateOwner(trx, actor, assigned_to);
                const now = new Date();
-               const record: any = { ...data, assigned_to, updated_at: now };
+               const record: any = { ...data, ...(data.acquisition_stage === 'active' ? { acquisition_stage: 'acquired' } : {}), assigned_to, updated_at: now };
                const merged = { ...prior, ...data };
                if (merged.display_name && ['clinician', 'organization'].includes(merged.prospect_type)) {
                     record.fingerprint = createHash('sha256').update(`${merged.prospect_type}:${merged.display_name.trim().toLowerCase().replace(/\s+/g, ' ')}:${String(merged.contact_phone || '').replace(/[^\d+]/g, '')}`).digest('hex');
@@ -112,6 +116,10 @@ export class CrmService {
                else record.version = Number(prior.version) + 1;
                let leadId = id;
                if (leadId) await trx('leads').where({ id: leadId }).update(record); else[leadId] = await trx('leads').insert(record);
+               if (prior?.referrer_id && assigned_to && Number(prior.assigned_to) !== Number(assigned_to)) {
+                    await trx('crm_ownership_history').where({ entity_type: prior.prospect_type, entity_id: prior.referrer_id }).whereNull('valid_to').update({ valid_to: now });
+                    await trx('crm_ownership_history').insert({ entity_type: prior.prospect_type, entity_id: prior.referrer_id, marketer_id: assigned_to, branchid: prior.branchid, valid_from: now });
+               }
                if (prior?.referrer_id && assigned_to) await trx('crm_referrer_portfolios').where({ entity_type: prior.prospect_type, entity_id: prior.referrer_id }).update({ marketer_id: assigned_to, updated_at: now });
                if (prior?.referrer_id && !assigned_to) crmFail('Assign an owner before removing a linked portfolio owner');
                if (prior && prior.assigned_to !== assigned_to) await trx('lead_followups').where({ lead_id: id, status: 'pending', assigned_to: prior.assigned_to }).update({ assigned_to, updated_at: now, version: trx.raw('version + 1') });
@@ -144,6 +152,7 @@ export class CrmService {
                const existing = await trx('crm_referrer_portfolios').where({ entity_type: lead.prospect_type, entity_id: entityId }).first();
                if (existing && Number(existing.lead_id) !== id) crmFail('This referrer is already linked to another prospect', 409);
                if (!existing) await trx('crm_referrer_portfolios').insert({ entity_type: lead.prospect_type, entity_id: entityId, marketer_id: lead.assigned_to, branchid: lead.branchid, lead_id: id, updated_at: new Date() });
+               if (!existing) await trx('crm_ownership_history').insert({ entity_type: lead.prospect_type, entity_id: entityId, marketer_id: lead.assigned_to, branchid: lead.branchid, valid_from: new Date() });
                await trx('leads').where({ id }).update({ referrer_id: entityId, version: Number(lead.version) + 1, updated_at: new Date() });
                await this.audit(trx, actor, id, 'referrer_linked', input.notes, { entity_type: lead.prospect_type, entity_id: entityId });
                return this.lead(trx, actor, id);
@@ -206,7 +215,7 @@ export class CrmService {
           });
      }
      async propose(actor: AuthUser, id: number, input: any) {
-          const data = z.object({ commission_config_id: z.number().int().positive(), effective_from: crmDate, effective_to: optionalDate, notes: z.string().trim().min(3).max(2000) }).parse(input);
+          const data = z.object({ commission_config_id: z.number().int().positive(), effective_from: crmDate, effective_to: optionalDate, notes: z.string().trim().min(3).max(2000), negotiated: negotiatedTerms.optional() }).parse(input);
           if (data.effective_from < today() || data.effective_to && data.effective_to < data.effective_from) crmFail('Use a current or future agreement date range');
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async trx => {
@@ -218,21 +227,24 @@ export class CrmService {
                const configFrom = new Date(config.effective_from).toISOString().slice(0, 10), configTo = config.effective_to ? new Date(config.effective_to).toISOString().slice(0, 10) : null;
                if (data.effective_from < configFrom || configTo && (!data.effective_to || data.effective_to > configTo)) crmFail('Agreement dates must be within the commission plan validity');
                const tiers = await trx('commission_tiers').where({ commission_config_id: config.id }).orderBy('sort_order');
-               const [proposalId] = await trx('crm_commission_proposals').insert({ ...data, lead_id: id, proposed_by: actor.employeeid, status: 'pending', terms_snapshot: JSON.stringify({ config, tiers }), created_at: new Date() });
-               await trx('leads').where({ id }).update({ acquisition_stage: 'agreement_pending', version: Number(lead.version) + 1, updated_at: new Date() });
+               applyNegotiatedTerms(config, data.negotiated, actor);
+               const { negotiated, ...proposalData } = data;
+               const [proposalId] = await trx('crm_commission_proposals').insert({ ...proposalData, lead_id: id, proposed_by: actor.employeeid, status: 'pending', terms_snapshot: JSON.stringify({ config, tiers, ...(negotiated ? { negotiated } : {}) }), created_at: new Date() });
+               await trx('leads').where({ id }).update({ acquisition_stage: (await trx('crm_commission_proposals').where({ lead_id: id, status: 'approved' }).first()) ? 'acquired' : 'agreement_pending', version: Number(lead.version) + 1, updated_at: new Date() });
                await this.audit(trx, actor, id, 'commission_proposed', data.notes, { proposal_id: proposalId, ...data });
                return { id: proposalId };
           });
      }
      async reviewProposal(actor: AuthUser, id: number, proposalId: number, input: any) {
           if (!crmManager(actor)) crmFail('Only an administrator or manager can approve agreements', 403);
-          const data = z.object({ decision: z.enum(['approved', 'rejected']), notes: z.string().trim().min(3).max(2000) }).parse(input);
+          const data = z.object({ decision: z.enum(['approved', 'rejected']), notes: z.string().trim().min(3).max(2000), version: z.number().int().positive() }).parse(input);
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async trx => {
                const lead = await this.lead(trx, actor, id, true);
                const proposal = await trx('crm_commission_proposals').where({ id: proposalId, lead_id: id }).forUpdate().first();
                if (!proposal) crmFail('Proposal not found', 404);
                if (proposal.status !== 'pending') crmFail('This proposal was already reviewed', 409);
+               if (Number(proposal.version || 1) !== data.version) return crmFail('Proposal changed. Reload and review the revised terms.', 409);
                if (Number(proposal.proposed_by) === Number(actor.employeeid) && !roleAllowed(actor.role, ['admin'])) crmFail('A different administrator or manager must review this proposal', 403);
                let assignmentId: number | null = null;
                if (data.decision === 'approved') {
@@ -243,7 +255,8 @@ export class CrmService {
                     const tiers = await trx('commission_tiers').where({ commission_config_id: proposal.commission_config_id }).orderBy('sort_order');
                     if (!config || stable(config) !== stable(snapshot.config) || stable(tiers) !== stable(snapshot.tiers)) crmFail('Commission terms changed. Reject and submit a new proposal', 409);
                     // Freeze negotiated terms in a dedicated configuration; later template edits must not change this agreement.
-                    const { id: templateId, created_at: _created, updated_at: _updated, ...frozenTerms } = config;
+                    const agreedConfig = applyNegotiatedTerms(config, snapshot.negotiated, { ...actor, role: 'admin' });
+                    const { id: templateId, created_at: _created, updated_at: _updated, ...frozenTerms } = agreedConfig;
                     const [approvedConfigId] = await trx('commission_configs').insert({
                          ...frozenTerms, name: `CRM agreement ${proposalId}: ${config.name}`.slice(0, 255),
                          crm_agreement_proposal_id: proposalId, effective_from: from, effective_to: proposal.effective_to || null, created_at: new Date(), updated_at: new Date()
@@ -260,8 +273,8 @@ export class CrmService {
                          service_id: null, service_category: null, priority: 50, assigned_from: from, assigned_to: proposal.effective_to || null, is_active: true, created_at: new Date()
                     });
                }
-               await trx('crm_commission_proposals').where({ id: proposalId }).update({ status: data.decision, review_notes: data.notes, reviewed_by: actor.employeeid, reviewed_at: new Date(), assignment_id: assignmentId });
-               await trx('leads').where({ id }).update({ acquisition_stage: data.decision === 'approved' ? 'active' : 'negotiation', version: Number(lead.version) + 1, updated_at: new Date() });
+               await trx('crm_commission_proposals').where({ id: proposalId }).update({ status: data.decision, review_notes: data.notes, reviewed_by: actor.employeeid, reviewed_at: new Date(), assignment_id: assignmentId, version: data.version + 1 });
+               await trx('leads').where({ id }).update({ acquisition_stage: data.decision === 'approved' || await trx('crm_commission_proposals').where({ lead_id: id, status: 'approved' }).first() ? 'acquired' : 'negotiation', version: Number(lead.version) + 1, updated_at: new Date() });
                await this.audit(trx, actor, id, `commission_${data.decision}`, data.notes, { proposal_id: proposalId, assignment_id: assignmentId });
                return { status: data.decision, assignment_id: assignmentId };
           });

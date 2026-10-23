@@ -34,6 +34,7 @@ export const LOCAL_MIGRATIONS = [
      '20261023_supplier_payment_funding',
      '20261023_operations_workflow_integrity',
      '20261023_referrer_acquisition_crm',
+     '20261023_crm_relationship_workflow',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

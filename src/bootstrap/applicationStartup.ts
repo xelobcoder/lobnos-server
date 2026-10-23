@@ -1,3 +1,4 @@
+import { startCrmReminderWorker } from '../models/crm/CrmReminderService';
 import { bootstrapCrm } from '../models/crm/CrmBootstrapper';
 import { bootstrapOperationsWorkflow } from '../models/operations/OperationsWorkflowBootstrapper';
 import { bootstrapNotificationDefinitions } from '../models/application/notifications/services/NotificationBootstrapService';
@@ -121,6 +122,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 		console.error('[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):', error);
 	}
 
+	startCrmReminderWorker(tenantId);
 	return { accountingReady };
 }
 

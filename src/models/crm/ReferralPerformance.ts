@@ -31,24 +31,43 @@ export class ReferralPerformance {
      constructor(private tenantId: number) {}
      async report(actor: AuthUser, input: any) {
           const periods = performancePeriods(input), db = await KnexConnection(this.tenantId);
+          const historical = input.attribution === 'historical';
+          if (input.attribution && !['current', 'historical'].includes(input.attribution)) crmFail('Invalid attribution mode');
+          const ownerId = crmManager(actor) ? Number(input.owner) || null : Number(actor.employeeid);
           const type = input.type === 'organization' ? 'organization' : 'clinician';
           const table = type === 'clinician' ? 'clinicianbasicinfo' : 'organization';
           const column = type === 'clinician' ? 'clinicianId' : 'organizationId';
           let entities = db(`${table} as entity`).leftJoin('crm_referrer_portfolios as portfolio', function () {
                this.on('portfolio.entity_id', '=', 'entity.id').andOnVal('portfolio.entity_type', '=', type);
           }).leftJoin('roles as owner', 'owner.employeeid', 'portfolio.marketer_id').select('entity.id', 'entity.name', 'portfolio.marketer_id', 'owner.username as owner_name');
-          if (!crmManager(actor)) entities = entities.where('portfolio.marketer_id', actor.employeeid);
-          if (actor.branch != null) entities = entities.where((q: any) => q.where('portfolio.branchid', actor.branch).orWhereNull('portfolio.branchid'));
-          if (input.owner && crmManager(actor)) entities = entities.where('portfolio.marketer_id', Number(input.owner));
+          if (!historical && !crmManager(actor)) entities = entities.where('portfolio.marketer_id', actor.employeeid);
+          if (!historical && actor.branch != null) entities = entities.where((q: any) => q.where('portfolio.branchid', actor.branch).orWhereNull('portfolio.branchid'));
+          if (!historical && input.owner && crmManager(actor)) entities = entities.where('portfolio.marketer_id', Number(input.owner));
           if (input.search) entities = entities.where('entity.name', 'like', `%${String(input.search).slice(0, 100)}%`);
+          if (historical) entities = entities.whereExists(function () {
+               this.select(db.raw('1')).from('crm_ownership_history as history').whereRaw('history.entity_id = entity.id').where('history.entity_type', type);
+               if (ownerId) this.where('history.marketer_id', ownerId);
+               if (actor.branch != null) this.where('history.branchid', actor.branch);
+               const earliest = periods.start < periods.previousStart ? periods.start : periods.previousStart;
+               const latest = periods.end > periods.previousEnd ? periods.end : periods.previousEnd;
+               this.where('history.valid_from', '<', iso(new Date(Date.parse(latest) + day))).where((q: any) => q.whereNull('history.valid_to').orWhere('history.valid_to', '>=', earliest));
+          });
+          const historyCoverage = historical ? (await db('crm_ownership_history').min('valid_from as started').first())?.started || null : null;
           // Reports include zero-referral entities, so inactive relationships remain visible.
           const refs = await entities.orderBy('entity.name');
           const ids = refs.map(row => Number(row.id));
-          if (!ids.length) return { periods, type, rows: [], totals: { current: this.empty(), previous: this.empty(), change: referralChange(0, 0) }, definitions: this.definitions() };
+          if (!ids.length) return { periods, type, attribution: historical ? 'historical' : 'current', historyCoverage, rows: [], totals: { current: this.empty(), previous: this.empty(), change: referralChange(0, 0) }, definitions: this.definitions(historical) };
           const base = () => {
                let query = db('dboservices as service').join('billing as bill', 'bill.billingid', 'service.billingid')
                     .whereIn(`service.${column}`, ids).where('service.status', 'active').whereRaw('COALESCE(service.isRefunded, 0) = 0');
                if (actor.branch != null) query = query.where('service.branchid', actor.branch);
+               if (historical) query = query.whereExists(function () {
+                    this.select(db.raw('1')).from('crm_ownership_history as credit').where('credit.entity_type', type)
+                         .whereRaw('credit.entity_id = service.??', [column]).whereRaw('credit.valid_from <= service.serviceAddedOn')
+                         .where((q: any) => q.whereNull('credit.valid_to').orWhereRaw('credit.valid_to > service.serviceAddedOn'));
+                    if (ownerId) this.where('credit.marketer_id', ownerId);
+                    if (actor.branch != null) this.where('credit.branchid', actor.branch);
+               });
                return query;
           };
           const aggregate = async (start: string, end: string, grouped: boolean) => {
@@ -56,7 +75,7 @@ export class ReferralPerformance {
                query.select(db.raw('COUNT(DISTINCT service.billingid) as cases'), db.raw('COUNT(DISTINCT bill.patientid) as patients'),
                     db.raw('SUM(service.totalpayable) as billed'), db.raw('SUM(service.paidamount) as collected'),
                     db.raw('SUM((SELECT COUNT(*) FROM test_ascension ordered_test WHERE ordered_test.serviceid = service.serviceid)) as tests'),
-                    db.raw('SUM((SELECT COALESCE(SUM(tracking.commission_due), 0) FROM commission_tracking tracking WHERE tracking.service_id = service.serviceid AND tracking.recipient_type = ? AND tracking.recipient_id = service.??)) as commission', [type, column]));
+                    db.raw('SUM((SELECT COALESCE(SUM(tracking.final_commission), 0) FROM commission_tracking tracking WHERE tracking.service_id = service.serviceid AND tracking.recipient_type = ? AND tracking.recipient_id = service.?? AND tracking.status NOT IN (?, ?))) as commission', [type, column, 'voided', 'adjusted']));
                if (grouped) query.select(`service.${column} as entity_id`).groupBy(`service.${column}`);
                return query;
           };
@@ -72,11 +91,11 @@ export class ReferralPerformance {
                attention: !c.cases && p.cases ? 'inactive' : c.cases < p.cases ? 'declining' : !c.cases ? 'not_activated' : c.cases > p.cases ? 'growing' : 'steady' }; });
           const c = this.metrics(currentTotals[0]), p = this.metrics(previousTotals[0]);
           rows.sort((a, b) => b.current.cases - a.current.cases || a.name.localeCompare(b.name));
-          return { periods, type, rows, totals: { current: c, previous: p, change: referralChange(c.cases, p.cases) }, definitions: this.definitions() };
+          return { periods, type, attribution: historical ? 'historical' : 'current', historyCoverage, rows, totals: { current: c, previous: p, change: referralChange(c.cases, p.cases) }, definitions: this.definitions(historical) };
      }
      private empty() { return { cases: 0, patients: 0, tests: 0, billed: 0, collected: 0, commission: 0 }; }
      private metrics(row: any) { const result = this.empty(); for (const key of Object.keys(result)) result[key] = Number(row?.[key] || 0); return result; }
-     private definitions() { return { cases: 'Distinct billing orders with active, non-refunded services in the period.', patients: 'Distinct referred patients; no patient identities are returned.', tests: 'Ordered tests attached to included services.',
-          collected: 'Current collections against services billed during the selected period, not cash received during that period.', portfolio: 'Both periods use the current assigned portfolio; this is relationship performance, not historical marketer credit.',
+     private definitions(historical = false) { return { cases: 'Distinct billing orders with active, non-refunded services in the period.', patients: 'Distinct referred patients; no patient identities are returned.', tests: 'Ordered tests attached to included services.',
+          collected: 'Current collections against services billed during the selected period, not cash received during that period.', portfolio: historical ? 'Credit belongs to the recorded owner at the service order timestamp. Dates before ownership tracking began have no attributed credit. Displayed owner names are current owners.' : 'Both periods use the current assigned portfolio; this is relationship performance, not historical marketer credit.',
           attribution: 'Clinician and organization dimensions may overlap. Do not add their totals together.', commissions: 'Accrued commission includes paid and unpaid tracking; paying commission does not remove referrals.' }; }
 }

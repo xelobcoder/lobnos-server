@@ -35,7 +35,7 @@ describe('referrer acquisition integrity', () => {
      it('does not activate an unlinked prospect or allow a marketer to approve commission', async () => {
           const { service } = setup();
           await expect(service.save(actor, { version: 1, acquisition_stage: 'active' }, 1)).rejects.toThrow('approve an agreement');
-          await expect(service.reviewProposal(actor, 1, 1, { decision: 'approved', notes: 'Agreed' })).rejects.toThrow('Only');
+          await expect(service.reviewProposal(actor, 1, 1, { decision: 'approved', version: 1, notes: 'Agreed' })).rejects.toThrow('Only');
      });
      it('links the correct referrer and rejects ambiguous clinician matches on a shared contact phone', async () => {
           const { service, store } = setup({ leads: [{ id: 1, display_name: 'Doctor One', contact_phone: '0241234567', contact_email: null, prospect_type: 'clinician', assigned_to: 7, branchid: 4, version: 1 }], clinicianbasicinfo: [{ id: 11, name: 'Doctor One' }] });
@@ -62,7 +62,7 @@ describe('referrer acquisition integrity', () => {
      });
      it('requires an independent reviewer for managers and retains pending state after failure', async () => {
           const { service, store } = setup({ crm_commission_proposals: [{ id: 2, lead_id: 1, status: 'pending', proposed_by: 8 }] });
-          await expect(service.reviewProposal(manager, 1, 2, { decision: 'approved', notes: 'Agreed' })).rejects.toThrow('different');
+          await expect(service.reviewProposal(manager, 1, 2, { decision: 'approved', version: 1, notes: 'Agreed' })).rejects.toThrow('different');
           expect(store.rows('crm_commission_proposals')[0].status).toBe('pending');
      });
      it.each(['manager', 'admin', 'super_admin'])('freezes terms and prevents double approval for %s, including administrator self approval', async (role) => {
@@ -74,7 +74,7 @@ describe('referrer acquisition integrity', () => {
                crm_commission_proposals: [{ id: 2, lead_id: 1, status: 'pending', proposed_by: role === 'manager' ? 7 : 8, commission_config_id: 10000, effective_from: now, effective_to: null, terms_snapshot: JSON.stringify({ config: reversed, tiers: [] }) }],
                commission_assignments: [{ id: 5, scope_type: 'clinician', scope_id: 11, is_active: true, service_id: null, service_category: null, assigned_from: '2026-01-01', assigned_to: null }],
           });
-          await service.reviewProposal(reviewer, 1, 2, { decision: 'approved', notes: 'Negotiated terms verified' });
+          await service.reviewProposal(reviewer, 1, 2, { decision: 'approved', version: 1, notes: 'Negotiated terms verified' });
           const frozen = store.rows('commission_configs').find(row => row.crm_agreement_proposal_id === 2)!;
           expect(frozen).toMatchObject({ percentage_rate: '10.00', effective_from: now });
           expect(frozen.id).not.toBe(10000);
@@ -82,7 +82,7 @@ describe('referrer acquisition integrity', () => {
           expect(store.rows('commission_assignments')[0].assigned_to).not.toBeNull();
           expect(store.rows('commission_assignments')[1].commission_config_id).toBe(frozen.id);
           expect(store.rows('crm_commission_proposals')[0]).toMatchObject({ status: 'approved', reviewed_by: 8 });
-          await expect(service.reviewProposal(reviewer, 1, 2, { decision: 'approved', notes: 'Retry' })).rejects.toThrow('already reviewed');
+          await expect(service.reviewProposal(reviewer, 1, 2, { decision: 'approved', version: 1, notes: 'Retry' })).rejects.toThrow('already reviewed');
           expect(store.rows('commission_configs')).toHaveLength(2);
      });
 });
