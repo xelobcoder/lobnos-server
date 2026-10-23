@@ -47,7 +47,7 @@ export class ReferralPerformance {
           if (historical) entities = entities.whereExists(function () {
                this.select(db.raw('1')).from('crm_ownership_history as history').whereRaw('history.entity_id = entity.id').where('history.entity_type', type);
                if (ownerId) this.where('history.marketer_id', ownerId);
-               if (actor.branch != null) this.where('history.branchid', actor.branch);
+               if (actor.branch != null) this.where((q: any) => q.where('history.branchid', actor.branch).orWhereNull('history.branchid'));
                const earliest = periods.start < periods.previousStart ? periods.start : periods.previousStart;
                const latest = periods.end > periods.previousEnd ? periods.end : periods.previousEnd;
                this.where('history.valid_from', '<', iso(new Date(Date.parse(latest) + day))).where((q: any) => q.whereNull('history.valid_to').orWhere('history.valid_to', '>=', earliest));
@@ -66,7 +66,7 @@ export class ReferralPerformance {
                          .whereRaw('credit.entity_id = service.??', [column]).whereRaw('credit.valid_from <= service.serviceAddedOn')
                          .where((q: any) => q.whereNull('credit.valid_to').orWhereRaw('credit.valid_to > service.serviceAddedOn'));
                     if (ownerId) this.where('credit.marketer_id', ownerId);
-                    if (actor.branch != null) this.where('credit.branchid', actor.branch);
+                    if (actor.branch != null) this.where((q: any) => q.where('credit.branchid', actor.branch).orWhereNull('credit.branchid'));
                });
                return query;
           };
