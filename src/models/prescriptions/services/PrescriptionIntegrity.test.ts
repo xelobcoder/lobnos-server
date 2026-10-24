@@ -24,6 +24,20 @@ function fixture() {
 }
 const input=(quantity=3,key='request-123456')=>({idempotencyKey:key,paymentAccountId:1,paymentMethod:'cash' as const,lines:[{prescriptionItemId:'rx-item',quantityDispensed:quantity}]});
 describe('prescription dispensing integrity',()=>{
+     it('leaves omitted prescribing quantity for pharmacy confirmation',async()=>{
+          const createPrescription=vi.fn();
+          const service=new PrescriptionService({createPrescription} as any,{} as any);
+          const result=await service.createPrescription({patientId:1,items:[{drugName:'Drug',dose:'500 mg',frequency:'Twice daily',duration:'5 days',route:'Oral'}]},2);
+          expect(result.items[0].quantityOrdered).toBe(0);
+          expect(result.items[0].status).toBe('pending');
+          expect(createPrescription).toHaveBeenCalledOnce();
+     });
+     it('blocks dispensing before the pharmacist confirms supply quantity',async()=>{
+          const f=fixture();f.state().items[0].quantityOrdered=0;
+          await expect(f.service.fulfill('rx',input(),2)).rejects.toThrow('confirm the supply quantity');
+          expect(f.saleService.completeSale).not.toHaveBeenCalled();
+     });
+
      it('rejects duplicate prescription item ids before creating a sale',async()=>{
           const f=fixture();await expect(f.service.fulfill('rx',{...input(),lines:[...input().lines,...input().lines]},2)).rejects.toThrow('Duplicate');expect(f.saleService.completeSale).not.toHaveBeenCalled();
      });

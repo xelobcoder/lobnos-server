@@ -29,6 +29,37 @@ export const parseDateRange = (query: any): { from?: string; to?: string; error?
 };
 
 export class PrescriptionController {
+     static async getReferralSlip(request: Request,response: Response): Promise<void> {
+          try {
+               const db=await KnexConnection(tenantOf(request));
+               const prescription=await db('prescriptions').where({id:String(request.params.id)}).first();
+               if(!prescription){response.status(404).json({success:false,error:{message:'Prescription not found'}});return;}
+               const items=await db('prescription_items').where({prescription_id:prescription.id,status:'referred'}).orderBy('created_at').orderBy('id');
+               if(!items.length){response.status(404).json({success:false,error:{message:'No saved referral exists for this prescription'}});return;}
+               const patient=await db('new_patients').where({patientid:prescription.patient_id}).select('firstname','middlename','lastname').first();
+               const company=await db('companyprofile').select('name','address','street','phonenumber','alternativenumber','email','website').first();
+               const patientName=patient?[patient.firstname,patient.middlename,patient.lastname].filter(Boolean).join(' ').trim():'';
+               response.json({success:true,data:{patientName,company:company||{},prescriptionId:prescription.id,patientId:Number(prescription.patient_id),clinicianId:Number(prescription.clinician_id),referredAt:items[0].updated_at,items:items.map(item=>({drugName:item.drug_name_snapshot,dose:item.dose,frequency:item.frequency,duration:item.duration,route:item.route,dosageInstructions:item.dosage_instructions,quantityRemaining:Math.max(0,Number(item.quantity_ordered)-Number(item.quantity_dispensed))}))}});
+          }catch(error){response.status(500).json({success:false,error:{message:'Unable to retrieve the saved referral'}});}
+     }
+
+     static async setSupplyQuantity(request: Request,response: Response): Promise<void> {
+          try {
+               const amount=request.body.quantity;
+               if(typeof amount!=='number'||!Number.isFinite(amount)||amount<=0||amount>99999999999.999||Math.round(amount*1000)/1000!==amount)throw new Error('Enter a positive supply quantity with up to three decimal places');
+               const db=await KnexConnection(tenantOf(request));
+               await db.transaction(async trx=>{
+                    const rx=await trx('prescriptions').where({id:String(request.params.id)}).forUpdate().first();
+                    if(!rx||!['pending','partially_fulfilled'].includes(rx.status))throw new Error('Prescription is unavailable for quantity confirmation');
+                    const item=await trx('prescription_items').where({id:String(request.params.itemId),prescription_id:rx.id}).forUpdate().first();
+                    if(!item||item.status!=='pending'||Number(item.quantity_ordered)!==0||Number(item.quantity_dispensed)!==0)throw new Error('Supply quantity has already been confirmed or this item is resolved');
+                    await trx('prescription_items').where({id:item.id}).update({quantity_ordered:amount,updated_at:new Date()});
+                    await trx('pharmacy_enterprise_events').insert({branchid:branchOf(request),actor_id:actorOf(request),action:'prescription_supply_quantity',details:JSON.stringify({prescriptionId:rx.id,itemId:item.id,quantity:amount}),created_at:new Date()});
+               });
+               response.json({success:true,data:{updated:true}});
+          }catch(error:any){response.status(400).json({success:false,error:{message:error.message}});}
+     }
+
      static async searchPatients(request: Request, response: Response): Promise<void> {
           const search=String(request.query.search||'').trim();
           if (search.length>100) { response.status(400).json({success:false,error:{message:'Search must be at most 100 characters'}}); return; }

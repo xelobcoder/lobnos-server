@@ -127,6 +127,8 @@ export interface PharmacyHeldSale {
 }
 
 export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
+     paidAmount?:number;
+     outstandingAmount?:number;
      amountTendered?: number;
      change?: number;
      paymentAccountId?:number;

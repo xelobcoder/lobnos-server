@@ -36,7 +36,7 @@ export class PrescriptionService implements IPrescriptionService {
           if (!input.items?.length) throw new Error('At least one drug item is required');
           for (const item of input.items) {
                if (!item.drugName?.trim()) throw new Error('Every item requires a drug name');
-               if (!Number.isFinite(item.quantityOrdered) || item.quantityOrdered <= 0) throw new Error(`${item.drugName}: quantity ordered must be positive`);
+               if (item.quantityOrdered !== undefined && (!Number.isFinite(item.quantityOrdered) || item.quantityOrdered <= 0)) throw new Error(`${item.drugName}: quantity ordered must be positive`);
           }
 
           const now = new Date();
@@ -61,7 +61,8 @@ export class PrescriptionService implements IPrescriptionService {
                frequency: item.frequency?.trim() || null,
                duration: item.duration?.trim() || null,
                route: item.route?.trim() || null,
-               quantityOrdered: item.quantityOrdered,
+               // Zero marks supply quantity awaiting pharmacist confirmation; it cannot be dispensed.
+               quantityOrdered: item.quantityOrdered ?? 0,
                quantityDispensed: 0,
                status: 'pending',
                saleId: null
@@ -154,6 +155,7 @@ export class PrescriptionService implements IPrescriptionService {
                if (item.status !== 'pending') throw new Error('Only pending prescription items can be dispensed');
                if (!item.inventoryItemId) throw new Error(`${item.drugName} is not linked to a pharmacy inventory item and cannot be dispensed here`);
                if (!Number.isFinite(line.quantityDispensed) || line.quantityDispensed <= 0 || quantity(line.quantityDispensed)!==line.quantityDispensed) throw new Error('Quantities to dispense must be positive with at most 3 decimal places');
+               if (!item.quantityOrdered) throw new Error(`${item.drugName}: a pharmacist must confirm the supply quantity before dispensing`);
                const remaining = quantity(item.quantityOrdered - item.quantityDispensed);
                if (line.quantityDispensed > remaining) throw new Error(`${item.drugName}: cannot dispense more than the ${remaining} unit(s) remaining`);
 
@@ -208,7 +210,7 @@ export class PrescriptionService implements IPrescriptionService {
           if (!OPEN_STATUSES.includes(prescription.status)) throw new Error(`This prescription is already ${prescription.status} and has nothing left to refer`);
 
           const items = await this.repository.findItemsByPrescriptionId(id);
-          const outstandingItems = items.filter((item) => item.status === 'pending' && item.quantityDispensed < item.quantityOrdered);
+          const outstandingItems = items.filter((item) => item.status === 'pending' && (!item.quantityOrdered || item.quantityDispensed < item.quantityOrdered));
           if (!outstandingItems.length) throw new Error('There is nothing left to refer for this prescription');
 
           const now = new Date();

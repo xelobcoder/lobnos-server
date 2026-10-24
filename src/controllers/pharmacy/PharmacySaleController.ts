@@ -1,3 +1,4 @@
+import KnexConnection from '../../database/KnexConnections';
 import { Request, Response } from 'express';
 import { PHARMACY_REVERSED_STATUSES } from '../../models/pharmacy/constants/pharmacy.constants';
 import { PharmacySaleReversalType } from '../../models/pharmacy/interfaces/IPharmacySaleService';
@@ -87,7 +88,11 @@ export class PharmacySaleController {
 
      static async getSaleDetail(request: Request, response: Response): Promise<void> {
           try {
-               response.json({ success: true, data: await saleService(request).getSaleDetail(String(request.params.saleId)) });
+               const data=await saleService(request).getSaleDetail(String(request.params.saleId));
+               const db=await KnexConnection(tenantOf(request));
+               const patient=data.patientId?await db('new_patients').where({patientid:data.patientId}).select('firstname','middlename','lastname').first():null;
+               const company=await db('companyprofile').select('name','address','street','phonenumber','alternativenumber','email','website').first();
+               response.json({success:true,data:{...data,patientName:patient?[patient.firstname,patient.middlename,patient.lastname].filter(Boolean).join(' '):undefined,company:company||{}}});
           } catch (error: any) {
                const status = /not found/i.test(error.message) ? 404 : 500;
                response.status(status).json({ success: false, error: { code: 'SALE_UNAVAILABLE', message: error.message } });

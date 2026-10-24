@@ -253,7 +253,7 @@ export class PharmacySaleService implements IPharmacySaleService {
           return {
                ...this.toHistoryItem(sale),
                paymentAccountId:Number(sale.accountingVersion)>=2?sale.paymentAccountId:undefined,branchid:sale.branchid,
-               amountTendered: sale.amountTendered, change: sale.changeAmount,
+               amountTendered: sale.amountTendered, change: sale.changeAmount, paidAmount:sale.paidAmount??sale.totalAmount,outstandingAmount:sale.outstandingAmount||0,
                paymentReference: sale.paymentReference,
                patientId: sale.patientId,
                reversedBy: sale.reversedBy,

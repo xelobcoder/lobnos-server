@@ -1,7 +1,8 @@
+import {financialReports,pharmacyFinancialReport} from './PharmacyFinancialReports';
 import { money } from './PharmacyRules';
 import { pharmacyAvailability } from './PharmacyAvailability';
 
-export const PHARMACY_REPORTS=['overview','sales','inventory','expiry','procurement','suppliers','movements','finance'] as const;
+export const PHARMACY_REPORTS=['overview','sales','inventory','expiry','procurement','suppliers','movements','finance','profit_loss','balance_sheet','cash_flow','trial_balance','transactions'] as const;
 export type PharmacyReport=typeof PHARMACY_REPORTS[number];
 export function pharmacyAnalyticsFilters(input:any={},today=new Date().toISOString().slice(0,10)) {
      const end=input.to||today;
@@ -54,10 +55,12 @@ export class PharmacyAnalytics {
           const balance=(code:string)=>ledger.filter((row:any)=>row.account_code===code).reduce((sum:number,row:any)=>sum+Number(row.debit)-Number(row.credit),0);
           const stockRows=await stock().select('id','current_stock','min_stock','pharmacy_batch_tracking');
           const branchAvailability=await pharmacyAvailability(db,stockRows.map((row:any)=>({id:row.id,currentStock:Number(row.current_stock),batchTracking:Boolean(row.pharmacy_batch_tracking)})));
-          const summary={grossSales:money(sold?.amount||0),refunds:money(returned?.amount||0),netSales:money(Number(sold?.amount||0)-Number(returned?.amount||0)),receipts:Number(sold?.count||0),refundCount:Number(returned?.count||0),stockValue:money(inventory?.stockValue||0),medicines:Number(inventory?.medicines||0),reorderItems:stockRows.filter((row:any)=>(branchAvailability.get(row.id)||0)<=Number(row.min_stock)).length,outOfStock:stockRows.filter((row:any)=>(branchAvailability.get(row.id)||0)<=0).length,bookRevenue:money(-balance('sales')),costOfSales:money(balance('cost_of_sales')),operatingExpenses:money(balance('operating_expenses')),profit:money(-balance('sales')-balance('cost_of_sales')-balance('operating_expenses'))};
+          const summary={grossSales:money(sold?.amount||0),refunds:money(returned?.amount||0),netSales:money(Number(sold?.amount||0)-Number(returned?.amount||0)),receipts:Number(sold?.count||0),refundCount:Number(returned?.count||0),stockValue:money(inventory?.stockValue||0),medicines:Number(inventory?.medicines||0),reorderItems:stockRows.filter((row:any)=>(branchAvailability.get(row.id)||0)<=Number(row.min_stock)).length,outOfStock:stockRows.filter((row:any)=>(branchAvailability.get(row.id)||0)<=0).length,bookRevenue:money(-balance('sales')),costOfSales:money(balance('cost_of_sales')),operatingExpenses:money(balance('operating_expenses')),profit:money(-balance('sales')-balance('cost_of_sales')-balance('operating_expenses')-balance('inventory_adjustments'))};
           let result:any,columns:Array<{key:string;label:string;format?:string}>=[];
           const col=(key:string,label:string,format?:string)=>({key,label,format});
-          if(f.report==='sales'){
+          if(financialReports.includes(f.report)){
+               result=await pharmacyFinancialReport(db,branch,f,this.exportAll);columns=result.columns;
+          }else if(f.report==='sales'){
                result=await this.page(pharmacySalesReportQuery(db,branch,f),f,'grossSales');
                result.rows=result.rows.map((row:any)=>{const net=money(Number(row.grossSales)-Number(row.refunds)),profit=money(net-Number(row.costOfSales));return {...row,netSales:net,grossProfit:profit,margin:net>0?money(profit/net*100):null};});
                columns=[col('medicine','Medicine'),col('sku','SKU'),col('soldUnits','Units sold','number'),col('refundedUnits','Units refunded','number'),col('grossSales','Gross sales','money'),col('refunds','Refunds','money'),col('netSales','Net sales','money'),col('costOfSales','Cost of sales','money'),col('grossProfit','Gross profit','money'),col('margin','Margin %','number')];
@@ -101,6 +104,6 @@ export class PharmacyAnalytics {
                result={rows:dates.map(date=>{const sale=recorded.find((row:any)=>new Date(row.date).toISOString().slice(0,10)===date),refund=returned.find((row:any)=>new Date(row.date).toISOString().slice(0,10)===date);return {date,sales:Number(sale?.sales||0),refunds:Number(refund?.refunds||0),netSales:money(Number(sale?.sales||0)-Number(refund?.refunds||0)),receipts:Number(sale?.receipts||0)};}),total:dates.length,page:1,count:dates.length,totalPages:1};
                columns=[col('date','Date','date'),col('sales','Gross sales','money'),col('refunds','Refunds','money'),col('netSales','Net sales','money'),col('receipts','Receipts','number')];
           }
-          return {...result,summary,columns,filters:f,asOf:new Date().toISOString(),scope:'Current branch. Inventory and expiry are current snapshots; other reports use the selected event dates.'};
+          return {...result,branchId:branch,summary,columns,filters:f,asOf:new Date().toISOString(),scope:'Current branch. Inventory and expiry are current snapshots; other reports use the selected event dates.'};
      }
 }

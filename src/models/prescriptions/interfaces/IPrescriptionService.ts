@@ -10,7 +10,8 @@ export interface CreatePrescriptionItemInput {
      frequency?: string;
      duration?: string;
      route?: string;
-     quantityOrdered: number;
+     /** Omit when pharmacy will confirm the supply quantity before dispensing. */
+     quantityOrdered?: number;
 }
 
 export interface CreatePrescriptionInput {
