@@ -21,7 +21,8 @@ export class PharmacySaleController {
                const heldSale = await saleService(request).holdSale(request.body, actorOf(request));
                response.status(201).json({ success: true, data: heldSale });
           } catch (error: any) {
-               response.status(400).json({ success: false, error: { code: 'HOLD_REJECTED', message: error.message } });
+               const uncertain=typeof error.code==='string';
+               response.status(uncertain?503:400).json({ success: false, error: { code: uncertain?'PHARMACY_OPERATION_UNCONFIRMED':'PHARMACY_OPERATION_REJECTED', message: uncertain?'Suspension could not be confirmed. Retry the original request.':error.message } });
           }
      }
 

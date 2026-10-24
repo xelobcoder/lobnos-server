@@ -10,7 +10,7 @@ import { roleAllowed } from '../../middleware/roles';
 
 const prescriptionService = (request: Request) => {
      const tenantId = tenantOf(request);
-     return new PrescriptionService(new PrescriptionRepository(tenantId), new PharmacySaleService(new PharmacySaleRepository(tenantId,branchOf(request)),branchOf(request)));
+     return new PrescriptionService(new PrescriptionRepository(tenantId,undefined,branchOf(request)), new PharmacySaleService(new PharmacySaleRepository(tenantId,branchOf(request)),branchOf(request)));
 };
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;

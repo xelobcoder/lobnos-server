@@ -1,7 +1,9 @@
 import { PharmacySaleRow } from './interfaces/IPharmacySaleRepository';
 import { assertPharmacyDayOpen, postPharmacyJournal, resolvePharmacyDestination } from './PharmacyLedger';
+import {collectCompositeSale,refundCompositeSale} from './PharmacySettlement';
 
 export async function collectPharmacyPayment(db: any, _tenantId: number, sale: PharmacySaleRow): Promise<void> {
+     if(sale.accountingVersion===3)return collectCompositeSale(db,sale);
      if (sale.accountingVersion !== 2) throw new Error('Historical collections require a reviewed legacy reconciliation');
      await assertPharmacyDayOpen(db, sale.branchid!, sale.completedAt!);
      const shift = await db('pharmacy_shifts').where({ active_key: `${sale.branchid}:${sale.cashierId}` }).forUpdate().first();
@@ -20,6 +22,7 @@ export async function collectPharmacyPayment(db: any, _tenantId: number, sale: P
 }
 
 export async function refundPharmacyPayment(db: any, _tenantId: number, sale: PharmacySaleRow, actor: number, reason: string, restock: boolean): Promise<void> {
+     if(sale.accountingVersion===3)return refundCompositeSale(db,sale,actor,reason,restock);
      if (sale.accountingVersion !== 2) throw new Error('Legacy sale: reconcile its original books before making a historical correction');
      await assertPharmacyDayOpen(db, sale.branchid!);
      const payment = await db('pharmacy_payments').where({ sale_id: sale.id }).forUpdate().first();

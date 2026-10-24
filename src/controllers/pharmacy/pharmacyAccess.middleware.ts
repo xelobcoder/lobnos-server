@@ -35,7 +35,7 @@ export const pharmacyReversalAccess = (request: Request, response: Response, nex
 };
 
 export const pharmacySalesAccess = (request: Request, response: Response, next: NextFunction) => {
-     if (!roleAllowed(roleOf(request), ['admin', 'pharmacy_manager', 'pharmacy_cashier', 'pharmacy_dispensary_officer'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy selling permission is required' } });
+     if (!roleAllowed(roleOf(request), ['admin', 'pharmacy_manager', 'pharmacy_cashier', 'pharmacy_dispensary_officer','pharmacist'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy selling permission is required' } });
      next();
 };
 export const pharmacyStockAccess = (request: Request, response: Response, next: NextFunction) => {

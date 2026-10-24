@@ -3,6 +3,7 @@ import { checkTokenExists } from '../../middleware/validateTenancy';
 import { pharmacyAccess, pharmacySalesAccess, prescriptionListAccess } from '../pharmacy/pharmacyAccess.middleware';
 import { PrescriptionController } from './PrescriptionController';
 import { prescriptionCreateAccess, prescriptionDetailAccess, validatePrescriptionContext } from './prescriptionAccess';
+import {enterprise} from '../pharmacy/PharmacyEnterpriseController';
 
 const router = Router();
 
@@ -13,6 +14,7 @@ router.post('/prescriptions', prescriptionCreateAccess, validatePrescriptionCont
 // Must precede /prescriptions/:id. Same self-or-pharmacy rule as the list.
 router.get('/prescriptions/summary', prescriptionListAccess, PrescriptionController.summarizePrescriptions);
 router.get('/prescriptions/:id', prescriptionDetailAccess, PrescriptionController.getPrescription);
+router.post('/prescriptions/:id/repeats',prescriptionCreateAccess,prescriptionDetailAccess,enterprise((s,r)=>s.clinical.authorizeRepeat(String(r.params.id),r.body)));
 router.put('/prescriptions/link-consultation', prescriptionCreateAccess, validatePrescriptionContext, PrescriptionController.linkPrescriptionsToConsultation);
 
 // Fulfillment queue and dispensing actions are pharmacy-staff only. A clinician may list

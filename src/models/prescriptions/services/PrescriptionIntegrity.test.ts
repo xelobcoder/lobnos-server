@@ -5,6 +5,7 @@ function fixture() {
      let state:any={prescription:{id:'rx',patientId:1,clinicianId:2,status:'pending'},items:[{id:'rx-item',prescriptionId:'rx',inventoryItemId:'drug',drugName:'Drug',quantityOrdered:10,quantityDispensed:0,status:'pending',saleId:null}],sales:[],dispenses:[]};
      let queue=Promise.resolve();let fail=false;
      const repository=(trx?:any):any=>({
+          async assertClinicalReview(){},
           async withTransaction(work:any){let release:any;const previous=queue;queue=new Promise(resolve=>release=resolve);await previous;const local=structuredClone(state);try{const result=await work(repository(local),local);state=local;return result;}finally{release();}},
           async findById(){return structuredClone((trx||state).prescription);},
           async findItemsByPrescriptionId(){return structuredClone((trx||state).items);},

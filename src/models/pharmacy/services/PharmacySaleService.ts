@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
-import { money, quantity, saleRequestHash, validateSaleInput, pharmacyTender } from '../PharmacyRules';
-import { randomUUID } from 'crypto';
+import {pharmacySettlement} from '../PharmacySettlement';
+import { money, quantity, pharmacyUnitPrice, saleRequestHash, validateSaleInput, pharmacyTender, pharmacyTransactionPriceType } from '../PharmacyRules';
+import { createHash, randomUUID } from 'crypto';
 import {
      PHARMACY_REVERSAL_MAX_REASON_LENGTH,
      PHARMACY_REVERSAL_MIN_REASON_LENGTH,
@@ -43,37 +44,47 @@ export class PharmacySaleService implements IPharmacySaleService {
           if(!this.branchId)throw new Error('Select an operating branch before holding a sale');
           if (!input.lines?.length) throw new Error('A held sale requires at least one line');
           if (new Set(input.lines.map((line) => line.inventoryItemId)).size !== input.lines.length) throw new Error('Duplicate inventory items are not allowed');
+          const selectedType=pharmacyTransactionPriceType(input);
+          if(input.lines.length>100||input.lines.some(line=>!Number.isFinite(line.quantity)||line.quantity<=0||quantity(line.quantity)!==line.quantity))throw new Error('Select up to 100 items with valid quantities');
+          if(input.idempotencyKey&&!/^[A-Za-z0-9:_-]{8,128}$/.test(input.idempotencyKey))throw new Error('Invalid suspension request key');
+          const hash=createHash('sha256').update(JSON.stringify({branch:this.branchId,actor:cashierId,input})).digest('hex');
 
           return this.saleRepository.withTransaction(async (unitOfWork) => {
+               if(input.idempotencyKey){const previous=await this.saleRepository.findSuspension(input.idempotencyKey,unitOfWork);if(previous){if(previous.hash!==hash)throw new Error('Suspension retry does not match the original request');return previous.result;}}
+               const original=input.heldSaleId?await this.saleRepository.lockHeldSale(input.heldSaleId,unitOfWork):null;
+               if(input.heldSaleId&&!original)throw new Error('This suspended sale is no longer available. Refresh suspended sales');
                const itemIds = input.lines.map((line) => line.inventoryItemId);
                const items = await this.saleRepository.lockSellableItems(itemIds, unitOfWork);
                if (items.length !== itemIds.length) throw new Error('One or more pharmacy items are unavailable');
 
                const itemsById = new Map(items.map((item) => [item.id, item]));
                const now = new Date();
-               const heldSaleId = randomUUID();
+               const heldSaleId = original?.id||randomUUID();
                let total = 0;
                const lines: PharmacySaleLineRow[] = input.lines.map((requested) => {
                     const item = itemsById.get(requested.inventoryItemId)!;
                     if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
-                    if (item.salePrice <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
-                    const lineTotal = money(new Decimal(item.salePrice).mul(requested.quantity));
+                    const unitPrice=pharmacyUnitPrice(item,selectedType);
+                    const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
                     const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
                     total += lineTotal;
-                    return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice: item.salePrice, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: lineTotal - lineCost };
+                    return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice, priceType:selectedType, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: lineTotal - lineCost };
                });
                const sale = {
                     id: heldSaleId,
-                    holdNumber: `HOLD-${heldSaleId}`,
+                    holdNumber: original?.holdNumber||`HOLD-${heldSaleId}`,
                     customerName: input.customerName?.trim() || 'Walk-in customer',
                     patientId: input.patientId || null,
                     totalAmount: money(total),
                     cashierId,
-                    createdAt: now,
+                    createdAt: original?.createdAt||now,
                     updatedAt: now
                };
-               await this.saleRepository.insertHeldSale(sale, lines, unitOfWork);
-               return this.toHeldSale(sale, lines);
+               if(original)await this.saleRepository.replaceHeldSale(sale,lines,unitOfWork);
+               else await this.saleRepository.insertHeldSale(sale, lines, unitOfWork);
+               const result=this.toHeldSale(sale,lines);
+               if(input.idempotencyKey)await this.saleRepository.recordSuspension(input.idempotencyKey,hash,result,cashierId,unitOfWork);
+               return result;
           });
      }
 
@@ -107,7 +118,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                     ...input,
                     customerName: input.customerName || heldSale.customerName,
                     patientId: input.patientId ?? heldSale.patientId,
-                    lines: input.lines?.length ? input.lines : heldLines.map((line) => ({ inventoryItemId: line.inventoryItemId, quantity: line.quantity }))
+                    lines: input.lines?.length ? input.lines : heldLines.map((line) => ({ inventoryItemId: line.inventoryItemId, quantity: line.quantity,priceType:line.priceType }))
                }, cashierId, unitOfWork, undefined, heldSaleId);
                await this.saleRepository.deleteHeldSale(heldSaleId, unitOfWork);
                return receipt;
@@ -149,11 +160,11 @@ export class PharmacySaleService implements IPharmacySaleService {
           for (const requested of input.lines) {
                const item = itemsById.get(requested.inventoryItemId)!;
                if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
-               if (item.salePrice <= 0) throw new Error(`${item.name} has no active pharmacy sale price`);
+               const unitPrice=pharmacyUnitPrice(item,requested.priceType??input.priceType);
                if(item.requiresPrescription && !prescriptionId)throw new Error(`${item.name} requires a prescription; dispense it from the prescription queue`);
                if (item.currentStock < requested.quantity) throw new Error(`${item.name} has insufficient stock`);
 
-               const lineTotal = money(new Decimal(item.salePrice).mul(requested.quantity));
+               const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
                const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
                total += lineTotal;
                totalCost += lineCost;
@@ -164,7 +175,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                     name: item.name,
                     sku: item.sku,
                     quantity: requested.quantity,
-                    unitPrice: item.salePrice,
+                    unitPrice, priceType:requested.priceType??input.priceType??'retail',
                     lineTotal,
                     unitCost: item.costPrice,
                     lineCost,
@@ -174,11 +185,11 @@ export class PharmacySaleService implements IPharmacySaleService {
 
           if(input.expectedTotal!=null && (!Number.isFinite(input.expectedTotal)||money(total)!==input.expectedTotal))throw new Error('Prices changed. Refresh the item prices and review the total before paying');
           if (money(total) <= 0) throw new Error('A sale must have a positive total');
-          const tender = pharmacyTender(money(total), input.paymentMethod, input.amountTendered);
+          const composite=['split','credit'].includes(input.paymentMethod),tender=composite?pharmacySettlement(money(total),input):pharmacyTender(money(total), input.paymentMethod, input.amountTendered);
           const sale: PharmacySaleRow = {
                id: saleId,
                receiptNumber: `PHM-${saleId}`,
-               requestHash, prescriptionId, heldSaleId, branchid:this.branchId, accountingVersion:2, ...tender,
+               requestHash, prescriptionId, heldSaleId, branchid:this.branchId, accountingVersion:composite?3:2, ...tender,settlementJson:composite?JSON.stringify(tender):null,customerAccountId:input.customerAccountId||null,
                idempotencyKey: input.idempotencyKey,
                customerName: input.customerName?.trim() || 'Walk-in customer',
                patientId: input.patientId || null,
@@ -241,7 +252,7 @@ export class PharmacySaleService implements IPharmacySaleService {
 
           return {
                ...this.toHistoryItem(sale),
-               paymentAccountId:sale.accountingVersion===2?sale.paymentAccountId:undefined,branchid:sale.branchid,
+               paymentAccountId:Number(sale.accountingVersion)>=2?sale.paymentAccountId:undefined,branchid:sale.branchid,
                amountTendered: sale.amountTendered, change: sale.changeAmount,
                paymentReference: sale.paymentReference,
                patientId: sale.patientId,
@@ -252,7 +263,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                     name: line.name,
                     sku: line.sku,
                     quantity: line.quantity,
-                    unitPrice: line.unitPrice,
+                    unitPrice: line.unitPrice,priceType:line.priceType,
                     lineTotal: line.lineTotal,
                     unitCost: line.unitCost,
                     lineCost: line.lineCost,
@@ -383,7 +394,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                branchId: sale.branchid ?? undefined, cashierId: sale.cashierId,
                receiptNumber: sale.receiptNumber,
                total: sale.totalAmount,
-               amountTendered:sale.amountTendered, change:sale.changeAmount, paymentReference:sale.paymentReference,
+               amountTendered:sale.amountTendered, change:sale.changeAmount, paymentReference:sale.paymentReference,paidAmount:sale.paidAmount??sale.totalAmount,outstandingAmount:sale.outstandingAmount||0,
                customerName:sale.customerName,
                lines:await this.saleRepository.findSaleLines(sale.id,unitOfWork),
                paymentMethod: sale.paymentMethod as PharmacyPaymentMethod,
@@ -400,7 +411,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                total: sale.totalAmount,
                cashierId: sale.cashierId,
                createdAt: sale.createdAt,
-               lines: lines.map((line) => ({ id: line.id, inventoryItemId: line.inventoryItemId, name: line.name, sku: line.sku, quantity: line.quantity, unitPrice: line.unitPrice, lineTotal: line.lineTotal, unitCost: line.unitCost, lineCost: line.lineCost, grossProfit: line.grossProfit }))
+               lines: lines.map((line) => ({ id: line.id, inventoryItemId: line.inventoryItemId, name: line.name, sku: line.sku, quantity: line.quantity, priceType:line.priceType, retailPrice:line.retailPrice,wholesalePrice:line.wholesalePrice,availableStock:line.availableStock,dispensableStock:line.dispensableStock, unitPrice: line.unitPrice, lineTotal: line.lineTotal, unitCost: line.unitCost, lineCost: line.lineCost, grossProfit: line.grossProfit }))
           };
      }
 }

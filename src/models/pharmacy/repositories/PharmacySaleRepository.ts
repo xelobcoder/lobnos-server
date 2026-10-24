@@ -1,4 +1,6 @@
 import { allocateBatches, quantity } from '../PharmacyRules';
+import { pharmacyAvailability } from '../PharmacyAvailability';
+import {assertNoStockCount,assertBatchNotRecalled} from '../PharmacyEnterpriseCore';
 import { collectPharmacyPayment, refundPharmacyPayment } from '../PharmacyPayments';
 import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
@@ -16,6 +18,19 @@ import {
 } from '../interfaces/IPharmacySaleRepository';
 
 export class PharmacySaleRepository implements IPharmacySaleRepository {
+     async findSuspension(key:string,unitOfWork:PharmacyUnitOfWork){
+          const row=await this.scope(unitOfWork)('pharmacy_documents').where({request_key:key}).forUpdate().first();
+          return row?{hash:row.request_hash,result:JSON.parse(row.details).sale}:null;
+     }
+     async recordSuspension(key:string,hash:string,result:any,actor:number,unitOfWork:PharmacyUnitOfWork){
+          await this.scope(unitOfWork)('pharmacy_documents').insert({id:randomUUID(),branchid:this.branchId,kind:'suspended_sale',request_key:key,request_hash:hash,amount:0,details:JSON.stringify({sale:result}),created_by:actor,created_at:new Date()});
+     }
+     async replaceHeldSale(sale:PharmacyHeldSaleRow,lines:PharmacySaleLineRow[],unitOfWork:PharmacyUnitOfWork){
+          const db=this.scope(unitOfWork);
+          await db('pharmacy_held_sale_lines').where({held_sale_id:sale.id}).delete();
+          await db('pharmacy_held_sales').where({id:sale.id}).update({customer_name:sale.customerName,patient_id:sale.patientId,total_amount:sale.totalAmount,updated_at:sale.updatedAt});
+          await db('pharmacy_held_sale_lines').insert(lines.map(line=>({id:line.id,held_sale_id:sale.id,inventory_item_id:line.inventoryItemId,item_name_snapshot:line.name,sku_snapshot:line.sku,quantity:line.quantity,unit_price:line.unitPrice,price_type:line.priceType,line_total:line.lineTotal,created_at:sale.updatedAt})));
+     }
      private readonly connection: Promise<Knex>;
 
      constructor(private readonly tenantId: number, private readonly branchId: number | null = null, private readonly includeUnassigned=false) {
@@ -43,12 +58,13 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
 
      async lockSellableItems(itemIds: string[], unitOfWork: PharmacyUnitOfWork): Promise<PharmacySellableItemRow[]> {
           const rows = await this.scope(unitOfWork)('pharmacy_inventory_items as item')
-               .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.min_stock', 'item.sale_price', 'item.cost_price', 'item.requires_prescription', 'item.pharmacy_batch_tracking')
+               .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.min_stock', 'item.sale_price', 'item.wholesale_price', 'item.cost_price', 'item.requires_prescription', 'item.pharmacy_batch_tracking','item.controlled')
                .whereIn('item.id', itemIds)
                .where('item.is_active', true)
                .where('item.branchid', this.branchId ?? -1)
                .orderBy('item.id')
                .forUpdate();
+          for(const row of rows){await assertNoStockCount(this.scope(unitOfWork),row.id);const incidents=await this.scope(unitOfWork)('pharmacy_workflows').where({branchid:this.branchId,kind:'cold_chain',status:'requires_quarantine'});if(incidents.some((incident:any)=>JSON.parse(incident.details).itemId===row.id))throw new Error('A cold-chain excursion for this medicine requires investigation before dispensing');}
           return rows.map((row: any) => this.toItemRow(row));
      }
 
@@ -78,6 +94,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                request_hash: sale.requestHash, prescription_id: sale.prescriptionId || null, held_sale_id: sale.heldSaleId || null,
                payment_account_id: sale.paymentAccountId, branchid: sale.branchid,
                amount_tendered:sale.amountTendered, change_amount:sale.changeAmount, accounting_version:sale.accountingVersion,
+               settlement_json:sale.settlementJson||null,customer_account_id:sale.customerAccountId||null,paid_amount:sale.paidAmount??null,outstanding_amount:sale.outstandingAmount??null,
                customer_name: sale.customerName,
                patient_id: sale.patientId,
                payment_method: sale.paymentMethod,
@@ -102,7 +119,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                item_name_snapshot: line.name,
                sku_snapshot: line.sku,
                quantity: line.quantity,
-               unit_price: line.unitPrice,
+               unit_price: line.unitPrice, price_type:line.priceType||'retail',
                line_total: line.lineTotal,
                unit_cost: line.unitCost,
                line_cost: line.lineCost,
@@ -130,7 +147,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                item_name_snapshot: line.name,
                sku_snapshot: line.sku,
                quantity: line.quantity,
-               unit_price: line.unitPrice,
+               unit_price: line.unitPrice, price_type:line.priceType||'retail',
                line_total: line.lineTotal,
                created_at: sale.createdAt
           })));
@@ -145,15 +162,17 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
 
      async findHeldSaleLines(heldSaleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleLineRow[]> {
           const scope = unitOfWork ? this.scope(unitOfWork) : await this.connection;
-          const rows = await scope('pharmacy_held_sale_lines').where({ held_sale_id: heldSaleId }).orderBy('item_name_snapshot', 'asc');
+          const rows = await scope('pharmacy_held_sale_lines as line').leftJoin('pharmacy_inventory_items as item','item.id','line.inventory_item_id').select('line.*','item.sale_price as current_retail_price','item.wholesale_price as current_wholesale_price','item.current_stock','item.pharmacy_batch_tracking','item.is_active').where('line.held_sale_id',heldSaleId).orderBy('line.item_name_snapshot','asc');
+          const availability=await pharmacyAvailability(scope,rows.map((row:any)=>({id:row.inventory_item_id,currentStock:row.is_active?Number(row.current_stock):0,batchTracking:Boolean(row.pharmacy_batch_tracking)})));
           return rows.map((row: any) => ({
                id: row.id,
                saleId: row.held_sale_id,
+               availableStock:Number(row.current_stock||0),dispensableStock:availability.get(row.inventory_item_id)||0,
                inventoryItemId: row.inventory_item_id,
                name: row.item_name_snapshot,
                sku: row.sku_snapshot,
                quantity: Number(row.quantity),
-               unitPrice: Number(row.unit_price),
+               unitPrice: Number(row.unit_price),priceType:row.price_type||'retail',retailPrice:row.current_retail_price==null?undefined:Number(row.current_retail_price),wholesalePrice:row.current_wholesale_price==null?undefined:Number(row.current_wholesale_price),
                lineTotal: Number(row.line_total),
                unitCost: 0,
                lineCost: 0,
@@ -195,6 +214,11 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           await refundPharmacyPayment(db,this.tenantId,sale,actor,reason,disposition==='restock');
           const lines=await this.findSaleLines(sale.id,unitOfWork);
           await db('pharmacy_returns').insert(lines.map(line=>({sale_id:sale.id,inventory_item_id:line.inventoryItemId,quantity:line.quantity,disposition,recorded_by:actor,created_at:new Date()})));
+          if(disposition==='quarantine')for(const line of lines){
+               const issues=await db('pharmacy_stock_movements').where({reference_id:sale.id,item_id:line.inventoryItemId,transaction_type:'consumption'});
+               if(quantity(issues.reduce((sum:number,row:any)=>sum+Number(row.quantity),0))!==Number(line.quantity))throw new Error('Original batch movements do not match the quarantined return');
+               for(const issue of issues)await db('pharmacy_quarantine_lots').insert({id:randomUUID(),branchid:sale.branchid,item_id:line.inventoryItemId,batch_number:issue.batch_number||null,expiry_date:issue.expiry_date||null,quantity:Number(issue.quantity),remaining_quantity:Number(issue.quantity),unit_cost:Number(issue.unit_cost||line.unitCost||0),book_value:0,source:'customer_return',reference_id:sale.id,status:'held',reason,created_by:actor,created_at:new Date()});
+          }
           if(disposition==='not_returned')return;
           const dispenses=await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false});
           // Lock prescriptions before items in every dispensing/referral/reversal path.
@@ -215,9 +239,11 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false}).update({is_reversed:true});
      }
      async assertReturnable(sale: PharmacySaleRow, itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<void> {
+          await assertNoStockCount(this.scope(unitOfWork),itemId);
           const issues=await this.scope(unitOfWork)('pharmacy_stock_movements').where({reference_id:sale.id,item_id:itemId,transaction_type:'consumption'});
           const today=new Date().toISOString().slice(0,10);
           if(!issues.length || issues.some((row:any)=>row.expiry_date && new Date(row.expiry_date).toISOString().slice(0,10)<today))throw new Error('Expired or untraceable goods must be quarantined, not restocked');
+          for(const issue of issues)await assertBatchNotRecalled(this.scope(unitOfWork),this.branchId!,itemId,issue.batch_number);
      }
      async recordStockMovement(movement: PharmacyStockMovement, unitOfWork: PharmacyUnitOfWork): Promise<void> {
           const db=this.scope(unitOfWork);
@@ -226,7 +252,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                const item=await db('pharmacy_inventory_items').where({id:movement.itemId}).first();
                const rows=await db('pharmacy_stock_movements').select('batch_number').min('expiry_date as expiry_date')
                     .select(db.raw('SUM(new_stock - previous_stock) as available')).where({item_id:movement.itemId}).whereNotNull('batch_number').groupBy('batch_number');
-               allocations=allocateBatches(rows.map((row:any)=>({batchNumber:row.batch_number,available:Number(row.available),expiryDate:row.expiry_date?new Date(row.expiry_date).toISOString().slice(0,10):null})),movement.quantity,movement.previousStock,Boolean(item.pharmacy_batch_tracking),new Date().toISOString().slice(0,10));
+               const recalls=await db('pharmacy_batch_recalls').where({branchid:this.branchId,item_id:movement.itemId,status:'active'});
+               allocations=allocateBatches(rows.map((row:any)=>({batchNumber:row.batch_number,available:Number(row.available),blocked:recalls.some((recall:any)=>recall.batch_number===row.batch_number),expiryDate:row.expiry_date?new Date(row.expiry_date).toISOString().slice(0,10):null})),movement.quantity,movement.previousStock,Boolean(item.pharmacy_batch_tracking),new Date().toISOString().slice(0,10));
           } else {
                const issues=await db('pharmacy_stock_movements').where({reference_id:movement.referenceId,item_id:movement.itemId,transaction_type:'consumption'}).orderBy('id');
                allocations=issues.map((row:any)=>({batchNumber:row.batch_number,quantity:Number(row.quantity),expiryDate:row.expiry_date}));
@@ -234,6 +261,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           }
           let previous=movement.previousStock;
           for(const allocation of allocations) {
+               await assertBatchNotRecalled(db,this.branchId!,movement.itemId,allocation.batchNumber);
                const next=quantity(previous+(movement.direction==='issue'?-allocation.quantity:allocation.quantity));
                await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:movement.unitCost*allocation.quantity,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
                previous=next;
@@ -273,7 +301,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                name: row.item_name_snapshot,
                sku: row.sku_snapshot,
                quantity: Number(row.quantity),
-               unitPrice: Number(row.unit_price),
+               unitPrice: Number(row.unit_price),priceType:row.price_type||'retail',retailPrice:row.current_retail_price==null?undefined:Number(row.current_retail_price),wholesalePrice:row.current_wholesale_price==null?undefined:Number(row.current_wholesale_price),
                lineTotal: Number(row.line_total),
                unitCost: Number(row.unit_cost || 0),
                lineCost: Number(row.line_cost || 0),
@@ -315,8 +343,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                sku: row.sku,
                currentStock: Number(row.current_stock || 0),
                minimumStock: Number(row.min_stock || 0),
-               salePrice: Number(row.sale_price || 0),
-               requiresPrescription: Boolean(row.requires_prescription),
+               salePrice: Number(row.sale_price || 0),wholesalePrice:Number(row.wholesale_price||0),
+               requiresPrescription: Boolean(row.requires_prescription||row.controlled),
                batchTracking: row.pharmacy_batch_tracking !== false && row.pharmacy_batch_tracking !== 0,
                costPrice: Number(row.cost_price || 0)
           };
@@ -329,6 +357,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                idempotencyKey: row.idempotency_key,
                requestHash: row.request_hash, prescriptionId: row.prescription_id, heldSaleId: row.held_sale_id,
                amountTendered:row.amount_tendered==null?undefined:Number(row.amount_tendered), changeAmount:row.change_amount==null?undefined:Number(row.change_amount), accountingVersion:Number(row.accounting_version||1), shiftId:row.shift_id,
+               settlementJson:row.settlement_json,customerAccountId:row.customer_account_id==null?null:Number(row.customer_account_id),paidAmount:row.paid_amount==null?undefined:Number(row.paid_amount),outstandingAmount:row.outstanding_amount==null?undefined:Number(row.outstanding_amount),
                paymentAccountId: Number(row.payment_account_id) || undefined, branchid: row.branchid == null ? null : Number(row.branchid),
                customerName: row.customer_name,
                patientId: row.patient_id ?? null,

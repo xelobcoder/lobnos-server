@@ -15,6 +15,7 @@ function fixture(){const f=transactionalDatabase({
  pharmacy_dispenses:[{id:1,sale_id:'sale',prescription_id:'rx',prescription_item_id:'rx-item',quantity:3,is_reversed:false}],
  prescriptions:[{id:'rx',status:'fulfilled'}],prescription_items:[{id:'rx-item',prescription_id:'rx',quantity_ordered:3,quantity_dispensed:3,status:'dispensed'}],
  pharmacy_sale_lines:[{id:'line',sale_id:'sale',inventory_item_id:'drug',item_name_snapshot:'Drug',quantity:3}],
+ pharmacy_stock_movements:[{id:'issue',reference_id:'sale',item_id:'drug',branchid:2,transaction_type:'consumption',quantity:3,previous_stock:10,new_stock:7,batch_number:'B',expiry_date:'2099-01-01',unit_cost:2}],
 });vi.mocked(KnexConnection).mockResolvedValue(f.db as any);return f;}
 describe('independent pharmacy books',()=>{
  it('routes automatically, records net cash and leaves lab accounting untouched',async()=>{

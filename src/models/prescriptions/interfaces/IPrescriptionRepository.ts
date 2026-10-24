@@ -62,6 +62,7 @@ export interface PrescriptionItemFulfillmentUpdate {
 }
 
 export interface IPrescriptionRepository {
+     assertClinicalReview(id:string):Promise<void>;
      withTransaction<T>(work: (repository: IPrescriptionRepository, trx: PharmacyUnitOfWork) => Promise<T>): Promise<T>;
      recordDispense(saleId: string, prescriptionId: string, lines: Array<{prescriptionItemId: string; quantityDispensed: number}>): Promise<void>;
      findFulfillment(key: string): Promise<{prescriptionId: string; saleId: string; requestHash: string; lines: Array<{prescriptionItemId:string;quantityDispensed:number}>} | null>;

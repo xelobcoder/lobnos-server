@@ -85,4 +85,7 @@ export async function ensurePharmacySeparationSchema(db: Knex): Promise<void> {
           accounting_version: (t: Knex.AlterTableBuilder) => t.integer('accounting_version').notNullable().defaultTo(1),
      })) if (!await db.schema.hasColumn('pharmacy_sales', column)) await db.schema.alterTable('pharmacy_sales', create);
      if (!await db.schema.hasColumn('pharmacy_payments', 'refund_shift_id')) await db.schema.alterTable('pharmacy_payments', t => t.string('refund_shift_id', 64).nullable());
+     for(const table of ['pharmacy_sale_lines','pharmacy_held_sale_lines']) {
+          if(!await db.schema.hasColumn(table,'price_type'))await db.schema.alterTable(table,t=>t.string('price_type',16).notNullable().defaultTo('retail'));
+     }
 }

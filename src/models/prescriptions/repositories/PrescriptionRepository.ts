@@ -1,5 +1,6 @@
 import { Knex } from 'knex';
 import { pharmacyAvailability } from '../../pharmacy/PharmacyAvailability';
+import {assertPrescriptionClinicallyReviewed} from '../../pharmacy/PharmacyClinical';
 import KnexConnection from '../../../database/KnexConnections';
 import {
      IPrescriptionRepository,
@@ -33,7 +34,7 @@ export function applyPrescriptionScopeFilters<T extends Knex.QueryBuilder>(query
 export class PrescriptionRepository implements IPrescriptionRepository {
      private readonly connection: Promise<Knex>;
 
-     constructor(private readonly tenantId: number, private readonly trx?: Knex.Transaction) {
+     constructor(private readonly tenantId: number, private readonly trx?: Knex.Transaction,private readonly branchId?:number|null) {
           this.connection = trx ? Promise.resolve(trx) : KnexConnection(tenantId);
      }
 
@@ -41,10 +42,11 @@ export class PrescriptionRepository implements IPrescriptionRepository {
           if (this.trx) return work(this, this.trx);
           const db = await this.connection;
           for(let attempt=0;;attempt++) {
-               try { return await db.transaction(trx => work(new PrescriptionRepository(this.tenantId, trx), trx)); }
+               try { return await db.transaction(trx => work(new PrescriptionRepository(this.tenantId, trx,this.branchId), trx)); }
                catch(error:any) { if(attempt>=2 || !['ER_LOCK_DEADLOCK','ER_LOCK_WAIT_TIMEOUT'].includes(error.code))throw error; }
           }
      }
+     async assertClinicalReview(id:string){if(!this.branchId)throw new Error('Select an operating branch');await assertPrescriptionClinicallyReviewed(await this.connection,this.branchId,id);}
      private async transaction<T>(work: (trx: Knex.Transaction) => Promise<T>): Promise<T> {
           if (this.trx) return work(this.trx);
           return (await this.connection).transaction(work);

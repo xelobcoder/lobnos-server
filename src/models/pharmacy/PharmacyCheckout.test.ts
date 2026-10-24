@@ -18,6 +18,18 @@ function fixture() {
 const request = (key = 'checkout-key-123', quantity = 2): any => ({ idempotencyKey: key, paymentMethod: 'cash', amountTendered: 100, expectedTotal: 85, lines: [{ inventoryItemId: 'drug', quantity }] });
 beforeEach(() => vi.clearAllMocks());
 describe('pharmacy checkout workflow', () => {
+     it('uses the configured wholesale price and stores its price basis',async()=>{
+          const f=fixture();await f.db.transaction(async(trx:any)=>{await trx('pharmacy_inventory_items').where({id:'drug'}).forUpdate().first();await trx('pharmacy_inventory_items').where({id:'drug'}).update({wholesale_price:30});});
+          const input={...request(),expectedTotal:60,lines:[{inventoryItemId:'drug',quantity:2,priceType:'wholesale'}]};
+          const receipt=await f.service.completeSale(input,3);
+          expect(receipt.total).toBe(60);expect(f.rows('pharmacy_sale_lines')[0]).toMatchObject({unit_price:30,price_type:'wholesale'});
+          expect(await f.service.completeSale(input,3)).toMatchObject({id:receipt.id,total:60});
+          await expect(f.service.completeSale({...input,lines:[{inventoryItemId:'drug',quantity:2,priceType:'retail'}]},3)).rejects.toThrow('retry');
+     });
+     it('rejects missing wholesale prices without creating payment or stock records',async()=>{
+          const f=fixture();await expect(f.service.completeSale({...request(),lines:[{inventoryItemId:'drug',quantity:2,priceType:'wholesale'}]},3)).rejects.toThrow('wholesale price');
+          expect(f.rows('pharmacy_sales')).toEqual([]);expect(f.rows('pharmacy_inventory_items')[0].current_stock).toBe(10);
+     });
      it('commits sale, tender, batch issue and balanced independent books together', async () => {
           const f = fixture(), receipt = await f.service.completeSale(request(), 3);
           expect(receipt).toMatchObject({ total: 85, amountTendered: 100, change: 15 });

@@ -3,6 +3,7 @@ import Decimal from 'decimal.js';
 import { assertPharmacyDayOpen, postPharmacyJournal, resolvePharmacyDestination } from './PharmacyLedger';
 import { money, quantity, validatePharmacyReceipt, pharmacyReceivingUnits } from './PharmacyRules';
 import { resolveStockStatus } from './entities/PharmacyStock';
+import {assertNoStockCount} from './PharmacyEnterpriseCore';
 
 const text = (value: unknown, label: string, max = 255): string => {
      if (typeof value !== 'string' || !value.trim() || value.trim().length > max) throw new Error(`Enter a valid ${label}`);
@@ -25,7 +26,7 @@ export class PharmacyManagement {
                this.db('pharmacy_payment_routes').where({ branchid: this.branch }),
                this.db('pharmacy_shifts').where({ active_key: `${this.branch}:${this.actor}` }).first(),
                this.db('pharmacy_financial_days').where({ branchid: this.branch, financial_date: today }).first(),
-               this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('financial_date', 'desc').limit(31),
+               this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('status','desc').orderBy('financial_date', 'desc').limit(31),
           ]);
           return { accounts, routes, shift: shift || null, day: day || null, days, financialDate: today, shiftSummary: shift ? await this.shiftTotals(this.db, shift) : null };
      }
@@ -50,7 +51,7 @@ export class PharmacyManagement {
      }
      async createItem(input: any) {
           const name = text(input.name, 'medicine name'); const sku = text(input.sku, 'SKU', 100);
-          const price = validAmount(input.salePrice, 'sale price', true);
+          const price = validAmount(input.salePrice, 'retail price', true),wholesale=validAmount(input.wholesalePrice??0,'wholesale price',true);
           const min = input.minimumStock ?? 0;
           if (!Number.isFinite(min) || min < 0 || quantity(min) !== min) throw new Error('Invalid reorder quantity');
           if (typeof input.batchTracking !== 'boolean' || typeof input.requiresPrescription !== 'boolean') throw new Error('Choose prescription and batch tracking settings');
@@ -58,7 +59,7 @@ export class PharmacyManagement {
           const purchaseUnit = input.purchaseUnit ? text(input.purchaseUnit, 'purchase pack', 100) : null;
           const factor = purchaseUnit ? input.unitsPerPurchaseUnit : 1;
           if (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0 || quantity(factor) !== factor) throw new Error('Enter a positive number of base units per purchase pack');
-          await this.db('pharmacy_inventory_items').insert({ id, branchid: this.branch, name, sku, consumption_unit: text(input.unit || 'unit', 'unit', 100), purchase_unit: purchaseUnit, units_per_purchase_unit: factor, sale_price: price, min_stock: min, pharmacy_batch_tracking: input.batchTracking, requires_prescription: input.requiresPrescription });
+          await this.db('pharmacy_inventory_items').insert({ id, branchid: this.branch, name, sku, consumption_unit: text(input.unit || 'unit', 'unit', 100), purchase_unit: purchaseUnit, units_per_purchase_unit: factor, sale_price: price, wholesale_price:wholesale, min_stock: min, pharmacy_batch_tracking: input.batchTracking, requires_prescription: input.requiresPrescription });
           return { id };
      }
      async suppliers() { return this.db('pharmacy_suppliers').where({ branchid: this.branch, is_active: true }).orderBy('name'); }
@@ -68,11 +69,12 @@ export class PharmacyManagement {
           return this.db.transaction(async (trx: any) => {
                const item = await trx('pharmacy_inventory_items').where({ id, branchid: this.branch }).forUpdate().first();
                if (!item) throw new Error('Pharmacy item not found in this branch');
+               await assertNoStockCount(trx,id);
                const factor = input.purchaseUnit ? input.unitsPerPurchaseUnit : 1;
                if (input.purchaseUnit !== undefined && (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0 || quantity(factor) !== factor)) throw new Error('Enter a valid purchase pack size');
-               const values = { sale_price: price, min_stock: minimum, ...(input.purchaseUnit !== undefined ? { purchase_unit: input.purchaseUnit ? text(input.purchaseUnit, 'purchase pack', 100) : null, units_per_purchase_unit: factor } : {}) };
+               const values = { sale_price: price, ...(input.wholesalePrice!==undefined?{wholesale_price:validAmount(input.wholesalePrice,'wholesale price',true)}:{}), min_stock: minimum, ...(input.purchaseUnit !== undefined ? { purchase_unit: input.purchaseUnit ? text(input.purchaseUnit, 'purchase pack', 100) : null, units_per_purchase_unit: factor } : {}) };
                await trx('pharmacy_inventory_items').where({ id }).update({ ...values, status: resolveStockStatus(Number(item.current_stock), minimum), updated_at: new Date() });
-               await trx('pharmacy_item_profile_audit').insert({ item_id: id, previous_values: JSON.stringify({ sale_price: item.sale_price, min_stock: item.min_stock }), new_values: JSON.stringify(values), changed_by: this.actor, changed_at: new Date() });
+               await trx('pharmacy_item_profile_audit').insert({ item_id: id, previous_values: JSON.stringify({ sale_price: item.sale_price,wholesale_price:item.wholesale_price, min_stock: item.min_stock }), new_values: JSON.stringify(values), changed_by: this.actor, changed_at: new Date() });
                return { updated: true };
           });
      }
@@ -85,6 +87,7 @@ export class PharmacyManagement {
           if (typeof count !== 'number' || !Number.isFinite(count) || count <= 0 || quantity(count) !== count) throw new Error('Enter a positive quantity with at most three decimal places');
           return this.document('write_off', { ...input, itemId: id }, async (trx, reference) => {
                const item = await trx('pharmacy_inventory_items').where({ id, branchid: this.branch }).forUpdate().first();
+               await assertNoStockCount(trx,id);
                if (!item || count > Number(item.current_stock)) throw new Error('Insufficient pharmacy stock in this branch');
                if (item.pharmacy_batch_tracking && !input.batchNumber) throw new Error('Select the manufacturer batch for this write-off');
                const query = trx('pharmacy_stock_movements').where({ item_id: id });
@@ -112,7 +115,7 @@ export class PharmacyManagement {
           return this.db.transaction(async (trx: any) => {
                let previous = await trx('pharmacy_documents').where({ request_key: key }).first();
                if (!previous) {
-                    if (kind !== 'purchase_order') await assertPharmacyDayOpen(trx, this.branch);
+                    if (kind !== 'purchase_order') await assertPharmacyDayOpen(trx, this.branch,kind==='manual_journal'&&input.financialDate?input.financialDate:new Date());
                     previous = await trx('pharmacy_documents').where({ request_key: key }).forUpdate().first();
                }
                if (previous) {
@@ -139,6 +142,7 @@ export class PharmacyManagement {
                }
                const item = await trx('pharmacy_inventory_items').where({ id: itemId, branchid: this.branch, is_active: true }).forUpdate().first();
                if (!item) throw new Error('Pharmacy item not found in this branch');
+               await assertNoStockCount(trx,itemId);
                const conversion = pharmacyReceivingUnits(item, input);
                const baseCount = conversion.baseQuantity, baseCost = conversion.baseUnitCost;
                validatePharmacyReceipt({ ...item, inventory_domain: 'pharmacy' }, input);
@@ -237,11 +241,11 @@ export class PharmacyManagement {
           const [balances, documents, days, shifts] = await Promise.all([
                this.db('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id').where('j.branchid', this.branch).select('l.account_code').sum('l.debit as debit').sum('l.credit as credit').groupBy('l.account_code'),
                this.db('pharmacy_documents').where({ branchid: this.branch }).orderBy('created_at', 'desc').limit(100),
-               this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('financial_date', 'desc').limit(31),
+               this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('status','desc').orderBy('financial_date', 'desc').limit(31),
                this.db('pharmacy_shifts').where({ branchid: this.branch }).orderBy('opened_at', 'desc').limit(50),
           ]);
           const value = (code: string) => { const row = balances.find((r: any) => r.account_code === code); return money(new Decimal(row?.debit || 0).minus(row?.credit || 0)); };
-          return { balances, revenue: -value('sales'), costOfSales: value('cost_of_sales'), expenses: value('operating_expenses'), profit: money(-value('sales') - value('cost_of_sales') - value('operating_expenses')), documents, days, shifts };
+          return { events:await this.db('pharmacy_financial_day_events').where({branchid:this.branch}).orderBy('created_at','desc').limit(100), balances, revenue: -value('sales'), costOfSales: value('cost_of_sales'), expenses: value('operating_expenses'), profit: money(-value('sales') - value('cost_of_sales') - value('operating_expenses')), documents, days, shifts };
      }
      async openDay(input: any) {
           const today = new Date().toISOString().slice(0, 10);
@@ -266,14 +270,17 @@ export class PharmacyManagement {
      }
 
      private async shiftTotals(trx: any, shift: any) {
-          const [sales,refunds,payments]=await Promise.all([
+          const [sales,refunds,payments,compositeSales,compositeRefunds]=await Promise.all([
                trx('pharmacy_payments as p').join('pharmacy_sales as s','s.id','p.sale_id').where({'s.shift_id':shift.id,'p.method':'cash'}).sum('p.amount as amount').first(),
                trx('pharmacy_payments').where({refund_shift_id:shift.id,method:'cash',status:'refunded'}).sum('amount as amount').first(),
                trx('pharmacy_documents').where({branchid:this.branch}).whereIn('kind',['expense','supplier_payment']),
+               trx('pharmacy_cash_events').where({branchid:this.branch,shift_id:shift.id,method:'cash',event_type:'collection'}).sum('amount as amount').first(),
+               trx('pharmacy_cash_events').where({branchid:this.branch,shift_id:shift.id,method:'cash',event_type:'refund'}).sum('amount as amount').first(),
           ]);
           const cashOut=payments.reduce((sum:number,row:any)=>JSON.parse(row.details).shiftId===shift.id?sum+Number(row.amount):sum,0);
-          const expectedCash=money(new Decimal(shift.opening_float).plus(sales?.amount||0).minus(refunds?.amount||0).minus(cashOut));
-          return {openingFloat:Number(shift.opening_float),cashSales:Number(sales?.amount||0),cashRefunds:Number(refunds?.amount||0),cashOut:money(cashOut),expectedCash};
+          const cashSales=money(Number(sales?.amount||0)+Number(compositeSales?.amount||0)),cashRefunds=money(Number(refunds?.amount||0)+Number(compositeRefunds?.amount||0));
+          const expectedCash=money(new Decimal(shift.opening_float).plus(cashSales).minus(cashRefunds).minus(cashOut));
+          return {openingFloat:Number(shift.opening_float),cashSales,cashRefunds,cashOut:money(cashOut),expectedCash};
      }
 
      async openShift(input: any) {
@@ -327,7 +334,9 @@ export class PharmacyManagement {
                await assertPharmacyDayOpen(trx,this.branch,date);
                if(await trx('pharmacy_shifts').where({branchid:this.branch}).whereNotNull('active_key').whereRaw('COALESCE(financial_date, DATE(opened_at)) <= ?',[date]).first())throw new Error('Close the cashier shifts for this financial day first.');
                if(await trx('pharmacy_shifts').where({branchid:this.branch}).whereNotNull('closed_at').whereNull('reviewed_by').whereRaw('COALESCE(financial_date, DATE(opened_at)) <= ?',[date]).first())throw new Error('Review the closed cashier shifts before closing this financial day.');
+               const balances=await trx('pharmacy_journal_lines as l').join('pharmacy_journals as j','j.id','l.journal_id').where('j.branchid',this.branch).where('j.financial_date',date).select('l.account_code').sum('l.debit as debit').sum('l.credit as credit').groupBy('l.account_code');
                await trx('pharmacy_financial_days').where({branchid:this.branch,financial_date:date}).update({status:'closed',closed_by:this.actor,closed_at:new Date()});
+               await trx('pharmacy_financial_day_events').insert({id:randomUUID(),branchid:this.branch,financial_date:date,event_type:'closed',reason:String(input.reason||'Financial day closed').slice(0,500),performed_by:this.actor,details:JSON.stringify({previousStatus:snapshot.status,balances}),created_at:new Date()});
                return {date,closed:true};
           });
      }
@@ -336,14 +345,14 @@ export class PharmacyManagement {
           const date=text(input.date,'financial date',10),reason=text(input.reason,'reopening reason',500);
           const today=new Date().toISOString().slice(0,10);
           if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!Number.isFinite(Date.parse(date))||new Date(date).toISOString().slice(0,10)!==date)throw new Error('Choose a valid financial date');
-          if(date!==today)throw new Error('Only today’s pharmacy financial day can be reopened. Historical days remain locked.');
+          if(date>today)throw new Error('A future pharmacy financial day cannot be reopened');
           if(reason.length<10)throw new Error('Enter a clear reopening reason of at least 10 characters');
           return this.db.transaction(async(trx:any)=>{
                const day=await trx('pharmacy_financial_days').where({branchid:this.branch,financial_date:date}).forUpdate().first();
                if(!day)throw new Error('This financial day has not been opened.');
-               if(day.status==='open')throw new Error('This pharmacy financial day is already open.');
-               if(await trx('pharmacy_financial_days').where({branchid:this.branch}).where('financial_date','>',date).first())throw new Error('A later pharmacy financial day exists. Reopening this day would break the financial sequence.');
-               if(await trx('pharmacy_shifts').where({branchid:this.branch}).whereNotNull('active_key').first())throw new Error('Close all active pharmacy shifts before reopening this financial day.');
+               if(day.status==='open')return {date,reopened:true,alreadyOpen:true};
+               if(input.expectedClosedAt && new Date(input.expectedClosedAt).getTime()!==new Date(day.closed_at).getTime())throw new Error('The day was closed again by another user. Reload its history before reopening');
+               if(await trx('pharmacy_shifts').where({branchid:this.branch,financial_date:date}).whereNotNull('active_key').first())throw new Error('This day still has an active shift; close or resolve that shift before reopening.');
                await trx('pharmacy_financial_day_events').insert({id:randomUUID(),branchid:this.branch,financial_date:date,event_type:'reopened',reason,performed_by:this.actor,details:JSON.stringify({previousClosedBy:day.closed_by||null,previousClosedAt:day.closed_at||null}),created_at:new Date()});
                await trx('pharmacy_financial_days').where({id:day.id}).update({status:'open',closed_by:null,closed_at:null});
                return {date,reopened:true};
@@ -390,8 +399,10 @@ export class PharmacyManagement {
                     } else if (!['opening_equity', 'sales', 'cost_of_sales', 'inventory', 'operating_expenses'].includes(code)) throw new Error('Unknown pharmacy account');
                     lines.push({ account: code, debit: validAmount(line.debit ?? 0, 'debit', true), credit: validAmount(line.credit ?? 0, 'credit', true) });
                }
-               await postPharmacyJournal(trx, this.branch, id, 'manual_journal', description, this.actor, lines);
-               return { amount: money(lines.reduce((sum, line) => sum + line.debit, 0)), details: { description, lines } };
+               const financialDate=input.financialDate||new Date().toISOString().slice(0,10);
+               if(financialDate>new Date().toISOString().slice(0,10))throw new Error('Correction journals cannot be dated in the future');
+               await postPharmacyJournal(trx, this.branch, id, 'manual_journal', description, this.actor, lines,financialDate);
+               return { amount: money(lines.reduce((sum, line) => sum + line.debit, 0)), details: { description, lines, financialDate } };
           });
      }
 

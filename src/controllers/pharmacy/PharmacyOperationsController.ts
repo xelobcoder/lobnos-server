@@ -14,10 +14,14 @@ const dateOf = (input: unknown) => {
 export async function pharmacyCashierTotals(db: any, branch: number, cashier: number, date: string, account?: number) {
      const query=db('pharmacy_payments').where({branchid:branch}).whereIn('sale_id',db('pharmacy_sales').select('id').where('accounting_version',2));
      if(account)query.where('payment_account_id',account);
-     const [collections,refunds]=await Promise.all([
+     const events=db('pharmacy_cash_events').where({branchid:branch,actor_id:cashier});if(account)events.where('account_id',account);
+     const [legacyCollections,legacyRefunds,eventCollections,eventRefunds]=await Promise.all([
           query.clone().where('recorded_by',cashier).whereRaw('DATE(collected_at) = ?',[date]).select('method','payment_account_id').sum('amount as amount').count('* as count').groupBy('method','payment_account_id'),
           query.clone().where({reversed_by:cashier,status:'refunded'}).whereRaw('DATE(reversed_at) = ?',[date]).select('method','payment_account_id').sum('amount as amount').groupBy('method','payment_account_id'),
+          events.clone().where('event_type','collection').whereRaw('DATE(occurred_at) = ?',[date]).select('method','account_id as payment_account_id').sum('amount as amount').count('* as count').groupBy('method','account_id'),
+          events.clone().where('event_type','refund').whereRaw('DATE(occurred_at) = ?',[date]).select('method','account_id as payment_account_id').sum('amount as amount').groupBy('method','account_id'),
      ]);
+     const collections=[...legacyCollections,...eventCollections],refunds=[...legacyRefunds,...eventRefunds];
      const methods=['cash','mobile_money','card'];
      const paymentTotals=Object.fromEntries(methods.map(method=>[method,money(collections.filter((row:any)=>row.method===method).reduce((sum:number,row:any)=>sum+Number(row.amount),0)-refunds.filter((row:any)=>row.method===method).reduce((sum:number,row:any)=>sum+Number(row.amount),0))]));
      return {paymentTotals,todaySales:money(Object.values(paymentTotals).reduce((sum,value)=>sum+value,0)),completedSales:collections.reduce((sum:number,row:any)=>sum+Number(row.count),0),collections,refunds};
@@ -39,7 +43,7 @@ export class PharmacyOperationsController {
                const db=await KnexConnection(tenantOf(req)),date=dateOf(req.query.date);
                const totals=await pharmacyCashierTotals(db,branch,actorOf(req),date);
                const [sales,reconciliations]=await Promise.all([
-                    db('pharmacy_sales').where({branchid:branch,cashier_id:actorOf(req),accounting_version:2}).whereRaw('DATE(completed_at) = ?',[date]).orderBy('completed_at','desc').limit(100),
+                    db('pharmacy_sales').where({branchid:branch,cashier_id:actorOf(req)}).whereIn('accounting_version',[2,3]).whereRaw('DATE(completed_at) = ?',[date]).orderBy('completed_at','desc').limit(100),
                     db('pharmacy_reconciliations').where({branchid:branch,cashier_id:actorOf(req),financial_date:date}).orderBy('recorded_at','desc').limit(20),
                ]);
                res.json({success:true,data:{...totals,date,sales:sales.map(row=>({id:row.id,receiptNumber:row.receipt_number,customerName:row.customer_name,paymentMethod:row.payment_method,total:Number(row.total_amount),status:row.status,completedAt:row.completed_at})),reconciliations}});

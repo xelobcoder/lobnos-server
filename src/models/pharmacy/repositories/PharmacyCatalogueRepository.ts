@@ -43,7 +43,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
           ]);
 
           const availability=await pharmacyAvailability(connection,rows.map((row:any)=>({id:row.inventory_item_id,currentStock:Number(row.current_stock),batchTracking:Boolean(row.pharmacy_batch_tracking)})));
-          return { items: rows.map((row: any) => ({...this.toCatalogueItem(row),requiresPrescription:Boolean(row.requires_prescription),batchTracking:Boolean(row.pharmacy_batch_tracking),dispensableStock:availability.get(row.inventory_item_id)||0})), total: Number((totalResult as any)?.total || 0) };
+          return { items: rows.map((row: any) => ({...this.toCatalogueItem(row),requiresPrescription:Boolean(row.requires_prescription||row.controlled),batchTracking:Boolean(row.pharmacy_batch_tracking),genericName:row.generic_name,ingredient:row.ingredient,strength:row.strength,dosageForm:row.dosage_form,manufacturer:row.manufacturer,shelfLocation:row.shelf_location,barcodes:row.barcode_aliases?JSON.parse(row.barcode_aliases):[],dispensableStock:availability.get(row.inventory_item_id)||0})), total: Number((totalResult as any)?.total || 0) };
      }
 
      async summarise(filters: PharmacyCatalogueFilters = {}): Promise<PharmacyStockSummary> {
@@ -84,7 +84,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
           }
           if (filters.search?.trim()) {
                const term = `%${filters.search.trim()}%`;
-               query = query.where((builder) => builder.where('item.name', 'like', term).orWhere('item.sku', 'like', term));
+               query = query.where((builder) => builder.where('item.name', 'like', term).orWhere('item.sku', 'like', term).orWhere('item.generic_name','like',term).orWhere('item.ingredient','like',term).orWhere('item.barcode_aliases','like',term));
           }
           return query;
      }
@@ -101,6 +101,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                'item.wholesale_price',
                'item.sale_price'
                ,'item.requires_prescription','item.pharmacy_batch_tracking'
+               ,'item.generic_name','item.ingredient','item.strength','item.dosage_form','item.manufacturer','item.shelf_location','item.controlled','item.barcode_aliases'
           ];
      }
 

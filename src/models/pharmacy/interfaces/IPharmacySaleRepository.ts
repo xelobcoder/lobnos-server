@@ -10,12 +10,17 @@ export interface PharmacySellableItemRow {
      currentStock: number;
      minimumStock: number;
      salePrice: number;
+     wholesalePrice?: number;
      costPrice: number;
      requiresPrescription?: boolean;
      batchTracking?: boolean;
 }
 
 export interface PharmacySaleRow {
+     settlementJson?:string|null;
+     customerAccountId?:number|null;
+     paidAmount?:number;
+     outstandingAmount?:number;
      id: string;
      receiptNumber: string;
      idempotencyKey: string;
@@ -52,6 +57,11 @@ export interface PharmacySaleLineRow {
      sku: string;
      quantity: number;
      unitPrice: number;
+     priceType?: 'retail' | 'wholesale';
+     retailPrice?:number;
+     wholesalePrice?:number;
+     availableStock?:number;
+     dispensableStock?:number;
      lineTotal: number;
      unitCost: number;
      lineCost: number;
@@ -94,6 +104,9 @@ export interface PharmacySaleListFilters {
 }
 
 export interface IPharmacySaleRepository {
+     findSuspension(key:string,unitOfWork:PharmacyUnitOfWork):Promise<{hash:string;result:any}|null>;
+     recordSuspension(key:string,hash:string,result:any,actor:number,unitOfWork:PharmacyUnitOfWork):Promise<void>;
+     replaceHeldSale(sale:PharmacyHeldSaleRow,lines:PharmacySaleLineRow[],unitOfWork:PharmacyUnitOfWork):Promise<void>;
      /** Runs the supplied work inside a single database transaction. */
      collectPayment(sale: PharmacySaleRow, unitOfWork: PharmacyUnitOfWork): Promise<void>;
      reversePayment(sale: PharmacySaleRow, actor: number, reason: string, disposition: string, unitOfWork: PharmacyUnitOfWork): Promise<void>;

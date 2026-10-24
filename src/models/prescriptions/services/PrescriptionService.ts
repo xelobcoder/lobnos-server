@@ -161,6 +161,7 @@ export class PrescriptionService implements IPrescriptionService {
                saleQuantitiesByInventoryItem.set(item.inventoryItemId, quantity((saleQuantitiesByInventoryItem.get(item.inventoryItemId) || 0) + line.quantityDispensed));
           }
 
+          await this.repository.assertClinicalReview(id);
           const receipt = await this.saleService.completeSale({
                idempotencyKey: input.idempotencyKey,
                paymentAccountId: input.paymentAccountId,

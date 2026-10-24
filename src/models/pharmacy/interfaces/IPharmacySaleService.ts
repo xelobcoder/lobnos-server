@@ -1,7 +1,10 @@
 import { PharmacyUnitOfWork } from './IPharmacySaleRepository';
-export type PharmacyPaymentMethod = 'cash' | 'mobile_money' | 'card';
+export type PharmacyPaymentMethod = 'cash' | 'mobile_money' | 'card' | 'split' | 'credit';
 
 export interface CreatePharmacySaleInput {
+     priceType?: 'retail' | 'wholesale';
+     customerAccountId?:number;
+     tenders?:Array<{method:'cash'|'card'|'mobile_money';amount:number;received?:number;reference?:string}>;
      idempotencyKey: string;
      customerName?: string;
      patientId?: number | null;
@@ -10,18 +13,23 @@ export interface CreatePharmacySaleInput {
      paymentAccountId?: number;
      amountTendered?: number;
      expectedTotal?: number;
-     lines: Array<{ inventoryItemId: string; quantity: number }>;
+     lines: Array<{ inventoryItemId: string; quantity: number; priceType?: 'retail' | 'wholesale' }>;
 }
 
 export interface HoldPharmacySaleInput {
+     idempotencyKey?: string;
+     heldSaleId?: string;
+     priceType?: 'retail' | 'wholesale';
      customerName?: string;
      patientId?: number | null;
-     lines: Array<{ inventoryItemId: string; quantity: number }>;
+     lines: Array<{ inventoryItemId: string; quantity: number; priceType?: 'retail' | 'wholesale' }>;
 }
 
 export interface CompleteHeldPharmacySaleInput extends CreatePharmacySaleInput { }
 
 export interface PharmacySaleReceipt {
+     paidAmount?:number;
+     outstandingAmount?:number;
      id: string;
      branchId?: number;
      cashierId?: number;
@@ -96,6 +104,11 @@ export interface PharmacySaleLine {
      sku: string;
      quantity: number;
      unitPrice: number;
+     priceType?: 'retail' | 'wholesale';
+     retailPrice?:number;
+     wholesalePrice?:number;
+     availableStock?:number;
+     dispensableStock?:number;
      lineTotal: number;
      unitCost: number;
      lineCost: number;

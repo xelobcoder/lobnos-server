@@ -29,17 +29,38 @@ describe('explicit pharmacy financial days',()=>{
           vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-24T10:00:00Z')); const f=fixture(); await f.service.openDay({date:today()});
           vi.setSystemTime(new Date('2026-10-25T10:00:00Z')); await expect(f.service.openDay({date:today()})).rejects.toThrow('previous pharmacy financial day');
      });
-     it('reopens today only with an audit reason and preserves the prior closure in the event',async()=>{
+     it('reopens with an audit reason, preserves closure history and confirms retries',async()=>{
           const f=fixture(true);await f.service.closeDay({date:today()});
           await expect(f.service.reopenDay({date:today(),reason:'mistake'})).rejects.toThrow('at least 10');
           expect(await f.service.reopenDay({date:today(),reason:'Closed before the final sale was entered'})).toEqual({date:today(),reopened:true});
           expect(f.rows('pharmacy_financial_days')[0]).toMatchObject({status:'open',closed_by:null,closed_at:null});
-          expect(f.rows('pharmacy_financial_day_events')[0]).toMatchObject({branchid:2,financial_date:today(),event_type:'reopened',performed_by:3,reason:'Closed before the final sale was entered'});
-          await expect(f.service.reopenDay({date:today(),reason:'Trying to reopen the same day again'})).rejects.toThrow('already open');
+          expect(f.rows('pharmacy_financial_day_events').find(row=>row.event_type==='reopened')).toMatchObject({branchid:2,financial_date:today(),event_type:'reopened',performed_by:3,reason:'Closed before the final sale was entered'});
+          expect(await f.service.reopenDay({date:today(),reason:'Trying to reopen the same day again'})).toMatchObject({alreadyOpen:true});
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(2);
      });
-     it('never reopens a historical day or a day before a later financial day',async()=>{
+     it('reopens a historical day while preserving later days and their shifts',async()=>{
           vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-24T10:00:00Z'));const f=fixture(true);await f.service.closeDay({date:'2026-10-24'});
-          vi.setSystemTime(new Date('2026-10-25T10:00:00Z'));await expect(f.service.reopenDay({date:'2026-10-24',reason:'Attempting an invalid historical reopening'})).rejects.toThrow('Only today');
+          vi.setSystemTime(new Date('2026-10-25T10:00:00Z'));
+          await f.service.openDay({date:today()});const shift=await f.service.openShift({openingFloat:0});
+          expect(await f.service.reopenDay({date:'2026-10-24',reason:'Correcting a mistaken historical day close'})).toMatchObject({reopened:true});
+          expect(f.rows('pharmacy_financial_days').find(row=>row.financial_date==='2026-10-25').status).toBe('open');
+          expect(f.rows('pharmacy_shifts').find(row=>row.id===shift.id).active_key).toBe('2:3');
+          await f.db.transaction((trx:any)=>assertPharmacyDayOpen(trx,2,'2026-10-24'));
+     });
+     it('rejects future reopening and stale closure timestamps',async()=>{
+          const f=fixture(true);await f.service.closeDay({date:today()});
+          await expect(f.service.reopenDay({date:'2099-12-31',reason:'A clear explanation of the correction'})).rejects.toThrow('future');
+          await expect(f.service.reopenDay({date:today(),expectedClosedAt:'2000-01-01T00:00:00Z',reason:'A clear explanation of the correction'})).rejects.toThrow('Reload');
+          expect(f.rows('pharmacy_financial_days')[0].status).toBe('closed');
+     });
+     it('posts an explicit historical correction to the reopened date and recloses it',async()=>{
+          vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-24T10:00:00Z'));const f=fixture(true);await f.service.closeDay({date:today()});
+          vi.setSystemTime(new Date('2026-10-25T10:00:00Z'));await f.service.reopenDay({date:'2026-10-24',reason:'Correct an omitted pharmacy opening balance'});
+          await f.service.manualJournal({idempotencyKey:'historical-correction-123',financialDate:'2026-10-24',description:'Approved opening balance correction',confirmed:true,lines:[{account:'inventory',debit:10,credit:0},{account:'opening_equity',debit:0,credit:10}]});
+          expect(f.rows('pharmacy_journals')[0].financial_date).toBe('2026-10-24');
+          await f.service.closeDay({date:'2026-10-24'});
+          expect(f.rows('pharmacy_financial_day_events').map(row=>row.event_type)).toEqual(['closed','reopened','closed']);
+          await expect(f.service.manualJournal({idempotencyKey:'another-correction-123',financialDate:'2026-10-24',description:'Another correction',confirmed:true,lines:[{account:'inventory',debit:10},{account:'opening_equity',credit:10}]})).rejects.toThrow('closed');
      });
      it('allows a noncash-only cashier to open a zero-float shift',async()=>{
           const f=fixture(true);const shift=await f.service.openShift({openingFloat:0});expect(f.rows('pharmacy_shifts')[0]).toMatchObject({id:shift.id,financial_date:today(),opening_float:0});

@@ -1,4 +1,5 @@
 export const PHARMACY_ROLES = [
+     'pharmacist',
      'pharmacy_accountant',
      'pharmacy_cashier',
      'pharmacy_manager',
