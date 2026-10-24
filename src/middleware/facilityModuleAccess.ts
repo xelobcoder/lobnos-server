@@ -121,8 +121,7 @@ export async function facilityModuleAccess(req: Request, res: Response, next: Ne
           }
           const config = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
           if (!config) throw new Error('Invalid stored module configuration');
-          const enabled = module && (config.modules[module].enabled ||
-               (module === 'inventory' && config.modules.pharmacy.enabled));
+          const enabled = module && config.modules[module].enabled;
           if (module && !enabled) { customError(`${module} module is not activated for this facility`, 403, res); return; }
           if (creatingBranch && config.branchMode === 'single') {
                customError('This facility supports a single branch; additional branches are not enabled', 403, res);

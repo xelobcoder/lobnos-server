@@ -23,7 +23,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      }
 
      private scopeBranch(query:Knex.QueryBuilder): void {
-          if(this.branchId==null)return;
+          if(this.branchId==null){query.where('branchid',-1);return;}
           if(this.includeUnassigned)query.where(builder=>builder.where('branchid',this.branchId).orWhereNull('branchid'));
           else query.where('branchid',this.branchId);
      }
@@ -42,20 +42,20 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      }
 
      async lockSellableItems(itemIds: string[], unitOfWork: PharmacyUnitOfWork): Promise<PharmacySellableItemRow[]> {
-          const rows = await this.scope(unitOfWork)('inv_inventory_items as item')
+          const rows = await this.scope(unitOfWork)('pharmacy_inventory_items as item')
                .select('item.id', 'item.name', 'item.sku', 'item.current_stock', 'item.min_stock', 'item.sale_price', 'item.cost_price', 'item.requires_prescription', 'item.pharmacy_batch_tracking')
                .whereIn('item.id', itemIds)
                .where('item.is_active', true)
-               .where('item.inventory_domain', 'pharmacy')
+               .where('item.branchid', this.branchId ?? -1)
                .orderBy('item.id')
                .forUpdate();
           return rows.map((row: any) => this.toItemRow(row));
      }
 
      async lockItem(itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySellableItemRow | null> {
-          const row = await this.scope(unitOfWork)('inv_inventory_items')
+          const row = await this.scope(unitOfWork)('pharmacy_inventory_items')
                .select('id', 'name', 'sku', 'current_stock', 'min_stock', 'sale_price', 'cost_price')
-               .where({ id: itemId })
+               .where({ id: itemId, branchid: this.branchId ?? -1 })
                .forUpdate()
                .first();
           return row ? this.toItemRow(row) : null;
@@ -77,6 +77,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                idempotency_key: sale.idempotencyKey,
                request_hash: sale.requestHash, prescription_id: sale.prescriptionId || null, held_sale_id: sale.heldSaleId || null,
                payment_account_id: sale.paymentAccountId, branchid: sale.branchid,
+               amount_tendered:sale.amountTendered, change_amount:sale.changeAmount, accounting_version:sale.accountingVersion,
                customer_name: sale.customerName,
                patient_id: sale.patientId,
                payment_method: sale.paymentMethod,
@@ -181,7 +182,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
      }
 
      async applyStockLevel(itemId: string, newStock: number, status: PharmacyStockStatus, occurredAt: Date, unitOfWork: PharmacyUnitOfWork, costPrice?:number): Promise<void> {
-          await this.scope(unitOfWork)('inv_inventory_items')
+          await this.scope(unitOfWork)('pharmacy_inventory_items')
                .where({ id: itemId })
                .update({ current_stock: newStock, status, last_updated: occurredAt, updated_at: occurredAt, ...(costPrice!==undefined?{cost_price:costPrice}:{}) });
      }
@@ -214,7 +215,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false}).update({is_reversed:true});
      }
      async assertReturnable(sale: PharmacySaleRow, itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<void> {
-          const issues=await this.scope(unitOfWork)('inv_inventory_transactions').where({reference_id:sale.id,item_id:itemId,transaction_type:'consumption'});
+          const issues=await this.scope(unitOfWork)('pharmacy_stock_movements').where({reference_id:sale.id,item_id:itemId,transaction_type:'consumption'});
           const today=new Date().toISOString().slice(0,10);
           if(!issues.length || issues.some((row:any)=>row.expiry_date && new Date(row.expiry_date).toISOString().slice(0,10)<today))throw new Error('Expired or untraceable goods must be quarantined, not restocked');
      }
@@ -222,19 +223,19 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           const db=this.scope(unitOfWork);
           let allocations:Array<{batchNumber:string|null;quantity:number;expiryDate:string|null}>;
           if(movement.direction==='issue') {
-               const item=await db('inv_inventory_items').where({id:movement.itemId}).first();
-               const rows=await db('inv_inventory_transactions').select('batch_number').min('expiry_date as expiry_date')
+               const item=await db('pharmacy_inventory_items').where({id:movement.itemId}).first();
+               const rows=await db('pharmacy_stock_movements').select('batch_number').min('expiry_date as expiry_date')
                     .select(db.raw('SUM(new_stock - previous_stock) as available')).where({item_id:movement.itemId}).whereNotNull('batch_number').groupBy('batch_number');
                allocations=allocateBatches(rows.map((row:any)=>({batchNumber:row.batch_number,available:Number(row.available),expiryDate:row.expiry_date?new Date(row.expiry_date).toISOString().slice(0,10):null})),movement.quantity,movement.previousStock,Boolean(item.pharmacy_batch_tracking),new Date().toISOString().slice(0,10));
           } else {
-               const issues=await db('inv_inventory_transactions').where({reference_id:movement.referenceId,item_id:movement.itemId,transaction_type:'consumption'}).orderBy('id');
+               const issues=await db('pharmacy_stock_movements').where({reference_id:movement.referenceId,item_id:movement.itemId,transaction_type:'consumption'}).orderBy('id');
                allocations=issues.map((row:any)=>({batchNumber:row.batch_number,quantity:Number(row.quantity),expiryDate:row.expiry_date}));
                if(quantity(allocations.reduce((sum,row)=>sum+row.quantity,0))!==movement.quantity)throw new Error('Original stock movements do not match the return');
           }
           let previous=movement.previousStock;
           for(const allocation of allocations) {
                const next=quantity(previous+(movement.direction==='issue'?-allocation.quantity:allocation.quantity));
-               await db('inv_inventory_transactions').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:movement.unitCost*allocation.quantity,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
+               await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:movement.unitCost*allocation.quantity,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
                previous=next;
           }
      }
@@ -327,6 +328,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                receiptNumber: row.receipt_number,
                idempotencyKey: row.idempotency_key,
                requestHash: row.request_hash, prescriptionId: row.prescription_id, heldSaleId: row.held_sale_id,
+               amountTendered:row.amount_tendered==null?undefined:Number(row.amount_tendered), changeAmount:row.change_amount==null?undefined:Number(row.change_amount), accountingVersion:Number(row.accounting_version||1), shiftId:row.shift_id,
                paymentAccountId: Number(row.payment_account_id) || undefined, branchid: row.branchid == null ? null : Number(row.branchid),
                customerName: row.customer_name,
                patientId: row.patient_id ?? null,

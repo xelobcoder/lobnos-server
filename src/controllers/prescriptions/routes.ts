@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
-import { pharmacyAccess, prescriptionListAccess } from '../pharmacy/pharmacyAccess.middleware';
+import { pharmacyAccess, pharmacySalesAccess, prescriptionListAccess } from '../pharmacy/pharmacyAccess.middleware';
 import { PrescriptionController } from './PrescriptionController';
 import { prescriptionCreateAccess, prescriptionDetailAccess, validatePrescriptionContext } from './prescriptionAccess';
 
@@ -19,7 +19,7 @@ router.put('/prescriptions/link-consultation', prescriptionCreateAccess, validat
 // their OWN orders (clinicianId === their id) via prescriptionListAccess; the broad queue
 // (no clinicianId, or someone else's) still requires pharmacyAccess.
 router.get('/prescriptions', prescriptionListAccess, PrescriptionController.listPrescriptions);
-router.post('/prescriptions/:id/fulfill', pharmacyAccess, PrescriptionController.fulfillPrescription);
+router.post('/prescriptions/:id/fulfill', pharmacySalesAccess, PrescriptionController.fulfillPrescription);
 router.post('/prescriptions/:id/refer', pharmacyAccess, PrescriptionController.referRemaining);
 
 export default router;

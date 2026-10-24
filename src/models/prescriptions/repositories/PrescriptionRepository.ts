@@ -106,7 +106,7 @@ export class PrescriptionRepository implements IPrescriptionRepository {
 
      async findItemsByPrescriptionId(prescriptionId: string): Promise<PrescriptionItemRow[]> {
           const connection = await this.connection;
-          const query = connection('prescription_items as pi').leftJoin('inv_inventory_items as inventory','inventory.id','pi.inventory_item_id')
+          const query = connection('prescription_items as pi').leftJoin('pharmacy_inventory_items as inventory','inventory.id','pi.inventory_item_id')
                .select('pi.*','inventory.current_stock as available_stock','inventory.sale_price','inventory.pharmacy_batch_tracking').where('pi.prescription_id',prescriptionId).orderBy('pi.id');
           if (this.trx) query.forUpdate();
           const rows = await query;

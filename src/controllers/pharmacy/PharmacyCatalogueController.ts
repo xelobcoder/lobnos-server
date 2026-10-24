@@ -5,9 +5,9 @@ import {
      PharmacyCatalogueSortField,
      PharmacySortDirection
 } from '../../models/pharmacy/interfaces/IPharmacyCatalogueRepository';
-import { tenantOf } from './pharmacyContext';
+import { tenantOf, branchOf } from './pharmacyContext';
 
-const catalogueService = (request: Request) => new PharmacyCatalogueService(new PharmacyCatalogueRepository(tenantOf(request)));
+const catalogueService = (request: Request) => new PharmacyCatalogueService(new PharmacyCatalogueRepository(tenantOf(request), branchOf(request)));
 
 const pagingParams = (request: Request) => ({
      page: Number(request.query.page || 1),

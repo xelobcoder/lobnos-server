@@ -3,6 +3,21 @@ import Decimal from 'decimal.js';
 
 export const money = (value: Decimal.Value): number => new Decimal(value).toDecimalPlaces(2, Decimal.ROUND_HALF_UP).toNumber();
 export const quantity = (value: number): number => new Decimal(value).toDecimalPlaces(3).toNumber();
+export function pharmacyReceivingUnits(item: any, input: any): { baseQuantity: number; baseUnitCost: number; total: number; factor: number; receivingUnit: string } {
+     if (!['consumption', 'purchase', undefined].includes(input.unit_type)) throw new Error('Choose individual units or purchase packs');
+     const packs = input.unit_type === 'purchase';
+     const factor = packs ? Number(item.units_per_purchase_unit || 0) : 1;
+     if (!Number.isFinite(factor) || factor <= 0 || quantity(factor) !== factor || (packs && !item.purchase_unit)) throw new Error('Configure the purchase pack and units per pack for this medicine first');
+     if (input.units_per_purchase_unit !== undefined && Number(input.units_per_purchase_unit) !== factor) throw new Error('The pack size changed. Reload this medicine before receiving stock');
+     const units = new Decimal(input.quantity).mul(factor);
+     if (!units.isFinite() || units.lte(0) || units.gt('99999999999.999') || !units.eq(units.toDecimalPlaces(3))) throw new Error('The converted stock quantity must be positive with at most three decimal places');
+     return { baseQuantity: units.toNumber(), baseUnitCost: new Decimal(input.unit_price).div(factor).toDecimalPlaces(6).toNumber(), total: money(new Decimal(input.quantity).mul(input.unit_price)), factor, receivingUnit: String(packs ? item.purchase_unit : item.consumption_unit || 'unit') };
+}
+export function pharmacyTender(total: number, method: string, received: unknown): { amountTendered: number; changeAmount: number } {
+     if (typeof received !== 'number' || !Number.isFinite(received) || received < total || received > 999999999999.99 || money(received) !== received) throw new Error('Amount received must cover the sale total and have at most two decimal places');
+     if (method !== 'cash' && received !== total) throw new Error('Card and mobile money receipts must equal the sale total');
+     return { amountTendered: received, changeAmount: money(new Decimal(received).minus(total)) };
+}
 export function validatePharmacyReceipt(item:any,receipt:any,today=new Date().toISOString().slice(0,10)):void {
      if(item.inventory_domain!=='pharmacy'||item.pharmacy_batch_tracking===false||item.pharmacy_batch_tracking===0)return;
      const expiry=String(receipt.expiry_date||'');
@@ -12,7 +27,7 @@ export function validatePharmacyReceipt(item:any,receipt:any,today=new Date().to
 export function validateSaleInput(input: any): void {
      if (typeof input?.idempotencyKey !== 'string' || !/^[A-Za-z0-9:_-]{8,128}$/.test(input.idempotencyKey)) throw new Error('A valid idempotency key is required');
      if (!['cash', 'mobile_money', 'card'].includes(input.paymentMethod)) throw new Error('Invalid payment method');
-     if (!Number.isInteger(input.paymentAccountId) || input.paymentAccountId <= 0) throw new Error('Select an authorized collection account');
+     if (input.amountTendered !== undefined && (typeof input.amountTendered !== 'number' || !Number.isFinite(input.amountTendered) || input.amountTendered < 0 || money(input.amountTendered) !== input.amountTendered)) throw new Error('Enter a valid amount received with at most two decimal places');
      if (input.paymentMethod !== 'cash' && !String(input.paymentReference || '').trim()) throw new Error('A payment reference is required for card and mobile money');
      if (String(input.paymentReference || '').length > 128 || String(input.customerName || '').length > 255) throw new Error('Payment reference or customer name is too long');
      if (!Array.isArray(input.lines) || !input.lines.length || input.lines.length > 100) throw new Error('A sale requires 1 to 100 lines');
@@ -24,7 +39,7 @@ export function validateSaleInput(input: any): void {
 export function saleRequestHash(input: any, actor: number, prescriptionId?: string): string {
      return createHash('sha256').update(JSON.stringify({ actor, prescriptionId: prescriptionId || null, patientId: input.patientId || null,
           customerName: input.customerName?.trim() || 'Walk-in customer', paymentMethod: input.paymentMethod,
-          paymentAccountId: input.paymentAccountId, paymentReference: input.paymentReference?.trim() || null, expectedTotal:input.expectedTotal ?? null,
+          amountTendered: input.amountTendered ?? null, paymentReference: input.paymentReference?.trim() || null, expectedTotal:input.expectedTotal ?? null,
           lines: [...input.lines].sort((a, b) => a.inventoryItemId.localeCompare(b.inventoryItemId)) })).digest('hex');
 }
 export type BatchBalance = { batchNumber: string; available: number; expiryDate: string | null };

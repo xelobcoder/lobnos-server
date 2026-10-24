@@ -1,56 +1,39 @@
-import { enqueuePosting } from '../../accountingModule/services/AccountingOutboxService';
-import { FinancialFinalizationGuard } from '../../accountingModule/services/FinancialFinalizationGuard';
-import { NormalBalance } from '../../accountingModule/enums/normal-balance.enum';
-import { SourceModule } from '../../accountingModule/enums/source-module.enum';
-import { TransactionType } from '../../accountingModule/enums/transaction-type.enum';
 import { PharmacySaleRow } from './interfaces/IPharmacySaleRepository';
+import { assertPharmacyDayOpen, postPharmacyJournal, resolvePharmacyDestination } from './PharmacyLedger';
 
-export async function assertCollectionAccount(db: any, accountId: number, actorId: number, branch: number | null, method: string): Promise<any> {
-     const account = await db('payment_accounts').where({ id: accountId, is_active: true }).forUpdate().first();
-     const access = await db('payment_account_users').where({ payment_account_id: accountId, employeeid: actorId, can_pay: true, is_active: true }).first();
-     if (!account || !access) throw new Error('You are not authorized to collect or refund through this account');
-     if (account.branchid != null && Number(account.branchid) !== branch) throw new Error('Collection account is outside your branch');
-     if (account.currency !== 'GHS') throw new Error('Pharmacy checkout currently requires a GHS account');
-     const expected = method === 'card' ? 'bank' : method;
-     if (account.account_type !== expected) throw new Error('Collection account does not match the payment method');
-     if (!await db('acc_accounts').where({account_code:account.gl_account_code,is_active:true,type:'asset'}).first()) throw new Error('Collection account requires an active asset ledger account');
-     return account;
-}
-
-export async function collectPharmacyPayment(db: any, tenantId: number, sale: PharmacySaleRow, verifiedBy?:number): Promise<void> {
-     const account = await assertCollectionAccount(db, sale.paymentAccountId!, verifiedBy??sale.cashierId, sale.branchid ?? null, sale.paymentMethod);
-     await new FinancialFinalizationGuard(tenantId, db).assertDateOpen(sale.branchid!, sale.completedAt!);
+export async function collectPharmacyPayment(db: any, _tenantId: number, sale: PharmacySaleRow): Promise<void> {
+     if (sale.accountingVersion !== 2) throw new Error('Historical collections require a reviewed legacy reconciliation');
+     await assertPharmacyDayOpen(db, sale.branchid!, sale.completedAt!);
+     const shift = await db('pharmacy_shifts').where({ active_key: `${sale.branchid}:${sale.cashierId}` }).forUpdate().first();
+     if (!shift) throw new Error('Open your pharmacy shift before completing a sale');
+     const shiftDate = shift.financial_date || shift.opened_at;
+     if (shiftDate && (shiftDate instanceof Date ? shiftDate.toISOString().slice(0,10) : String(shiftDate).slice(0,10)) !== new Date(sale.completedAt!).toISOString().slice(0,10)) throw new Error('Close your previous financial day’s shift and open a shift for today before selling');
+     const account = await resolvePharmacyDestination(db, sale.branchid!, sale.paymentMethod);
+     sale.paymentAccountId = Number(account.id); sale.shiftId = shift.id;
+     await db('pharmacy_sales').where({ id: sale.id }).update({ payment_account_id: account.id, shift_id: shift.id });
      await db('pharmacy_payments').insert({ sale_id: sale.id, payment_account_id: account.id, branchid: sale.branchid,
-          amount: sale.totalAmount, method: sale.paymentMethod, reference: sale.paymentReference, status: 'collected', recorded_by: sale.cashierId, collected_at: sale.completedAt,verified_by:verifiedBy||null });
-     await enqueuePosting(tenantId, { tenantId, sourceModule: SourceModule.INVENTORY, sourceTable: 'pharmacy_sales', sourcePk: 0,
-          sourceRef: sale.id, transactionType: TransactionType.PAYMENT, occurredAt: sale.completedAt!, createdBy: sale.cashierId,
-          description: `Pharmacy receipt ${sale.receiptNumber}`, lines: [
-               { accountCode: account.gl_account_code, direction: NormalBalance.DEBIT, amount: sale.totalAmount, branchid: sale.branchid },
-               { accountCode: 'acc-4001', direction: NormalBalance.CREDIT, amount: sale.totalAmount, branchid: sale.branchid },
-               ...(sale.totalCost > 0 ? [
-                    { accountCode: 'acc-5000', direction: NormalBalance.DEBIT, amount: sale.totalCost, branchid: sale.branchid },
-                    { accountCode: 'acc-1003', direction: NormalBalance.CREDIT, amount: sale.totalCost, branchid: sale.branchid },
-               ] : []),
-          ] }, db);
+          amount: sale.totalAmount, method: sale.paymentMethod, reference: sale.paymentReference, status: 'collected', recorded_by: sale.cashierId, collected_at: sale.completedAt });
+     await postPharmacyJournal(db, sale.branchid!, sale.id, 'sale', `Pharmacy receipt ${sale.receiptNumber}`, sale.cashierId, [
+          { account: `collection:${account.id}`, debit: sale.totalAmount }, { account: 'sales', credit: sale.totalAmount },
+          ...(sale.totalCost > 0 ? [{ account: 'cost_of_sales', debit: sale.totalCost }, { account: 'inventory', credit: sale.totalCost }] : []),
+     ], sale.completedAt!);
 }
 
-export async function refundPharmacyPayment(db: any, tenantId: number, sale: PharmacySaleRow, actor: number, reason: string, restock: boolean): Promise<void> {
+export async function refundPharmacyPayment(db: any, _tenantId: number, sale: PharmacySaleRow, actor: number, reason: string, restock: boolean): Promise<void> {
+     if (sale.accountingVersion !== 2) throw new Error('Legacy sale: reconcile its original books before making a historical correction');
+     await assertPharmacyDayOpen(db, sale.branchid!);
      const payment = await db('pharmacy_payments').where({ sale_id: sale.id }).forUpdate().first();
-     if (!payment) throw new Error('This historical sale has no collection ledger entry. Reconcile its payment before reversing it');
+     if (!payment) throw new Error('This sale has no collection entry');
      if (payment.status !== 'collected') throw new Error('This payment has already been reversed');
-     const account = await assertCollectionAccount(db, Number(payment.payment_account_id), actor, sale.branchid ?? null, sale.paymentMethod);
-     const guard = new FinancialFinalizationGuard(tenantId, db);
-     await guard.assertRecordMutable('pharmacy_sales', sale.id);
-     await guard.assertDateOpen(sale.branchid!, new Date());
-     await db('pharmacy_payments').where({ id: payment.id }).update({ status: 'refunded', reversed_by: actor, reversed_at: new Date(), reversal_reason: reason });
-     await enqueuePosting(tenantId, { tenantId, sourceModule: SourceModule.INVENTORY, sourceTable: 'pharmacy_sales', sourcePk: 0,
-          sourceRef: sale.id, transactionType: TransactionType.REFUND, occurredAt: new Date(), createdBy: actor,
-          description: `Pharmacy reversal ${sale.receiptNumber}: ${reason}`, lines: [
-               { accountCode: 'acc-4001', direction: NormalBalance.DEBIT, amount: sale.totalAmount, branchid: sale.branchid },
-               { accountCode: account.gl_account_code, direction: NormalBalance.CREDIT, amount: sale.totalAmount, branchid: sale.branchid },
-               ...(restock && sale.totalCost > 0 ? [
-                    { accountCode: 'acc-1003', direction: NormalBalance.DEBIT, amount: sale.totalCost, branchid: sale.branchid },
-                    { accountCode: 'acc-5000', direction: NormalBalance.CREDIT, amount: sale.totalCost, branchid: sale.branchid },
-               ] : []),
-          ] }, db);
+     const account = await db('pharmacy_collection_accounts').where({ id: payment.payment_account_id, branchid: sale.branchid, is_active: true }).forUpdate().first();
+     if (!account) throw new Error('The original pharmacy refund destination is unavailable');
+     const shift = await db('pharmacy_shifts').where({ active_key: `${sale.branchid}:${actor}` }).forUpdate().first();
+     if (!shift) throw new Error('Open your pharmacy shift before issuing a refund');
+     const shiftDate = shift.financial_date || shift.opened_at;
+     if (shiftDate && (shiftDate instanceof Date ? shiftDate.toISOString().slice(0,10) : String(shiftDate).slice(0,10)) !== new Date().toISOString().slice(0,10)) throw new Error('Open a shift for today before issuing a refund');
+     await db('pharmacy_payments').where({ id: payment.id }).update({ status: 'refunded', reversed_by: actor, reversed_at: new Date(), reversal_reason: reason, refund_shift_id: shift.id });
+     await postPharmacyJournal(db, sale.branchid!, sale.id, 'refund', `Pharmacy reversal ${sale.receiptNumber}: ${reason}`, actor, [
+          { account: 'sales', debit: sale.totalAmount }, { account: `collection:${account.id}`, credit: sale.totalAmount },
+          ...(restock && sale.totalCost > 0 ? [{ account: 'inventory', debit: sale.totalCost }, { account: 'cost_of_sales', credit: sale.totalCost }] : []),
+     ]);
 }

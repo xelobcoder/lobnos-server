@@ -5,6 +5,10 @@ import { roleAllowed } from '../../middleware/roles';
 
 const accessRoles = new Set<string>(PHARMACY_ACCESS_ROLES);
 const reversalRoles = new Set<string>(PHARMACY_REVERSAL_ROLES);
+export const pharmacyCatalogueAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (!roleAllowed(roleOf(request), [...PHARMACY_ACCESS_ROLES, 'doctor', 'clinician', 'medical_officer', 'consultant'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy or prescribing access is required' } });
+     next();
+};
 
 export const pharmacyAccess = (request: Request, response: Response, next: NextFunction) => {
      if (!roleAllowed(roleOf(request), Array.from(accessRoles))) {
@@ -28,4 +32,26 @@ export const pharmacyReversalAccess = (request: Request, response: Response, nex
           return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Reversing a sale requires a pharmacy manager or administrator' } });
      }
      next();
+};
+
+export const pharmacySalesAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (!roleAllowed(roleOf(request), ['admin', 'pharmacy_manager', 'pharmacy_cashier', 'pharmacy_dispensary_officer'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy selling permission is required' } });
+     next();
+};
+export const pharmacyStockAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (!roleAllowed(roleOf(request), ['admin', 'pharmacy_manager', 'pharmacy_storekeeper'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy stock management permission is required' } });
+     next();
+};
+
+export const pharmacyFinanceAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (!roleAllowed(roleOf(request), ['admin', 'pharmacy_manager', 'pharmacy_accountant'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy financial permission is required' } });
+     next();
+};
+export const pharmacyAdministratorAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (!roleAllowed(roleOf(request), ['admin'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Only an organisation administrator may reopen a pharmacy financial day' } });
+     next();
+};
+export const pharmacyShiftAccess = (request: Request, response: Response, next: NextFunction) => {
+     if (roleAllowed(roleOf(request), ['pharmacy_accountant'])) return next();
+     return pharmacySalesAccess(request, response, next);
 };

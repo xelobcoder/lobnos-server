@@ -19,16 +19,24 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                const filters: Array<(row: any) => boolean> = [];
                let locking = false;
                let first = false;
-               let sum: { field: string; alias: string } | undefined;
+               const sums: Array<{ field: string; alias: string }> = [];
+               const minima: Array<{ field: string; alias: string }> = [];
+               let groups: string[] = [], movementBalance = false;
                const equal = (a: any, b: any) => a instanceof Date && b instanceof Date ? a.getTime() === b.getTime() : a === b;
                const column = (key: string) => key.split('.').pop()!;
                const query: any = {
                     _filters: filters,
                     clone() { const copy = trx(table); copy._filters.push(...filters); return copy; },
-                    select() { return query; }, join() { return query; }, leftJoin() { return query; }, groupBy() { return query; },
+                    select(...fields: any[]) { if (fields.some(f => typeof f?.sql === 'string' && /SUM\(new_stock - previous_stock\)/i.test(f.sql))) movementBalance = true; return query; }, join() { return query; }, leftJoin() { return query; }, groupBy(...fields: string[]) { groups = fields; return query; },
                     async columnInfo() { return { type: 'int' }; },
                     orderByRaw() { return query; }, havingRaw() { return query; },
-                    whereRaw() { return query; },
+                    whereRaw(sql?: string, bindings?: any[]) {
+                         if (sql?.includes('COALESCE(financial_date, DATE(opened_at))')) {
+                              const expected = String(bindings?.[0]);
+                              filters.push(row => { const value = row.financial_date || row.opened_at; const actual = value instanceof Date ? value.toISOString().slice(0,10) : String(value).slice(0,10); return sql.includes('<=') ? actual <= expected : actual < expected; });
+                         }
+                         return query;
+                    },
                     whereNotNull(key: string) { filters.push(row => row[column(key)] != null); return query; },
                     whereNull(key: string) { filters.push(row => row[column(key)] == null); return query; },
                     where(key: string | Record<string, any> | Function, value?: any, operand?: any) {
@@ -41,7 +49,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                                    orWhereNull(field: string) { const previous = condition; condition = row => !!previous?.(row) || row[column(field)] == null; return nested; },
                               };
                               key(nested); filters.push(row => !condition || condition(row));
-                         } else filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => operand === undefined ? equal(row[column(key)], value) : value === '>=' ? row[column(key)] >= operand : value === '<=' ? row[column(key)] <= operand : value === '<' ? row[column(key)] < operand : equal(row[column(key)], operand));
+                         } else filters.push(typeof key === 'object' ? row => Object.entries(key).every(([k, v]) => equal(row[column(k)], v)) : row => operand === undefined ? equal(row[column(key)], value) : value === '>=' ? row[column(key)] >= operand : value === '<=' ? row[column(key)] <= operand : value === '<' ? row[column(key)] < operand : value === '>' ? row[column(key)] > operand : equal(row[column(key)], operand));
                          return query;
                     },
                     whereIn(key: string, values: any[]) { filters.push(row => values.includes(row[column(key)])); return query; },
@@ -50,13 +58,24 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                     orderBy() { return query; },
                     forUpdate() { locking = true; events.push('lock:' + table); return query; },
                     first() { first = true; return query; },
-                    sum(expression: string) { const [field, alias] = expression.split(' as '); sum = { field, alias }; return query; },
-                    async insert(data: any) {
-                         if (!local) throw new Error('Write without a preceding lock');
-                         events.push('insert:' + table);
-                         const rows = (Array.isArray(data) ? data : [data]).map(value => ({ id: nextId++, ...value }));
-                         (local[table] ||= []).push(...rows);
-                         return rows.map(row => row.id);
+                    sum(expression: string) { const [field, alias] = expression.split(' as '); sums.push({ field: column(field), alias }); return query; },
+                    min(expression: string) { const [field, alias] = expression.split(' as '); minima.push({ field: column(field), alias }); return query; },
+                    insert(data: any) {
+                         let conflictKeys: string[] = [], ignore = false;
+                         const insertion: any = {
+                              onConflict(keys: string[]) { conflictKeys = keys; return insertion; },
+                              ignore() { ignore = true; return insertion; },
+                              async then(resolve: any, reject: any) {
+                                   try {
+                                        await lock();
+                                        events.push('insert:' + table);
+                                        const rows = (Array.isArray(data) ? data : [data]).filter(value => !ignore || !(local![table] || []).some(row => conflictKeys.every(key => equal(row[key], value[key])))).map(value => ({ id: nextId++, ...value }));
+                                        (local![table] ||= []).push(...rows);
+                                        resolve(rows.map(row => row.id));
+                                   } catch (error) { reject(error); }
+                              },
+                         };
+                         return insertion;
                     },
                     async update(data: any) {
                          if (!local) throw new Error('Write without a preceding lock');
@@ -70,7 +89,18 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                               if (locking) await lock();
                               const baseTable = table.split(' as ')[0];
                               const rows = (local?.[table] || local?.[baseTable] || tables[table] || tables[baseTable] || []).filter(row => filters.every(filter => filter(row)));
-                              if (sum) return resolve({ [sum.alias]: rows.reduce((total, row) => total + Number(row[sum!.field] || 0), 0) });
+                              if (sums.length || minima.length || movementBalance) {
+                                   const aggregate = (part: any[]) => ({
+                                        ...Object.fromEntries(groups.map(key => [column(key), part[0]?.[column(key)]])),
+                                        ...Object.fromEntries(sums.map(sum => [sum.alias, part.reduce((total, row) => total + Number(row[sum.field] || 0), 0)])),
+                                        ...Object.fromEntries(minima.map(min => [min.alias, part.map(row => row[min.field]).filter(v => v != null).sort()[0] || null])),
+                                        ...(movementBalance ? { available: part.reduce((total, row) => total + Number(row.new_stock) - Number(row.previous_stock), 0) } : {}),
+                                   });
+                                   if (!groups.length) return resolve(aggregate(rows));
+                                   const partitions = new Map<string, any[]>();
+                                   for (const row of rows) { const key = JSON.stringify(groups.map(g => row[column(g)])); partitions.set(key, [...(partitions.get(key) || []), row]); }
+                                   const results = [...partitions.values()].map(aggregate); return resolve(first ? results[0] : results);
+                              }
                               return resolve(structuredClone(first ? rows[0] : rows));
                          } catch (error) { return reject(error); }
                     },

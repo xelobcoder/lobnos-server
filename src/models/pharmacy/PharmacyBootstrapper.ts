@@ -1,3 +1,5 @@
+import { ensurePharmacySeparationSchema } from './PharmacySeparationSchema';
+import { ensurePharmacyOperationsSchema } from './PharmacyOperationsSchema';
 import { ensurePharmacyIntegritySchema } from './PharmacyIntegritySchema';
 import KnexConnection from '../../database/KnexConnections';
 
@@ -103,4 +105,6 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
           });
      }
      await ensurePharmacyIntegritySchema(connection);
+     await ensurePharmacySeparationSchema(connection);
+     await ensurePharmacyOperationsSchema(connection);
 }

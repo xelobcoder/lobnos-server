@@ -23,6 +23,10 @@ export interface PharmacySaleRow {
      prescriptionId?: string | null;
      heldSaleId?: string | null;
      paymentAccountId?: number;
+     amountTendered?: number;
+     changeAmount?: number;
+     accountingVersion?: number;
+     shiftId?: string;
      branchid?: number | null;
      customerName: string;
      patientId: number | null;

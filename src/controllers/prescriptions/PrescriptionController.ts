@@ -99,7 +99,7 @@ export class PrescriptionController {
                response.json({ success: true, data: result });
           } catch (error: any) {
                const status = /not found/i.test(error.message) ? 404 : /already|unavailable|insufficient/i.test(error.message) ? 409 : 400;
-               response.status(status).json({ success: false, error: { code: 'FULFILLMENT_REJECTED', message: error.message } });
+               response.status(error.code ? 503 : status).json({ success: false, error: { code: error.code ? 'FULFILLMENT_UNCONFIRMED' : 'FULFILLMENT_REJECTED', message: error.code ? 'Dispensing could not be confirmed. Retry the original request.' : error.message } });
           }
      }
 

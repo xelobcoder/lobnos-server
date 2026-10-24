@@ -74,6 +74,11 @@ describe('facility activation enforcement', () => {
           expect(await invoke('/api/v1/inventory/items', JSON.stringify(enabled))).toHaveBeenCalledOnce();
           expect(await invoke('/api/v1/pharmacy/sales', null)).toHaveBeenCalledOnce();
      });
+     it('does not activate lab inventory through pharmacy activation', async () => {
+          const pharmacyOnly = { ...config, modules: { ...config.modules, pharmacy: { enabled: true, monthlyPrice: '1' }, inventory: { enabled: false, monthlyPrice: '0' } } };
+          expect(await invoke('/api/v1/pharmacy/sales', JSON.stringify(pharmacyOnly))).toHaveBeenCalledOnce();
+          expect(await invoke('/api/v1/inventory/items', JSON.stringify(pharmacyOnly))).not.toHaveBeenCalled();
+     });
      it('does not let Device Manager borrow the super-admin module override', async () => {
           tokens.role = 'super-admin';
           tokens.clientType = 'device-manager';

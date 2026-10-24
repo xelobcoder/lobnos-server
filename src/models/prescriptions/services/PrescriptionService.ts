@@ -136,7 +136,7 @@ export class PrescriptionService implements IPrescriptionService {
                const items = await this.repository.findItemsByPrescriptionId(id);
                const totals = new Map<string,number>();
                for (const line of input.lines) { const item=items.find(item=>item.id===line.prescriptionItemId); if(!item?.inventoryItemId)throw new Error('Dispensing retry does not match'); totals.set(item.inventoryItemId,(totals.get(item.inventoryItemId)||0)+line.quantityDispensed); }
-               const receipt=await this.saleService.completeSale({idempotencyKey:input.idempotencyKey,patientId:prescription.patientId,customerName:input.customerName,paymentMethod:input.paymentMethod,paymentReference:input.paymentReference,paymentAccountId:input.paymentAccountId,expectedTotal:input.expectedTotal,lines:Array.from(totals,([inventoryItemId,quantity])=>({inventoryItemId,quantity}))},cashierId,this.trx,id);
+               const receipt=await this.saleService.completeSale({idempotencyKey:input.idempotencyKey,patientId:prescription.patientId,customerName:input.customerName,paymentMethod:input.paymentMethod,paymentReference:input.paymentReference,paymentAccountId:input.paymentAccountId,amountTendered:input.amountTendered,expectedTotal:input.expectedTotal,lines:Array.from(totals,([inventoryItemId,quantity])=>({inventoryItemId,quantity}))},cashierId,this.trx,id);
                return {receipt,prescription:await this.getById(id)};
           }
           if (!OPEN_STATUSES.includes(prescription.status)) throw new Error(`This prescription is already ${prescription.status} and cannot be fulfilled`);
@@ -164,6 +164,7 @@ export class PrescriptionService implements IPrescriptionService {
           const receipt = await this.saleService.completeSale({
                idempotencyKey: input.idempotencyKey,
                paymentAccountId: input.paymentAccountId,
+               amountTendered: input.amountTendered,
                expectedTotal: input.expectedTotal,
                customerName: input.customerName,
                patientId: prescription.patientId,

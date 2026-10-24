@@ -48,7 +48,7 @@ export class PharmacySaleController {
                response.status(201).json({ success: true, data: receipt });
           } catch (error: any) {
                const status = /not found/i.test(error.message) ? 404 : /unavailable|insufficient|positive|Duplicate/.test(error.message) ? 409 : 400;
-               response.status(status).json({ success: false, error: { code: 'HELD_SALE_COMPLETION_REJECTED', message: error.message } });
+               response.status(error.code ? 503 : status).json({ success: false, error: { code: error.code ? 'SALE_UNCONFIRMED' : 'HELD_SALE_COMPLETION_REJECTED', message: error.code ? 'Checkout could not be confirmed. Retry the original checkout.' : error.message } });
           }
      }
 
@@ -99,7 +99,7 @@ export class PharmacySaleController {
                response.status(201).json({ success: true, data: receipt });
           } catch (error: any) {
                const status = /unavailable|insufficient|requires a prescription|positive|Duplicate/.test(error.message) ? 409 : 400;
-               response.status(status).json({ success: false, error: { code: 'SALE_REJECTED', message: error.message } });
+               response.status(error.code ? 503 : status).json({ success: false, error: { code: error.code ? 'SALE_UNCONFIRMED' : 'SALE_REJECTED', message: error.code ? 'Checkout could not be confirmed. Retry the original checkout.' : error.message } });
           }
      }
 

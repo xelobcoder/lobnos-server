@@ -7,7 +7,8 @@ export interface CreatePharmacySaleInput {
      patientId?: number | null;
      paymentMethod: PharmacyPaymentMethod;
      paymentReference?: string;
-     paymentAccountId: number;
+     paymentAccountId?: number;
+     amountTendered?: number;
      expectedTotal?: number;
      lines: Array<{ inventoryItemId: string; quantity: number }>;
 }
@@ -22,8 +23,13 @@ export interface CompleteHeldPharmacySaleInput extends CreatePharmacySaleInput {
 
 export interface PharmacySaleReceipt {
      id: string;
+     branchId?: number;
+     cashierId?: number;
      receiptNumber: string;
      total: number;
+     amountTendered?: number;
+     change?: number;
+     paymentReference?: string | null;
      paymentMethod: PharmacyPaymentMethod;
      completedAt: Date;
      customerName?: string;
@@ -50,6 +56,7 @@ export interface PharmacySaleReversal {
 }
 
 export interface PharmacySaleHistoryItem {
+     accountingVersion?: number;
      id: string;
      receiptNumber: string;
      customerName: string;
@@ -107,6 +114,8 @@ export interface PharmacyHeldSale {
 }
 
 export interface PharmacySaleDetail extends PharmacySaleHistoryItem {
+     amountTendered?: number;
+     change?: number;
      paymentAccountId?:number;
      branchid?:number|null;
      paymentReference: string | null;

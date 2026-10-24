@@ -64,6 +64,7 @@ export class InventoryItemModel {
           await connection.transaction(async (trx) => {
                const item = await trx('inv_inventory_items').where({ id, is_active: true }).forUpdate().first();
                if (!item) throw new Error('Inventory item not found');
+               if (item.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
                validatePharmacyReceipt(item,request);
                if(item.inventory_domain==='pharmacy'&&request.batch_number) {
                     const prior=await trx('inv_inventory_transactions').where({item_id:id,batch_number:request.batch_number.trim()}).whereNotNull('expiry_date').first();
@@ -172,6 +173,7 @@ export class InventoryItemModel {
      }
 
      async create(request: CreateInventoryItemRequest): Promise<InventoryItem> {
+          if (request.inventory_domain === 'pharmacy' || request.category_id === 'CAT-PHARMACY') throw new Error('Create pharmacy medicines through pharmacy inventory');
           const connection = await this.connection;
 
           // Validate SKU uniqueness
@@ -378,9 +380,7 @@ export class InventoryItemModel {
           if (category_id) {
                query = query.where('inv_inventory_items.category_id', category_id);
           }
-          if (inventory_domain) {
-               query = query.where('inv_inventory_items.inventory_domain', inventory_domain);
-          }
+          query = query.where('inv_inventory_items.inventory_domain', inventory_domain || 'lab');
           if (location_id) {
                query = query.where('inv_inventory_items.location_id', location_id);
           }
@@ -463,6 +463,7 @@ export class InventoryItemModel {
                const connection = await this.connection;
 
                const currentItem = await this.findById(id);
+               if (currentItem?.inventory_domain === 'pharmacy' || updates.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
                if (!currentItem) {
                     throw new Error('Inventory item not found');
                }
@@ -562,6 +563,7 @@ export class InventoryItemModel {
           const connection = await this.connection;
 
           const item = await this.findById(id);
+          if (item?.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
           if (!item) {
                return false;
           }
@@ -585,6 +587,7 @@ export class InventoryItemModel {
 
           const summary = await connection('inv_inventory_items')
                .where('is_active', true)
+               .where('inventory_domain', 'lab')
                .select(
                     connection.raw('COUNT(*) as total_items'),
                     connection.raw('SUM(CASE WHEN status = "low_stock" THEN 1 ELSE 0 END) as low_stock_items'),

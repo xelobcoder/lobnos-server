@@ -1,4 +1,6 @@
 import { Router } from 'express';
+import { checkTokenExists } from '../../../middleware/validateTenancy';
+import { legacyPharmacyGuard } from '../legacyPharmacyGuard';
 import brandRoutes from './brandRoutes';
 import categoryRoutes from './categoryRoutes';
 import supplierRoutes from './supplierRoutes';
@@ -16,6 +18,7 @@ import inventoryTransactionRoutes from './inventoryTransactionRoutes';
 
 
 const router = Router();
+router.use(checkTokenExists, legacyPharmacyGuard);
 
 // Mount all inventory routes
 router.use('/', brandRoutes);

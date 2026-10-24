@@ -92,7 +92,8 @@ export interface FulfillPrescriptionLineInput {
 
 export interface FulfillPrescriptionInput {
      idempotencyKey: string;
-     paymentAccountId: number;
+     paymentAccountId?: number;
+     amountTendered?: number;
      expectedTotal?: number;
      lines: FulfillPrescriptionLineInput[];
      paymentMethod: PharmacyPaymentMethod;

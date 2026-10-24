@@ -1,7 +1,7 @@
 import { quantity } from './PharmacyRules';
 export async function pharmacyAvailability(db: any, items: Array<{id:string;currentStock:number;batchTracking:boolean}>): Promise<Map<string,number>> {
      const result=new Map<string,number>(); if(!items.length)return result;
-     const batches=await db('inv_inventory_transactions').select('item_id','batch_number').min('expiry_date as expiry_date')
+     const batches=await db('pharmacy_stock_movements').select('item_id','batch_number').min('expiry_date as expiry_date')
           .select(db.raw('SUM(new_stock - previous_stock) as available')).whereIn('item_id',items.map(item=>item.id)).whereNotNull('batch_number').groupBy('item_id','batch_number');
      const today=new Date().toISOString().slice(0,10);
      for(const item of items) {

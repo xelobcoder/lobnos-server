@@ -96,6 +96,7 @@ export class InventoryTransactionModel {
                for (const request of transactions) {
                     const item = byId.get(request.item_id);
                     if (!item) throw new Error('Inventory item not found or inactive: ' + request.item_id);
+                    if (item.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
                     const validation = UnitValidationService.validateTransactionUnitConversion(
                          request.unit_type, request.purchase_unit || null, item.consumption_unit,
                          request.units_per_purchase_unit ?? null

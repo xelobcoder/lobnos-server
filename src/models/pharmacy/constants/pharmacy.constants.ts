@@ -1,11 +1,12 @@
 export const PHARMACY_ROLES = [
+     'pharmacy_accountant',
      'pharmacy_cashier',
      'pharmacy_manager',
      'pharmacy_storekeeper',
      'pharmacy_dispensary_officer'
 ] as const;
 
-export const PHARMACY_ACCESS_ROLES = ['super-admin', 'admin', 'manager', ...PHARMACY_ROLES];
+export const PHARMACY_ACCESS_ROLES = ['super-admin', 'admin', ...PHARMACY_ROLES];
 
 export const PHARMACY_CATEGORY_ID = 'CAT-PHARMACY';
 export const PHARMACY_CATEGORY_NAME = 'Pharmacy';
@@ -41,7 +42,7 @@ export const PHARMACY_REVERSAL_STATUSES = {
 export const PHARMACY_REVERSED_STATUSES = Object.values(PHARMACY_REVERSAL_STATUSES) as string[];
 
 /** Reversing a sale is a privileged correction, not a cashier action. */
-export const PHARMACY_REVERSAL_ROLES = ['super-admin', 'admin', 'manager', 'pharmacy_manager'];
+export const PHARMACY_REVERSAL_ROLES = ['super-admin', 'admin', 'pharmacy_manager'];
 
 export const PHARMACY_REVERSAL_MIN_REASON_LENGTH = 5;
 export const PHARMACY_REVERSAL_MAX_REASON_LENGTH = 500;

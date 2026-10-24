@@ -1,5 +1,5 @@
 import Decimal from 'decimal.js';
-import { money, quantity, saleRequestHash, validateSaleInput } from '../PharmacyRules';
+import { money, quantity, saleRequestHash, validateSaleInput, pharmacyTender } from '../PharmacyRules';
 import { randomUUID } from 'crypto';
 import {
      PHARMACY_REVERSAL_MAX_REASON_LENGTH,
@@ -97,7 +97,7 @@ export class PharmacySaleService implements IPharmacySaleService {
           return this.saleRepository.withTransaction(async (unitOfWork) => {
                const existing=await this.saleRepository.findSaleByIdempotencyKey(input.idempotencyKey,unitOfWork);
                if(existing) {
-                    if(existing.heldSaleId!==heldSaleId || existing.requestHash!==saleRequestHash(input,cashierId))throw new Error('Checkout retry does not match the original request');
+                    if(existing.branchid!==this.branchId || existing.heldSaleId!==heldSaleId || existing.requestHash!==saleRequestHash(input,cashierId))throw new Error('Checkout retry does not match the original request');
                     return this.toReceipt(existing,unitOfWork);
                }
                const heldSale = await this.saleRepository.lockHeldSale(heldSaleId, unitOfWork);
@@ -173,10 +173,12 @@ export class PharmacySaleService implements IPharmacySaleService {
           }
 
           if(input.expectedTotal!=null && (!Number.isFinite(input.expectedTotal)||money(total)!==input.expectedTotal))throw new Error('Prices changed. Refresh the item prices and review the total before paying');
+          if (money(total) <= 0) throw new Error('A sale must have a positive total');
+          const tender = pharmacyTender(money(total), input.paymentMethod, input.amountTendered);
           const sale: PharmacySaleRow = {
                id: saleId,
                receiptNumber: `PHM-${saleId}`,
-               requestHash, prescriptionId, heldSaleId, paymentAccountId:input.paymentAccountId, branchid:this.branchId,
+               requestHash, prescriptionId, heldSaleId, branchid:this.branchId, accountingVersion:2, ...tender,
                idempotencyKey: input.idempotencyKey,
                customerName: input.customerName?.trim() || 'Walk-in customer',
                patientId: input.patientId || null,
@@ -239,7 +241,8 @@ export class PharmacySaleService implements IPharmacySaleService {
 
           return {
                ...this.toHistoryItem(sale),
-               paymentAccountId:sale.paymentAccountId,branchid:sale.branchid,
+               paymentAccountId:sale.accountingVersion===2?sale.paymentAccountId:undefined,branchid:sale.branchid,
+               amountTendered: sale.amountTendered, change: sale.changeAmount,
                paymentReference: sale.paymentReference,
                patientId: sale.patientId,
                reversedBy: sale.reversedBy,
@@ -336,7 +339,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                resolveStockStatus(newStock, item.minimumStock),
                context.occurredAt,
                context.unitOfWork,
-               delta>0&&newStock>0 ? money(new Decimal(previousStock).mul(item.costPrice).plus(new Decimal(delta).mul(context.unitCost??item.costPrice)).div(newStock)) : undefined
+               delta>0&&newStock>0 ? new Decimal(previousStock).mul(item.costPrice).plus(new Decimal(delta).mul(context.unitCost??item.costPrice)).div(newStock).toDecimalPlaces(6).toNumber() : undefined
           );
           await this.saleRepository.recordStockMovement({
                itemId: item.id,
@@ -357,6 +360,7 @@ export class PharmacySaleService implements IPharmacySaleService {
 
      private toHistoryItem(sale: PharmacySaleRow): PharmacySaleHistoryItem {
           return {
+               accountingVersion: sale.accountingVersion || 1,
                id: sale.id,
                receiptNumber: sale.receiptNumber,
                customerName: sale.customerName,
@@ -376,8 +380,10 @@ export class PharmacySaleService implements IPharmacySaleService {
      private async toReceipt(sale: PharmacySaleRow, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleReceipt> {
           return {
                id: sale.id,
+               branchId: sale.branchid ?? undefined, cashierId: sale.cashierId,
                receiptNumber: sale.receiptNumber,
                total: sale.totalAmount,
+               amountTendered:sale.amountTendered, change:sale.changeAmount, paymentReference:sale.paymentReference,
                customerName:sale.customerName,
                lines:await this.saleRepository.findSaleLines(sale.id,unitOfWork),
                paymentMethod: sale.paymentMethod as PharmacyPaymentMethod,

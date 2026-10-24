@@ -84,6 +84,7 @@ import { startAppointmentReminderWorker } from './models/appointments/Appointmen
 import { logApplicationStarted } from './bootstrap/startupLogger';
 import marketplaceRouter from './marketplace/marketplaceRouter';
 import { bootstrapMarketplace } from './marketplace/MarketplaceBootstrapper';
+import { pharmacyModuleBoundary } from './middleware/pharmacyModuleBoundary';
 
 
 
@@ -132,6 +133,7 @@ app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
+app.use(pharmacyModuleBoundary);
 app.use(labAssignmentAccess);
 app.use('/api/v1/operations/control', operationalControlRoutes);
 app.use('/api/v1/queue', walkInQueueRouter);

@@ -22,7 +22,7 @@ import {
 export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository {
      private readonly connection: Promise<Knex>;
 
-     constructor(tenantId: number) {
+     constructor(tenantId: number, private readonly branchId: number | null = null) {
           this.connection = KnexConnection(tenantId);
      }
 
@@ -72,9 +72,9 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
      }
 
      private buildQuery(connection: Knex, filters: PharmacyCatalogueFilters): Knex.QueryBuilder {
-          let query = connection('inv_inventory_items as item')
+          let query = connection('pharmacy_inventory_items as item')
                .where('item.is_active', true)
-               .where('item.inventory_domain', 'pharmacy');
+               .where('item.branchid', this.branchId ?? -1);
 
           if (filters.sellableOnly) {
                query = query.where('item.current_stock', '>', 0).where('item.sale_price', '>', 0);
@@ -95,6 +95,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                'item.sku',
                'item.name',
                'item.consumption_unit',
+               'item.purchase_unit', 'item.units_per_purchase_unit', 'item.cost_price',
                'item.current_stock',
                'item.min_stock',
                'item.wholesale_price',
@@ -111,6 +112,7 @@ export class PharmacyCatalogueRepository implements IPharmacyCatalogueRepository
                sku: row.sku,
                name: row.name,
                unit: row.consumption_unit,
+               purchaseUnit: row.purchase_unit || null, unitsPerPurchaseUnit: Number(row.units_per_purchase_unit || 1), costPrice: Number(row.cost_price || 0),
                availableStock,
                minimumStock,
                wholesalePrice: Number(row.wholesale_price || 0),

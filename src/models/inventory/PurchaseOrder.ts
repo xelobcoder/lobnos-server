@@ -401,6 +401,7 @@ export class PurchaseOrderModel {
                          .first();
 
                     if (item) {
+                         if (item.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy purchasing');
                          const consumptionQuantity = receipt.units_per_purchase_unit
                               ? Number(receipt.quantity_received) * Number(receipt.units_per_purchase_unit)
                               : Number(receipt.quantity_received);
@@ -624,6 +625,7 @@ export class PurchaseOrderModel {
                               if (!inventoryItem) {
                                    throw new Error(`Inventory item ${orderItem.inventory_item_id} not found`);
                               }
+                              if (inventoryItem.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy purchasing');
 
                               const previousStock = inventoryItem.current_stock;
                               const consumptionQuantity = receiptData.quantity_received * unitsPerPurchaseUnit;

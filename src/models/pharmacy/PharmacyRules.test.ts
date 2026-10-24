@@ -1,11 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { allocateBatches, money, saleRequestHash, validateSaleInput } from './PharmacyRules';
+import { allocateBatches, money, saleRequestHash, validateSaleInput, pharmacyTender } from './PharmacyRules';
 const valid=()=>({idempotencyKey:'checkout-12345',paymentAccountId:1,paymentMethod:'cash',lines:[{inventoryItemId:'A',quantity:1}]});
 describe('pharmacy checkout rules',()=>{
+     it('records cash tender and change without inflating the sale',()=>{expect(pharmacyTender(85,'cash',100)).toEqual({amountTendered:100,changeAmount:15});});
+     it.each([80, NaN, Infinity, -1, 85.001, '100', undefined])('rejects insufficient or invalid tender %s',value=>{expect(()=>pharmacyTender(85,'cash',value)).toThrow('received');});
+     it('allows exact noncash payments and prevents cash change on noncash',()=>{
+          expect(pharmacyTender(85,'card',85).changeAmount).toBe(0);
+          expect(()=>pharmacyTender(85,'mobile_money',100)).toThrow('equal');
+     });
      it('rounds half cents consistently',()=>{expect(money('1.005')).toBe(1.01);});
      it.each(['unknown','bank_transfer',null])('rejects unsupported payment method %s',method=>{expect(()=>validateSaleInput({...valid(),paymentMethod:method})).toThrow('payment method');});
-     it('requires an authorized account identifier and noncash reference',()=>{
-          expect(()=>validateSaleInput({...valid(),paymentAccountId:0})).toThrow('account');
+     it('resolves accounts on the server and requires a noncash reference',()=>{
+          expect(()=>validateSaleInput({...valid(),paymentAccountId:undefined})).not.toThrow();
           expect(()=>validateSaleInput({...valid(),paymentMethod:'card'})).toThrow('reference');
           expect(()=>validateSaleInput({...valid(),paymentMethod:'card',paymentReference:'verified-123'})).not.toThrow();
      });
@@ -18,7 +24,8 @@ describe('pharmacy checkout rules',()=>{
           expect(saleRequestHash(input,3)).toBe(saleRequestHash({...input,lines:[...input.lines].reverse()},3));
           expect(saleRequestHash(input,3)).not.toBe(saleRequestHash(input,4));
           expect(saleRequestHash(input,3)).not.toBe(saleRequestHash(input,3,'rx-1'));
-          expect(saleRequestHash(input,3)).not.toBe(saleRequestHash({...input,paymentAccountId:2},3));
+          expect(saleRequestHash(input,3)).toBe(saleRequestHash({...input,paymentAccountId:2},3));
+          expect(saleRequestHash(input,3)).not.toBe(saleRequestHash({...input,amountTendered:100},3));
      });
 });
 describe('pharmacy batch allocation',()=>{
@@ -32,6 +39,7 @@ describe('pharmacy batch allocation',()=>{
      });
      it('does not disguise expired batches as unbatched general merchandise',()=>{
           expect(()=>allocateBatches(batches,14,63,false,'2026-10-23')).toThrow('unexpired');
-          expect(allocateBatches(batches,14,64,false,'2026-10-23').at(-1)).toEqual({batchNumber:null,quantity:1,expiryDate:null});
+          const result=allocateBatches(batches,14,64,false,'2026-10-23');
+          expect(result[result.length-1]).toEqual({batchNumber:null,quantity:1,expiryDate:null});
      });
 });

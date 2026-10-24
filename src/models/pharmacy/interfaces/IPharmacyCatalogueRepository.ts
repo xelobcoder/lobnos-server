@@ -7,6 +7,9 @@ export interface PharmacyCatalogueItem {
      sku: string;
      name: string;
      unit: string;
+     purchaseUnit?: string | null;
+     unitsPerPurchaseUnit?: number;
+     costPrice?: number;
      availableStock: number;
      minimumStock: number;
      wholesalePrice: number;
