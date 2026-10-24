@@ -29,6 +29,23 @@ export const parseDateRange = (query: any): { from?: string; to?: string; error?
 };
 
 export class PrescriptionController {
+     static async searchPatients(request: Request, response: Response): Promise<void> {
+          const search=String(request.query.search||'').trim();
+          if (search.length>100) { response.status(400).json({success:false,error:{message:'Search must be at most 100 characters'}}); return; }
+          if (search.length<3 && !/^\d+$/.test(search)) { response.json({success:true,data:[]}); return; }
+          try {
+               const db=await KnexConnection(tenantOf(request));
+               const pattern='%'+search.replace(/[!%_]/g,'!export class PrescriptionController {')+'%';
+               const query=db('new_patients').select('patientid','firstname','middlename','lastname','dob','gender','mobile_number');
+               query.where(function(){
+                    this.whereRaw("CONCAT_WS(' ', firstname, middlename, lastname) LIKE ? ESCAPE '!'",[pattern])
+                         .orWhereRaw("mobile_number LIKE ? ESCAPE '!'",[pattern]);
+                    if (/^\d+$/.test(search)) this.orWhere('patientid',search);
+               });
+               response.json({success:true,data:await query.orderBy('firstname').orderBy('patientid').limit(15)});
+          } catch(error) { response.status(500).json({success:false,error:{message:'Unable to search patients'}}); }
+     }
+
      static async createPrescription(request: Request, response: Response): Promise<void> {
           try {
                const prescription = await prescriptionService(request).createPrescription(request.body, actorOf(request));

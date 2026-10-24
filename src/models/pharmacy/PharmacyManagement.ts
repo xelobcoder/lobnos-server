@@ -72,9 +72,10 @@ export class PharmacyManagement {
                await assertNoStockCount(trx,id);
                const factor = input.purchaseUnit ? input.unitsPerPurchaseUnit : 1;
                if (input.purchaseUnit !== undefined && (typeof factor !== 'number' || !Number.isFinite(factor) || factor <= 0 || quantity(factor) !== factor)) throw new Error('Enter a valid purchase pack size');
-               const values = { sale_price: price, ...(input.wholesalePrice!==undefined?{wholesale_price:validAmount(input.wholesalePrice,'wholesale price',true)}:{}), min_stock: minimum, ...(input.purchaseUnit !== undefined ? { purchase_unit: input.purchaseUnit ? text(input.purchaseUnit, 'purchase pack', 100) : null, units_per_purchase_unit: factor } : {}) };
+               for (const flag of ['requiresPrescription', 'batchTracking']) if (input[flag] !== undefined && typeof input[flag] !== 'boolean') throw new Error('Medicine settings must be true or false');
+               const values = { ...(input.requiresPrescription !== undefined ? {requires_prescription: input.requiresPrescription} : {}), ...(input.batchTracking !== undefined ? {pharmacy_batch_tracking: input.batchTracking} : {}), sale_price: price, ...(input.wholesalePrice!==undefined?{wholesale_price:validAmount(input.wholesalePrice,'wholesale price',true)}:{}), min_stock: minimum, ...(input.purchaseUnit !== undefined ? { purchase_unit: input.purchaseUnit ? text(input.purchaseUnit, 'purchase pack', 100) : null, units_per_purchase_unit: factor } : {}) };
                await trx('pharmacy_inventory_items').where({ id }).update({ ...values, status: resolveStockStatus(Number(item.current_stock), minimum), updated_at: new Date() });
-               await trx('pharmacy_item_profile_audit').insert({ item_id: id, previous_values: JSON.stringify({ sale_price: item.sale_price,wholesale_price:item.wholesale_price, min_stock: item.min_stock }), new_values: JSON.stringify(values), changed_by: this.actor, changed_at: new Date() });
+               await trx('pharmacy_item_profile_audit').insert({ item_id: id, previous_values: JSON.stringify({ sale_price: item.sale_price,wholesale_price:item.wholesale_price, min_stock: item.min_stock, requires_prescription:item.requires_prescription, pharmacy_batch_tracking:item.pharmacy_batch_tracking }), new_values: JSON.stringify(values), changed_by: this.actor, changed_at: new Date() });
                return { updated: true };
           });
      }
@@ -145,14 +146,17 @@ export class PharmacyManagement {
                await assertNoStockCount(trx,itemId);
                const conversion = pharmacyReceivingUnits(item, input);
                const baseCount = conversion.baseQuantity, baseCost = conversion.baseUnitCost;
-               validatePharmacyReceipt({ ...item, inventory_domain: 'pharmacy' }, input);
+               if (input.batch_number != null && typeof input.batch_number !== 'string') throw new Error('Enter a valid batch number');
+               const generatedBatch = !input.batch_number?.trim();
+               const batchNumber = generatedBatch ? 'AUTO-' + id.toUpperCase() : input.batch_number.trim();
+               validatePharmacyReceipt({ ...item, inventory_domain: 'pharmacy' }, {...input, batch_number:batchNumber});
                if (input.batch_number && (typeof input.batch_number !== 'string' || input.batch_number.trim().length > 100)) throw new Error('Enter a valid manufacturer batch number');
                if (input.expiry_date && (!/^\d{4}-\d{2}-\d{2}$/.test(input.expiry_date) || !Number.isFinite(Date.parse(input.expiry_date)) || new Date(input.expiry_date).toISOString().slice(0, 10) !== input.expiry_date || input.expiry_date < new Date().toISOString().slice(0,10))) throw new Error('Enter a valid unexpired expiry date');
                if (input.supplier_id && !await trx('pharmacy_suppliers').where({ id: input.supplier_id, branchid: this.branch, is_active: true }).first()) throw new Error('Pharmacy supplier not found');
                const total = conversion.total;
                if (total > 0 && !input.supplier_id) throw new Error('Choose a pharmacy supplier for purchased stock');
-               if (input.batch_number) {
-                    const prior = await trx('pharmacy_stock_movements').where({ item_id: itemId, batch_number: input.batch_number }).first();
+               if (batchNumber) {
+                    const prior = await trx('pharmacy_stock_movements').where({ item_id: itemId, batch_number: batchNumber }).first();
                     if (prior && String(prior.expiry_date ? new Date(prior.expiry_date).toISOString().slice(0, 10) : '') !== String(input.expiry_date || '')) throw new Error('This batch already has a different expiry date');
                }
                const previous = Number(item.current_stock), next = quantity(previous + baseCount);
@@ -160,14 +164,14 @@ export class PharmacyManagement {
                const average = new Decimal(previous).mul(item.cost_price).plus(total).div(next).toDecimalPlaces(6).toNumber();
                const prices = input.change_pricing ? { sale_price: validAmount(input.new_sale_price, 'sale price', true), wholesale_price: validAmount(input.new_wholesale_price, 'wholesale price', true) } : {};
                await trx('pharmacy_inventory_items').where({ id: itemId }).update({ current_stock: next, cost_price: average, status: resolveStockStatus(next, Number(item.min_stock)), last_updated: new Date(), updated_at: new Date(), ...prices });
-               await trx('pharmacy_stock_movements').insert({ id, item_id: itemId, branchid: this.branch, transaction_type: 'addition', quantity: baseCount, previous_stock: previous, new_stock: next, unit_cost: baseCost, total_cost: total, purchase_quantity: count, receiving_unit: conversion.receivingUnit, conversion_factor: conversion.factor, purchase_unit_cost: cost, reason: 'Pharmacy stock receipt', reference_id: id, performed_by: this.actor, transaction_date: new Date(), batch_number: input.batch_number || null, expiry_date: input.expiry_date || null });
+               await trx('pharmacy_stock_movements').insert({ id, item_id: itemId, branchid: this.branch, transaction_type: 'addition', quantity: baseCount, previous_stock: previous, new_stock: next, unit_cost: baseCost, total_cost: total, purchase_quantity: count, receiving_unit: conversion.receivingUnit, conversion_factor: conversion.factor, purchase_unit_cost: cost, reason: 'Pharmacy stock receipt', reference_id: id, performed_by: this.actor, transaction_date: new Date(), batch_number: batchNumber || null, expiry_date: input.expiry_date || null });
                if (total) await postPharmacyJournal(trx, this.branch, id, 'receipt', `Stock receipt: ${item.name}`, this.actor, [{ account: 'inventory', debit: total }, { account: `payable:${input.supplier_id}`, credit: total }]);
                if (orderLine) {
                     await trx('pharmacy_purchase_order_lines').where({ id: orderLine.id }).update({ quantity_received: quantity(Number(orderLine.quantity_received) + count) });
                     const lines = await trx('pharmacy_purchase_order_lines').where({ order_id: orderLine.order_id });
                     await trx('pharmacy_purchase_orders').where({ id: orderLine.order_id }).update({ status: lines.every((l: any) => Number(l.quantity_received) === Number(l.quantity_ordered)) ? 'received' : 'partially_received' });
                }
-               return { amount: total, supplierId: input.supplier_id, details: { itemId, quantity: baseCount, receivedQuantity: count, receivingUnit: conversion.receivingUnit, conversionFactor: conversion.factor, unitCost: baseCost, purchaseUnitCost: cost, batch: input.batch_number, expiry: input.expiry_date, orderLineId: input.orderLineId } };
+               return { amount: total, supplierId: input.supplier_id, details: { itemId, quantity: baseCount, receivedQuantity: count, receivingUnit: conversion.receivingUnit, conversionFactor: conversion.factor, unitCost: baseCost, purchaseUnitCost: cost, batch: batchNumber, batchGenerated: generatedBatch, expiry: input.expiry_date, orderLineId: input.orderLineId } };
           });
      }
 

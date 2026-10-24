@@ -12,6 +12,21 @@ function fixture() {
 }
 const receipt = (key = 'receipt-key-123') => ({ idempotencyKey: key, quantity: 5, unit_price: 2, supplier_id: 'supplier', batch_number: 'BATCH', expiry_date: '2099-12-31' });
 describe('pharmacy procurement and migration', () => {
+     it('generates and preserves a batch on receipt retries', async () => {
+          const f = fixture(); const input = {...receipt(), batch_number: '   '};
+          const first = await f.service.receive('drug', input);
+          expect(first.details.batch).toMatch(/^AUTO-/);
+          expect(first.details.batchGenerated).toBe(true);
+          expect(await f.service.receive('drug', input)).toEqual(first);
+          expect(f.rows('pharmacy_stock_movements')).toHaveLength(1);
+          expect(f.rows('pharmacy_stock_movements')[0].batch_number).toBe(first.details.batch);
+     });
+     it('can clear the prescription requirement without omitting false', async () => {
+          const f = fixture();
+          await f.service.updateItem('drug', {salePrice: 5, minimumStock: 1, requiresPrescription: true});
+          await f.service.updateItem('drug', {salePrice: 5, minimumStock: 1, requiresPrescription: false});
+          expect(f.rows('pharmacy_inventory_items')[0].requires_prescription).toBe(false);
+     });
      it('receives stock and creates a payable only in pharmacy tables', async () => {
           const f = fixture(); await f.service.receive('drug', receipt());
           expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 5, cost_price: 2 });
@@ -33,11 +48,11 @@ describe('pharmacy procurement and migration', () => {
           expect(await f.service.receive('drug', receipt())).toEqual(first);
           await expect(f.service.receive('drug', receipt('new-receipt-123'))).rejects.toThrow('closed');
      });
-     it('rejects foreign-branch items, missing batch evidence and unknown suppliers', async () => {
+     it('rejects foreign-branch items, missing expiry evidence and unknown suppliers', async () => {
           const f = fixture();
           await f.db.transaction(async (trx: any) => { await trx('pharmacy_financial_days').insert({branchid:9,financial_date:new Date().toISOString().slice(0,10),status:'open'}); });
           await expect(new PharmacyManagement(f.db, 9, 3).receive('drug', receipt())).rejects.toThrow('branch');
-          await expect(f.service.receive('drug', { ...receipt(), batch_number: '' })).rejects.toThrow('batch');
+          await expect(f.service.receive('drug', { ...receipt(), expiry_date: '' })).rejects.toThrow('expiry');
           await expect(f.service.receive('drug', { ...receipt(), supplier_id: 'lab-supplier' })).rejects.toThrow('supplier');
           expect(f.rows('pharmacy_documents')).toEqual([]); expect(f.rows('pharmacy_stock_movements')).toEqual([]);
      });
