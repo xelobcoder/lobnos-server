@@ -1,4 +1,5 @@
 import { Request, Response, Router } from "express";
+import { assignStrategyOrganizationsHandler } from '../billing/StrategyOrganizationController';
 import * as clinicianHandlers from "./cliniciansHandlers";
 import { ClinicianPaymentHandler } from './ClinicianPaymentHandler';
 import { handleOverLoad } from "../../hooks/helper";
@@ -53,6 +54,7 @@ import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 
 router.get('/api/v1/billing/testpanel/strategies/panels/:entityType/:associatedid', handleOverLoad(getProvidentialBillingHandler));
 router.post('/api/v1/billing/strategies', handleOverLoad(createBillingStrategy));
+router.post('/api/v1/billing/strategies/:strategyid/organizations', handleOverLoad(assignStrategyOrganizationsHandler));
 router.get('/api/v1/billing/strategies/all', handleOverLoad(getAllBillingStrategies));
 router.get('/api/v1/billing/strategies/mode-capability', handleOverLoad(getBillingModeCapability));
 router.get('/api/v1/billing/strategies/all/mini', handleOverLoad(getAllBillingStrategiesMini));

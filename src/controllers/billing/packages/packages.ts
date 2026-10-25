@@ -19,8 +19,13 @@ import {
      verifyAndLoadPackagesHandler
 } from './packagesHandlers';
 import { handleOverLoad } from '../../../hooks/helper';
+import { packageConfigurationHandler } from './configurationHandlers';
 
 const router = express.Router();
+
+router.get('/api/v1/packages/:id/configuration', packageConfigurationHandler);
+router.post('/api/v1/packages/configuration', packageConfigurationHandler);
+router.put('/api/v1/packages/:id/configuration', packageConfigurationHandler);
 
 router.post('/api/v1/clinician-packages', createClinicianPackageHandler);
 router.get('/api/v1/clinician-packages/:id?', getClinicianPackagesHandler);

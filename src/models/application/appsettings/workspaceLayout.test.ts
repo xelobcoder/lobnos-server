@@ -113,4 +113,27 @@ describe('workspace layout settings', () => {
           mocks.connection.mockResolvedValue(t.db);
           await expect(new ApplicationSettings().updateWorkspaceLayout(42, 'claude')).rejects.toThrow('write failed');
      });
+     it.each(['multi-compact', 'multi-primary-two'] as const)('saves and reads the facility billing layout %s', async billingLayout => {
+          const t = tenant({ keyid: 1, billingLayout: 'multi-compact' });
+          mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42, { billingLayout } as any);
+          expect(t.builder.update).toHaveBeenCalledWith(expect.objectContaining({ billingLayout }));
+          mocks.query.mockResolvedValue([{ keyid: 1, billingLayout }]);
+          expect((await new ApplicationSettings().getAllAppSettings(42))?.billingLayout).toBe(billingLayout);
+     });
+     it('preserves billing layout when an older settings client omits the new field', async () => {
+          const t = tenant({ keyid: 1, billingLayout: 'multi-primary-two' }); mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42, {} as any);
+          expect(t.builder.update).toHaveBeenCalledWith(expect.objectContaining({ billingLayout: 'multi-primary-two' }));
+     });
+     it('rejects invalid billing layouts before opening a connection', async () => {
+          await expect(new ApplicationSettings().updateApplicationSettings(42, { billingLayout: 'injected' } as any)).rejects.toThrow('Invalid billing layout');
+          expect(mocks.connection).not.toHaveBeenCalled();
+     });
+     it('defaults missing and unrecognized billing layouts to the current compact page', async () => {
+          for (const billingLayout of [undefined, null, 'unknown']) {
+               mocks.query.mockResolvedValue([{ keyid: 1, billingLayout }]);
+               expect((await new ApplicationSettings().getAllAppSettings(42))?.billingLayout).toBe('multi-compact');
+          }
+     });
 });

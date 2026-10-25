@@ -91,6 +91,13 @@ import { pharmacyModuleBoundary } from './middleware/pharmacyModuleBoundary';
 const app = express();
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 
+// Financial, patient and session API responses must never enter a shared CDN cache.
+app.use('/api', (_req, res, next) => {
+    res.setHeader('Cache-Control', 'private, no-store, max-age=0');
+    res.setHeader('CDN-Cache-Control', 'no-store');
+    res.setHeader('Cloudflare-CDN-Cache-Control', 'no-store');
+    next();
+});
 
 app.use(cors({
     origin: function (origin, callback) {

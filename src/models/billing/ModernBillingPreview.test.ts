@@ -40,8 +40,18 @@ describe('Modern billing bulk review', () => {
         const result = await h.service.review(actor, { ...body(), items: [{ kind: 'test', id: 10, outsourceId: 8, prioritised: true }] });
         expect(result.cart[0]).toMatchObject({ outsourceid: 8, organization: { outsourceid: 8, name: 'Partner laboratory' }, prioritised: true });
     });
-    it('rejects missing or unrelated outsourcing organizations before pricing', async () => {
-        for (const outsourceId of [undefined, 99]) { const h = setup({ testList: [{ id: 10, testid: 10, name: 'FBC', isoutsourced: 1 }] }); await expect(h.service.review(actor, { ...body(), items: [{ kind: 'test', id: 10, outsourceId }] })).rejects.toThrow(/outsourcing organization/i); expect(h.price).not.toHaveBeenCalled(); }
+    it('allows outsourced tests without an assigned or configured organization', async () => {
+        const h = setup({ testList: [{ id: 10, testid: 10, name: 'FBC', isoutsourced: 1, outsourceid: 99 }] });
+        h.organizations.mockResolvedValue([]);
+        const result = await h.service.review(actor, { ...body(), items: [{ kind: 'test', id: 10 }] });
+        expect(h.price).toHaveBeenCalledTimes(1); expect(h.organizations).not.toHaveBeenCalled();
+        expect(result.cart[0]).toMatchObject({ isoutsourced: 1, outsourceid: null });
+        expect(result.cart[0].organization).toBeUndefined();
+    });
+    it('rejects an explicitly supplied unrelated organization without inventing an assignment', async () => {
+        const h = setup({ testList: [{ id: 10, testid: 10, name: 'FBC', isoutsourced: 1 }] });
+        await expect(h.service.review(actor, { ...body(), items: [{ kind: 'test', id: 10, outsourceId: 99 }] })).rejects.toThrow(/outsourcing organization/i);
+        expect(h.price).not.toHaveBeenCalled();
     });
     it('rejects duplicates, removed catalogue items and empty selections instead of dropping them', async () => {
         for (const items of [[{ kind: 'test', id: 10 }, { kind: 'test', id: 10 }], [{ kind: 'test', id: 99 }], []]) { const h = setup(); await expect(h.service.review(actor, { ...body(), items })).rejects.toThrow(); expect(h.price).not.toHaveBeenCalled(); }
@@ -58,6 +68,14 @@ describe('Modern billing bulk review', () => {
         const input = { context: { patientId: 101, billingSource: 1, packageId: 2 }, items: [{ kind: 'test', id: 10 }] };
         await expect(h.service.review(actor, input)).rejects.toThrow(/all of its tests/);
         const result = await h.service.review(actor, { ...input, items: [...input.items, { kind: 'test', id: 11 }] }); expect(result.cart).toHaveLength(2); expect(h.price.mock.calls[0][0].isPackageUsed).toBe(true);
+    });
+    it('loads services separately when package initialization omits the service catalogue', async () => {
+        const h = setup({ servicesList: undefined });
+        h.initialize.mockResolvedValueOnce(h.catalog).mockResolvedValueOnce({ testList: [], servicesList: [{ keyid: 20, serviceName: 'Collection', servicePrice: 15 }] });
+        const result = await h.service.review(actor, { ...body(), context: { patientId: 101, billingSource: 1, packageId: 2 } });
+        expect(h.initialize).toHaveBeenCalledTimes(2);
+        expect(h.initialize.mock.calls[1][1]).toMatchObject({ isPackageUsed: false, includeServices: true });
+        expect(result.servicesProvided[0].keyid).toBe(20);
     });
     it('uses the resolved payer from catalogue initialization and forwards adjustments and promotion options', async () => {
         const h = setup({ entityType: 'organization', entityId: 42 }); await h.service.review(actor, { context: { patientId: 101, billingSource: 2, entityId: 9, referralCode: 'REF', promoCode: 'PROMO' }, items: [{ kind: 'test', id: 10, adjustment: { type: 'discount', value: 5 } }] });

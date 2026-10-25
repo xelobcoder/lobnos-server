@@ -17,6 +17,7 @@ import DiscountLimitService from "./billing-services/discount-limit";
 import { CommissionLogger, CommissionServiceFactory, logger } from "../commissions/commission-configurations";
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { StaffFocService } from "../foc/services/StaffFocService";
+import { normalizeSubmissionPayments } from "./submissionPayments";
 import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
 
@@ -67,6 +68,7 @@ export class SubmitCustomerBilling {
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
         try {
+            this.payload = normalizeSubmissionPayments(this.payload);
             const {
                 tenantId,
                 patientId,
@@ -154,6 +156,15 @@ export class SubmitCustomerBilling {
             }
 
             const data = checkoutResult.data;
+
+            if (!isAdjustment && Number(this.payload.paid) > Number(data.amountPayable) + 0.009) {
+                return { status: false, message: 'Total payment cannot exceed the recalculated amount payable.' };
+            }
+            if (paymentDetails?.mode === 'free') {
+                // Persist the same free-mode rows that checkout authorized.
+                this.payload.cart = data.cart;
+                this.payload.servicesProvided = data.servicesList;
+            }
 
             const summaryFields = [
                 'subtotal',

@@ -10,6 +10,7 @@ import { OperationsFailures } from "../../models/operations/types";
 import ApplicationSettings from "./../../models/application/appsettings/appset";
 import { responseError, customError } from "../../hooks/helper";
 import { ApplicationBillSettings, ApplicationSettingsData, EmailPreference, IupdateRegisFields } from "../../models/application/appsettings/Type";
+import { isBillingLayout } from '../../models/application/appsettings/billingLayout';
 import { CustomerBillingInit } from "../../models/billing/multi/initCustomerBilling";
 import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
@@ -65,6 +66,9 @@ export const updateApplicationBillSettingsHandler = async (req: Request<{}, {}, 
 
 export const updateApplicationSettings = async (request: Request<{}, {}, ApplicationSettingsData, { tenantId: number, }>, response: Response) => {
 	try {
+		if (request.body.billingLayout !== undefined && !isBillingLayout(request.body.billingLayout)) {
+			return response.status(400).send({ message: 'Invalid billing layout', statusCode: 400, status: 'error' });
+		}
 		const tenantId = parseInt(request.query.tenantId.toString())
 		const is_updated = await appsettings.updateApplicationSettings(tenantId, request.body);
 		if (!is_updated) {
@@ -514,6 +518,9 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			patientId,
 			billingid,
 			paymentDetails,
+			focStaffId,
+			focReason,
+			allowFocOverride,
 			branchid,
 			result_delivery,
 			referalCode,
@@ -567,6 +574,9 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			organizationId,
 			clinicianId,
 			paymentDetails,
+			focStaffId,
+			focReason,
+			allowFocOverride,
 			branchid,
 			referalCode,
 			isPayAll,

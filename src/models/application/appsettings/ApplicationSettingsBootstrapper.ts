@@ -4,6 +4,7 @@ import { up as migrateWorkspaceRibbon } from '../../../cron/command-line-tool-da
 import { up as migrateWorkspacePortal } from '../../../cron/command-line-tool-database/migrations/20261018_workspace_portal';
 import { up as migrateRegistrationPrompts } from '../../../cron/command-line-tool-database/migrations/20261018_registration_prompt_settings';
 import { up as migrateStaffPinSecurity } from '../../../cron/command-line-tool-database/migrations/20261018_staff_pin_security';
+import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
 
 export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
@@ -12,6 +13,7 @@ export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> 
      await migrateWorkspacePortal(connection);
      await migrateRegistrationPrompts(connection);
      await migrateStaffPinSecurity(connection);
+     await migrateBillingLayout(connection);
 
      if (await connection.schema.hasTable('applicationsettings')) {
           const columns: Array<{ name: string; add: (table: any) => void }> = [

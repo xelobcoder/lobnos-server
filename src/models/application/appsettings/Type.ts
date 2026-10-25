@@ -1,4 +1,5 @@
 import { WorkspaceLayout } from './workspaceLayout';
+import { BillingLayout } from './billingLayout';
 
 type numberBoolean = 0 | 1;
 
@@ -45,6 +46,7 @@ export type ApplicationSettingsData = {
      primaryColor?: string | null;
      secondaryColor?: string | null;
      workspaceLayout?: WorkspaceLayout;
+     billingLayout?: BillingLayout;
      DeactivateBilling24hrs: number;
      allowManagerToRefund: numberBoolean;
      makepdfprintingcompulsory: numberBoolean;

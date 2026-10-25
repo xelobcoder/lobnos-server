@@ -55,21 +55,28 @@ export class ModernBillingPreview {
         if (new Set(keys).size !== keys.length) throw new Error('Duplicate selections are not allowed');
         if (!input.items.length && !c.packageId) throw new Error('Select at least one test or service');
         const entityType = ({ 1: 'general', 2: 'organization', 3: 'insurance', 4: 'nhis', 6: 'clinician' } as const)[c.billingSource];
-        const catalog = await this.services.initialize(actor.tenantId, {
+        const initialization = {
             patientId: c.patientId, billingid: c.billingId || undefined, branchid: actor.branch,
             billingSource: c.billingSource, entityId: c.entityId || undefined, entityType,
             isPackageUsed: Boolean(c.packageId), packageid: c.packageId || undefined,
             includeServices: input.items.some(item => item.kind === 'service'), pricingcheckout: c.quote,
             nhismembershipid: c.nhisMembershipId, claimscheckcode: c.claimCheckCode,
             referalCode: c.referralCode || undefined,
-        });
+        };
+        const catalog = await this.services.initialize(actor.tenantId, initialization);
         if (!catalog || !Array.isArray(catalog.testList)) throw new Error(typeof catalog === 'string' ? catalog : catalog?.message || 'Unable to load the current billing catalogue');
+        let serviceCatalogue = catalog.servicesList || [];
+        // Package initialization returns early in the existing engine. Load its service catalogue separately.
+        if (c.packageId && input.items.some(item => item.kind === 'service') && !Array.isArray(catalog.servicesList)) {
+            const services = await this.services.initialize(actor.tenantId, { ...initialization, isPackageUsed: false, packageid: undefined, includeServices: true });
+            serviceCatalogue = services?.servicesList || [];
+        }
         const tests: any[] = [];
         const services: any[] = [];
         const testRows = c.packageId ? (catalog.packageTestList?.length ? catalog.packageTestList : catalog.testList) : catalog.testList;
         const previous = Array.isArray(catalog.previousRecords) ? catalog.previousRecords : [];
         for (const selection of input.items) {
-            const rows = selection.kind === 'test' ? testRows : (catalog.servicesList || []);
+            const rows = selection.kind === 'test' ? testRows : serviceCatalogue;
             const row = rows.find((entry: any) => Number(selection.kind === 'test' ? entry.testid || entry.id : entry.keyid || entry.id) === selection.id);
             if (!row) throw new Error(`A selected ${selection.kind} is no longer available. Reload the catalogue and review your selection.`);
             if (!c.billingId && previous.some((entry: any) => Number(entry.trackId) === selection.id && Number(entry.categoryTrackId) === (selection.kind === 'test' ? 1 : 5))) {
@@ -78,11 +85,13 @@ export class ModernBillingPreview {
             const hydrated: any = { ...row, prioritised: selection.prioritised ?? row.prioritised };
             if (selection.adjustment) Object.assign(hydrated, { userAdjustmentType: selection.adjustment.type, userAdjustedValue: selection.adjustment.value, discount: selection.adjustment.value });
             if (selection.kind === 'test' && Number(row.isoutsourced) === 1) {
-                if (!selection.outsourceId) throw new Error(`Choose an outsourcing organization for ${row.name}`);
-                const organizations = await this.services.organizations(actor.tenantId, selection.id);
-                const organization = organizations.find(org => Number(org.outsourceid) === selection.outsourceId);
-                if (!organization) throw new Error(`The outsourcing organization is unavailable for ${row.name}`);
-                Object.assign(hydrated, { outsourceid: organization.outsourceid, organization, label: organization.name });
+                Object.assign(hydrated, { outsourceid: null, organization: undefined, label: undefined });
+                if (selection.outsourceId) {
+                    const organizations = await this.services.organizations(actor.tenantId, selection.id);
+                    const organization = organizations.find(org => Number(org.outsourceid) === selection.outsourceId);
+                    if (!organization) throw new Error(`The selected outsourcing organization is unavailable for ${row.name}. Clear the selection to bill without assigning an organization.`);
+                    Object.assign(hydrated, { outsourceid: organization.outsourceid, organization, label: organization.name });
+                }
             }
             (selection.kind === 'test' ? tests : services).push(hydrated);
         }
@@ -100,7 +109,7 @@ export class ModernBillingPreview {
         if (!result?.success || !result.data) throw new Error(result?.message || 'Unable to price the selected items');
         const preserveOptions = (rows: any[]) => rows.map(row => {
             const original = tests.find(item => Number(item.testid || item.id) === Number(row.testid || row.id));
-            return original ? { ...row, prioritised: original.prioritised, ...(original.organization ? { organization: original.organization, outsourceid: original.outsourceid, label: original.label, isoutsourced: 1 } : {}) } : row;
+            return original ? { ...row, prioritised: original.prioritised, ...(Number(original.isoutsourced) === 1 ? { organization: original.organization, outsourceid: original.outsourceid || null, label: original.label, isoutsourced: 1 } : {}) } : row;
         });
         const cart = preserveOptions(c.packageId ? result.data.packageTestList || [] : result.data.cart || []);
         const pricedServices = (result.data.servicesList || []).map((row: any) => ({
