@@ -42,6 +42,7 @@ export class PrescriptionService implements IPrescriptionService {
           const now = new Date();
           const prescription: PrescriptionRow = {
                id: randomUUID(),
+               requestKey: input.requestKey || null,
                patientId: input.patientId,
                consultationId: input.consultationId || null,
                clinicianId,

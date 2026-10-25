@@ -1,3 +1,5 @@
+import { practitionerBoundary } from './middleware/practitionerBoundary';
+import { consultationRouter, publicPractitionerRouter } from './controllers/consultation/routes';
 import "reflect-metadata";
 import operationalControlRoutes from './controllers/operations/operationalControlRoutes';
 import { labAssignmentAccess } from './middleware/labAssignmentAccess';
@@ -136,15 +138,18 @@ app.use(publicFacilitiesRouter);
 app.use(publicWalkInQueueRouter);
 // Patient portal activation derives the facility from an invitation or public facility identifier.
 app.use(publicPatientPortalRouter);
+app.use(publicPractitionerRouter);
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
 app.use(checkTokenExists)
+app.use(practitionerBoundary);
 app.use(pharmacyModuleBoundary);
 app.use(labAssignmentAccess);
 app.use('/api/v1/operations/control', operationalControlRoutes);
 app.use('/api/v1/queue', walkInQueueRouter);
 app.use(patientPortalRouter);
+app.use(consultationRouter);
 app.use(createTenantPaymentsRouter());
 app.use(clinicianPortalRouter);
 app.use(InterfacingDevicesRouterT);

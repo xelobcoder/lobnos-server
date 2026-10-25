@@ -35,12 +35,12 @@ describe('buildEntityOrderListFilters', () => {
 });
 
 describe('applyEntityOrderFilters', () => {
-     it('matches clinician entity or orderer and filters by created date', () => {
+     it('requires typed clinician ownership and filters by created date', () => {
           const q = applyEntityOrderFilters(db('entity_orders as o').select('o.id'), { clinicianId: 7, from: '2025-01-01', to: '2025-01-31' });
           const { sql, bindings } = q.toSQL();
-          expect(sql).toContain('((`o`.`entity_type` = ? and `o`.`entity_id` = ?) or `o`.`ordered_by_employee_id` = ?)');
+          expect(sql).toContain('(`o`.`entity_type` = ? and `o`.`entity_id` = ?)');
           expect(sql).toContain('DATE(o.created_at) BETWEEN ? AND ?');
-          expect(bindings).toEqual(['clinician', 7, 7, '2025-01-01', '2025-01-31']);
+          expect(bindings).toEqual(['clinician', 7, '2025-01-01', '2025-01-31']);
      });
 
      it('supports open-ended ranges', () => {

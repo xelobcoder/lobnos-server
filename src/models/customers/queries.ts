@@ -1,4 +1,4 @@
-export const q_updateVitalSign = 'UPDATE dbovitalsigns SET patientid=?,bp=?,temperature=?,pulse=?,respiration=?,employeeid=?,date=?,time=? WHERE id  = ?';
+export const q_updateVitalSign = 'UPDATE dbovitalsigns SET bp=?,temperature=?,pulse=?,respiration=?,spo2=?,employeeid=? WHERE patientid=? AND vitalsignid=?';
 
 export const q_createVitalSign = "INSERT INTO  dbovitalsigns  (patientid, bp, temperature, pulse, respiration,spo2, employeeid) VALUES (?,?,?,?,?,?,?)"
 

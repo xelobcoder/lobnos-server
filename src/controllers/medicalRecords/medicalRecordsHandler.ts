@@ -1,132 +1,15 @@
-import { Request, Response } from "express";
-import PrimeMedicalRecords, { MedicalRecord } from "../../models/MedicalRecords/medicalRecordClass";
-import { customError } from "../../hooks/helper";
-import { OperationsFailures } from "../../models/operations/types";
-
-
-export const createAConsultationRecord = async (request: Request<{}, {}, { consultation_notes: string; record_type: string; patientid: number; consulationby: number; associatedTransactionid?: number }, { tenantId: string }>, response: Response) => {
-     try {
-          const { consultation_notes, record_type, patientid, consulationby, associatedTransactionid } = request.body;
-
-          // consultation_notes may be empty when a consultation is first drafted (before the clinician has typed a note).
-          if (consultation_notes === undefined || consultation_notes === null || !patientid || !record_type || !consulationby) {
-               return response.status(400).json({ message: "Missing required fields: consultation_notes, record_type, patientid, or consulationby." });
-          }
-
-          const tenantId = parseInt(request.query.tenantId.toString());
-          const medicalRecordsService = new PrimeMedicalRecords();
-          const recordId = await medicalRecordsService.createRecord(
-               tenantId,
-               {
-                    progress_report: consultation_notes,
-                    record_type: record_type as any,
-                    patientid,
-                    consulationby,
-                    associatedTransactionid: associatedTransactionid || null
-               });
-          response.status(201).json({ message: "Record created successfully.", recordId });
-     } catch (err) {
-          console.error("Error creating record:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
-
-export const getConsultationRecordById = async (request: Request<{}, {}, {}, { consultationid: string, tenantId: string }>, response: Response) => {
-     try {
-          const { consultationid, tenantId } = request.query;
-
-          if (!consultationid) {
-               response.status(400).json({ message: "Record ID is required." });
-          } else {
-               const tenantIdP = parseInt(tenantId.toString())
-               const medicalRecordsService = new PrimeMedicalRecords();
-               const record = await medicalRecordsService.getRecordById(tenantIdP, parseInt(consultationid));
-
-               if (!record) {
-                    response.status(404).json({ message: "Record not found." });
-               } else {
-                    response.status(200).json(record);
-               }
-          }
-     } catch (err) {
-          console.error("Error fetching record:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
-
-export const updateAConsultationRecord = async (request: Request<{}, {}, Partial<MedicalRecord>, { consultationid: string, tenantId: string }>, response: Response) => {
-     try {
-          const { consultationid, tenantId } = request.query;
-          let updates = request.body;
-
-          if (!consultationid) {
-               return response.status(400).json({ message: OperationsFailures.invalidResponseBodyParams + " consultationid not included" });
-          }
-
-          // Map consultation_notes to progress_report if provided
-          if ('consultation_notes' in request.body) {
-               const { consultation_notes, ...rest } = request.body as any;
-               updates = { progress_report: consultation_notes, ...rest };
-          }
-
-          const parsedConsultationid = parseInt(consultationid);
-          const tenantIdP = parseInt(tenantId.toString());
-          const medicalRecordsService = new PrimeMedicalRecords();
-          const isUpdateSuccess = await medicalRecordsService.updateRecord(tenantIdP, parsedConsultationid, updates);
-          response.status(200).json({ status: isUpdateSuccess });
-     } catch (err) {
-          console.error("Error updating record:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
-
-export const deleteAConsultationRecord = async (request: Request<{}, {}, {}, { consultationid: string, tenantId: string }>, response: Response) => {
-     try {
-          const { consultationid, tenantId } = request.query;
-
-          if (!consultationid) {
-               response.status(400).json({ message: "Record ID is required." });
-          } else {
-               const tenantIdP = parseInt(tenantId.toString())
-               const medicalRecordsService = new PrimeMedicalRecords();
-               await medicalRecordsService.deleteRecord(tenantIdP, parseInt(consultationid));
-               response.status(200).json({ message: "Record deleted successfully." });
-          }
-     } catch (err) {
-          console.error("Error deleting record:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
-
-export const getAllConsultationRecords = async (request: Request<{}, {}, {}, { search: string, patientid: number, count: number, page: number, tenantId: string }>, response: Response) => {
-     try {
-          const { count, page, tenantId } = request.query
-          const tenantIdP = parseInt(tenantId)
-          const search = request.query.search as string | undefined;
-          const patient = request.query.patientid
-          const medicalRecordsService = new PrimeMedicalRecords();
-
-          const records = await medicalRecordsService.getAllRecords(tenantIdP, page, patient ? parseInt(patient.toString()) : undefined, count, search ? parseInt(search) : undefined);
-          response.status(200).json(records);
-     } catch (err) {
-          console.error("Error fetching all records:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
-
-
-export const getAllPendingConsultationRecords = async (request: Request<{}, {}, {}, { tenantId: number, count: string, page: string, sortby: 'ASC' | 'DESC' }>, response: Response) => {
-     try {
-          const { count, page, sortby } = request.query;
-          const pageSize = count ? parseInt(count) : 10;
-          const tenantId = request.query.tenantId ? parseInt(request.query.tenantId.toString()) : 0;
-          const currentPage = page ? parseInt(page) : 1;
-          const sortOrder = sortby === 'DESC' ? 'DESC' : 'ASC';
-
-          const pending = await PrimeMedicalRecords.getPendingConsultationServices(tenantId, currentPage, pageSize, sortOrder);
-          response.send(pending);
-     } catch (err) {
-          console.error("Error fetching all records:", err);
-          response.status(500).json({ message: "Internal Server Error." });
-     }
-};
+import { Request, Response } from 'express';
+import { randomUUID } from 'crypto';
+import { clinicalRun } from '../consultation/routes';
+import { ConsultationService } from '../../models/consultation/ConsultationService';
+import { practitioner, patientScope, manager } from '../../models/consultation/ConsultationPolicy';
+import { clinicalError } from '../../models/consultation/ConsultationSchema';
+const adapt = (operation: any, shape: any) => (req: any, res: any) => clinicalRun(async (db, a, r) => operation(new ConsultationService(db), db, a, r))(req, { setHeader: (...args: any[]) => res.setHeader(...args), status: (code: number) => res.status(code), json: (body: any) => body.success ? res.json(shape(body.data)) : res.json(body) });
+export const createAConsultationRecord = adapt(async (s: any, _db: any, a: any, r: any) => { const row = await s.start(a, { patientid: Number(r.body.patientid), requestKey: r.body.requestKey, associatedTransactionid: r.body.associatedTransactionid }); return row; }, (row: any) => ({ status: true, recordId: row.id, message: 'Draft created' }));
+export const getConsultationRecordById = adapt((s: any, _db: any, a: any, r: any) => s.detail(a, Number(r.query.consultationid)), (row: any) => row);
+export const updateAConsultationRecord = adapt((s: any, _db: any, a: any, r: any) => s.save(a, Number(r.query.consultationid), r.body), (row: any) => ({ status: true, data: row }));
+export const deleteAConsultationRecord = adapt((s: any, _db: any, a: any, r: any) => s.remove(a, Number(r.query.consultationid), Number(r.body.revision)), () => ({ status: true }));
+export const getAllConsultationRecords = adapt((s: any, _db: any, a: any, r: any) => s.list(a, r.query), (result: any) => result.data);
+export const getAllPendingConsultationRecords = adapt(async (_s: any, db: any, a: any, r: any) => { const access = manager(a) ? null : await practitioner(db, a); let q = db('dboservices as ds').join('billing as b', 'b.billingid', 'ds.billingid').join('new_patients as np', 'np.patientid', 'b.patientid').where({ 'ds.serviceCategory': 'SERVICES', 'ds.categoryTrackId': 5, 'ds.trackId': 1 }).whereRaw('COALESCE(ds.isDeleted,0)=0').whereNotExists(function (this: any) { this.select('mr.id').from('medicalrecords as mr').whereRaw('mr.associatedTransactionid=ds.serviceid').where('mr.encounter_status', 'signed').whereNull('mr.deleted_at'); }); if (a.branch != null)
+    q.where('b.branchid', a.branch); if (access)
+    q = patientScope(q, db, a, access); const page = Math.max(1, Number(r.query.page) || 1), count = Math.min(100, Math.max(1, Number(r.query.count) || 20)); return q.select('ds.serviceid', 'b.billingid', 'np.patientid', 'np.firstname', 'np.lastname', 'np.fullpatientid').orderBy('ds.serviceid', 'desc').limit(count).offset((page - 1) * count); }, (rows: any) => rows);

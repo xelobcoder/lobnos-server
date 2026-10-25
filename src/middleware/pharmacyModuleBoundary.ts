@@ -10,6 +10,9 @@ export function pharmacyRouteAllowed(method: string, path: string): boolean {
 }
 /** Runs after live session authentication; pharmacy staff have no implicit lab authority. */
 export function pharmacyModuleBoundary(req: Request, res: Response, next: NextFunction) {
+     if (normalizeRole((req as any).authUser?.role)==='pharmacynurse' && /^\/api\/v1\/(?:consultation\/(?:capabilities|patients)|customers\/vitalsigns)(?:\/|$)/.test(req.path)) return next();
+     if (normalizeRole((req as any).authUser?.role)==='pharmacydoctor' && /^\/api\/v1\/(?:consultation|records\/consul|customers\/vitalsigns)(?:\/|$)/.test(req.path)) return next();
+     if (normalizeRole((req as any).authUser?.role)==='pharmacydoctor' && (req as any).practitioner && /^\/api\/v1\/(?:entityorders|billing\/(?:strategies|testpanel))/.test(req.path)) return next();
      if (normalizeRole((req as any).authUser?.role).startsWith('pharmacy') && !pharmacyRouteAllowed(req.method, req.originalUrl || req.path)) return res.status(403).json({ success: false, error: { code: 'MODULE_ACCESS_DENIED', message: 'Pharmacy staff may only access pharmacy and shared account services' } });
      next();
 }

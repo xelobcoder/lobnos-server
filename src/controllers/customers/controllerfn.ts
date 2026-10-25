@@ -1,3 +1,6 @@
+import { getAuthUser } from '../../middleware/authority';
+import { consultationDb } from '../../models/consultation/ConsultationSchema';
+import { ConsultationService } from '../../models/consultation/ConsultationService';
 import { Request, Response } from "express";
 import Registration from "../../models/registration/registration";
 import { PatientRecords } from "../../models/registration/types";
@@ -43,43 +46,9 @@ export async function AdvancedPatientFilterHandler(request: Request, response: R
 }
 
 
-export async function createNewVitalSign(request: Request<{}, {}, vitalScan, { tenantId: number }>, response: Response) {
-	try {
-		const { patientid } = request.body;
-		const tenantId: number = parseInt(request.query.tenantId.toString());
-		const isCreated = await new VitalSign(patientid).createNewVitalSignChart(tenantId, request.body);
-		response.send({ status: isCreated });
-	} catch (err) {
-		response.send([])
-	}
+export async function createNewVitalSign(request: any,response: any) {
+ const actor=getAuthUser(request);if(!actor)return response.status(401).json({status:false,message:'Authentication required'});try{const row=await new ConsultationService(await consultationDb(actor.tenantId)).recordVitals(actor,Number(request.body.patientid),request.body);return response.json({status:true,data:row});}catch(e:any){return response.status(e.name==='ZodError'?400:e.statusCode||500).json({status:false,message:e.name==='ZodError'?e.issues.map((i:any)=>i.message).join('; '):e.statusCode?e.message:'Unable to save vital signs'});}
 }
-
-export async function getPatientVitalSign(request: Request<{}, {}, {}, { tenantId: number, patientid: number | string, count: string, page: string, filterFrom?: string, filterTo?: string }>, response: Response) {
-	try {
-		const { patientid, count, page, filterFrom, filterTo } = request.query;
-
-		if (!patientid) {
-			return response.status(400).send({ error: 'Missing required parameter: patientid' });
-		}
-
-		const filterFromDate = filterFrom ? new Date(filterFrom as string) : null
-		const filterToDate = filterTo ? new Date(filterTo as string) : null
-
-
-		const parsedCount = parseInt(count as string, 10);
-		const parsedPage = parseInt(page as string, 10);
-
-		if (isNaN(parsedCount) || isNaN(parsedPage)) {
-			return response.status(400).send({ error: 'Invalid count or page parameter' });
-		}
-		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const vitalSignInstance = new VitalSign(parseInt(patientid as string, 10));
-		const vitalSigns = await vitalSignInstance.getPatientVitalSignList(tenantId, parsedCount, parsedPage, filterFromDate, filterToDate);
-
-		response.send({ vitalSigns });
-	} catch (err) {
-		console.log(err)
-		response.status(500).send({ error: 'An error occurred while fetching vital signs' });
-	}
+export async function getPatientVitalSign(request:any,response:any){
+ response.setHeader('Cache-Control','no-store');const actor=getAuthUser(request);if(!actor)return response.status(401).json({status:false,message:'Authentication required'});try{const result=await new ConsultationService(await consultationDb(actor.tenantId)).vitals(actor,Number(request.query.patientid),request.query);return response.json({vitalSigns:result.data,total:result.total});}catch(e:any){return response.status(e.name==='ZodError'?400:e.statusCode||500).json({status:false,message:e.statusCode?e.message:'Unable to load vital signs'});}
 }
-

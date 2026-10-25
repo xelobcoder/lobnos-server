@@ -6,7 +6,7 @@ import { roleAllowed } from '../../middleware/roles';
 const accessRoles = new Set<string>(PHARMACY_ACCESS_ROLES);
 const reversalRoles = new Set<string>(PHARMACY_REVERSAL_ROLES);
 export const pharmacyCatalogueAccess = (request: Request, response: Response, next: NextFunction) => {
-     if (!roleAllowed(roleOf(request), [...PHARMACY_ACCESS_ROLES, 'doctor', 'clinician', 'medical_officer', 'consultant'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy or prescribing access is required' } });
+     if (!roleAllowed(roleOf(request), [...PHARMACY_ACCESS_ROLES, 'doctor', 'clinician', 'medical_officer', 'consultant', 'pharmacy_doctor'])) return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'Pharmacy or prescribing access is required' } });
      next();
 };
 
@@ -21,8 +21,8 @@ export const pharmacyAccess = (request: Request, response: Response, next: NextF
 export const prescriptionListAccess = (request: Request, response: Response, next: NextFunction) => {
      if (roleAllowed(roleOf(request), Array.from(accessRoles))) return next();
      const requestedClinicianId = Number((request.query as any)?.clinicianId);
-     const selfId = actorOf(request);
-     if (roleAllowed(roleOf(request), ['doctor', 'clinician', 'medical_officer', 'consultant']) && requestedClinicianId && selfId && requestedClinicianId === selfId) return next();
+     const selfId = Number((request as any).practitioner?.clinicianid || actorOf(request));
+     if (((request as any).practitioner || roleAllowed(roleOf(request), ['doctor', 'clinician', 'medical_officer', 'consultant', 'pharmacy_doctor'])) && requestedClinicianId && selfId && requestedClinicianId === selfId) return next();
      return response.status(403).json({ success: false, error: { code: 'FORBIDDEN', message: 'You can only view your own drug orders' } });
 };
 

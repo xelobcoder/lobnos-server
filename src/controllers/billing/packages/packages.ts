@@ -20,8 +20,11 @@ import {
 } from './packagesHandlers';
 import { handleOverLoad } from '../../../hooks/helper';
 import { packageConfigurationHandler } from './configurationHandlers';
+import { packageAuthority } from '../../../middleware/packageAuthority';
 
 const router = express.Router();
+// Apply to package routes only; this router is mounted alongside other API routers.
+router.use(['/api/v1/packages', '/api/v1/package-tests', '/api/v1/organization-packages', '/api/v1/clinician-packages'], packageAuthority);
 
 router.get('/api/v1/packages/:id/configuration', packageConfigurationHandler);
 router.post('/api/v1/packages/configuration', packageConfigurationHandler);

@@ -25,6 +25,9 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/appointments?(?:\/|$)/i.test(path)) return 'appointments';
      if (/^\/api\/v1\/expenses?(?:\/|$)/i.test(path) ||
           /^\/api\/v1\/(?:outsourced\/cases\/mark-expense|supplier-payments\/mark-expense)(?:\/|$)/i.test(path)) return 'expenses';
+     if (/^\/api\/v1\/consultation\/(?:encounters|pending)(?:\/|$)/i.test(path)) return 'consultations';
+     if (/^\/api\/v1\/(?:entityorders|consultation\/catalogue)(?:\/|$)/i.test(path)) return 'laboratoryOperations';
+     if (/^\/api\/v1\/prescriptions(?:\/|$)/i.test(path)) return 'pharmacy';
      if (/^\/api\/v1\/records\/consul(?:t)?ations?(?:\/|$)/i.test(path)) return 'consultations';
      if (/^\/api\/v1\/(?:operations\/imaging|ultrasound|testpanel\/list\/ultrasound|result\/entry\/ultrasound)(?:\/|$)/i.test(path)) return 'imaging';
      if (/^\/api\/v1\/(?:analytics|patient-analytics|clinician\/anal|testascension|ascension\/analytics|ascension\/phelobotomistAnalyticsSummary)(?:\/|$)/i.test(path) ||

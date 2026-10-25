@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 export interface IEmployee {
 	employeeid?: number;
 	username: string;
-	role: 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
+	role: 'doctor' | 'medical_officer' | 'consultant' | 'nurse' | 'pharmacy_doctor' | 'pharmacy_nurse' | 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
 	password: string;
 	pin?: number | string | null;
 	pin_hash?: string | null;
@@ -47,7 +47,7 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
-			const allowedRoles = ['marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer','clinician'];
+			const allowedRoles = ['doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');

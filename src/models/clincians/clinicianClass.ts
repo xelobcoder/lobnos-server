@@ -256,9 +256,6 @@ export default class ClinicianClass {
 				const row = await trx("clinicianbasicinfo").select("identifier").where({ id: insertId }).first();
 				const identifier = row?.identifier ? String(row.identifier) : "";
 				await applyClinicianAfterInsert(tenantIdP, trx, { clinicianid: Number(insertId), identifier });
-				const random = require("crypto").randomBytes(5).toString("hex");
-				const tempCredentials = `UPDATE clinicianscredentials SET password  = ?`;
-				await trx.raw(tempCredentials, [random]);
 				const referralRepo = new ReferralCodingRepo(tenantIdP);
 				await referralRepo.create({ entity_id: insertId, entity_type: 'clinician', code: 0 }, trx);
 				await trx.commit();

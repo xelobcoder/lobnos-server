@@ -25,7 +25,7 @@ describe('resolveClinicianScope', () => {
           expectError(() => resolveClinicianScope({ role: 'clinician', clinicianid: 7 }, '8'), 403);
      });
 
-     it.each(['patient', 'organization', 'outsourced', ''])('refuses external or role-less sessions: %s', role => {
+     it.each(['patient', 'organization', 'outsourced', 'nurse', 'scientist', 'doctor', ''])('refuses external or role-less sessions: %s', role => {
           expectError(() => resolveClinicianScope({ role, employeeid: 7 }, '7'), 403);
      });
 

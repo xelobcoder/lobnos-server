@@ -35,7 +35,7 @@ export function invitationPhone(value: unknown): string | null {
 
 /** Invitation delivery is synchronous provider acceptance, not confirmed handset/inbox delivery. */
 export class PortalInvitationDelivery {
-     constructor(private readonly tenantId: number) { }
+     constructor(private readonly tenantId: number, private readonly audience: 'patient' | 'practitioner' = 'patient') { }
 
      async availability(db: Knex, patient: any, baseUrl: string): Promise<InvitationAvailability> {
           const result: InvitationAvailability = {
@@ -88,16 +88,17 @@ export class PortalInvitationDelivery {
      }
 
      async send(channel: 'email' | 'sms', patient: any, link: string, expiresAt: Date): Promise<InvitationDelivery> {
+          const audience = this.audience;
           try {
                if (channel === 'email') {
                     const provider = await new EmailProvidersRepo(this.tenantId).findDefault();
                     if (!provider?.id) throw new Error('Unavailable');
-                    const text = `You have been invited to the patient portal. Activate your account: ${link} (expires ${expiresAt.toUTCString()}, single use).`;
+                    const text = `You have been invited to the ${audience} portal. Activate your account: ${link} (expires ${expiresAt.toUTCString()}, single use).`;
                     const safeLink = link.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
                     const result = await new ProviderFactory().create(provider).send({
                          queueId: 0, providerId: provider.id, fromEmail: provider.from_email, fromName: provider.from_name,
-                         to: [String(patient.email).trim()], cc: [], bcc: [], subject: 'Your patient portal invitation',
-                         htmlBody: `<p>You have been invited to access your laboratory records online.</p><p><a href="${safeLink}">Activate your patient portal account</a></p><p>This link expires on ${expiresAt.toUTCString()} and can only be used once.</p>`,
+                         to: [String(patient.email).trim()], cc: [], bcc: [], subject: `Your ${audience} portal invitation`,
+                         htmlBody: `<p>You have been invited to access the ${audience} portal.</p><p><a href="${safeLink}">Activate your ${audience} portal account</a></p><p>This link expires on ${expiresAt.toUTCString()} and can only be used once.</p>`,
                          plainTextBody: text, attachments: [],
                     });
                     if (!result.success) throw new Error('Rejected');
@@ -105,7 +106,7 @@ export class PortalInvitationDelivery {
                     const phone = invitationPhone(patient.mobile_number);
                     if (!phone) throw new Error('Invalid recipient');
                     const result = await new SmsService(this.tenantId).sendSms([phone],
-                         `Patient portal invitation: ${link} Expires ${expiresAt.toUTCString()}. Single use; keep this link private.`);
+                         `Your ${audience} portal invitation: ${link} Expires ${expiresAt.toUTCString()}. Single use; keep this link private.`);
                     if (result.status !== 'success') throw new Error('Rejected');
                }
                return { channel, status: 'accepted', reason: null };

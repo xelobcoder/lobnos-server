@@ -26,7 +26,8 @@ export class PackageConfiguration {
         if (!header) throw new Error('Package not found.');
         const tests = await connection('package_tests as pt').join('test_panels as tp', 'tp.id', 'pt.test_id').where('pt.package_id', packageId).select('pt.*', 'tp.name', 'tp.price');
         const organizations = await connection('package_assignments as pa').join('organization as o', 'o.id', 'pa.organization_id').where({ 'pa.package_id': packageId, 'pa.assignment_type': 'organization' }).select('o.id', 'o.name', 'o.location');
-        const record = { ...header, tests, organizations };
+        const clinicians = await connection('package_assignments as pa').join('clinicianbasicinfo as c', 'c.id', 'pa.clinician_id').where({ 'pa.package_id': packageId, 'pa.assignment_type': 'clinician' }).select('c.id', 'c.name', 'c.location');
+        const record = { ...header, tests, organizations, clinicians };
         return { ...record, revision: configurationRevision(record) };
     }
     async get(packageId: number) { return this.readWith(await KnexConnection(this.tenantId), packageId); }

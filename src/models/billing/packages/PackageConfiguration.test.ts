@@ -16,7 +16,7 @@ function database() {
                 whereIn(key: string, values: any[]) { filters.push(r => values.includes(r[key])); return query; },
                 forUpdate() { return query; }, join() { return query; },
                 first: async () => rows()[0],
-                select: async () => rows().map((r: any) => source.includes(' as pt') ? { ...r, ...state.test_panels.find((p: any) => p.id === r.test_id) } : source.includes(' as pa') ? state.organization.find((o: any) => o.id === r.organization_id) : r),
+                select: async (...columns: string[]) => rows().map((r: any) => source.includes(' as pt') ? { ...r, ...state.test_panels.find((p: any) => p.id === r.test_id) } : source.includes(' as pa') ? columns.includes('c.id') ? { id: r.clinician_id, name: 'Dr. Mensah' } : state.organization.find((o: any) => o.id === r.organization_id) : r),
                 update: async (patch: any) => { rows().forEach((r: any) => Object.assign(r, patch)); return rows().length; },
                 del: async () => { state[table] = state[table].filter((r: any) => !rows().includes(r)); },
                 insert: async (records: any) => { if (fail && table === 'package_assignments') throw Error('Storage unavailable'); state[table].push(...(Array.isArray(records) ? records : [{ ...records, id: 10 }])); return [10]; },
@@ -35,6 +35,7 @@ describe('Package configuration persistence', () => {
     it('stores price edits, test removals and organization removals while preserving clinician assignments', async () => {
         const current = await service.get(8); const saved = await service.save(4, { ...draft, expectedRevision: current.revision }, 8);
         expect(saved.tests).toHaveLength(1); expect(saved.tests[0].concession_value).toBe(100); expect(saved.organizations).toEqual([]);
+        expect(saved.clinicians).toEqual([{ id: 9, name: 'Dr. Mensah' }]);
         expect(db.snapshot().package_assignments).toEqual([{ package_id: 8, assignment_type: 'clinician', clinician_id: 9 }]);
     });
     it('rejects a stale draft without mutating stored configuration', async () => {

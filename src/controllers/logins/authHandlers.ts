@@ -1,3 +1,4 @@
+import { consultationDb } from '../../models/consultation/ConsultationSchema';
 import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
 import { roleAllowed } from '../../middleware/roles';
@@ -215,6 +216,8 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 
 		const clinician = await query.first();
 		if (!clinician) return customError("Invalid credentials", 401, res);
+		const access = await (await consultationDb(tenantId))('practitioner_access').where({clinicianid:clinician.clinicianid}).first();
+		if(!access || !Number(access.enabled) || access.staff_employeeid) return customError("Practitioner access is disabled or requires your staff login. Contact your facility.",403,res);
 
 		const matched = await passwordMatches(password, clinician.password, clinician.ispasswordUpdated);
 		if (!matched) return customError("Invalid credentials", 401, res);

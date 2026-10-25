@@ -5,12 +5,13 @@ import { getAuthUser } from '../../middleware/authority';
 import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkflowAuthority';
 import { CriticalActionService, controlAudit } from '../../models/operations/CriticalActionService';
 import { OutsourceWorkflowService } from '../../models/operations/OutsourceWorkflowService';
+import { OutsourceRequestService } from '../../models/operations/OutsourceRequestService';
 import { controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
 
 const router = Router(); router.use(requireLaboratoryWorkflowRole);
 router.use((req, res, next) => { const actor = getAuthUser(req)!; if (actor.branch == null && !labSupervisor(actor)) return res.status(403).json({ success: false, message: 'An operating branch is required' }); next(); });
 const run = (operation: (db: any, actor: any, req: any) => Promise<any>) => async (req: any, res: any) => {
-     try { const actor = getAuthUser(req)!; res.json({ success: true, data: await operation(await KnexConnection(actor.tenantId), actor, req) }); }
+     try { const actor = getAuthUser(req)!; res.setHeader('Cache-Control', 'private, no-store'); res.json({ success: true, data: await operation(await KnexConnection(actor.tenantId), actor, req) }); }
      catch (error: any) { const status = error.name === 'ZodError' ? 400 : Number(error.statusCode) || 500; res.status(status).json({ success: false, message: status === 500 ? 'Laboratory control operation failed' : error.name === 'ZodError' ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ') : error.message }); }
 };
 router.get('/settings', run(async (db, actor) => ({ ...(await db('lab_access_settings').where({ id: 1 }).first()), can_manage: labSupervisor(actor) })));
@@ -37,6 +38,9 @@ router.put('/providers/:id/services', run((db, actor, req) => new OutsourceWorkf
 router.get('/tests/:id/providers', run((db, _actor, req) => new OutsourceWorkflowService(db).providers(Number(req.params.id))));
 router.put('/tests/:id/providers', run((db, actor, req) => new OutsourceWorkflowService(db).saveProviders(actor, Number(req.params.id), req.body)));
 router.get('/outsourcing', run((db, actor, req) => new OutsourceWorkflowService(db).list(actor, req.query)));
+router.get('/outsourcing/:id/requests', run((db, actor, req) => new OutsourceRequestService(db).context(actor, z.coerce.number().int().positive().parse(req.params.id))));
+router.post('/outsourcing/:id/requests', run((db, actor, req) => new OutsourceRequestService(db).create(actor, z.coerce.number().int().positive().parse(req.params.id), req.body)));
+router.get('/outsourcing/:id/requests/:requestId', run((db, actor, req) => new OutsourceRequestService(db).get(actor, z.coerce.number().int().positive().parse(req.params.id), z.coerce.number().int().positive().parse(req.params.requestId))));
 router.get('/outsourcing/:id', run((db, actor, req) => new OutsourceWorkflowService(db).detail(actor, Number(req.params.id))));
 router.post('/outsourcing/:id/transition', run((db, actor, req) => new OutsourceWorkflowService(db).transition(actor, Number(req.params.id), req.body)));
 router.post('/outsourcing/:id/reports', run((db, actor, req) => new OutsourceWorkflowService(db).upload(actor, Number(req.params.id), req.body)));

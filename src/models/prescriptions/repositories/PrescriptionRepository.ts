@@ -17,7 +17,7 @@ import {
 export function applyPrescriptionScopeFilters<T extends Knex.QueryBuilder>(query: T, filters: Omit<PrescriptionListFilters, 'page' | 'count' | 'statuses'>): T {
      let q: any = query;
      if (filters.patientId) q = q.where('p.patient_id', filters.patientId);
-     if (filters.clinicianId) q = q.where('p.clinician_id', filters.clinicianId);
+     if (filters.clinicianId) q = q.where(function(this:any){this.where({'p.prescriber_type':'practitioner','p.clinician_id':filters.clinicianId}).orWhereRaw("(p.prescriber_type = 'legacy' AND EXISTS (SELECT 1 FROM medicalrecords mr JOIN practitioner_access pa ON pa.clinicianid = ? WHERE mr.id = p.consultation_id AND mr.deleted_at IS NULL AND ((mr.author_type = 'clinician' AND mr.consulationby = pa.clinicianid) OR (mr.author_type = 'staff' AND mr.consulationby = pa.staff_employeeid))))",[filters.clinicianId]);});
      if (filters.consultationId) q = q.where('p.consultation_id', filters.consultationId);
      if (filters.from && filters.to) q = q.whereRaw('DATE(p.created_at) BETWEEN ? AND ?', [filters.from, filters.to]);
      else if (filters.from) q = q.whereRaw('DATE(p.created_at) >= ?', [filters.from]);
@@ -65,9 +65,11 @@ export class PrescriptionRepository implements IPrescriptionRepository {
           await this.transaction(async (trx) => {
                await trx('prescriptions').insert({
                     id: prescription.id,
+                    request_key: prescription.requestKey || null,
                     patient_id: prescription.patientId,
                     consultation_id: prescription.consultationId,
                     clinician_id: prescription.clinicianId,
+                    prescriber_type: 'practitioner',
                     status: prescription.status,
                     notes: prescription.notes,
                     created_at: prescription.createdAt,
@@ -121,11 +123,11 @@ export class PrescriptionRepository implements IPrescriptionRepository {
           const connection = await this.connection;
           let query = connection('prescriptions as p')
                .leftJoin('new_patients as patient', 'patient.patientid', 'p.patient_id')
-               .leftJoin('roles as clinician', 'clinician.employeeid', 'p.clinician_id')
+               .leftJoin('clinicianbasicinfo as clinician', 'clinician.id', 'p.clinician_id')
                .select(
                     'p.*',
                     connection.raw("CONCAT(COALESCE(patient.firstname, ''), ' ', COALESCE(patient.lastname, '')) as patient_name"),
-                    'clinician.username as clinician_name'
+                    connection.raw("CASE WHEN p.prescriber_type='practitioner' THEN clinician.name ELSE 'Historical prescriber (verification required)' END as clinician_name")
                )
                .orderBy('p.created_at', 'desc');
 

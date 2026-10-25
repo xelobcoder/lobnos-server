@@ -120,6 +120,11 @@ export class OutsourceWorkflowService {
           return { ...row, reports: await this.db('lab_outsource_reports').where({ tracking_id: id }).select('id', 'filename', 'mime', 'uploaded_by', 'uploaded_at'),
                history: await this.db('lab_control_audit').where({ entity: 'outsource_case', entity_id: id }).orderBy('id', 'desc').limit(100), history_limit: 100 };
      }
+     async requestCandidates(actor: AuthUser, patientid: number, outsourceid: number) {
+          return (await this.base(actor)).query.where('bill.patientid', patientid).where('tracking.outsourceid', outsourceid)
+               .whereNotIn('tracking.workflow_status', ['completed', 'cancelled'])
+               .select('tracking.id', 'tracking.serviceid', 'panel.name as test_name', 'tracking.workflow_status').orderBy('tracking.id');
+     }
      async transition(actor: AuthUser, id: number, input: any) {
           const data = z.object({ status: z.enum(['awaiting_dispatch', 'sent', 'awaiting_results', 'returned', 'completed', 'cancelled']), version: z.number().int().positive(),
                reason: z.string().trim().min(3).max(2000), external_reference: z.string().trim().max(150).optional(), assigned_employeeid: z.number().int().positive().nullable().optional() }).parse(input);

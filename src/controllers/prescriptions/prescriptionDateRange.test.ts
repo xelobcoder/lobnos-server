@@ -27,6 +27,7 @@ describe('prescription date range', () => {
           }).toSQL();
           expect(sql).toContain('`p`.`clinician_id` = ?');
           expect(sql).toContain('DATE(p.created_at) BETWEEN ? AND ?');
-          expect(bindings).toEqual([4, '2025-01-01', '2025-01-31']);
+          expect(bindings).toEqual(['practitioner', 4, 4, '2025-01-01', '2025-01-31']);
+          expect(sql).toContain('practitioner_access');
      });
 });

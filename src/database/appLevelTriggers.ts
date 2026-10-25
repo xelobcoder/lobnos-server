@@ -283,7 +283,7 @@ export async function applyClinicianAfterInsert(tenantId: number, db: DbRunner, 
 			clinicianid: payload.clinicianid,
 			identifier: payload.identifier,
 			login_username: await formatTenantLoginUsername(tenantId, 'clinician', payload.clinicianid),
-			password: randomPassword,
+			password: await bcrypt.hash(randomPassword, 10),
 			authenticationMode: "SMS",
 		});
 	}

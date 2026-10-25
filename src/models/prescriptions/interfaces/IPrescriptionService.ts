@@ -15,6 +15,7 @@ export interface CreatePrescriptionItemInput {
 }
 
 export interface CreatePrescriptionInput {
+     requestKey?: string;
      patientId: number;
      consultationId?: number | null;
      notes?: string;

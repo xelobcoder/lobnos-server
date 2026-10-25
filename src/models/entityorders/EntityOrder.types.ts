@@ -24,6 +24,7 @@ export interface EntityOrderLineInput {
 }
 
 export interface CreateEntityOrderInput {
+     requestKey?: string;
      patientId: number;
      consultationId?: number | null;
      orderedByEmployeeId: number;
@@ -47,6 +48,7 @@ export interface EntityOrderLineRow {
 }
 
 export interface EntityOrderRow {
+     request_key?: string | null;
      id: number;
      patient_id: number;
      consultation_id: number | null;

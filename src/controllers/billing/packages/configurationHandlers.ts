@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getAuthUser } from '../../../middleware/authority';
 import { PackageConfiguration } from '../../../models/billing/packages/PackageConfiguration';
 export async function packageConfigurationHandler(req: Request, res: Response) {
+    res.setHeader('Cache-Control', 'private, no-store');
     const actor = getAuthUser(req);
     if (!actor) return res.status(401).json({ status: false, message: 'Authentication required.' });
     const id = req.params.id === undefined ? undefined : Number(req.params.id);

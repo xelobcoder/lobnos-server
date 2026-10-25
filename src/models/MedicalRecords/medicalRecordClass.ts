@@ -1,3 +1,6 @@
+import type { AuthUser } from '../../middleware/authority';
+import { consultationDb, clinicalError } from '../consultation/ConsultationSchema';
+import { ConsultationService } from '../consultation/ConsultationService';
 import { TiifuWorkingClass } from '../../database/TiifuWorkingClass';
 import { customError, paginationQuery, promisifyQuery, rowAffected } from '../../hooks/helper';
 import { OperationsFailures } from '../operations/types';
@@ -54,27 +57,8 @@ export default class PrimeMedicalRecords {
         return false;
     }
 
-    async updateRecord(tenantId: number, consultationid: number, updates: UpdateMedicalRecord): Promise<boolean | string> {
-        try {
-            const { consulationby } = updates;
-            const isConsultant = await this.isClinicianConsulation(tenantId, consultationid, consulationby as number);
-            if (isConsultant) {
-                const fields = Object.keys(updates).map((key) => `${key} = ?`).join(", ");
-                const values = Object.values(updates);
-                const query = `UPDATE medicalrecords SET ${fields} WHERE id = ?`;
-                return rowAffected(await promisifyQuery(tenantId, query, [...values, consultationid]));
-            }
-            return OperationsFailures.dontHavePermission;
-        } catch (err) {
-            console.error("Error updating record:", err);
-            return OperationsFailures.invalidRequestBodyType;
-        }
-    }
-
-
-    async deleteRecord(tenantId: number, id: number): Promise<void> {
-        await promisifyQuery(tenantId, q_medical_records_delete, [id]);
-    }
+    async updateRecord(tenantId:number,consultationid:number,updates:any,actor?:AuthUser){if(!actor||actor.tenantId!==tenantId)clinicalError('An authenticated clinical actor is required',403);await new ConsultationService(await consultationDb(tenantId)).save(actor,consultationid,updates);return true;}
+    async deleteRecord(tenantId:number,id:number,actor?:AuthUser,revision?:number):Promise<void>{if(!actor||actor.tenantId!==tenantId)clinicalError('An authenticated clinical actor is required',403);await new ConsultationService(await consultationDb(tenantId)).remove(actor,id,revision!);}
 
     async getAllRecords(tenantId: number, page: number = 1, patientid?: number, count: number = 10, search?: number | string): Promise<MedicalRecord[]> {
         const connection = await KnexConnection(tenantId);
@@ -103,7 +87,7 @@ export default class PrimeMedicalRecords {
             query = query.limit(count).offset(offset);
         }
 
-        console.log("Generated SQL Query:", query.toString()); // Debugging line to check the generated SQL query
+
 
         return await query;
     }

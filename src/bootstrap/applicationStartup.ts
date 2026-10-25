@@ -1,3 +1,4 @@
+import { consultationDb } from '../models/consultation/ConsultationSchema';
 import { bootstrapOperationalControls } from '../models/operations/OperationalControlsBootstrapper';
 import { startCrmReminderWorker } from '../models/crm/CrmReminderService';
 import { bootstrapCrm } from '../models/crm/CrmBootstrapper';
@@ -86,6 +87,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapOperationsWorkflow(tenantId);
 	await bootstrapOperationalControls(tenantId);
+	await consultationDb(tenantId);
 	await bootstrapSuspendedBillingTables(tenantId);
 	await bootstrapPhysicalSampleTables(tenantId);
 	await bootstrapWalkInQueueTables(tenantId);

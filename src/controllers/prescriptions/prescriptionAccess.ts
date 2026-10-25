@@ -1,20 +1,21 @@
+import { applyPrescriptionScopeFilters } from '../../models/prescriptions/repositories/PrescriptionRepository';
 import { Request, Response, NextFunction } from 'express';
 import KnexConnection from '../../database/KnexConnections';
 import { roleAllowed } from '../../middleware/roles';
 import { PHARMACY_ACCESS_ROLES } from '../../models/pharmacy/constants/pharmacy.constants';
 import { actorOf, roleOf, tenantOf } from '../pharmacy/pharmacyContext';
 
-const prescribers = ['admin', 'doctor', 'clinician', 'medical_officer', 'consultant'];
+const prescribers = ['admin', 'doctor', 'clinician', 'medical_officer', 'consultant', 'pharmacy_doctor'];
 export const prescriptionCreateAccess = (req: Request, res: Response, next: NextFunction) => {
-     if (!roleAllowed(roleOf(req), prescribers)) return res.status(403).json({success:false,error:{message:'A prescribing role is required'}});
+     if (!(Number((req as any).practitioner?.can_prescribe)===1 || roleAllowed(roleOf(req), prescribers))) return res.status(403).json({success:false,error:{message:'A prescribing role is required'}});
      next();
 };
 export async function prescriptionDetailAccess(req: Request, res: Response, next: NextFunction) {
      if (roleAllowed(roleOf(req), PHARMACY_ACCESS_ROLES)) return next();
-     if (!roleAllowed(roleOf(req),prescribers)) return res.status(403).json({success:false,error:{message:'Prescription access is required'}});
+     if (!(Number((req as any).practitioner?.can_prescribe)===1 || roleAllowed(roleOf(req),prescribers))) return res.status(403).json({success:false,error:{message:'Prescription access is required'}});
      try {
           const db=await KnexConnection(tenantOf(req));
-          const owned=await db('prescriptions').where({id:String(req.params.id),clinician_id:actorOf(req)}).first();
+          const owned=await applyPrescriptionScopeFilters(db('prescriptions as p').where('p.id',String(req.params.id)),{clinicianId:Number((req as any).practitioner?.clinicianid || actorOf(req))}).first();
           if (!owned) return res.status(404).json({success:false,error:{message:'Prescription not found'}});
           next();
      } catch(error) { next(error); }

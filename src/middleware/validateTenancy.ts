@@ -168,7 +168,7 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (!email) return customError('Invalid token', 401, response);
 
           const roleRow = await new RolesRepository(tenantId).getRoleByEmail(email);
-          if (decoded?.clientType === 'device-manager' && Number(roleRow?.activation) === 0) {
+          if (Number(roleRow?.activation) === 0) {
                return customError('User account is deactivated', 403, response);
           }
           const employeeid = roleRow?.employeeid ? parseInt(roleRow.employeeid.toString(), 10) : NaN;

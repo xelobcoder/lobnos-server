@@ -84,6 +84,7 @@ export class EntityOrderService {
           const orderId = await this.repo.createOrder(
                {
                     patient_id: patientId,
+                    request_key: input.requestKey || null,
                     consultation_id: consultationId ?? null,
                     ordered_by_employee_id: orderedByEmployeeId,
                     entity_type: type,

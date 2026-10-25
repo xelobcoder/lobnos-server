@@ -9,7 +9,7 @@ export interface EntityOrderListFilters {
      patientId?: number;
      entityType?: string;
      entityId?: number;
-     /** Orders billed to this clinician OR placed by them (covers orders stored as 'general'). */
+     /** Only explicitly typed clinician-owned orders; untyped historical orderer IDs are ambiguous. */
      clinicianId?: number;
      status?: EntityOrderStatus;
      pendingReview?: boolean;
@@ -30,8 +30,7 @@ export function applyEntityOrderFilters(q: any, filters: Omit<EntityOrderListFil
      if (filters.clinicianId) {
           const clinicianId = filters.clinicianId;
           q.where((scope: any) => {
-               scope.where((own: any) => own.where('o.entity_type', 'clinician').andWhere('o.entity_id', clinicianId))
-                    .orWhere('o.ordered_by_employee_id', clinicianId);
+               scope.where('o.entity_type', 'clinician').andWhere('o.entity_id', clinicianId);
           });
      }
      if (filters.sampleLocation) q.where('o.sample_location', filters.sampleLocation);
@@ -79,6 +78,7 @@ export class EntityOrderRepository {
           return await conn.transaction(async (trx: any) => {
                const [orderId] = await trx('entity_orders').insert({
                     patient_id: order.patient_id,
+                    request_key: order.request_key || null,
                     consultation_id: order.consultation_id ?? null,
                     ordered_by_employee_id: order.ordered_by_employee_id,
                     entity_type: order.entity_type ?? 'general',

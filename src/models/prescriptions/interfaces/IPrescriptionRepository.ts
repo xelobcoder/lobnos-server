@@ -3,6 +3,7 @@ export type PrescriptionStatus = 'pending' | 'partially_fulfilled' | 'fulfilled'
 export type PrescriptionItemStatus = 'pending' | 'dispensed' | 'referred' | 'cancelled';
 
 export interface PrescriptionRow {
+     requestKey?: string | null;
      id: string;
      patientId: number;
      patientName?: string;

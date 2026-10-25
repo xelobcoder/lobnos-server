@@ -109,4 +109,5 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
      await ensurePharmacySeparationSchema(connection);
      await ensurePharmacyOperationsSchema(connection);
      await ensurePharmacyEnterpriseSchema(connection);
+     if(await connection.schema.hasTable('prescriptions')&&!await connection.schema.hasColumn('prescriptions','prescriber_type'))await connection.schema.alterTable('prescriptions',t=>t.string('prescriber_type',20).notNullable().defaultTo('legacy'));
 }

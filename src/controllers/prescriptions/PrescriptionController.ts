@@ -1,3 +1,5 @@
+import {clinicalRequest} from '../../models/consultation/ClinicalRequest';
+import {consultationDb} from '../../models/consultation/ConsultationSchema';
 import { Request, Response } from 'express';
 import { PharmacySaleRepository } from '../../models/pharmacy/repositories/PharmacySaleRepository';
 import { PharmacySaleService } from '../../models/pharmacy/services/PharmacySaleService';
@@ -60,26 +62,12 @@ export class PrescriptionController {
           }catch(error:any){response.status(400).json({success:false,error:{message:error.message}});}
      }
 
-     static async searchPatients(request: Request, response: Response): Promise<void> {
-          const search=String(request.query.search||'').trim();
-          if (search.length>100) { response.status(400).json({success:false,error:{message:'Search must be at most 100 characters'}}); return; }
-          if (search.length<3 && !/^\d+$/.test(search)) { response.json({success:true,data:[]}); return; }
-          try {
-               const db=await KnexConnection(tenantOf(request));
-               const pattern='%'+search.replace(/[!%_]/g,'!export class PrescriptionController {')+'%';
-               const query=db('new_patients').select('patientid','firstname','middlename','lastname','dob','gender','mobile_number');
-               query.where(function(){
-                    this.whereRaw("CONCAT_WS(' ', firstname, middlename, lastname) LIKE ? ESCAPE '!'",[pattern])
-                         .orWhereRaw("mobile_number LIKE ? ESCAPE '!'",[pattern]);
-                    if (/^\d+$/.test(search)) this.orWhere('patientid',search);
-               });
-               response.json({success:true,data:await query.orderBy('firstname').orderBy('patientid').limit(15)});
-          } catch(error) { response.status(500).json({success:false,error:{message:'Unable to search patients'}}); }
-     }
+     static async searchPatients(request:Request,response:Response):Promise<void>{try{const {consultationDb}=await import('../../models/consultation/ConsultationSchema');const {ConsultationService}=await import('../../models/consultation/ConsultationService');const rows=await new ConsultationService(await consultationDb(tenantOf(request))).patients((request as any).authUser,{search:request.query.search});response.json({success:true,data:rows});}catch(e:any){response.status(e.statusCode||500).json({success:false,error:{message:e.statusCode?e.message:'Unable to search patients'}});}}
 
      static async createPrescription(request: Request, response: Response): Promise<void> {
           try {
-               const prescription = await prescriptionService(request).createPrescription(request.body, actorOf(request));
+               const service=prescriptionService(request),create=()=>service.createPrescription(request.body,Number((request as any).practitioner?.clinicianid||actorOf(request)));
+               const prescription=(request as any).practitioner?await clinicalRequest(await consultationDb(tenantOf(request)),(request as any).authUser,(request as any).practitioner,request.body.requestKey,'prescription',Number(request.body.patientId),create,id=>service.getById(String(id))):await create();
                response.status(201).json({ success: true, data: prescription });
           } catch (error: any) {
                response.status(400).json({ success: false, error: { code: 'PRESCRIPTION_REJECTED', message: error.message } });

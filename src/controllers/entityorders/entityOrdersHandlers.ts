@@ -1,3 +1,5 @@
+import {clinicalRequest} from '../../models/consultation/ClinicalRequest';
+import {consultationDb} from '../../models/consultation/ConsultationSchema';
 import { Request, Response } from 'express';
 import { EntityOrderService } from '../../models/entityorders/EntityOrderService';
 import { EntityOrderStatus } from '../../models/entityorders/EntityOrder.types';
@@ -6,8 +8,8 @@ import { customError } from '../../hooks/helper';
 
 const ENTITY_ORDER_STATUSES: string[] = ['DRAFT', 'PENDING', 'ON_HOLD', 'APPROVED', 'REJECTED', 'CONVERTED', 'CANCELLED'];
 
-const getTenant = (req: Request): number => parseInt((req.query.tenantId as string) || (req.body?.tenantId as string) || '1', 10);
-const getActor = (req: Request): number => parseInt((req.query.employeeid as string) || (req.body?.employeeid ?? req.body?.actorId ?? 0), 10);
+const getTenant = (req: Request): number => Number((req as any).authUser?.tenantId);
+const getActor = (req: Request): number => Number((req as any).authUser?.employeeid);
 
 function handle(res: Response, fn: () => Promise<void>) {
      fn().catch((err: any) => customError(err?.message || 'Something went wrong', 500, res));
@@ -15,6 +17,7 @@ function handle(res: Response, fn: () => Promise<void>) {
 
 /** The clinician id of a clinician-portal session, or null for staff sessions. */
 export function clinicianSessionId(req: Request): number | null {
+     if ((req as any).practitioner) return Number((req as any).practitioner.clinicianid);
      const authUser = (req as any).authUser;
      if (String(authUser?.role || '').toLowerCase() !== 'clinician') return null;
      const selfId = Number(authUser.clinicianid ?? authUser.employeeid);
@@ -48,7 +51,8 @@ export const createEntityOrderHandler = (req: Request, res: Response) => handle(
      if (selfId === 0) return customError('Clinician session could not be identified', 403, res);
      // A clinician session always orders as itself.
      const orderedByEmployeeId = selfId ?? (req.body.orderedByEmployeeId || getActor(req));
-     const order = await svc.createOrder({ ...req.body, orderedByEmployeeId });
+     const create=()=>svc.createOrder({ ...req.body, orderedByEmployeeId });
+     const order = (req as any).practitioner ? await clinicalRequest(await consultationDb(tenantId),(req as any).authUser,(req as any).practitioner,req.body.requestKey,'lab',Number(req.body.patientId),create,id=>svc.getOrder(Number(id))) : await create();
      res.status(201).json({ status: 'success', statusCode: 201, message: 'Order created', data: order });
 });
 

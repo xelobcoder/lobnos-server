@@ -1,3 +1,4 @@
+import {roleAllowed} from '../../middleware/roles';
 import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 import { loadLaboratoryReportData } from '../result/LaboratoryReportData';
@@ -43,7 +44,7 @@ export function resolveClinicianScope(user: ClinicianScopeUser | null | undefine
           }
           return own;
      }
-     if (!role || EXTERNAL_ROLES.includes(role)) {
+     if (!role || EXTERNAL_ROLES.includes(role) || !roleAllowed(role,['admin','manager'])) {
           throw new ClinicianPortalError('You are not authorized to view clinician requests', 403, 'FORBIDDEN');
      }
      if (requestedId === null) throw new ClinicianPortalError('A valid clinician id is required', 400);
@@ -65,7 +66,7 @@ type StageStatus = 'completed' | 'bypassed' | 'in_progress' | 'pending' | 'rejec
 export interface ClinicianPortalDeps {
      connection: () => Promise<Knex>;
      /** The clinician's live services on the bill, with the bill's patient. Empty when not owned. */
-     findOwnedServices: (clinicianid: number, billingid: number) => Promise<{ serviceid: number; patientid: number }[]>;
+     findOwnedServices: (clinicianid: number, billingid: number, branchid?: number) => Promise<{ serviceid: number; patientid: number }[]>;
      loadStages: (billingid: number) => Promise<any[]>;
      loadReport: (patientid: number, billingid: number, testid: number, ascensionid: number) => ReturnType<typeof loadLaboratoryReportData>;
 }
@@ -79,12 +80,12 @@ export function defaultClinicianPortalDeps(tenantId: number): ClinicianPortalDep
      const connection = () => KnexConnection(tenantId) as Promise<Knex>;
      return {
           connection,
-          findOwnedServices: async (clinicianid, billingid) => {
+          findOwnedServices: async (clinicianid, billingid, branchid) => {
                const db = await connection();
                const rows: any[] = await liveService(db('dboservices as ds')
                     .join('billing as b', 'b.billingid', 'ds.billingid')
                     .where('ds.billingid', billingid)
-                    .andWhere('ds.clinicianId', clinicianid))
+                    .andWhere('ds.clinicianId', clinicianid).modify(q=>{if(branchid!=null)q.where('b.branchid',branchid)}))
                     .select('ds.serviceid', 'b.patientid');
                return rows.map(row => ({ serviceid: Number(row.serviceid), patientid: Number(row.patientid) }));
           },
@@ -170,7 +171,7 @@ export class ClinicianPortalResultService {
      }
 
      /** Bills on which this clinician ordered at least one test, grouped for the requested-tests list. */
-     async listRequests(clinicianid: number, from: string, to: string) {
+     async listRequests(clinicianid: number, from: string, to: string, branchid?: number) {
           const db = await this.deps.connection();
           const rows: any[] = await liveService(db('test_ascension as ta')
                .join('dboservices as ds', 'ds.serviceid', 'ta.serviceid')
@@ -178,7 +179,7 @@ export class ClinicianPortalResultService {
                .join('new_patients as p', 'p.patientid', 'b.patientid')
                .leftJoin('test_panels as tp', 'tp.id', 'ta.testid')
                .leftJoin('dbotestresultapproval as ra', 'ra.ascensionid', 'ta.id')
-               .where('ds.clinicianId', clinicianid)
+               .where('ds.clinicianId', clinicianid).modify(q=>{if(branchid!=null)q.where('b.branchid',branchid)})
                .whereRaw('DATE(b.billedon) BETWEEN ? AND ?', [from, to]))
                .select(
                     'ta.id as ascensionid', 'ta.testid', 'ta.billingid', 'ta.ascension_date', 'ta.collectionStartDate',
@@ -222,8 +223,8 @@ export class ClinicianPortalResultService {
      }
 
      /** Stages for the clinician's tests on one bill, and full results for those already approved. */
-     async getRequestResults(clinicianid: number, billingid: number) {
-          const owned = await this.deps.findOwnedServices(clinicianid, billingid);
+     async getRequestResults(clinicianid: number, billingid: number, branchid?: number) {
+          const owned = branchid==null?await this.deps.findOwnedServices(clinicianid,billingid):await this.deps.findOwnedServices(clinicianid,billingid,branchid);
           // Not-owned and non-existent bills look the same so ids cannot be probed.
           if (!owned.length) throw new ClinicianPortalError('Request not found', 404, 'NOT_FOUND');
           const patientid = owned[0].patientid;
