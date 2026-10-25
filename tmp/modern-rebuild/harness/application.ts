@@ -1,0 +1,1 @@
+export const useApplication=()=>({tenantId:3,branchid:4,user:{employeeid:7,role:'admin'},settings:{AllowCrmToGiveDisocunt:1}});export const useApplicationSettings=()=>({applicationsettings:{branchid:4,user:{employeeid:7,role:'admin'},AllowPartPayment:1}});

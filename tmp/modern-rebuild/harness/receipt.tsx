@@ -1,0 +1,1 @@
+export default function Receipt(){return <div role="dialog" aria-label="Receipt options">Receipt options<button onClick={()=>{}}>Print receipt</button></div>;}

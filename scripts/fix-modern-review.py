@@ -1,0 +1,5 @@
+from pathlib import Path
+p=Path(r'D:/Primelabsys/PHIMS/primelabsys-current-working-version/lobnos/components/Billing/Modern/ModernBillingWorkspace.tsx');s=p.read_text(encoding='utf-8').replace('data.subtotal ?? data.totalcost ?? 0','data.subtotal ?? 0')
+s=s.replace("const updateOptions = (item: SelectedItem, changes: any) => change(draft.items.map(row => itemKey(row) === itemKey(item) ? { ...row, row: { ...row.row, ...changes } } : row));", "const updateOptions = (item: SelectedItem, changes: any) => { setDraft(previous => ({ items: (previous || draftFromBilling(data)).items.map(row => itemKey(row) === itemKey(item) ? { ...row, row: { ...row.row, ...changes } } : row) })); setError(''); };")
+p.write_text(s,encoding='utf-8')
+p=Path(r'D:/Primelabsys/PHIMS/primelabsys-current-working-version/lobnos/components/Billing/Multi/MultBillingLayout.tsx');s=p.read_text(encoding='utf-8').replace('if (backendData.testList.length === 0) {', 'if (backendData.testList.length === 0 && (!modern || !backendData.servicesList?.length)) {');p.write_text(s,encoding='utf-8')

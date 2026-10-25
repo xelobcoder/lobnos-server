@@ -40,8 +40,12 @@ import { checkoutBillingHandler, correctRefererErrorPostRegistrationHandler, ini
 import { TransactionManagementController } from "../../models/billing/management/TransactionManagementController";
 import { SuspendedBillingController } from './SuspendedBillingController';
 import { checkTokenExists } from '../../middleware/validateTenancy';
+import { previewModernBilling } from './ModernBillingController';
 
 const router = Router();
+
+// Modern has an independent bulk preview contract; final persistence remains the established billing flow.
+router.post('/api/v1/billing/modern/preview', checkTokenExists, handleOverLoad(previewModernBilling));
 
 router.post('/api/v1/billing/suspended', checkTokenExists, SuspendedBillingController.create);
 router.get('/api/v1/billing/suspended', checkTokenExists, SuspendedBillingController.list);

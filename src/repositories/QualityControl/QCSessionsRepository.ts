@@ -85,9 +85,9 @@ export class QCSessionsRepository {
         try {
             const conn = trx || await this.connection;
             const id = uuidv4();
-            const returned_value = await conn('qc_sessions')
-                .insert({ ...sessionData, id })
-            return returned_value[0]
+            await conn('qc_sessions')
+                .insert({ ...sessionData, updatedby: sessionData.updatedby ?? sessionData.createdby, id })
+            return true;
         } catch (error) {
             console.error('QC session creation error:', error);
             throw error;

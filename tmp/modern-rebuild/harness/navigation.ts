@@ -1,0 +1,1 @@
+export const useRouter=()=>({push:(path)=>{window.__navigation=path;},replace:(path)=>{window.__navigation=path;}});

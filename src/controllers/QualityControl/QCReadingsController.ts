@@ -14,18 +14,20 @@ export class QCReadingsController {
 
     async createSession(req: Request, res: Response) {
         try {
-            const tenantId = this.getTenantId(req);
-            const repository = new QCSessionsRepository(tenantId);
             const actor = getAuthUser(req);
+            if (!actor) return res.status(401).json({ error: 'Authentication required' });
+            if (typeof req.body?.controlMaterialId !== 'string' || !req.body.controlMaterialId.trim() || req.body.controlMaterialId.length > 36) return res.status(400).json({ error: 'Select a control material' });
+            const tenantId = actor.tenantId;
+            const repository = new QCSessionsRepository(tenantId);
             if (!actor?.branch) return res.status(403).json({ error: 'A branch must be assigned to the QC operator' });
             const db = await import('../../database/KnexConnections').then(module => module.default(tenantId));
             const material = await db('control_materials').where({ id: req.body.controlMaterialId, status: 'active' }).first();
             if (!material) return res.status(400).json({ error: 'Select an active control material' });
             const sessionData = { controlMaterialId: material.id, comments: req.body.comments || null,
-                createdby: actor.employeeid, branchid: actor.branch, device_id: material.deviceId || null };
+                createdby: actor.employeeid, updatedby: actor.employeeid, branchid: actor.branch, device_id: material.deviceId || null };
 
             const status = await repository.create(sessionData);
-            res.status(201).json({ status: typeof status == "number" && status > -1 ? true : false });
+            res.status(201).json({ status: status === true });
         } catch (error) {
             console.error('Failed to create QC session:', error);
             res.status(500).json({ error: 'Failed to create QC session' });

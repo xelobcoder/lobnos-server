@@ -71,7 +71,10 @@ export async function ensureOperationsWorkflowSchema(db: Knex): Promise<void> {
           });
      }
      if (await db.schema.hasTable('qc_sessions') && !(await db.schema.hasColumn('qc_sessions', 'branchid'))) {
-          await db.schema.alterTable('qc_sessions', t => { t.integer('branchid').unsigned().nullable(); t.string('device_id', 50).nullable(); });
+          await db.schema.alterTable('qc_sessions', t => { t.integer('branchid').unsigned().nullable(); });
+     }
+     if (await db.schema.hasTable('qc_sessions') && !(await db.schema.hasColumn('qc_sessions', 'device_id'))) {
+          await db.schema.alterTable('qc_sessions', t => { t.string('device_id', 50).nullable(); });
      }
 }
 
