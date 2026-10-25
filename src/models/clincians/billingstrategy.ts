@@ -668,12 +668,11 @@ export default class BillingStrategy {
                     strategyList = await this.getBillingStrategyByEntity(tenantId, entity_type, associatedid);
                }
 
-               if (entity_type === "nhis") {
-
-               }
-
-               if (!strategyList.length && !fallbackToDefault) {
-                    return `${OperationsFailures.billingStrategyNotFoundForEntity} or ${OperationsFailures.billingStrategyExpired}`;
+               if (!strategyList.length) {
+                    // An unconfigured NHIS catalogue is an empty selection, never a
+                    // general-price fallback or a string passed to array pricing helpers.
+                    if (entity_type === 'nhis') return [];
+                    if (!fallbackToDefault) return `${OperationsFailures.billingStrategyNotFoundForEntity} or ${OperationsFailures.billingStrategyExpired}`;
                }
 
                const allTest = await this.loadAllTests(tenantId);

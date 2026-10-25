@@ -15,6 +15,11 @@ describe('Vital observation validation', () => {
     it('strictly rejects malformed, nonfinite and out-of-unit observations', () => { for (const value of ['80bpm', 'NaN', 'Infinity', ' '])
         expect(vitalInput.safeParse({ ...full, pulse: value }).success).toBe(false); expect(vitalInput.safeParse({ ...full, spo2: 101 }).success).toBe(false); });
     it('retains zero oxygen saturation rather than treating it as missing', () => { expect(vitalInput.parse({ ...full, spo2: '0' }).spo2).toBe(0); });
+    it('preserves decimal temperatures and rejects precision that storage cannot retain', () => {
+        expect(vitalInput.parse({ ...full, temperature: '36.85' }).temperature).toBe(36.85);
+        expect(vitalInput.safeParse({ ...full, temperature: '36.855' }).success).toBe(false);
+        for (const field of ['pulse', 'respiration', 'spo2']) expect(vitalInput.safeParse({ ...full, [field]: '20.5' }).success).toBe(false);
+    });
     it('allows partial observations only with an explicit reason', () => { expect(vitalInput.safeParse({ temperature: 36.8 }).success).toBe(false); expect(vitalInput.parse({ temperature: 36.8, missing_reason: 'Patient declined remaining observations' }).pulse).toBeNull(); });
     it('rejects half a blood pressure pair and inverted values', () => { expect(vitalInput.safeParse({ blood_pressure_upperLimit: 120, missing_reason: 'Not obtained' }).success).toBe(false); expect(vitalInput.safeParse({ ...full, blood_pressure_lowerLimit: 130 }).success).toBe(false); });
     it('rejects future observation timestamps', () => { expect(vitalInput.safeParse({ ...full, observed_at: new Date(Date.now() + 86400000).toISOString() }).success).toBe(false); });

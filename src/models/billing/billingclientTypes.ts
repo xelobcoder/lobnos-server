@@ -73,8 +73,8 @@ export type ServiceEntry = {
   branchid: number;
   isoutsourced: boolean | number;
   outsourceid: number;
-  nhismembershipid?: number;
-  claimscheckcode?: number;
+  nhismembershipid?: string | number;
+  claimscheckcode?: string | number;
   serviceAddedOn: Date;
   taxList: any;
   taxValue: number;

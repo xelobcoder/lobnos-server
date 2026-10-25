@@ -349,8 +349,12 @@ export class Packages {
                     query.where('packages.package_name', 'like', `%${search}%`);
                }
 
-               const [{ count }] = await query.clone().count('packages.id as count');
-               const total = parseInt(count as string);
+               // Count packages independently of the grouped test/assignment joins.
+               // A grouped count has no first row when empty and counts joined rows otherwise.
+               const totalQuery = connection('packages');
+               if (search) totalQuery.where('packages.package_name', 'like', `%${search}%`);
+               const countRow = await totalQuery.count('id as count').first();
+               const total = Number(countRow?.count || 0);
 
                const data = await query
                     .orderBy(sortBy, sortOrder)

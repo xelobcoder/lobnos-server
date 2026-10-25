@@ -32,8 +32,13 @@ describe('Modern billing bulk review', () => {
     });
     it.each([[1, 'general'], [2, 'organization'], [3, 'insurance'], [4, 'nhis'], [6, 'clinician']])('keeps payer %s on the existing pricing strategy', async (billingSource, entityType) => {
         const h = setup(); await h.service.review(actor, { ...body(), context: { patientId: 101, billingSource, entityId: 9, nhisMembershipId: 123, claimCheckCode: 456 } });
-        expect(h.initialize).toHaveBeenCalledWith(3, expect.objectContaining({ billingSource, entityType, nhismembershipid: 123, claimscheckcode: 456 }));
+        expect(h.initialize).toHaveBeenCalledWith(3, expect.objectContaining({ billingSource, entityType, nhismembershipid: '123', claimscheckcode: '456' }));
         expect(h.price.mock.calls[0][0]).toMatchObject({ entitytype: entityType, billingSource });
+    });
+    it('preserves long membership and leading-zero claim identifiers through review', async () => {
+        const h = setup();
+        await h.service.review(actor, { ...body(), context: { patientId: 101, billingSource: 4, nhisMembershipId: '000123456789012345678901234567890', claimCheckCode: '005432' } });
+        expect(h.initialize).toHaveBeenCalledWith(3, expect.objectContaining({ nhismembershipid: '000123456789012345678901234567890', claimscheckcode: '005432' }));
     });
     it('keeps approved outsourcing metadata even when pricing omits it', async () => {
         const h = setup({ testList: [{ id: 10, testid: 10, name: 'FBC', isoutsourced: 1 }] });

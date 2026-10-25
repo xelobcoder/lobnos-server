@@ -31,3 +31,9 @@ dist/
 
 # Generated billing browser verification artifacts
 /tmp/modern-rebuild/
+
+# Local billing checks and clinical recovery evidence (may contain clinical data).
+/tmp/billing-followup/
+/tmp/billing-catalogue-fix/
+/tmp/undelivered-ui/
+/tmp/node-compile-cache/

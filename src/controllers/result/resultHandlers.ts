@@ -699,14 +699,17 @@ export const getResultDeliveryPreference = async (req: Request, res: Response) =
 
 
 
-export const getResultRecordUndelivered = async (req: Request<{}, {}, {}, { tenantId: string; startDate: string; count: string; page: string; endDate: string }>, res: Response) => {
+export const getResultRecordUndelivered = async (req: Request<{}, {}, {}, { tenantId: string; startDate: string; count: string; page: string; endDate: string; search?: string; mode?: string; issuesOnly?: string }>, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
 		const startDate = req.query.startDate;
 		const endDate = req.query.endDate;
 		const count = req.query.count ? parseInt(req.query.count as unknown as string, 10) : 0;
 		const page = req.query.page ? parseInt(req.query.page as unknown as string, 10) : 1;
-		const undeliveredRecords = await new ResultDeliveryClass(0, tenantId, getAuthUser(req)?.branch).getResultsUndelivered(startDate, endDate, page, count);
+		const undeliveredRecords = await new ResultDeliveryClass(0, tenantId, getAuthUser(req)?.branch).getResultsUndelivered(startDate, endDate, page, count, {
+			search: req.query.search, mode: req.query.mode, issuesOnly: req.query.issuesOnly === 'true',
+		});
+		res.setHeader('Cache-Control', 'private, no-store');
 
 		res.send({
 			status: true,

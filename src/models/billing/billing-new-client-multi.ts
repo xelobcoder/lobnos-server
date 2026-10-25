@@ -18,6 +18,7 @@ import { CommissionLogger, CommissionServiceFactory, logger } from "../commissio
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { StaffFocService } from "../foc/services/StaffFocService";
 import { normalizeSubmissionPayments } from "./submissionPayments";
+import { nhisIdentifiers, prepareNhisIdentifierStorage } from './NhisIdentifiers';
 import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
 
@@ -69,6 +70,12 @@ export class SubmitCustomerBilling {
     async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
         try {
             this.payload = normalizeSubmissionPayments(this.payload);
+            if (Number(this.payload.billingSource) === 4) {
+                const identifiers = nhisIdentifiers.safeParse(this.payload);
+                if (!identifiers.success) return { status: false, message: 'Enter valid NHIS membership and claim check identifiers (up to 64 digits). Reload and re-enter any identifier previously supplied as a rounded number.' };
+                this.payload = { ...this.payload, ...identifiers.data };
+                await prepareNhisIdentifierStorage(await this.connection);
+            }
             const {
                 tenantId,
                 patientId,
@@ -132,7 +139,7 @@ export class SubmitCustomerBilling {
                 return { status: false, message: `Checkout validation failed: ${checkoutResult.message}` };
             }
 
-            if (billingSource == 4 && (!nhismembershipid || !claimscheckcode || isNaN(nhismembershipid) || isNaN(claimscheckcode))) {
+            if (billingSource == 4 && (!nhismembershipid || !claimscheckcode)) {
                 return { status: false, message: "Please Provide Valid NHIS MEMBERSHIP ID and Claims Check Code to continue " }
             }
 

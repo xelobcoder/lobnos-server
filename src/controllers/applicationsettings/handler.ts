@@ -398,8 +398,8 @@ export const initializeBillingHandler = async (req: Request, res: Response) => {
 			includeServices: req.query.includeServices ? req.query.includeServices === "true" : false,
 			branchid: parseBranchId,
 			billingSource: billingSource,
-			claimscheckcode: claimCheckCode ? parseInt(claimCheckCode as string, 10) : undefined,
-			nhismembershipid: nhisMemberId ? parseInt(nhisMemberId as string, 10) : undefined,
+			claimscheckcode: claimCheckCode ? String(claimCheckCode).trim() : undefined,
+			nhismembershipid: nhisMemberId ? String(nhisMemberId).trim() : undefined,
 			pricingcheckout,
 			referalCode: referalCode ? referalCode as string : undefined
 		};

@@ -15,6 +15,7 @@ export const BillingModuleCodes = {
 
 
 export interface CustomerInitResponse {
+     catalogueNotice?: { code: string; title: string; message: string };
      testList: BillingTestItem[];
      previousRecords: any[];
      packageTestList: BillingTestItem[];
@@ -88,8 +89,8 @@ export interface BillingTestItem {
      price: number;
      pricingType: string;
      cost?: number;
-     nhismembershipid?: number;
-     claimscheckcode?: number;
+     nhismembershipid?: string | number;
+     claimscheckcode?: string | number;
      subtotal: number;
      testid: number;
      outsourceid?: number | null;

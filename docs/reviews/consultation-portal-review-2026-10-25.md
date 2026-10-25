@@ -1,6 +1,6 @@
 # Consultation / practitioner portal review
 
-Reviewed 25 October 2026. This is a source-code review of the frontend, API handlers, session middleware and vital-sign workflows, not a production penetration test or a clinical protocol review. Package viewing and authorization were implemented separately in this change. Consultation findings below remain proposed work.
+Reviewed 25 October 2026. This is a source-code review of the frontend, API handlers, session middleware and vital-sign workflows, not a production penetration test or a clinical protocol review. The findings below describe the original defects. Consultation, invitation, authorization and vital-sign changes are now implemented; see [implementation and verification status](consultation-implementation-2026-10-25.md) for rollout requirements and the verified local temperature recovery. Package viewing and authorization were implemented separately in this change.
 
 ## Assessment
 

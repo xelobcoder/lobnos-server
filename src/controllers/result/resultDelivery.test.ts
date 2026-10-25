@@ -58,4 +58,24 @@ describe('result delivery reconciliation', () => {
           expect(sql[1]).toContain('`delivery`.`delivered_mode` is null');
           expect(sql[1]).toContain('`bill`.`branchid` = ?');
      });
+     it('applies bound queue filters to both the total and the page while keeping branch scope', async () => {
+          const db = knex({ client: 'mysql2' }); const statements: any[] = [];
+          vi.spyOn(db.client, 'runner').mockImplementation((builder: any) => ({ run: async () => {
+               const query = builder.toSQL(); statements.push(query);
+               return query.sql.includes('count(distinct') ? { total: 1 } : [{ ascensionid: 1, test_name: 'Synthetic test' }];
+          } }) as any);
+          vi.mocked(KnexConnection).mockResolvedValue(db);
+          await new ResultDeliveryClass(0, 1, 4).getResultsUndelivered('', '', 2, 20, { search: "Ada' OR 1=1", mode: 'email', issuesOnly: true });
+          for (const query of statements) {
+               expect(query.sql).toContain('left join `test_panels` as `panel`');
+               expect(query.sql).toContain('`bill`.`branchid` = ?');
+               expect(query.sql).toContain('`preference`.`requested_mode` = ?');
+               expect(query.sql).toContain('`delivery`.`failurenotes` is not null');
+               expect(query.sql).not.toContain("Ada' OR 1=1");
+               expect(query.bindings).toContain("%Ada' OR 1=1%");
+               expect(query.bindings).toContain('email');
+          }
+          expect(statements[1].sql).toContain('`panel`.`name` as `test_name`');
+          expect(statements[1].sql).toContain('`test`.`resultEntryEnd` as `completed_at`');
+     });
 });

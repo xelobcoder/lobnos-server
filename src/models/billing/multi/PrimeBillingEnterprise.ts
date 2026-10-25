@@ -307,8 +307,8 @@ export class PrimeBillingEnterprise {
 			CART_AND_SERVICES_EMPTY: string;
 		};
 		pricingcheckout?: boolean;
-		nhismembershipid?: number;
-		claimscheckcode?: number;
+		nhismembershipid?: string | number;
+		claimscheckcode?: string | number;
 	}) {
 		if (!patientId && !pricingcheckout) return errorCodes.NO_PATIENT_ID;
 		if (branchid === undefined || branchid === null) return errorCodes.NO_BRANCH_ID;

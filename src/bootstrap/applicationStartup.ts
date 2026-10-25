@@ -1,4 +1,5 @@
 import { consultationDb } from '../models/consultation/ConsultationSchema';
+import { bootstrapNhisIdentifiers } from '../models/billing/NhisIdentifiers';
 import { bootstrapOperationalControls } from '../models/operations/OperationalControlsBootstrapper';
 import { startCrmReminderWorker } from '../models/crm/CrmReminderService';
 import { bootstrapCrm } from '../models/crm/CrmBootstrapper';
@@ -84,6 +85,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await bootstrapPrescriptionTables(tenantId);
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
+	await bootstrapNhisIdentifiers(tenantId);
 	await bootstrapCalculationAndQcTables(tenantId);
 	await bootstrapOperationsWorkflow(tenantId);
 	await bootstrapOperationalControls(tenantId);

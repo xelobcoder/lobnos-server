@@ -6,9 +6,21 @@ import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkfl
 import { CriticalActionService, controlAudit } from '../../models/operations/CriticalActionService';
 import { OutsourceWorkflowService } from '../../models/operations/OutsourceWorkflowService';
 import { OutsourceRequestService } from '../../models/operations/OutsourceRequestService';
+import { OutsourceAssignmentService } from '../../models/operations/OutsourceAssignmentService';
+import { roleAllowed } from '../../middleware/roles';
 import { controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
 
-const router = Router(); router.use(requireLaboratoryWorkflowRole);
+const router = Router();
+router.use((req, res, next) => {
+     const actor = getAuthUser(req);
+     const samplingOutsource = /^(?:\/billing\/\d+\/outsourcing|\/tests\/\d+\/outsourcing|\/outsourcing\/\d+\/requests(?:\/\d+)?)$/.test(req.path);
+     if (samplingOutsource && actor && ['GET', 'PUT', 'POST'].includes(req.method) &&
+          roleAllowed(actor.role, ['phlebotomist', 'phelobotomist']) && Number(req.query.tenantId) === Number(actor.tenantId)) {
+          if (req.body) req.body.employeeid = actor.employeeid;
+          return next();
+     }
+     return requireLaboratoryWorkflowRole(req, res, next);
+});
 router.use((req, res, next) => { const actor = getAuthUser(req)!; if (actor.branch == null && !labSupervisor(actor)) return res.status(403).json({ success: false, message: 'An operating branch is required' }); next(); });
 const run = (operation: (db: any, actor: any, req: any) => Promise<any>) => async (req: any, res: any) => {
      try { const actor = getAuthUser(req)!; res.setHeader('Cache-Control', 'private, no-store'); res.json({ success: true, data: await operation(await KnexConnection(actor.tenantId), actor, req) }); }
@@ -32,6 +44,9 @@ router.get('/critical', run((db, actor, req) => new CriticalActionService(db).li
 router.get('/critical/legacy/:id', run(async (db, actor, req) => { const event = await db('lab_critical_events').where({ legacy_alert_id: Number(req.params.id) }).first(); if (!event) return controlsFail('Critical event not found', 404); return new CriticalActionService(db).detail(actor, event.id); }));
 router.get('/critical/:id', run((db, actor, req) => new CriticalActionService(db).detail(actor, Number(req.params.id))));
 router.post('/critical/:id/actions', run((db, actor, req) => new CriticalActionService(db).act(actor, Number(req.params.id), req.body)));
+router.get('/billing/:id/outsourcing', run((db, actor, req) => new OutsourceAssignmentService(db).forBilling(actor, z.coerce.number().int().positive().parse(req.params.id))));
+router.get('/tests/:id/outsourcing', run((db, actor, req) => new OutsourceAssignmentService(db).context(actor, z.coerce.number().int().positive().parse(req.params.id))));
+router.put('/tests/:id/outsourcing', run((db, actor, req) => new OutsourceAssignmentService(db).assign(actor, z.coerce.number().int().positive().parse(req.params.id), req.body)));
 router.get('/providers', run((db) => new OutsourceWorkflowService(db).providerOptions()));
 router.get('/providers/:id/services', run((db, actor, req) => new OutsourceWorkflowService(db).organizationServices(actor, Number(req.params.id))));
 router.put('/providers/:id/services', run((db, actor, req) => new OutsourceWorkflowService(db).saveOrganizationServices(actor, Number(req.params.id), req.body)));

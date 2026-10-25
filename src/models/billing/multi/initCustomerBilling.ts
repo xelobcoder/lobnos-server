@@ -38,8 +38,8 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
           branchid: number;
           pricingcheckout?: boolean;
           billingSource: number;
-          nhismembershipid?: number;
-          claimscheckcode?: number;
+          nhismembershipid?: string | number;
+          claimscheckcode?: string | number;
           referalCode: string | undefined;
      }): Promise<CustomerInitResponse | string | []> {
           const validationError = CustomerBillingInitSingleton.validateBillingInput({
@@ -175,6 +175,15 @@ class CustomerBillingInitSingleton extends PrimeBillingEnterprise {
                ApplicableTest = defaultCustomerInitData.entityType === "nhis" ? await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, false, true) : await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, null, true);
           } else {
                ApplicableTest = await new BillingStrategy().getProvidentialBillingHandler(this.tenantId, defaultCustomerInitData.entityType, defaultCustomerInitData.entityId, true);
+          }
+          if (!Array.isArray(ApplicableTest)) {
+               throw new Error(typeof ApplicableTest === 'string' ? ApplicableTest : 'Unable to load the test catalogue');
+          }
+          if (defaultCustomerInitData.entityType === 'nhis' && ApplicableTest.length === 0) {
+               defaultCustomerInitData.catalogueNotice = {
+                    code: 'NHIS_CATALOGUE_EMPTY', title: 'No NHIS tests configured',
+                    message: 'No tests have been configured for NHIS billing. Ask an administrator to configure NHIS test pricing, then reload the catalogue.',
+               };
           }
           if (defaultCustomerInitData.promoCode && defaultCustomerInitData.promoCode.value && defaultCustomerInitData.promoCode.type) {
                ApplicableTest = PrimeBillingEnterprise.applyPromoToItems(ApplicableTest, defaultCustomerInitData.promoCode);

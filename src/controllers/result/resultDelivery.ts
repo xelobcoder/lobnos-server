@@ -34,12 +34,13 @@ export default class ResultDeliveryClass {
           return true;
      }
 
-     async getResultsUndelivered(startDate: string, endDate: string, page: number, count: number) {
+     async getResultsUndelivered(startDate: string, endDate: string, page: number, count: number, filters: { search?: string; mode?: string; issuesOnly?: boolean } = {}) {
           const connection = await this.connection;
           const query = connection('test_ascension as test')
                .join('billing as bill', 'bill.billingid', 'test.billingid')
                .join('dbotestresultapproval as approval', 'approval.ascensionid', 'test.id')
                .join('new_patients', 'new_patients.patientid', 'bill.patientid')
+               .leftJoin('test_panels as panel', 'panel.id', 'test.testid')
                .leftJoin('patient_result_delivery_preference as preference', 'preference.ascension', 'test.id')
                .leftJoin('result_delivery_log as delivery', 'delivery.ascensionid', 'test.id')
                .where('approval.isapproved', 1).whereNotNull('test.resultEntryEnd')
@@ -47,12 +48,22 @@ export default class ResultDeliveryClass {
           if (this.branchid != null) query.where('bill.branchid', this.branchid);
           if (startDate) query.whereRaw('DATE(test.resultEntryEnd) >= ?', [startDate]);
           if (endDate) query.whereRaw('DATE(test.resultEntryEnd) <= ?', [endDate]);
+          const search = String(filters.search || '').trim().slice(0, 100);
+          if (search) query.where(function () {
+               this.where('new_patients.fullpatientid', 'like', `%${search}%`)
+                    .orWhereRaw("CONCAT_WS(' ', new_patients.firstname, new_patients.middlename, new_patients.lastname) LIKE ?", [`%${search}%`])
+                    .orWhere('panel.name', 'like', `%${search}%`);
+               if (/^\d+$/.test(search) && Number.isSafeInteger(Number(search))) this.orWhere('test.billingid', Number(search)).orWhere('test.id', Number(search));
+          });
+          if (filters.mode === 'unspecified') query.where(function () { this.whereNull('preference.requested_mode').orWhere('preference.requested_mode', ''); });
+          else if (['whatapp', 'email', 'hardcopy', 'phonecall'].includes(filters.mode || '')) query.where('preference.requested_mode', filters.mode);
+          if (filters.issuesOnly) query.where(function () { this.where('delivery.delivered_mode', 'not_delivered').orWhere(function () { this.whereNotNull('delivery.failurenotes').where('delivery.failurenotes', '<>', ''); }); });
           const total = await query.clone().countDistinct('test.id as total').first();
           const safeCount = Math.min(100, Math.max(1, Number(count) || 20));
           const safePage = Math.max(1, Number(page) || 1);
           const dataset = await query.select('new_patients.*', 'preference.requested_mode', 'preference.requested_mode_detail',
                'delivery.delivered_mode', 'delivery.delivered_at', 'delivery.delivered_by_employeeid', 'delivery.failurenotes',
-               'test.id as ascensionid', 'test.billingid', 'test.testid')
+               'test.id as ascensionid', 'test.billingid', 'test.testid', 'panel.name as test_name', 'test.resultEntryEnd as completed_at')
                .orderBy('test.resultEntryEnd').orderBy('test.id').limit(safeCount).offset((safePage - 1) * safeCount);
           return { totalcount: Number(total?.total || 0), dataset };
      }

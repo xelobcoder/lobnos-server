@@ -49,6 +49,15 @@ function facility(strategies: Strategy[], mappings: Mapping[] = []) {
 describe('facility billing mode', () => {
     beforeEach(() => vi.clearAllMocks());
 
+    it.each([false, true])('returns an empty NHIS catalogue without general prices (fallback=%s)', async fallback => {
+        mocks.connection.mockResolvedValue(facility([]));
+        const service = new BillingStrategy();
+        const loadGeneral = vi.spyOn(service as any, 'loadAllTests');
+        await expect(service.getProvidentialBillingHandler(397773, 'nhis', null, fallback, true)).resolves.toEqual([]);
+        expect(loadGeneral).not.toHaveBeenCalled();
+        loadGeneral.mockRestore();
+    });
+
     it('uses general-only mode with no configured pricing strategies', async () => {
         mocks.connection.mockResolvedValue(facility([]));
         expect(await new BillingStrategy().hasActiveBillingStrategies(397773)).toBe(false);

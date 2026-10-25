@@ -3,6 +3,7 @@ import { AuthUser } from '../../middleware/authority';
 import { CustomerBillingInit } from './multi/initCustomerBilling';
 import { CustomerBillingCheckout } from './multi/customerBillingCheckout';
 import Outsourcing from '../organization/outsourcingOrganization/outsourcing';
+import { nhisIdentifier } from './NhisIdentifiers';
 
 const id = z.number().int().positive();
 const optionalId = id.nullish();
@@ -17,7 +18,7 @@ export const modernPreviewSchema = z.object({
         billingSource: z.union([z.literal(1), z.literal(2), z.literal(3), z.literal(4), z.literal(6)]),
         entityId: optionalId, quote: z.boolean().default(false), packageId: optionalId,
         referralCode: z.string().max(150).optional(), promoCode: z.string().max(150).optional(),
-        nhisMembershipId: optionalId, claimCheckCode: optionalId,
+        nhisMembershipId: nhisIdentifier.nullish(), claimCheckCode: nhisIdentifier.nullish(),
     }),
     items: z.array(itemSchema).max(500),
 });

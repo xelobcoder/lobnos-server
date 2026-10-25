@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { AuthUser } from '../../middleware/authority';
+import { nhisIdentifiers } from './NhisIdentifiers';
 
 export interface SuspendedBillingDraftInput {
      patientid?: number | null;
@@ -18,8 +19,8 @@ export interface SuspendedBillingDraftInput {
      isPackageUsed?: boolean;
      packageid?: number | null;
      includeServices?: boolean;
-     nhismembershipid?: number | null;
-     claimscheckcode?: number | null;
+     nhismembershipid?: string | number | null;
+     claimscheckcode?: string | number | null;
      isPromo?: boolean;
      promoCode?: string | null;
      promoMethod?: string | null;
@@ -34,6 +35,7 @@ export class SuspendedBillingService {
      constructor(private readonly tenantId: number) { }
 
      async suspend(actor: AuthUser, input: SuspendedBillingDraftInput, draftId?: number): Promise<any> {
+          if (Number(input.billingSource) === 4) input = { ...input, ...nhisIdentifiers.parse(input) };
           this.validate(actor, input);
           const connection = await KnexConnection(this.tenantId);
           const payload = JSON.stringify(input);
