@@ -1,0 +1,1 @@
+import React from'react';export const useRouter=()=>({push:href=>window.__navigation.push(href)});export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}

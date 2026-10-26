@@ -1,0 +1,1 @@
+export const useApplication=()=>({user:{employeeid:1,role:'admin'},company:{name:'Test Pharmacy'}});

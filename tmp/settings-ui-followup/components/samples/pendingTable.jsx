@@ -1,0 +1,356 @@
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useSearchParams } from 'next/navigation';
+import SampleAssessmentModal from '../accessories/SampleAssessmentModal/SampleAssessmentModal';
+import PrimeTable from '../accessories/Datatables/PrimeTable';
+import { handleServerSideProcessingSampleValidation } from '../serverActions/ActionFiltering';
+import { RiInformationLine, RiCheckboxCircleLine, RiCalendarLine, RiRefreshLine } from '@remixicon/react';
+import { customFetch } from '../Auth/customFetch';
+import dayjs from 'dayjs';
+import { handleDateRangeSelection } from '../operations/Laboratory/AscensionFilteringComponent';
+import DateFilterReusable from '../operations/Laboratory/ResuableFilter/DateFilterReusable';
+
+
+
+export default function SampleValidationComponent() {
+	const searchParams = useSearchParams();
+	const today = new Date().toISOString().split('T')[0];
+	const urlStartDate = searchParams.get('start_date') || today;
+	const urlEndDate = searchParams.get('end_date') || today;
+	const billingid = searchParams.get('billingid') || '';
+
+	const [data, setData] = useState([]);
+	const [loading, setLoading] = useState(false);
+	const [sortBy, setSortBy] = useState('DESC');
+	const [showAssesModal, setShowAssesModal] = useState(false);
+	const [target, setTarget] = useState(null);
+	const [multiMode, setMultiMode] = useState(false);
+	const [queryParams, setQueryParams] = useState({
+		_dateFrom: urlStartDate,
+		_dateEnd: urlEndDate
+	});
+	const [selectedItems, setSelectedItems] = useState([]);
+	const [searchFilter, setSearchFilter] = useState('');
+	const [dateFilter, setDateFilter] = useState('');
+
+	useEffect(() => {
+		setQueryParams(prev => ({ ...prev, _dateFrom: urlStartDate, _dateEnd: urlEndDate }));
+	}, [urlStartDate, urlEndDate]);
+
+	useEffect(() => {
+		const loadInitialData = async () => {
+			setLoading(true);
+			try {
+				let url = billingid ? `sample/client/list/unvalidated?billingid=${billingid}&&count=10&page=1&sortby=DESC` : `sample/client/list/unvalidated?count=10&page=1&sortby=DESC`;
+				if (urlStartDate && !billingid) url += `&startDate=${urlStartDate}`;
+				if (urlEndDate && !billingid) url += `&endDate=${urlEndDate}`;
+				const fetchResponse = await customFetch(url);
+				const { result } = fetchResponse;
+				if (result && Array.isArray(result)) {
+					setData(result);
+				}
+			} catch (error) {
+				console.error('Error loading initial data:', error);
+			} finally {
+				setLoading(false);
+			}
+		};
+		loadInitialData();
+	}, []);
+
+	const removeClientFromList = (id) => {
+		if (!id) return;
+		setLoading(true);
+		setData((prev) => prev.filter((item) => item.billingid !== id));
+		setLoading(false);
+	};
+
+	const handleMultiProcessComplete = (processedIds) => {
+		setSelectedItems(prev => prev.filter(id => !processedIds.includes(id)));
+		setData(prev => prev.filter(item => !processedIds.includes(item.billingid)));
+	};
+
+	const openModal = (ev, multi = false) => {
+		setMultiMode(multi);
+		setShowAssesModal(true);
+	};
+
+
+	const closeModal = (ev) => {
+		setShowAssesModal(false);
+		setMultiMode(false);
+		setTarget(null);
+	};
+
+	const handleLoadData = async () => {
+		setLoading(true);
+		try {
+			let url = 'sample/client/list/unvalidated?count=10&page=1&&sortby=' + sortBy;
+			if (queryParams._dateFrom) url += `&startDate=${queryParams._dateFrom}`;
+			if (queryParams._dateEnd) url += `&endDate=${queryParams._dateEnd}`;
+			if (searchFilter) url += `&searchString=${encodeURIComponent(searchFilter)}`;
+			const fetchResponse = await customFetch(url);
+			const { result } = fetchResponse;
+			if (result && Array.isArray(result) && result.length > 0) {
+				setData(result);
+			} else {
+				console.log('No results returned from API');
+			}
+		} catch (error) {
+			console.error('Error loading data:', error);
+		} finally {
+			setLoading(false);
+		}
+	};
+
+	const columns = [
+		{
+			Header: (
+				<input
+					type="checkbox"
+					checked={data.length > 0 && selectedItems.length === data.length}
+					ref={node => { if (node) node.indeterminate = selectedItems.length > 0 && selectedItems.length < data.length; }}
+                    aria-label="Select all samples"
+                    aria-checked={selectedItems.length > 0 && selectedItems.length < data.length ? "mixed" : data.length > 0 && selectedItems.length === data.length}
+					onChange={e => {
+						if (e.target.checked) {
+							setSelectedItems(data.map(item => item.billingid));
+						} else {
+							setSelectedItems([]);
+						}
+					}}
+					title="Select All"
+				/>
+			),
+			accessor: "select",
+			Cell: ({ row }) => {
+				const item = row.original;
+				return (
+					<input
+						type="checkbox"
+						checked={selectedItems.includes(item.billingid)}
+						onChange={e => {
+							if (e.target.checked) {
+								setSelectedItems(prev => [...prev, item.billingid]);
+							} else {
+								setSelectedItems(prev => prev.filter(id => id !== item.billingid));
+							}
+						}}
+					/>
+				);
+			},
+			disableSortBy: true,
+			width: 40,
+		},
+		{
+			Header: "Billing Date",
+			accessor: "date",
+			Cell: function ({ value }) {
+				return <div className="text-nowrap">{dayjs(value).format('DD-MM-YYYY hh:mm:ss')}</div>;
+			},
+		},
+		{
+			Header: "Full Name",
+			accessor: "fullname",
+			Cell: function ({ value }) {
+				return <div className="font-weight-medium">{value}</div>;
+			}
+		},
+		{
+			Header: "Billing ID",
+			accessor: "billingid",
+			Cell: function ({ row }) {
+				return <div className="text-monospace">
+					<span className="text-muted">BillingId:{row.original.billingid}</span>
+					<br />
+					<span className="text-muted"> Ascensionid: ASC-{row.original.ascensionid} </span>
+				</div>;
+			}
+		},
+		{
+			Header: "Action",
+			accessor: "action",
+			Cell: function ({ row }) {
+				const item = row.original;
+				return (
+					<div className="d-flex ">
+						<button
+							className="btn btn-primary btn-sm d-flex align-items-center"
+							onClick={(ev) => {
+								setTarget(item?.billingid);
+								openModal(ev, false);
+							}}>
+							<RiCheckboxCircleLine className="me-1" />
+							Validate Sample
+						</button>
+					</div>
+				);
+			},
+		},
+	];
+
+	return (
+		<div className="pls-color text-sm">
+			<div className="mb-2">
+				{selectedItems.length > 0 && (
+					<div className="d-flex gap-2 align-items-center">
+						<button
+							className="btn btn-success btn-sm d-flex align-items-center gap-1"
+							onClick={() => {
+								setTarget(selectedItems);
+								openModal(null, true);
+							}}
+						>
+							<RiCheckboxCircleLine className="me-1" />
+							Process Selected ({selectedItems.length}) Items
+						</button>
+						<span className="text-muted small">
+							{selectedItems.length} item{selectedItems.length !== 1 ? 's' : ''} selected
+						</span>
+					</div>
+				)}
+			</div>
+			<div className='d-flex justify-content-between align-items-center mb-3'>
+				<div className="d-flex align-items-center">
+					<h6 className="p-3 bg-light rounded-3 d-flex align-items-center mb-0">
+						<RiInformationLine className="me-2" />
+						Sample Validation
+					</h6>
+				</div>
+				<div className="col-12 col-lg-2">
+					<DateFilterReusable
+						value={dateFilter}
+						onChange={setDateFilter}
+						onDateRangeChange={(startDate, endDate) => {
+							setQueryParams(prev => ({
+								...prev,
+								_dateFrom: startDate,
+								_dateEnd: endDate
+							}));
+						}}
+						label="Filter by"
+						className="w-100"
+					/>
+				</div>
+				{/* Date Range Filter */}
+				<div className="d-flex align-items-center gap-3">
+					<RiCalendarLine className="text-muted" />
+					<div className="d-flex align-items-center gap-2">
+						<label className="form-label mb-0 text-muted small">From:</label>
+						<input
+							type="date"
+							className="form-control form-control-sm"
+							style={{ maxWidth: '150px' }}
+							value={queryParams._dateFrom || ''}
+							onChange={(e) => { setQueryParams(prev => ({ ...prev, _dateFrom: e.target.value })); }}
+						/>
+					</div>
+					<div className="d-flex align-items-center gap-2">
+						<label className="form-label mb-0 text-muted small">To:</label>
+						<input
+							type="date"
+							className="form-control form-control-sm"
+							style={{ maxWidth: '150px' }}
+							value={queryParams._dateEnd || ''}
+							onChange={(e) => { setQueryParams(prev => ({ ...prev, _dateEnd: e.target.value })); }}
+
+						/>
+					</div>
+					<div className="d-flex align-items-center gap-2">
+						<label className="form-label mb-0 text-muted small">Search:</label>
+						<input
+							type="text"
+							className="form-control form-control-sm"
+							style={{ minWidth: '200px' }}
+							placeholder="Search by name, billing ID..."
+							value={searchFilter}
+							onChange={(e) => setSearchFilter(e.target.value)}
+						/>
+					</div>
+					<div>
+						<select className='form-select form-select-sm' onChange={(e) => {
+							const sortValue = e.target.value;
+							setSortBy(sortValue);
+						}} defaultValue="DESC">
+							<option value="" disabled>Sort By</option>
+							<option value="">Default</option>
+							<option value="DESC">Sort by Date (Newest)</option>
+							<option value="ASC">Sort by Date (Oldest)</option>
+						</select>
+					</div>
+					<button
+						className="btn btn-primary btn-sm d-flex align-items-center gap-1"
+						onClick={handleLoadData}
+						disabled={loading || (!queryParams._dateFrom && !queryParams._dateEnd && !searchFilter)}
+					>
+						{loading ? (
+							<>
+								<span className="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span>
+								<span>Loading...</span>
+							</>
+						) : (
+							<>
+								<RiRefreshLine />
+								<span>Load Data</span>
+							</>
+						)}
+					</button>
+					{(queryParams._dateFrom || queryParams._dateEnd || searchFilter) && (
+						<button
+							className="btn btn-outline-secondary btn-sm"
+							onClick={() => {
+								setQueryParams(prev => ({ ...prev, _dateFrom: '', _dateEnd: '', searchFilter: '' }));
+							}}
+							title="Clear all filters"
+						>
+							Clear
+						</button>
+					)}
+				</div>
+			</div>
+
+			{data.length > 0 && (
+				<div className="alert alert-info p-2 my-2 d-flex align-items-center">
+					<RiInformationLine className="me-2" />
+					<div>
+						<strong>Note:</strong> Please check the sample before validating. Click on the assess button to view the sample.
+					</div>
+				</div>
+			)}
+
+			<div className="my-2">
+				<section className="bg-white rounded-3 shadow-sm p-3">
+					{loading ? (
+						<div className="d-flex justify-content-center py-5">
+							<div className="spinner-border text-primary" role="status">
+								<span className="visually-hidden">Loading...</span>
+							</div>
+						</div>
+					) : (
+						<PrimeTable
+							column={columns}
+							handleSeverSideProcessing={handleServerSideProcessingSampleValidation}
+							data={data}
+							filtering={false}
+							urlparams={{ ...queryParams, sortBy }}
+							serverSideFiltering={true}
+							className="table-striped table-hover"
+						/>
+					)}
+				</section>
+			</div>
+
+			<SampleAssessmentModal
+				show={showAssesModal}
+				hide={closeModal}
+				billingid={target}
+				removeClient={removeClientFromList}
+				multiMode={multiMode}
+				selectedItems={selectedItems}
+				onMultiProcessComplete={handleMultiProcessComplete}
+				data={data.filter(item => multiMode ? selectedItems.includes(item.billingid) : item.billingid === target)}
+			/>
+		</div>
+	);
+}

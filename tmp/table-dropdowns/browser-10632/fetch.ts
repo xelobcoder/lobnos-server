@@ -1,0 +1,1 @@
+export async function customFetch(){return{status:'success',statusCode:200,result:window.__orgs}}export const deleteOrganization=async()=>{throw Error('No destructive operations in UI tests')};export const handleChangeWithState=()=>{};export const updatePagination=()=>{};

@@ -1,0 +1,1 @@
+import React from'react';export const useSearchParams=()=>new URLSearchParams(location.search);export const useRouter=()=>({push:href=>location.href=href});export const usePathname=()=>location.pathname;export default function Link({href,children,...props}){return <a href={href} {...props}>{children}</a>}

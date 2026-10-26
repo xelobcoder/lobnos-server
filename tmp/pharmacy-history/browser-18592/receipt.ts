@@ -1,0 +1,1 @@
+export const printPharmacyReceipt=async(receipt)=>window.__prints.push(receipt.id);

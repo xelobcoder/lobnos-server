@@ -1,0 +1,9 @@
+# Pharmacy sales history filters — 26 October 2026
+
+Added server-backed search (receipt, embedded counter code, customer), sale status, payment method and minimum/maximum totals. Date selection uses the existing `DateFilterReusable` component, exposing its day/week/month/quarter/year/fiscal presets and custom range. The page maps the preset's actual date bounds into the history request; All Time removes both bounds rather than imposing the component's historic 100-year window. Clear resets the preset and every filter. Apply returns to page one.
+
+Filtering is applied in the repository before both row selection and count, preserving the existing branch-scoping predicate. End dates use an exclusive next-day boundary so the whole selected final day is included. Invalid dates, reversed ranges, unknown statuses/methods and invalid currency bounds are rejected. SQL values are parameterized.
+
+The existing PrimeTable renders filtered page rows and retains detail/reprint/reversal actions. The page now owns server pagination with returned total counts, page size and refresh; there is no misleading current-page-only search. Stale responses cannot replace newer filtered results. Failed loads clear stale results and can be refreshed with the same filters. Navigation roles and backend authorization were not changed.
+
+Verification: 109 pharmacy model tests passed, including SQL-binding/end-date/filter-validation tests; backend build and full frontend type check passed. Eight Edge browser checks passed using the real page, reusable date component and PrimeTable, with synthetic transport/context and receipt printing replaced. Covers customer on a later page, combined filters, invalid ranges, page sizes/refresh, slow response ordering, failed-load retry/detail access, today/current-month/last-month/All Time presets and mobile overflow/runtime/hydration errors. Screenshot review: tmp/pharmacy-history/browser-19728. No live records were changed.

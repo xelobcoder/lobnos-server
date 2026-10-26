@@ -1,0 +1,11 @@
+# Customer and organization dropdowns — 26 October 2026
+
+Root cause: PrimeTable's horizontal scrolling viewport clips descendant dropdown menus. Increasing z-index cannot escape that clipping, and reserving table height for a long action menu produces poor single-row layouts. OrganizationList also imported global dropdown styles with transform animations and item margins, potentially interfering with Popper positioning and unrelated pages.
+
+Changes:
+- Added shared `TableDropdownMenu`, preserving React Bootstrap's menu context, root close and keyboard behavior while rendering the menu into document.body. Popper uses fixed positioning, viewport boundaries, overflow prevention and flipping. Width/height are constrained to the screen, long labels wrap and tall menus scroll internally. Application font/colors and focus indicators are explicit because the menu is outside the table's style scope.
+- Customer actions use the shared menu, a visible Actions label and a unique useId toggle per row. Existing items, callback arguments, routes and role checks remain intact.
+- Organization actions use the shared menu and a visible 40px Actions trigger, preserving pricing/edit/delete behavior. Removed the old global organization-list stylesheet import; existing scoped directory styling remains.
+- PrimeTable exposes its displayed row count to CSS and removes the viewport's minimum-height reservation for one-row results. Horizontal scrolling and existing multi-row/empty states remain intact; opening a menu does not expand the table.
+
+Validation: seven Edge browser checks passed using the actual customer action component, organization list and PrimeTable with synthetic APIs/context and export/navigation/encryption adapters. Covers clipped outer containers, single-row table height, on-screen menu bounds, patient portal routing, keyboard opening/Escape/focus restore, outside clicks, unique IDs across multiple rows, correct row callback arguments, organization destinations, existing role visibility, long mobile menus reaching the final action and narrow organization tables. No runtime/hydration errors. Desktop/mobile screenshots reviewed under tmp/table-dropdowns/browser-5800. Full frontend TypeScript check and diff whitespace checks passed. No customer/organization records were changed.

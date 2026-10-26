@@ -1,3 +1,4 @@
+import {ensurePharmacyCounterSchema} from './PharmacyCounterSchema';
 import { ensurePharmacySeparationSchema } from './PharmacySeparationSchema';
 import { ensurePharmacyOperationsSchema } from './PharmacyOperationsSchema';
 import { ensurePharmacyIntegritySchema } from './PharmacyIntegritySchema';
@@ -109,5 +110,6 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
      await ensurePharmacySeparationSchema(connection);
      await ensurePharmacyOperationsSchema(connection);
      await ensurePharmacyEnterpriseSchema(connection);
+     await ensurePharmacyCounterSchema(connection);
      if(await connection.schema.hasTable('prescriptions')&&!await connection.schema.hasColumn('prescriptions','prescriber_type'))await connection.schema.alterTable('prescriptions',t=>t.string('prescriber_type',20).notNullable().defaultTo('legacy'));
 }

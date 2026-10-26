@@ -1,0 +1,1 @@
+export const orgainzationServerSideProcessing=async()=>({result:window.__orgs,error:false});

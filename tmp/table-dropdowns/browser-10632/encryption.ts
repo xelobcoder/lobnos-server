@@ -1,0 +1,1 @@
+export const plsEncryption=value=>'encrypted-'+value;

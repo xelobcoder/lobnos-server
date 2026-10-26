@@ -1,0 +1,1 @@
+export const useApplication=()=>({user:{employeeid:1},tenantId:1});export const useApplicationSettings=()=>({applicationsettings:useApplication()});

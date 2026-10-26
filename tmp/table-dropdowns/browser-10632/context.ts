@@ -1,0 +1,1 @@
+const app=()=>({user:{employeeid:1,role:new URLSearchParams(location.search).get('role')||'admin'}});export const useApplication=app;export const useApplicationSettings=()=>({applicationsettings:app()});

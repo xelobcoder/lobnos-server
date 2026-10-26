@@ -1,3 +1,4 @@
+import {PharmacyHistoryFilterError} from '../../models/pharmacy/PharmacyHistoryFilters';
 import KnexConnection from '../../database/KnexConnections';
 import { Request, Response } from 'express';
 import { PHARMACY_REVERSED_STATUSES } from '../../models/pharmacy/constants/pharmacy.constants';
@@ -65,10 +66,10 @@ export class PharmacySaleController {
 
      static async getSalesHistory(request: Request, response: Response): Promise<void> {
           try {
-               const history = await saleService(request).getSalesHistory(listParams(request));
+               const history = await saleService(request).getSalesHistory({...listParams(request),statuses:request.query.status?[String(request.query.status)]:undefined,dateFrom:request.query.dateFrom?String(request.query.dateFrom):undefined,dateTo:request.query.dateTo?String(request.query.dateTo):undefined,paymentMethod:request.query.paymentMethod?String(request.query.paymentMethod):undefined,minTotal:request.query.minTotal!==undefined?Number(request.query.minTotal):undefined,maxTotal:request.query.maxTotal!==undefined?Number(request.query.maxTotal):undefined});
                response.json({ success: true, data: history });
           } catch (error: any) {
-               response.status(500).json({ success: false, error: { code: 'SALES_HISTORY_UNAVAILABLE', message: error.message } });
+               response.status(error instanceof PharmacyHistoryFilterError?400:500).json({ success: false, error: { code: 'SALES_HISTORY_UNAVAILABLE', message: error.message } });
           }
      }
 
@@ -92,7 +93,9 @@ export class PharmacySaleController {
                const db=await KnexConnection(tenantOf(request));
                const patient=data.patientId?await db('new_patients').where({patientid:data.patientId}).select('firstname','middlename','lastname').first():null;
                const company=await db('companyprofile').select('name','address','street','phonenumber','alternativenumber','email','website').first();
-               response.json({success:true,data:{...data,patientName:patient?[patient.firstname,patient.middlename,patient.lastname].filter(Boolean).join(' '):undefined,company:company||{}}});
+               const cashier=await db('roles').where({employeeid:data.cashierId}).first();
+               const counter=await db('pharmacy_counter_invoices').where({sale_id:String(request.params.saleId),branchid:branchOf(request)}).first();
+               response.json({success:true,data:{...data,cashierName:cashier?.username,counterCode:counter?.code,invoiceNumber:counter?.invoice_number,attendantName:counter?.attendant_name,collectionStatus:counter?.status,patientName:patient?[patient.firstname,patient.middlename,patient.lastname].filter(Boolean).join(' '):undefined,company:company||{}}});
           } catch (error: any) {
                const status = /not found/i.test(error.message) ? 404 : 500;
                response.status(status).json({ success: false, error: { code: 'SALE_UNAVAILABLE', message: error.message } });

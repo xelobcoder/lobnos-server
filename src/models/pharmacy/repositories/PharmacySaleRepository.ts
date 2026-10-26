@@ -1,3 +1,4 @@
+import {applyPharmacyHistoryFilters} from '../PharmacyHistoryFilters';
 import { allocateBatches, quantity } from '../PharmacyRules';
 import { pharmacyAvailability } from '../PharmacyAvailability';
 import {assertNoStockCount,assertBatchNotRecalled} from '../PharmacyEnterpriseCore';
@@ -313,16 +314,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           const connection = await this.connection;
           let query = connection('pharmacy_sales').orderBy('completed_at', 'desc');
           this.scopeBranch(query);
-          if (filters.statuses?.length) {
-               query = query.whereIn('status', filters.statuses);
-          }
-          if (filters.reversalType) {
-               query = query.where('reversal_type', filters.reversalType);
-          }
-          if (filters.search?.trim()) {
-               const term = `%${filters.search.trim()}%`;
-               query = query.where((builder) => builder.where('receipt_number', 'like', term).orWhere('customer_name', 'like', term));
-          }
+          applyPharmacyHistoryFilters(query,filters);
 
           const [rows, totalResult] = await Promise.all([
                query.clone().select('*').limit(filters.count).offset((filters.page - 1) * filters.count),

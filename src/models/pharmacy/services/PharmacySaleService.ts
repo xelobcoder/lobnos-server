@@ -233,7 +233,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                count: safeCount,
                search: request.search,
                statuses: request.statuses,
-               reversalType: request.reversalType
+               reversalType: request.reversalType, dateFrom:request.dateFrom,dateTo:request.dateTo,paymentMethod:request.paymentMethod,minTotal:request.minTotal,maxTotal:request.maxTotal
           });
 
           return {

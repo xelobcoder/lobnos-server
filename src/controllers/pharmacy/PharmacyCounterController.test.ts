@@ -1,0 +1,14 @@
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+vi.mock('../../database/KnexConnections',()=>({default:vi.fn()}));
+import KnexConnection from '../../database/KnexConnections';
+import {directCheckoutOnly,counterDispensingAccess,counterPaymentAccess} from './PharmacyCounterController';
+function response(){const res:any={status:vi.fn(),json:vi.fn()};res.status.mockReturnValue(res);res.json.mockReturnValue(res);return res}
+const request=(role='pharmacy_cashier')=>({authUser:{role,employeeid:3,branch:2,tenantId:1},body:{idempotencyKey:'original-key'}} as any);
+beforeEach(()=>vi.clearAllMocks());
+describe('pharmacy counter endpoint authority',()=>{
+ it('allows the existing direct checkout when the branch has not enabled staged checkout',async()=>{vi.mocked(KnexConnection).mockResolvedValue((()=>({where:()=>({first:async()=>undefined})})) as any);const next=vi.fn();await directCheckoutOnly(request(),response(),next);expect(next).toHaveBeenCalledOnce();});
+ it('rejects direct POS bypass when separate cashier mode is enabled',async()=>{vi.mocked(KnexConnection).mockResolvedValue(((table:string)=>({where:()=>({first:async()=>table==='pharmacy_checkout_settings'?{mode:'separate_cashier'}:undefined})})) as any);const res=response(),next=vi.fn();await directCheckoutOnly(request(),res,next);expect(next).not.toHaveBeenCalled();expect(res.status).toHaveBeenCalledWith(400);expect(res.json.mock.calls[0][0].error.code).toBe('SALE_REJECTED');});
+ it('allows an already committed direct payment to be confirmed after a workflow setting change',async()=>{const where=vi.fn();vi.mocked(KnexConnection).mockResolvedValue(((table:string)=>({where:(filter:any)=>{where(filter);return{first:async()=>table==='pharmacy_checkout_settings'?{mode:'separate_cashier'}:{id:'paid-sale'}}}})) as any);const next=vi.fn();await directCheckoutOnly(request(),response(),next);expect(next).toHaveBeenCalledOnce();expect(where).toHaveBeenCalledWith({idempotency_key:'original-key',branchid:2,cashier_id:3});});
+ it('fails closed when branch mode cannot be loaded',async()=>{vi.mocked(KnexConnection).mockRejectedValue(Error('Unavailable'));const next=vi.fn(),res=response();await directCheckoutOnly(request(),res,next);expect(next).not.toHaveBeenCalled();expect(res.status).toHaveBeenCalledWith(503);});
+ it('keeps cashier and medication collection privileges distinct',()=>{const next=vi.fn(),res=response();counterDispensingAccess(request(),res,next);expect(res.status).toHaveBeenCalledWith(403);expect(next).not.toHaveBeenCalled();counterPaymentAccess(request(),response(),next);expect(next).toHaveBeenCalledOnce();next.mockClear();counterPaymentAccess(request('pharmacy_dispensary_officer'),res,next);expect(next).not.toHaveBeenCalled();counterDispensingAccess(request('pharmacy_dispensary_officer'),res,next);expect(next).toHaveBeenCalledOnce();});
+});

@@ -1,3 +1,4 @@
+import {PharmacyHistoryFields} from '../PharmacyHistoryFilters';
 import { PharmacyUnitOfWork } from './IPharmacySaleRepository';
 export type PharmacyPaymentMethod = 'cash' | 'mobile_money' | 'card' | 'split' | 'credit';
 
@@ -88,7 +89,7 @@ export interface PharmacySaleHistory {
      totalPages: number;
 }
 
-export interface PharmacySaleHistoryRequest {
+export interface PharmacySaleHistoryRequest extends PharmacyHistoryFields {
      page: number;
      count: number;
      search?: string;

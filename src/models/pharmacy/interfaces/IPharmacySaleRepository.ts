@@ -1,3 +1,4 @@
+import {PharmacyHistoryFields} from '../PharmacyHistoryFilters';
 import { PharmacyStockStatus } from '../entities/PharmacyStock';
 
 /** Opaque unit-of-work handle. The service passes it around but never inspects it. */
@@ -95,7 +96,7 @@ export interface PharmacyStockMovement {
      totalCost: number;
 }
 
-export interface PharmacySaleListFilters {
+export interface PharmacySaleListFilters extends PharmacyHistoryFields {
      page: number;
      count: number;
      search?: string;

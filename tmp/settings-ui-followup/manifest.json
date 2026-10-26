@@ -1,0 +1,16 @@
+[
+  "components/samples/pendingTable.jsx",
+  "app/settings/applicationsettings/resultentrysettings/page.tsx",
+  "app/settings/applicationsettings/reportSettings/page.tsx",
+  "components/settings/SettingsWorkspace.module.css",
+  "app/settings/applicationsettings/testpanels/pricing/page.tsx",
+  "app/email-services/email-standard.module.css",
+  "app/email-services/page.tsx",
+  "app/settings/campaign/page.tsx",
+  "app/settings/campaign/create-new-campaign/page.tsx",
+  "app/settings/promos/promo-code-generation/page.tsx",
+  "app/settings/promos/promo-codes/page.tsx",
+  "components/Layout/links/categories/ApplicationSettingsLinks.tsx",
+  "components/Layout/links/categories/CombinedLinks.tsx",
+  "app/email-services/settings/page.tsx"
+]

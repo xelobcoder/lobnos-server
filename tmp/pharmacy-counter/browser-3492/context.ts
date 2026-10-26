@@ -1,0 +1,1 @@
+export const useApplication=()=>({tenantId:1,company:{name:'Prime Pharmacy',address:'Accra',phonenumber:'0300000000'},user:{employeeid:3,branch:2,role:new URLSearchParams(location.search).get('role')||'admin',username:'Cashier User'}});export const useApplicationSettings=()=>({applicationsettings:useApplication()});
