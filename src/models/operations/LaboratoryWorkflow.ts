@@ -95,7 +95,7 @@ export class LaboratoryWorkflowService {
                     .where('replacement_link.is_required', true);
             })
             .select('link.ascension_id', 'sample.id', 'sample.status', 'sample.storage_state', 'sample.quantity', 'sample.remaining_quantity');
-        const unavailableRoots = links.filter(sample => !hasAvailableMaterial(sample));
+        const unavailableRoots = links.filter((sample:any) => !hasAvailableMaterial(sample));
         const childrenByAscension = new Map<number, Map<string, any[]>>();
         if (unavailableRoots.length) {
             // Fetch the linked aliquot forest once. Walking it in JavaScript supports old MySQL

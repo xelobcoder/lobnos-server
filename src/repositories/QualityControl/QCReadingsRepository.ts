@@ -41,13 +41,14 @@ export class QCReadingsRepository {
 
             const generatedId = uuidv4();
 
-            const [id] = await conn('qc_readings')
+            await conn('qc_readings')
                 .insert({
                     ...readingData,
                     id: generatedId,
                     createdAt: conn.fn.now()
                 });
-            return id > 0;
+            // UUID inserts can succeed with a zero insertId in MySQL.
+            return true;
         } catch (error) {
             console.error('QC reading creation error:', error);
             throw error;
@@ -85,7 +86,7 @@ export class QCReadingsRepository {
             return await conn('qc_readings as qr')
                 .leftJoin('control_parameters as cp', 'qr.parameterId', 'cp.id')
                 .where({ 'qr.sessionId': sessionId })
-                .select('qr.*', 'cp.*')
+                .select('qr.*', 'cp.parameter', 'cp.unit', 'cp.value as mean', 'cp.standardDeviation', 'cp.warningLimit', 'cp.actionLimit')
                 .orderBy('qr.createdAt', 'desc');
         } catch (error) {
             console.error('QC reading find by session error:', error);
@@ -103,7 +104,7 @@ export class QCReadingsRepository {
                     'qr.sessionId': sessionId,
                     'qs.controlMaterialId': controlId
                 })
-                .select('qr.*', 'cp.*')
+                .select('qr.*', 'cp.parameter', 'cp.unit', 'cp.value as mean', 'cp.standardDeviation', 'cp.warningLimit', 'cp.actionLimit')
                 .orderBy('qr.createdAt', 'desc');
         } catch (error) {
             console.error('QC reading find by session and control ID error:', error);

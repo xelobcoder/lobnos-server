@@ -1,0 +1,10 @@
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+const state=vi.hoisted(()=>({connect:vi.fn(),row:null as any}));
+vi.mock('../../database/KnexConnections',()=>({default:state.connect}));
+import { QCSettingsRepository, validateQcDefaults } from './QCSettingsRepository';
+beforeEach(()=>{vi.clearAllMocks();state.row=null;const db:any=()=>{const q:any={where:()=>q,forUpdate:()=>q,first:async()=>state.row,insert:(row:any)=>({onConflict:()=>({ignore:async()=>{state.row??={...row}}})}),update:async(values:any)=>{state.row={...state.row,...values}}};return q};db.schema={hasTable:async()=>true};db.transaction=async(fn:any)=>{const previous=state.row&&{...state.row};try{return await fn(db)}catch(e){state.row=previous;throw e}};state.connect.mockResolvedValue(db)});
+describe('tenant QC defaults',()=>{
+ it('persists defaults across repository instances with the signed operator and revision',async()=>{const repo=new QCSettingsRepository(3);expect(await repo.get()).toEqual({warningLimit:2,actionLimit:3,revision:0});expect(await repo.save({warningLimit:1.5,actionLimit:3.5,revision:0},7)).toMatchObject({warningLimit:1.5,actionLimit:3.5,revision:1});expect(await new QCSettingsRepository(3).get()).toMatchObject({warningLimit:1.5,actionLimit:3.5,revision:1});expect(state.row.updatedby).toBe(7);expect(state.connect.mock.calls.every(([tenant])=>tenant===3)).toBe(true)});
+ it('rejects stale writes without replacing current settings',async()=>{const repo=new QCSettingsRepository(3);await repo.save({warningLimit:2,actionLimit:4,revision:0},7);await expect(repo.save({warningLimit:1,actionLimit:3,revision:0},8)).rejects.toThrow('changed');expect(state.row).toMatchObject({warningLimit:2,actionLimit:4,revision:1,updatedby:7})});
+ it.each([{warningLimit:0,actionLimit:3,revision:0},{warningLimit:3,actionLimit:2,revision:0},{warningLimit:'2',actionLimit:3,revision:0},{warningLimit:2,actionLimit:Infinity,revision:0},{warningLimit:2,actionLimit:3,revision:-1}])('rejects invalid defaults %o',value=>{expect(()=>validateQcDefaults(value)).toThrow()});
+});

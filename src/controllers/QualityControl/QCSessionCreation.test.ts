@@ -10,7 +10,8 @@ describe('QC session creation',()=>{
   const res=response();await new QCReadingsController().createSession({authUser:actor,query:{tenantId:'99'},body:{controlMaterialId:state.material.id,createdby:1,updatedby:1}} as any,res);
   expect(state.connection.mock.calls.every(call=>call[0]===3)).toBe(true);
   expect(state.insert).toHaveBeenCalledWith(expect.objectContaining({id:expect.any(String),controlMaterialId:state.material.id,createdby:7,updatedby:7,branchid:4,device_id:'device-1'}));
-  expect(res.status).toHaveBeenCalledWith(201);expect(res.json).toHaveBeenCalledWith({status:true});
+  expect(res.status).toHaveBeenCalledWith(201);expect(res.json).toHaveBeenCalledWith({status:true,id:expect.any(String),controlMaterialId:state.material.id});
+  expect(res.json.mock.calls[0][0].id).toBe(state.insert.mock.calls[0][0].id);
  });
  it('rejects inactive or missing control materials before inserting',async()=>{
   state.material=undefined;const res=response();await new QCReadingsController().createSession({authUser:actor,body:{controlMaterialId:'8510f107-4ea8-4f66-abdb-e6e110a4b914'}} as any,res);expect(res.status).toHaveBeenCalledWith(400);expect(state.insert).not.toHaveBeenCalled();

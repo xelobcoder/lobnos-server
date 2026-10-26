@@ -36,4 +36,8 @@ dist/
 /tmp/billing-followup/
 /tmp/billing-catalogue-fix/
 /tmp/undelivered-ui/
+/tmp/qc-ui/
+/tmp/font-payment-fix/
+/tmp/commission-recipient-fix/
+/tmp/commission-assignments-ui/
 /tmp/node-compile-cache/

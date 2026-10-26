@@ -17,7 +17,7 @@ interface ServiceBatchingRequestBody {
      employeeid: number;
      branchid: number;
      services: Array<number>;
-     recipientid: number;
+     recipientid: number | string;
      recipient_type: 'clinician' | 'organization'
 }
 
@@ -36,6 +36,10 @@ export class CommissionBatchServicesController {
                const { startDate, endDate, commissionDue, amountPaid, paymentMethod, employeeid, branchid, recipientid, recipient_type, services } = request.body;
                const actor = getAuthUser(request);
                if (!actor || actor.branch == null) return customError('An authenticated operating branch is required', 403, response);
+               const recipientId = typeof recipientid === 'number' ? recipientid
+                    : typeof recipientid === 'string' && /^\d+$/.test(recipientid.trim()) ? Number(recipientid.trim()) : NaN;
+               if (!Number.isSafeInteger(recipientId) || recipientId <= 0) return customError('Select a valid commission recipient ID', 400, response);
+               if (!['clinician', 'organization'].includes(recipient_type)) return customError('Select a valid commission recipient type', 400, response);
                if (!Array.isArray(services) || !services.length || services.some(id => !Number.isSafeInteger(id) || id <= 0) || new Set(services).size !== services.length) {
                     return customError('Provide a nonempty list of unique positive service IDs', 400, response);
                }
@@ -83,7 +87,7 @@ export class CommissionBatchServicesController {
                     settlementMode: (request.body as any).settlementMode,
                     waiverReason: (request.body as any).waiverReason,
                     paymentMethod,
-                    recipientId: recipientid,
+                    recipientId,
                     recipientType: recipient_type
                });
 

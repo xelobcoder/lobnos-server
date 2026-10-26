@@ -26,8 +26,8 @@ export class QCReadingsController {
             const sessionData = { controlMaterialId: material.id, comments: req.body.comments || null,
                 createdby: actor.employeeid, updatedby: actor.employeeid, branchid: actor.branch, device_id: material.deviceId || null };
 
-            const status = await repository.create(sessionData);
-            res.status(201).json({ status: status === true });
+            const id = await repository.createWithId(sessionData);
+            res.status(201).json({ status: true, id, controlMaterialId: material.id });
         } catch (error) {
             console.error('Failed to create QC session:', error);
             res.status(500).json({ error: 'Failed to create QC session' });
@@ -328,7 +328,7 @@ export class QCReadingsController {
                         parameterId: readingData.parameterId,
                         status: readingData.status,
                         createdby: readingData.createdby,
-                        createdAt: readingData.updatedby,
+                        createdAt: new Date(),
                     };
 
                     const success = await readingsRepository.create(readingToCreate, trx);

@@ -82,12 +82,17 @@ export class QCSessionsRepository {
     }
 
     async create(sessionData: QCSession, trx?: any): Promise<boolean> {
+        await this.createWithId(sessionData, trx);
+        return true;
+    }
+
+    async createWithId(sessionData: QCSession, trx?: any): Promise<string> {
         try {
             const conn = trx || await this.connection;
             const id = uuidv4();
             await conn('qc_sessions')
                 .insert({ ...sessionData, updatedby: sessionData.updatedby ?? sessionData.createdby, id })
-            return true;
+            return id;
         } catch (error) {
             console.error('QC session creation error:', error);
             throw error;

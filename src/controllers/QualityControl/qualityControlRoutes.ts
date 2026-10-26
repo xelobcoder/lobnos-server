@@ -2,6 +2,7 @@ import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkfl
 import { getAuthUser } from '../../middleware/authority';
 import { roleAllowed } from '../../middleware/roles';
 import express from 'express';
+import { getQcSettings, saveQcSettings } from './QCSettingsController';
 import { DeviceController } from './DeviceController';
 import { ControlMaterialController } from './ControlMaterialController';
 import { ControlParameterController } from './ControlParameterController';
@@ -10,6 +11,8 @@ import { QCDashboardController, QCSessionsController } from './QCDashboard';
 import { isAuthorizedRoleAdmin, isAuthorizedRoleScientistPhelobotomist } from '../../middleware/validateTenancy';
 
 const router = express.Router();
+router.get('/api/v1/qc/settings', requireLaboratoryWorkflowRole, getQcSettings);
+router.put('/api/v1/qc/settings', requireLaboratoryWorkflowRole, saveQcSettings);
 const deviceController = new DeviceController();
 const controlMaterialController = new ControlMaterialController();
 const controlParameterController = new ControlParameterController();
