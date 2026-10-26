@@ -90,6 +90,7 @@ router.post('/management/supplier-payments', pharmacyFinanceAccess, op((s, r) =>
 router.post('/management/journals', pharmacyFinanceAccess, op((s, r) => s.manualJournal(r.body)));
 router.post('/management/reconcile', pharmacyFinanceAccess, op((s, r) => s.reconcileDestination(r.body)));
 router.post('/management/shifts/:shiftId/review', pharmacyReversalAccess, op((s, r) => s.reviewShift(String(r.params.shiftId), r.body)));
+router.get('/management/shifts/:shiftId/handover', pharmacyReversalAccess, op((s,r)=>s.shiftHandover(String(r.params.shiftId))));
 router.post('/management/shifts/:shiftId/close', pharmacyReversalAccess, op((s, r) => s.closeManagedShift(String(r.params.shiftId), r.body)));
 router.get('/suppliers', op(s => s.suppliers()));
 router.post('/suppliers', pharmacyStockAccess, op((s, r) => s.createSupplier(r.body)));

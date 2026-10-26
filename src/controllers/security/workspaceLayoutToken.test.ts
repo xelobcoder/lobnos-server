@@ -35,6 +35,16 @@ describe('validate-token workspace layout settings', () => {
           mocks.decode.mockResolvedValue({ email: 'admin@example.test', role: 'admin' });
           mocks.role.mockResolvedValue({ role: 'admin', employeeid: 9, username: 'Admin', branch: 1 });
      });
+     it.each(['pharmacy_cashier','pharmacy_manager','pharmacist'])('does not load lab result settings for %s',async role=>{
+          mocks.query.mockResolvedValue([{keyid:1}]);
+          mocks.role.mockResolvedValue({role,employeeid:9,username:'Pharmacy staff',branch:2});
+          const res={status:vi.fn().mockReturnThis(),json:vi.fn().mockReturnThis()};
+          const {default:ResultSettings}=await import('../../models/application/appsettings/result-settings/resultSettings');
+          await new AuthController().validateToken({query:{tenantId:'42'},headers:{cookie:'test'},get:()=>undefined} as any,res as any);
+          expect(ResultSettings.getResultEntrySettings).not.toHaveBeenCalled();
+          expect(res.status).toHaveBeenCalledWith(200);
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({user:expect.objectContaining({branchid:2,result:null})}));
+     });
      it.each(['classic', 'zoho', 'claude', undefined])('returns persisted %j in the normal settings object', async value => {
           mocks.query.mockResolvedValue([{ keyid: 1, workspaceLayout: value }]);
           const res = { status: vi.fn().mockReturnThis(), json: vi.fn().mockReturnThis() };

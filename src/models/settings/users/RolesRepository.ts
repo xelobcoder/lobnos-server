@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 export interface IEmployee {
 	employeeid?: number;
 	username: string;
-	role: 'doctor' | 'medical_officer' | 'consultant' | 'nurse' | 'pharmacy_doctor' | 'pharmacy_nurse' | 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
+	role: 'pharmacist' | 'doctor' | 'medical_officer' | 'consultant' | 'nurse' | 'pharmacy_doctor' | 'pharmacy_nurse' | 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
 	password: string;
 	pin?: number | string | null;
 	pin_hash?: string | null;
@@ -25,6 +25,7 @@ export interface IEmployee {
 import KnexConnection from "../../../database/KnexConnections";
 import { roleAllowed } from "../../../middleware/roles";
 import logger from "../../../hooks/logger";
+import {revokePasswordSessions} from '../../auth/passwordSessions';
 
 
 export default class RolesRepository {
@@ -47,7 +48,7 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
-			const allowedRoles = ['doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
+			const allowedRoles = ['pharmacist','doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');
@@ -90,8 +91,15 @@ export default class RolesRepository {
 
 	async updateRole(employeeId: number, roleData: Partial<IEmployee>): Promise<number> {
 		const connection = await this.connection;
-		const result = await connection(this.tablename).where({ employeeid: employeeId }).update(roleData);
-		return result;
+		return connection.transaction(async trx=>{
+			const current=await trx(this.tablename).where({employeeid:employeeId}).forUpdate().first();
+			if(!current)return 0;
+			const changingAccess=(roleData.role!==undefined&&roleData.role!==current.role)||(roleData.branch!==undefined&&Number(roleData.branch)!==Number(current.branch));
+			if(changingAccess&&await trx('staff_role_access').where({employeeid:employeeId}).first())throw new Error('Manage this employee’s roles and locations through Staff & role access. Add or remove assignments there.');
+			const changingSession=changingAccess||(roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation));
+			if(roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation))await revokePasswordSessions(trx,'staff',employeeId);
+			return trx(this.tablename).where({employeeid:employeeId}).update({...roleData,...(changingSession?{access_revision:Number(current.access_revision||0)+1}:{})});
+		});
 	}
 
 	async deleteRole(employeeId: number): Promise<number> {

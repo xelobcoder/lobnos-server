@@ -39,5 +39,8 @@ describe('pharmacy access boundaries', () => {
      it('restricts pharmacy sessions globally but keeps organisation administrator access', () => {
           expect(invoke(pharmacyModuleBoundary, 'Pharmacy Manager', '/api/v1/inventory/items').next).not.toHaveBeenCalled();
           expect(invoke(pharmacyModuleBoundary, 'admin', '/api/v1/inventory/items').next).toHaveBeenCalledOnce();
+          expect(invoke(pharmacyModuleBoundary, 'pharmacist', '/api/v1/inventory/items').next).not.toHaveBeenCalled();
+          expect(pharmacyRouteAllowed('GET','/api/v1/prime/my-roles')).toBe(true);
+          expect(pharmacyRouteAllowed('POST','/api/v1/prime/switch-role')).toBe(true);
      });
 });

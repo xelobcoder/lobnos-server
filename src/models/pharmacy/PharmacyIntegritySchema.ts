@@ -2,7 +2,7 @@ import { Knex } from 'knex';
 
 export async function ensurePharmacyIntegritySchema(db: Knex): Promise<void> {
      for (const column of ['requires_prescription', 'pharmacy_batch_tracking']) {
-          if (!await db.schema.hasColumn('inv_inventory_items', column)) await db.schema.alterTable('inv_inventory_items', table => {
+          if (await db.schema.hasTable('inv_inventory_items') && !await db.schema.hasColumn('inv_inventory_items', column)) await db.schema.alterTable('inv_inventory_items', table => {
                table.boolean(column).notNullable().defaultTo(column === 'pharmacy_batch_tracking');
           });
      }

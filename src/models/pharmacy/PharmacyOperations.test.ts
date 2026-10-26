@@ -74,6 +74,19 @@ describe('explicit pharmacy financial days',()=>{
      });
 });
 describe('operational shift safeguards',()=>{
+     it('does not let a cashier approve their own handover even when they also act as a manager',async()=>{
+          const f=fixture(true),shift=await f.service.openShift({openingFloat:0});await f.service.closeShift({shiftId:shift.id,countedCash:0});
+          await expect(new PharmacyManagement(f.db,2,3).reviewShift(shift.id,{note:'I also have a manager role'})).rejects.toThrow('Another pharmacy manager');
+     });
+     it('provides a branch-scoped handover breakdown before closing and preserves the recorded variance',async()=>{
+          const f=fixture(true),shift=await f.service.openShift({openingFloat:0});
+          const snapshot=await f.db.transaction((trx:any)=>new PharmacyManagement(trx,2,4).shiftHandover(shift.id));
+          expect(snapshot).toMatchObject({cashierId:3,financialDate:today(),expectedCash:0,closed:false,countedCash:null});
+          await f.service.closeShift({shiftId:shift.id,countedCash:5});
+          const closed=await f.db.transaction((trx:any)=>new PharmacyManagement(trx,2,4).shiftHandover(shift.id));
+          expect(closed).toMatchObject({closed:true,countedCash:5,variance:5});
+          await expect(f.db.transaction((trx:any)=>new PharmacyManagement(trx,3,4).shiftHandover(shift.id))).rejects.toThrow('this branch');
+     });
      it('lets another manager close and review yesterday’s shift before closing its day',async()=>{
           vi.useFakeTimers();vi.setSystemTime(new Date('2026-10-24T23:00:00Z'));const f=fixture(true);const shift=await f.service.openShift({openingFloat:0});
           vi.setSystemTime(new Date('2026-10-25T01:00:00Z'));const manager=new PharmacyManagement(f.db,2,4);

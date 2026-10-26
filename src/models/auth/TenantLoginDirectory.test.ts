@@ -62,10 +62,31 @@ describe('facility codes', () => {
 describe('verifyStaffSession', () => {
      const request: any = { headers: {} };
      const future = new Date(Date.now() + 60_000);
+     it('rejects requests from a previous role revision without logging out the replacement session',async()=>{
+          const result=await verifyStaffSession({sid:'cur',employeeid:1,tid:3,arv:0},1,3,request,{access_revision:1});
+          expect(result).toMatchObject({ok:false,statusCode:409,body:{code:'SESSION_ROLE_CHANGED'}});
+          expect(result.body?.isExpired).not.toBe(true);
+     });
 
      it('rejects tokens issued without a session id', async () => {
           const result = await verifyStaffSession({ email: 'a@b.c' }, 1, 3, request);
           expect(result).toMatchObject({ ok: false, statusCode: 401 });
+     });
+     it('refreshes a stale role only through the exact recovery endpoint while retaining every live-session check',async()=>{
+          const claims={sid:'cur',employeeid:1,tid:3,arv:0,fph:hashDeviceFingerprint('device-a')};
+          const req={method:'POST',path:'/api/v1/prime/refresh-role-session',headers:{'x-device-id':'device-a'}} as any;
+          mocks.findSessionById.mockResolvedValue({loggedout:0,logoutTime:future});
+          expect(await verifyStaffSession(claims,1,3,req,{access_revision:2})).toEqual({ok:true});
+          expect((await verifyStaffSession(claims,1,3,{...req,method:'GET'},{access_revision:2})).statusCode).toBe(409);
+          expect((await verifyStaffSession(claims,1,3,{...req,path:'/api/v1/pharmacy/sales'},{access_revision:2})).statusCode).toBe(409);
+          expect((await verifyStaffSession({...claims,tid:4},1,3,req,{access_revision:2})).body).toMatchObject({code:'TENANT_MISMATCH'});
+          expect((await verifyStaffSession({...claims,employeeid:2},1,3,req,{access_revision:2})).body).toMatchObject({code:'SESSION_INVALID'});
+          expect((await verifyStaffSession(claims,1,3,{...req,headers:{'x-device-id':'wrong'}},{access_revision:2})).body).toMatchObject({code:'DEVICE_MISMATCH'});
+          mocks.findSessionById.mockResolvedValueOnce({loggedout:1,logoutTime:future});
+          expect((await verifyStaffSession(claims,1,3,req,{access_revision:2})).body).toMatchObject({code:'SESSION_REPLACED'});
+          mocks.findSessionById.mockResolvedValueOnce({loggedout:0,logoutTime:new Date(0)});
+          expect((await verifyStaffSession(claims,1,3,req,{access_revision:2})).body).toMatchObject({code:'SESSION_EXPIRED'});
+          expect((await verifyStaffSession({...claims,arv:3},1,3,req,{access_revision:2})).body).toMatchObject({code:'SESSION_INVALID'});
      });
 
      it('reports SESSION_REPLACED when the user signed in on another device', async () => {

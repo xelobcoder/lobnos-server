@@ -71,6 +71,7 @@ export class AuthController {
 			const loginsessionId = session.loginSessionId;
 			const accessToken = await authRepo.generateAccessToken(userEmail, {
 				employeeid: numericEmployeeId,
+				arv: Number(user.access_revision || 0),
 				tid: resolvedTenantId,
 				sid: loginsessionId,
 				...(clientType === 'device-manager' ? { clientType } : {}),
@@ -96,6 +97,7 @@ export class AuthController {
 				loginsessionId,
 				settings: {
 					allowScientistToRegisterClient: settings?.allowScientistToRegisterClient,
+					moduleConfiguration: settings?.moduleConfiguration,
 				}
 			});
 		} catch (error: any) {
@@ -162,8 +164,13 @@ export class AuthController {
 			if (!email) return res.status(401).json({ message: 'Invalid token', status: false });
 			const user = await new RolesRepository(tenantId).getRoleByEmail(email);
 			const { role, username, employeeid, branch } = user;
-			const resultsettings = await ResultSettings.getResultEntrySettings(tenantId);
-			if (!resultsettings) return res.status(404).json({ message: 'Result settings not found', status: false });
+			// Pharmacy sign-in must not depend on laboratory result configuration.
+			let moduleConfiguration:any=settings?.moduleConfiguration;
+			if(typeof moduleConfiguration==='string')moduleConfiguration=JSON.parse(moduleConfiguration);
+			const pharmacyOnly=moduleConfiguration?.modules?.pharmacy?.enabled===true&&moduleConfiguration?.modules?.laboratoryOperations?.enabled!==true;
+			const pharmacyRole = String(role).replace(/[\s_-]/g,'').startsWith('pharmacy') || String(role) === 'pharmacist' || pharmacyOnly;
+			const resultsettings = pharmacyRole ? null : await ResultSettings.getResultEntrySettings(tenantId);
+			if (!pharmacyRole && !resultsettings) return res.status(404).json({message:'Result settings not found',status:false});
 
 			const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
 			const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
@@ -180,6 +187,7 @@ export class AuthController {
 					result: resultsettings,
 					user: {
 						role,
+						branch,
 						employeeid,
 						username,
 						email

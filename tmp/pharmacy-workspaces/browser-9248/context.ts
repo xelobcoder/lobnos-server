@@ -1,0 +1,1 @@
+export const useApplication=()=>({user:{employeeid:1,role:new URLSearchParams(location.search).get('role')||'admin',branch:2},settings:{}});

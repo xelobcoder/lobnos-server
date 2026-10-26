@@ -14,6 +14,7 @@ import { roleAllowed } from "./roles";
 import { DEVICE_MANAGER_SESSION_PREFIX, deviceManagerRouteAllowed } from "../models/security/deviceManagerSession";
 import KnexConnection from '../database/KnexConnections';
 import { clinicianCredentialMatches } from '../models/auth/passwordSessions';
+import { staffAccessVersionMatches } from '../models/auth/StaffAccessSchema';
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -35,7 +36,14 @@ export const hashDeviceFingerprint = (deviceId: unknown): string | null => {
  * (`sid`), that session must still be open, and it must belong to the same organization and device.
  * Logging in elsewhere closes the previous session, so the older device receives SESSION_REPLACED.
  */
-export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid: number, tenantId: number, request: Request): Promise<SessionCheck> => {
+export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid: number, tenantId: number, request: Request, roleRow?: any): Promise<SessionCheck> => {
+     const roleRecovery = request.method==='POST' && String(request.originalUrl||request.path||'').split('?')[0]==='/api/v1/prime/refresh-role-session';
+     if (roleRow && !staffAccessVersionMatches(decoded,roleRow)) {
+          const version=Number(decoded?.arv??0);
+          if (!roleRecovery) return {ok:false,statusCode:409,body:{status:false,code:'SESSION_ROLE_CHANGED',message:'Your active role has changed. Refresh your workspace session before continuing.'}};
+          if(!Number.isSafeInteger(version)||version<0||version>Number(roleRow.access_revision||0))return sessionFailure(401,'SESSION_INVALID','Sign in again to restore your workspace.');
+          // Recovery only issues the live role. Identity, tenant, session and device checks below still run.
+     }
      const sid = decoded?.sid ? String(decoded.sid) : '';
      if (!sid) return sessionFailure(401, 'SESSION_INVALID', 'Session expired. Please sign in again.');
      const managerSession = sid.startsWith(DEVICE_MANAGER_SESSION_PREFIX);
@@ -174,8 +182,9 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           const employeeid = roleRow?.employeeid ? parseInt(roleRow.employeeid.toString(), 10) : NaN;
           if (!employeeid || isNaN(employeeid)) return customError('Invalid token', 401, response);
 
-          const sessionCheck = await verifyStaffSession(decoded, employeeid, tenantId, request);
+          const sessionCheck = await verifyStaffSession(decoded, employeeid, tenantId, request, roleRow);
           if (!sessionCheck.ok) return response.status(sessionCheck.statusCode || 401).json(sessionCheck.body);
+          (request as any).staffClaims = decoded;
 
           (request as any).authUser = {
                employeeid,
@@ -185,7 +194,8 @@ export const checkTokenExists = async (request: Request, response: Response, nex
                tenantId,
           };
 
-          if (String(roleRow?.role).toLowerCase() === 'marketer' && !marketerRouteAllowed(request.method, request.path)) return customError('Marketer sessions may only access referral acquisition services', 403, response);
+          const activeRole=String(roleRow?.role||'').toLowerCase();
+          if (activeRole === 'marketer' && !marketerRouteAllowed(request.method, request.path)) return customError('Marketer sessions may only access referral acquisition services', 403, response);
           next();
      } catch (error) {
           return customError('Invalid token', 401, response);

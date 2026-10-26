@@ -43,11 +43,11 @@ export async function requirePlatformFacilityAuthority(req: Request, res: Respon
           const tenant = await new TenantRegistry().requireTenant(controlTenantId);
           if (!tenant.isActive) return customError('The control tenant is not active', 403, res);
           const db = await KnexConnection(controlTenantId);
-          const row = await db('roles').where({ employeeid: claims.employeeid }).first('employeeid', 'email', 'role', 'activation');
+          const row = await db('roles').where({ employeeid: claims.employeeid }).first('employeeid', 'email', 'role', 'activation','access_revision');
           if (!hasPlatformFacilityAuthority(claims, row, controlTenantId)) {
                return customError('Only an active super-admin of the default/control tenant may manage facilities', 403, res);
           }
-          const session = await verifyStaffSession(claims, claims.employeeid, controlTenantId, req);
+          const session = await verifyStaffSession(claims, claims.employeeid, controlTenantId, req, row);
           if (!session.ok) return res.status(session.statusCode || 401).json(session.body);
           await requireOperationalLicense(controlTenantId);
           res.locals.facilityActor = { tenantId: controlTenantId, employeeId: claims.employeeid };

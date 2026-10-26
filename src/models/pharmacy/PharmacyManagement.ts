@@ -21,14 +21,16 @@ export class PharmacyManagement {
 
      async setup() {
           const today = new Date().toISOString().slice(0, 10);
-          const [accounts, routes, shift, day, days] = await Promise.all([
+          const [accounts, routes, shift, day, days, previousDay, previousShift] = await Promise.all([
                this.db('pharmacy_collection_accounts').where({ branchid: this.branch, is_active: true }).orderBy('name'),
                this.db('pharmacy_payment_routes').where({ branchid: this.branch }),
                this.db('pharmacy_shifts').where({ active_key: `${this.branch}:${this.actor}` }).first(),
                this.db('pharmacy_financial_days').where({ branchid: this.branch, financial_date: today }).first(),
                this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('status','desc').orderBy('financial_date', 'desc').limit(31),
+               this.db('pharmacy_financial_days').where({branchid:this.branch,status:'open'}).whereNotNull('opened_at').where('financial_date','<',today).orderBy('financial_date','asc').first(),
+               this.db('pharmacy_shifts').where({branchid:this.branch}).whereNotNull('active_key').whereRaw('COALESCE(financial_date, DATE(opened_at)) < ?',[today]).orderBy('opened_at','asc').first(),
           ]);
-          return { accounts, routes, shift: shift || null, day: day || null, days, financialDate: today, shiftSummary: shift ? await this.shiftTotals(this.db, shift) : null };
+          return { accounts, routes, shift: shift || null, day: day || null, days, previousDay: previousDay || null, previousShift: previousShift ? {financial_date:previousShift.financial_date||previousShift.opened_at} : null, financialDate: today, shiftSummary: shift ? await this.shiftTotals(this.db, shift) : null };
      }
 
      async saveDestination(input: any) {
@@ -242,12 +244,17 @@ export class PharmacyManagement {
           return money(new Decimal(result?.debit || 0).minus(result?.credit || 0));
      }
      async reports() {
-          const [balances, documents, days, shifts] = await Promise.all([
+          const [balances, documents, recentDays, recentShifts, pendingDays, pendingShifts] = await Promise.all([
                this.db('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id').where('j.branchid', this.branch).select('l.account_code').sum('l.debit as debit').sum('l.credit as credit').groupBy('l.account_code'),
                this.db('pharmacy_documents').where({ branchid: this.branch }).orderBy('created_at', 'desc').limit(100),
                this.db('pharmacy_financial_days').where({ branchid: this.branch }).orderBy('status','desc').orderBy('financial_date', 'desc').limit(31),
                this.db('pharmacy_shifts').where({ branchid: this.branch }).orderBy('opened_at', 'desc').limit(50),
+               this.db('pharmacy_financial_days').where({branchid:this.branch,status:'open'}).orderBy('financial_date','asc'),
+               this.db('pharmacy_shifts').where({branchid:this.branch}).whereNull('reviewed_by').orderBy('opened_at','asc'),
           ]);
+          // Unresolved historical handovers must remain reachable beyond recent-history limits.
+          const days = [...new Map([...pendingDays,...recentDays].map((row:any)=>[row.id,row])).values()];
+          const shifts = [...new Map([...pendingShifts,...recentShifts].map((row:any)=>[row.id,row])).values()];
           const value = (code: string) => { const row = balances.find((r: any) => r.account_code === code); return money(new Decimal(row?.debit || 0).minus(row?.credit || 0)); };
           return { events:await this.db('pharmacy_financial_day_events').where({branchid:this.branch}).orderBy('created_at','desc').limit(100), balances, revenue: -value('sales'), costOfSales: value('cost_of_sales'), expenses: value('operating_expenses'), profit: money(-value('sales') - value('cost_of_sales') - value('operating_expenses')), documents, days, shifts };
      }
@@ -325,6 +332,13 @@ export class PharmacyManagement {
           const shift = await this.db('pharmacy_shifts').where({ id, branchid: this.branch }).first();
           if (!shift) throw new Error('Cashier shift not found in this branch');
           return this.closeShift({ ...input, shiftId: id }, Number(shift.cashier_id));
+     }
+
+     async shiftHandover(id: string) {
+          const shift = await this.db('pharmacy_shifts').where({id,branchid:this.branch}).first();
+          if (!shift) throw new Error('Cashier shift not found in this branch');
+          const totals = await this.shiftTotals(this.db,shift);
+          return {shiftId:shift.id,cashierId:shift.cashier_id,financialDate:this.shiftDate(shift),closed:!!shift.closed_at,reviewed:!!shift.reviewed_by,...totals,expectedCash:shift.closed_at?Number(shift.expected_cash):totals.expectedCash,currentExpectedCash:totals.expectedCash,countedCash:shift.closed_at?Number(shift.counted_cash):null,variance:shift.closed_at?Number(shift.variance):null};
      }
 
      async closeDay(input: any) {
@@ -411,6 +425,7 @@ export class PharmacyManagement {
      }
 
      async legacyPreview() {
+          if (!await this.db.schema.hasTable('inv_inventory_items') || !await this.db.schema.hasColumn('inv_inventory_items','inventory_domain')) return [];
           return this.db('inv_inventory_items').where({ inventory_domain: 'pharmacy' }).whereNotIn('id', this.db('pharmacy_inventory_items').select('id')).select('id', 'name', 'sku', 'current_stock', 'cost_price', 'pharmacy_batch_tracking');
      }
      async importLegacy(input: any) {

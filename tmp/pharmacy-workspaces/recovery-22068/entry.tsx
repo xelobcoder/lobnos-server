@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import Layout from "D:\\Primelabsys\\PHIMS\\primelabsys-current-working-version\\lobnos\\components\\Layout\\MainLayout";window.__childMounted=false;function Child(){window.__childMounted=true;return <h1>Pharmacy workspace restored</h1>}createRoot(document.getElementById('root')).render(<Layout><Child/></Layout>);

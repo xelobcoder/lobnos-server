@@ -14,6 +14,8 @@ import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker 
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
 import { bootstrapLoginAccountSchema } from '../models/auth/LoginUsernameBootstrapper';
+import { ensureStaffAccessSchema } from '../models/auth/StaffAccessSchema';
+import KnexConnection from '../database/KnexConnections';
 import { bootstrapPharmacyTables } from '../models/pharmacy/PharmacyBootstrapper';
 import { bootstrapInventoryDefaults } from '../models/inventory/InventoryBootstrapper';
 import { bootstrapPrescriptionTables } from '../models/prescriptions/PrescriptionBootstrapper';
@@ -80,6 +82,7 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
 
 export async function runApplicationBootstrappers(tenantId = 1, strict = false): Promise<{ accountingReady: boolean }> {
 	await bootstrapLoginAccountSchema(tenantId);
+	await ensureStaffAccessSchema(await KnexConnection(tenantId));
 	await bootstrapInventoryDefaults(tenantId);
 	await bootstrapPharmacyTables(tenantId);
 	await bootstrapPrescriptionTables(tenantId);

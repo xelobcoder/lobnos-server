@@ -22,6 +22,9 @@ import { requestPasswordResetOtp, resetPasswordWithOtp, verifyPasswordResetOtp }
 import { licenseMode } from "../../licensing/storage";
 import { requireOwnerRole } from "../../middleware/authority";
 import { customError } from "../../hooks/helper";
+import {staffAccessOperation as staffAccess,switchStaffRole,refreshStaffRoleSession} from './StaffAccessController';
+import {TenantRegistry} from '../../models/Tenancy/TenantRegistry';
+import {getAuthUser} from '../../middleware/authority';
 
 
 const router: Router = express.Router();
@@ -52,6 +55,14 @@ router.post('/api/v1/prime/verify-reset-otp', handleOverLoad(verifyPasswordReset
 router.post('/api/v1/prime/resetpassword', handleOverLoad(resetPasswordWithOtp));
 router.get('/api/v1/prime/validate-token', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateToken(req, res));
 router.post('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateUserPinProvided(req, res));
+router.get('/api/v1/prime/my-roles',checkTokenExists,staffAccess(s=>s.mine()));
+router.post('/api/v1/prime/switch-role',checkTokenExists,switchStaffRole);
+router.post('/api/v1/prime/refresh-role-session',checkTokenExists,refreshStaffRoleSession);
+router.get('/api/v1/prime/staff-access',checkTokenExists,staffAccess(s=>s.directory()));
+router.post('/api/v1/prime/staff-access',checkTokenExists,staffAccess(async(s,r)=>s.create(r.body,(await new TenantRegistry().requireTenant(getAuthUser(r)!.tenantId)).platformId)));
+router.post('/api/v1/prime/staff-access/:id/roles',checkTokenExists,staffAccess((s,r)=>s.grant(r.params.id,r.body)));
+router.post('/api/v1/prime/staff-access/:id/activation',checkTokenExists,staffAccess((s,r)=>s.activation(r.params.id,r.body)));
+router.delete('/api/v1/prime/staff-access/:id/roles/:assignmentId',checkTokenExists,staffAccess((s,r)=>s.revoke(r.params.id,String(r.params.assignmentId))));
 
 
 

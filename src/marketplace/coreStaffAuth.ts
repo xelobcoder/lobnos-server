@@ -50,7 +50,7 @@ export async function requireCoreFacilityStaff(req: Request, res: Response, next
           if (!Number.isSafeInteger(employeeId) || employeeId <= 0 || Number(roleRow?.activation) !== 1 || !roleAllowed(role, Array.from(allowedStaffRoles))) {
                return res.status(403).json({ status: 'error', message: 'PLS staff role is not authorized for marketplace operations' });
           }
-          const session = await verifyStaffSession(claims, employeeId, tenantId, req);
+          const session = await verifyStaffSession(claims, employeeId, tenantId, req, roleRow);
           if (!session.ok) return res.status(session.statusCode || 401).json(session.body);
           const tenant = await new TenantRegistry().requireTenant(tenantId);
           if (!tenant.isActive) return res.status(403).json({ status: 'error', message: 'PLS facility is not active' });

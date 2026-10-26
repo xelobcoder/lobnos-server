@@ -29,10 +29,11 @@ export default class AuthenticationRepository {
         return passwordMatched ? user : null;
     }
 
-    async generateAccessToken(email: string, claims: Record<string, unknown> = {}): Promise<string> {
+    async generateAccessToken(email: string, claims: Record<string, unknown> = {}, expiresInSeconds?: number): Promise<string> {
         const secretKey = process.env.ACCESS_TOKEN_SECRET ? process.env.ACCESS_TOKEN_SECRET : null;
         if (!secretKey) throw new Error("Environment Key Not Found");
-        return jwt.sign({ ...claims, email }, secretKey as string, { expiresIn: '3h' });
+        if(expiresInSeconds!==undefined&&(!Number.isSafeInteger(expiresInSeconds)||expiresInSeconds<=0||expiresInSeconds>10800))throw new Error('Invalid access token lifetime');
+        return jwt.sign({ ...claims, email }, secretKey as string, { expiresIn: expiresInSeconds ?? '3h' });
     }
 
     async generateRefreshToken(email: string): Promise<string> {

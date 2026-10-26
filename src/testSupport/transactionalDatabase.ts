@@ -69,9 +69,9 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                                    try {
                                         await lock();
                                         events.push('insert:' + table);
-                                        const rows = (Array.isArray(data) ? data : [data]).filter(value => !ignore || !(local![table] || []).some(row => conflictKeys.every(key => equal(row[key], value[key])))).map(value => ({ id: nextId++, ...value }));
+                                        const rows = (Array.isArray(data) ? data : [data]).filter(value => !ignore || !(local![table] || []).some(row => conflictKeys.every(key => equal(row[key], value[key])))).map(value => table==='roles'?{id:nextId++,employeeid:Math.max(0,...(local![table]||[]).map(row=>Number(row.employeeid)||0))+1,...value}:({ id: nextId++, ...value }));
                                         (local![table] ||= []).push(...rows);
-                                        resolve(rows.map(row => row.id));
+                                        resolve(rows.map(row => table==='roles'?row.employeeid:row.id));
                                    } catch (error) { reject(error); }
                               },
                          };
@@ -83,6 +83,13 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                          const rows = (local[table] || []).filter(row => filters.every(filter => filter(row)));
                          rows.forEach(row => Object.assign(row, data));
                          return rows.length;
+                    },
+                    async del() {
+                         if (!local) throw new Error('Delete without a preceding lock');
+                         const rows=local[table]||[],remaining=rows.filter(row=>!filters.every(filter=>filter(row)));
+                         local[table]=remaining;
+                         events.push('delete:'+table);
+                         return rows.length-remaining.length;
                     },
                     async then(resolve: any, reject: any) {
                          try {

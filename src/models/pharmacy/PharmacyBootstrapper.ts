@@ -8,7 +8,7 @@ import {ensurePharmacyEnterpriseSchema} from './PharmacyEnterpriseSchema';
 export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
 
-     if (!await connection.schema.hasColumn('inv_inventory_items', 'sale_price')) {
+     if (await connection.schema.hasTable('inv_inventory_items') && !await connection.schema.hasColumn('inv_inventory_items', 'sale_price')) {
           await connection.schema.alterTable('inv_inventory_items', (table) => {
                table.decimal('sale_price', 14, 2).notNullable().defaultTo(0);
           });
