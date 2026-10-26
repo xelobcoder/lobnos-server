@@ -40,9 +40,7 @@ export class TestDetailCategory {
 
      static async getById(tenantId: number, categoryid: number): Promise<TestDetailCategoryType | undefined> {
           const connection = await KnexConnection(tenantId);
-          return await connection<TestDetailCategoryType>(TableName)
-               .where({ categoryid, deleted: false })
-               .first();
+          return await connection<TestDetailCategoryType>(TableName).where({ categoryid, deleted: false }).first();
      }
 
      static async getByTestId(tenantId: number, testid: number): Promise<TestDetailCategoryType[]> {
@@ -50,36 +48,28 @@ export class TestDetailCategory {
           return await connection<TestDetailCategoryType>(TableName)
                .leftJoin("roles", "roles.employeeid", "=", "testdetailcategory.createdby")
                .where({ testid, deleted: false })
-               .select("testdetailcategory.*","roles.username as createdbyname");
+               .select("testdetailcategory.*", "roles.username as createdbyname");
      }
 
      static async update(tenantId: number, categoryid: number, data: Partial<TestDetailCategoryType>): Promise<number> {
           data.updated_at = new Date();
           const connection = await KnexConnection(tenantId);
-          return await connection(TableName)
-               .where({ categoryid, deleted: false })
-               .update(data);
+          return await connection(TableName).where({ categoryid, deleted: false }).update(data);
      }
 
      static async softDelete(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection(TableName)
-               .where({ categoryid })
-               .update({ deleted: true, updated_at: new Date() });
+          return await connection(TableName).where({ categoryid }).update({ deleted: true, updated_at: new Date() });
      }
 
      static async restore(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection(TableName)
-               .where({ categoryid })
-               .update({ deleted: false, updated_at: new Date() });
+          return await connection(TableName).where({ categoryid }).update({ deleted: false, updated_at: new Date() });
      }
 
      static async delete(tenantId: number, categoryid: number): Promise<number> {
           const connection = await KnexConnection(tenantId);
-          return await connection(TableName)
-               .where({ categoryid })
-               .del();
+          return await connection(TableName).where({ categoryid }).del();
      }
 }
 
