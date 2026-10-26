@@ -2,6 +2,13 @@ import { normalizeRole, roleAllowed } from './roles';
 import { consultationDb, clinicalError } from '../models/consultation/ConsultationSchema';
 import { practitioner, assertPatient, assertEncounter, careRoles } from '../models/consultation/ConsultationPolicy';
 import { ConsultationService } from '../models/consultation/ConsultationService';
+/** Staff identity management does not require clinical privileges or expose patient information. */
+export function staffPractitionerAccountRoute(method:string,path:string,role:string){
+    if(!careRoles.some(value=>normalizeRole(value)===normalizeRole(role)))return false;
+    const route=path.split('?')[0].replace(/\/$/,'');
+    return method==='GET'&&['/api/v1/prime/validate-token','/api/v1/prime/my-roles','/api/v1/consultation/capabilities'].includes(route)
+        ||method==='POST'&&['/api/v1/prime/switch-role','/api/v1/prime/refresh-role-session','/api/v1/logins/logout'].includes(route);
+}
 export function clinicianRouteAllowed(method: string, path: string, clinicianid: number) {
     const p = path.split('?')[0].replace(/\/$/, '');
     if (method === 'GET' && ['/api/v1/prime/validate-token', '/api/v1/settings/companyprofile/images', '/api/v1/notifications/inbox', '/api/v1/notifications/inbox/unread-count', '/api/v1/user/permissions'].includes(p))
@@ -38,7 +45,7 @@ export async function practitionerBoundary(req: any, res: any, next: any) {
         if (!actor)
             return next();
         const role = normalizeRole(actor.role), path = req.path;
-        if (role === 'clinician' || careRoles.some(value => normalizeRole(value) === role)) {
+        if (role === 'clinician' || careRoles.some(value => normalizeRole(value) === role) && !staffPractitionerAccountRoute(req.method,path,actor.role)) {
             const db = await consultationDb(actor.tenantId), access = await practitioner(db, actor);
             req.practitioner = access;
             if (path.startsWith('/api/v1/clinician-portal/')) {

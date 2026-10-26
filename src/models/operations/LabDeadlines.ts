@@ -1,10 +1,13 @@
 export function parseConfiguredTat(value: unknown): number | null {
-	if (typeof value === 'number') return Number.isFinite(value) && value > 0 ? value : null;
-	const text = String(value ?? '').trim();
-	if (/^\d+$/.test(text)) return Number(text) > 0 ? Number(text) : null;
-	const parts = [...text.matchAll(/(\d+)\s*(days?|hours?|hrs?|minutes?|mins?)/gi)];
-	const minutes = parts.reduce((sum, part) => sum + Number(part[1]) * (/^d/i.test(part[2]) ? 1440 : /^h/i.test(part[2]) ? 60 : 1), 0);
-	return minutes > 0 ? minutes : null;
+     if (typeof value === "number") return Number.isFinite(value) && value > 0 ? value : null;
+     const text = String(value ?? "").trim();
+     if (/^\d+$/.test(text)) return Number(text) > 0 ? Number(text) : null;
+     const parts = [...text.matchAll(/(\d+)\s*(days?|hours?|hrs?|minutes?|mins?)/gi)];
+     const minutes = parts.reduce(
+          (sum, part) => sum + Number(part[1]) * (/^d/i.test(part[2]) ? 1440 : /^h/i.test(part[2]) ? 60 : 1),
+          0,
+     );
+     return minutes > 0 ? minutes : null;
 }
 
 // Uses explicit minute settings; urgent/stat fall back to the configured routine target, never an invented clinical target.

@@ -1,0 +1,1 @@
+import {useState} from'react';export function useApplicationSettings(){const[applicationsettings,setApplicationSettings]=useState({user:{role:'admin',employeeid:1}});window.__active=applicationsettings;return{applicationsettings,setApplicationSettings}}

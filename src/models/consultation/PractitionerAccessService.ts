@@ -17,6 +17,41 @@ export class PractitionerAccessService {
         clinicalError('Practitioner is outside your branch', 403); }
     private admin(actor: any) { if (!manager(actor))
         clinicalError('Only administrators and managers may manage practitioner access', 403); }
+    async staffDetails(actor:any,employeeid:number){
+        this.admin(actor);
+        const staff=await this.db('roles').where({employeeid}).select('employeeid','username','role','branch').first();
+        if(!staff)clinicalError('Staff account not found',404);
+        if(actor.branch!=null&&Number(staff.branch)!==Number(actor.branch))clinicalError('Switch to the staff member’s operating location before configuring practitioner access',403);
+        const access=await this.db('practitioner_access').where({staff_employeeid:employeeid}).first();
+        if(access&&actor.branch!=null&&Number(access.branchid)!==Number(actor.branch))clinicalError('Practitioner is outside your branch',403);
+        return {staff,access:access?{...access,enabled:!!Number(access.enabled),can_consult:!!Number(access.can_consult),can_lab:!!Number(access.can_lab),can_prescribe:!!Number(access.can_prescribe)}:{version:0,enabled:false,branchid:staff.branch,practice_type:String(staff.role).startsWith('pharmacy')?'pharmacy':'facility',can_consult:false,can_lab:false,can_prescribe:false}};
+    }
+    async configureStaff(actor:any,employeeid:number,input:any){
+        this.admin(actor);
+        const data=accessInput.parse({...input,staff_employeeid:employeeid});
+        if(data.practice_type==='external'||data.branchid==null)clinicalError('Choose a facility or pharmacy practice and operating location');
+        if(actor.branch!=null&&Number(actor.branch)!==data.branchid)clinicalError('Choose your operating branch',403);
+        return this.db.transaction(async(trx:any)=>{
+            const staff=await trx('roles').where({employeeid}).forUpdate().first();
+            if(!staff||Number(staff.activation)!==1)clinicalError('Choose an active staff account');
+            const assigned=await trx('staff_role_access').where({employeeid,branchid:data.branchid}).whereIn('role',careRoles).first();
+            if(Number(staff.branch)!==data.branchid||(!roleAllowed(staff.role,[...careRoles,'admin','manager'])&&!assigned))clinicalError('The staff account needs an assigned practitioner role at this location',403);
+            const old=await trx('practitioner_access').where({staff_employeeid:employeeid}).first();
+            if(old&&actor.branch!=null&&Number(old.branchid)!==Number(actor.branch))clinicalError('Practitioner is outside your branch',403);
+            if(Number(old?.version||0)!==data.version)clinicalError('Practitioner settings changed. Reload before saving.',409);
+            let clinicianid=old?.clinicianid;
+            if(!clinicianid){
+                if(await trx('clinicianbasicinfo').where({phone:staff.mobile}).first())clinicalError('A practitioner already uses this mobile number. Link the existing profile in Practitioner access instead of creating a duplicate.');
+                if(String(staff.email||'').length>100)clinicalError('Use a practitioner contact email of at most 100 characters');
+                const ids=await trx('clinicianbasicinfo').insert({name:staff.username,phone:staff.mobile,email:staff.email||null,identifier:`STAFF${employeeid}`,occupation:'Medical practitioner'});
+                clinicianid=Number(ids[0]);
+            }
+            const row={...data,clinicianid,version:data.version+1,updated_by:actor.employeeid,updated_at:new Date()};
+            if(old)await trx('practitioner_access').where({clinicianid}).update(row);else await trx('practitioner_access').insert(row);
+            await clinicalAudit(trx,actor,'practitioner',clinicianid,'staff_access_configured',{before:old||null,after:row});
+            return row;
+        });
+    }
     baseUrl() { return (process.env.PRACTITIONER_PORTAL_URL || process.env.FRONTEND_URL || process.env.PATIENT_PORTAL_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:2377' : '')).replace(/\/$/, ''); }
     async list(actor: any, search = '') { this.admin(actor); const q = this.db('clinicianbasicinfo as c').leftJoin('practitioner_access as a', 'a.clinicianid', 'c.id'); if (actor.branch != null)
         q.where(function (this: any) { this.where('a.branchid', actor.branch).orWhereNull('a.branchid'); }); return q.where(function (this: any) { this.where('c.name', 'like', `%${search.slice(0, 100)}%`).orWhere('c.id', Number(search) || 0); }).select('c.id', 'c.name', 'c.email', 'c.phone', 'a.enabled', 'a.practice_type', 'a.staff_employeeid').orderBy('c.name').limit(50); }

@@ -29,6 +29,8 @@ catch (e: any) {
 export const consultationRouter = Router(), publicPractitionerRouter = Router();
 const base = '/api/v1/consultation';
 consultationRouter.get(`${base}/capabilities`, clinicalRun((db, a) => new ConsultationService(db).capabilities(a)));
+consultationRouter.get(`${base}/staff/:id/access`,clinicalRun((db,a,r)=>new PractitionerAccessService(db,a.tenantId).staffDetails(a,positive.parse(r.params.id))));
+consultationRouter.put(`${base}/staff/:id/access`,clinicalRun((db,a,r)=>new PractitionerAccessService(db,a.tenantId).configureStaff(a,positive.parse(r.params.id),r.body)));
 consultationRouter.get(`${base}/patients/:id`, clinicalRun((db, a, r) => assertPatient(db, a, positive.parse(r.params.id))));
 consultationRouter.get(`${base}/catalogue`, clinicalRun(async (db, a) => { const capabilities = await new ConsultationService(db).capabilities(a); if (!capabilities.canLab)
     clinicalError('Laboratory referral permission required', 403); return new EntityOrderService(a.tenantId).getCatalogueForEntity('clinician', capabilities.clinicianid); }));

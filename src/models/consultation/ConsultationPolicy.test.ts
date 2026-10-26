@@ -1,9 +1,23 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import knex from 'knex';
 import { ownsEncounter, patientScope, practitioner } from './ConsultationPolicy';
-import { clinicianRouteAllowed } from '../../middleware/practitionerBoundary';
+import { clinicianRouteAllowed, staffPractitionerAccountRoute, practitionerBoundary } from '../../middleware/practitionerBoundary';
 import { vitalInput } from './ConsultationService';
 describe('Clinical identity and API boundary', () => {
+    it('lets an already authenticated staff doctor validate their login and reach setup status without a practitioner profile',async()=>{
+        for(const path of ['/api/v1/prime/validate-token','/api/v1/prime/my-roles','/api/v1/consultation/capabilities']){
+            const next=vi.fn(),res={status:vi.fn().mockReturnThis(),json:vi.fn()};
+            await practitionerBoundary({method:'GET',path,authUser:{employeeid:3,role:'pharmacy_doctor',tenantId:2,branch:2},query:{},body:{}},res,next);
+            expect(next).toHaveBeenCalledOnce();expect(res.status).not.toHaveBeenCalled();
+        }
+    });
+    it('does not require a clinical profile to restore staff identity or read setup status, and never exempts patient data',()=>{
+        for(const path of ['/api/v1/prime/validate-token','/api/v1/prime/my-roles','/api/v1/consultation/capabilities'])expect(staffPractitionerAccountRoute('GET',path,'pharmacy_doctor')).toBe(true);
+        expect(staffPractitionerAccountRoute('POST','/api/v1/prime/refresh-role-session','doctor')).toBe(true);
+        expect(staffPractitionerAccountRoute('POST','/api/v1/prime/switch-role','doctor')).toBe(true);
+        for(const path of ['/api/v1/consultation/patients','/api/v1/consultation/encounters','/api/v1/prescriptions','/api/v1/consultation/staff/3/access'])expect(staffPractitionerAccountRoute('GET',path,'doctor')).toBe(false);
+        expect(staffPractitionerAccountRoute('GET','/api/v1/consultation/capabilities','clinician')).toBe(false);
+    });
     it('does not confuse a staff author with an external practitioner sharing the same ID', () => { expect(ownsEncounter({ role: 'clinician', employeeid: 7 }, { author_type: 'staff', consulationby: 7 })).toBe(false); expect(ownsEncounter({ role: 'doctor', employeeid: 7 }, { author_type: 'clinician', consulationby: 7 })).toBe(false); expect(ownsEncounter({ role: 'clinician', employeeid: 7 }, { author_type: 'legacy', consulationby: 7 })).toBe(false); expect(ownsEncounter({ role: 'doctor', employeeid: 7 }, { author_type: 'staff', consulationby: 7 })).toBe(true); });
     it('requires a live configured and enabled profile', async () => { const db: any = () => ({ where: () => ({ first: async () => null }) }); await expect(practitioner(db, { role: 'clinician', employeeid: 7 })).rejects.toThrow('disabled'); });
     it('scopes patient queries to grants or live referrals using bound IDs', () => { const db = knex({ client: 'mysql2' }); const sql = patientScope(db('new_patients as np'), db, { role: 'clinician' }, { clinicianid: 7 }).toSQL(); expect(sql.sql).toContain('practitioner_patient_access'); expect(sql.sql).toContain('clinicianId'); expect(sql.sql).toContain('revoked_at'); expect(sql.bindings.filter(v => v === 7)).toHaveLength(2); expect(sql.sql).toContain('COALESCE(ds.isDeleted,0)=0'); });

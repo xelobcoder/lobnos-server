@@ -2,7 +2,7 @@ import { configuration } from '../../hooks/configuration';
 import { systemConfigConnection } from '../../database/connection';
 import { MODULE_CONFIG_TABLE, validateModuleConfiguration } from '../Tenancy/FacilityModules';
 import { z } from 'zod';
-import { assertPatient, assertEncounter, practitioner, patientScope, manager, ownsEncounter, triageRoles, branchCareScope } from './ConsultationPolicy';
+import { assertPatient, assertEncounter, practitioner, patientScope, manager, ownsEncounter, triageRoles, branchCareScope, careRoles } from './ConsultationPolicy';
 import { clinicalError, clinicalAudit } from './ConsultationSchema';
 import { roleAllowed } from '../../middleware/roles';
 const id = z.coerce.number().int().positive();
@@ -31,11 +31,13 @@ export class ConsultationService {
     constructor(private db: any) { }
     async capabilities(actor: any) {
         let access: any = null;
+        let setupRequired=false;
         try {
             access = await practitioner(this.db, actor);
         }
-        catch (e) {
-            if (!manager(actor) && !roleAllowed(actor.role, triageRoles))
+        catch (e:any) {
+            if(e.statusCode===403&&e.message==='Practitioner access is disabled or has not been configured'&&roleAllowed(actor.role,careRoles))setupRequired=true;
+            else if (!manager(actor) && !roleAllowed(actor.role, triageRoles))
                 throw e;
         }
         const settings = await this.db('applicationsettings').where({ keyid: 1 }).first();
@@ -52,7 +54,7 @@ export class ConsultationService {
         }
         const enabled = (key: string) => { const active = key === 'pharmacy' ? !local || !!local.modules.pharmacy.enabled : !!local?.modules[key]?.enabled; return active && (!configuration.isMultiTenant || !!platform?.modules[key]?.enabled); };
         const company = await this.db('companyprofile').select('NAME as name').first();
-        return { companyName: company?.name || 'Practitioner portal', canManage: manager(actor), consultationsEnabled: enabled('consultations') && (!!access || manager(actor)), canRecordVitals: !!Number(access?.can_consult) || manager(actor) || roleAllowed(actor.role, triageRoles), canConsult: !!Number(access?.can_consult) && enabled('consultations'), canLab: !!Number(access?.can_lab) && enabled('laboratoryOperations'), canPrescribe: !!Number(access?.can_prescribe) && enabled('pharmacy'), canReadResults: !!access, clinicianid: access?.clinicianid || null, practiceType: access?.practice_type || (manager(actor) ? 'oversight' : 'triage'), staffLinked: access?.author_type === 'staff' };
+        return { companyName: company?.name || 'Practitioner portal', setupRequired, canManage: manager(actor), consultationsEnabled: enabled('consultations') && (!!access || manager(actor)), canRecordVitals: !!Number(access?.can_consult) || manager(actor) || roleAllowed(actor.role, triageRoles), canConsult: !!Number(access?.can_consult) && enabled('consultations'), canLab: !!Number(access?.can_lab) && enabled('laboratoryOperations'), canPrescribe: !!Number(access?.can_prescribe) && enabled('pharmacy'), canReadResults: !!access, clinicianid: access?.clinicianid || null, practiceType: access?.practice_type || (setupRequired?'setup':manager(actor) ? 'oversight' : 'triage'), staffLinked: access?.author_type === 'staff' };
     }
     async patients(actor: any, input: any) {
         if (!manager(actor) && roleAllowed(actor.role, triageRoles) && actor.branch == null)

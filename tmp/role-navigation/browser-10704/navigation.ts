@@ -1,0 +1,1 @@
+export const useRouter=()=>({push:(path)=>window.__navigation=path});export const usePathname=()=>new URLSearchParams(location.search).get('path')||'/billing/cash-collection';export const useSearchParams=()=>new URLSearchParams(location.search);
