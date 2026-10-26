@@ -1,0 +1,11 @@
+# Time Based Adjustment — 26 October 2026
+
+Renamed the user-facing Night Billing/Night Adjustment terminology to Time Based Adjustment across settings, staff navigation, billing transaction details, patient transaction details, session summaries, instructions and financial reports. Menus now use a clock icon and the canonical settings route `/settings/applicationsettings/time-adjustments`. The previous `/settings/applicationsettings/night-adjustments` route remains available and renders the same component.
+
+The new settings UI has an enable switch, start/end selectors, percentage/fixed mode and value controls, a daily period preview, duration and midnight-crossing explanation, plus inline load/save/retry/reset feedback. It inherits the application font and uses readable weights. Saves are locked against repeated clicks, failed edits are retained and disabled settings can be saved without a valid active schedule.
+
+The old frontend validation permitted overnight periods only when starting after 18:00 and ending before noon. That unnecessary restriction was removed: any distinct whole-hour start/end values are accepted, matching the existing billing engine. Start is included and end is excluded. Equal times are rejected while enabled rather than misrepresented as an all-day period. Minute-level scheduling and multiple periods were not introduced; the UI clearly states the existing whole-hour precision and server-clock basis.
+
+Existing `hasNightAdjustment`, `nightAdjustmentMode`, `nightAdjustmentValue`, `startTime` and `endTime` API/database fields remain unchanged. Both percentage/fixed calculations and signed values retain their contract. Billing eligibility, calculations and authorization were not changed.
+
+Verification: eight synthetic-data browser checks passed for load, daytime and arbitrary midnight-crossing periods, legacy save payload, failure/retry, duplicate-click protection, equal-time validation, disabling/reset, fixed/signed values and mobile containment. Desktop/mobile screenshots were reviewed. Eleven tests against the existing billing engine passed for day and midnight-crossing boundaries, unchanged percentage calculation and disabled behavior. Full frontend type checking passed. No live adjustment settings were saved during testing.
