@@ -102,7 +102,7 @@ export class LaboratoryWorkflowService {
             // installations and follows only descendants belonging to the same ordered test.
             const aliquots = await db('test_ascension_samples as link')
                 .join('physical_samples as sample', 'sample.id', 'link.sample_id')
-                .whereIn('link.ascension_id', [...new Set(unavailableRoots.map(sample => Number(sample.ascension_id)))])
+                .whereIn('link.ascension_id', [...new Set(unavailableRoots.map((sample:any) => Number(sample.ascension_id)))])
                 .where('link.is_required', false)
                 .whereNotNull('sample.parent_sample_id')
                 .select('link.ascension_id', 'sample.id', 'sample.parent_sample_id', 'sample.status', 'sample.storage_state', 'sample.quantity', 'sample.remaining_quantity');
@@ -115,12 +115,12 @@ export class LaboratoryWorkflowService {
                 children.get(parentId)!.push(aliquot);
             }
         }
-        const requiredSamples = links.map(sample => ({
+        const requiredSamples = links.map((sample :any)=> ({
             ...sample,
             has_usable_aliquot: !hasAvailableMaterial(sample) && hasUsableAliquot(sample.id, childrenByAscension.get(Number(sample.ascension_id)) || new Map()),
         }));
         return rows.map(row => {
-            const workflow = laboratoryWorkflow(settings, row, requiredSamples.filter(link => Number(link.ascension_id) === Number(row.ascension_id ?? row.id)));
+            const workflow = laboratoryWorkflow(settings, row, requiredSamples.filter((link:any) => Number(link.ascension_id) === Number(row.ascension_id ?? row.id)));
             return {
                 ...row, workflow,
                 sample_validation_stage: workflow.sampleValidation === 'bypassed' ? 'Bypassed' : row.sample_validation_stage,
