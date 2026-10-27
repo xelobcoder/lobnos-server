@@ -21,7 +21,9 @@ export const organizationPhone = (value: unknown) => {
 /** Compare legacy formatted values as well as new normalized values. Empty optional values are not identities. */
 export async function assertOrganizationIdentity(trx: any, input: { email?: unknown; mobile?: unknown; name?: unknown }, excludeId?: number) {
     const email = organizationEmail(input.email), mobile = organizationPhone(input.mobile);
-    const rows = await trx('organization').select('id', 'name', 'email', 'mobile');
+    // A quick-add may run inside an older parent transaction. Use a current read,
+    // not its REPEATABLE READ snapshot, after acquiring the directory lock.
+    const rows = await trx('organization').select('id', 'name', 'email', 'mobile').forUpdate();
     for (const row of rows) {
         if (excludeId && Number(row.id) === Number(excludeId)) continue;
         if (email && organizationEmail(row.email) === email) throw new OrganizationIdentityConflict('email');

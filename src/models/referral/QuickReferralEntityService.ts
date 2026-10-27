@@ -26,7 +26,7 @@ export class QuickReferralEntityService {
           return connection.transaction(async (trx: Knex.Transaction): Promise<QuickReferralEntityResult> => {
                await lockOrganizationDirectory(trx);
                const existing = await trx('organization').select('id', 'name')
-                    .whereRaw('LOWER(TRIM(name)) = ?', [input.name.toLowerCase()]).first();
+                    .whereRaw('LOWER(TRIM(name)) = ?', [input.name.toLowerCase()]).forUpdate().first();
                if (existing) return { id: Number(existing.id), name: existing.name, entitytype: 'organization', created: false };
 
                await assertOrganizationIdentity(trx, {email: input.email, mobile: input.phone});

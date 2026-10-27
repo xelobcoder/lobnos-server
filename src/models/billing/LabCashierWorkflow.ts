@@ -55,3 +55,10 @@ export async function lookupLabCashierCode(db: any, user: AuthUser, input: unkno
         patientName: patient?.fullname || [patient?.firstname,patient?.middlename,patient?.lastname].filter(Boolean).join(' '),
         payable: Number(billing.payable || 0), outstanding: Number(billing.outstanding || 0), createdAt: ticket.created_at};
 }
+export async function lookupLabCashierBill(db: any, user: AuthUser, input: unknown) {
+    if (!roleAllowed(user.role, ['admin','manager','cashier','accountant','customer service representative','scientist'])) throw new Error('Billing workspace access is required.');
+    const billingid = Number(input);
+    if (!Number.isSafeInteger(billingid) || billingid <= 0) throw new Error('Enter a valid bill ID.');
+    const ticket = await db('lab_cashier_codes').where({billingid, branchid: Number(user.branch)}).first();
+    return ticket ? lookupLabCashierCode(db, user, ticket.code) : null;
+}

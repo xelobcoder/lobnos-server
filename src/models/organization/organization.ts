@@ -218,7 +218,7 @@ class Organization {
 		const connection = await KnexConnection(tenantId);
 		return connection.transaction(async trx => {
 			await lockOrganizationDirectory(trx);
-			const current = await trx('organization').where({id: this.organizationId}).first();
+			const current = await trx('organization').where({id: this.organizationId}).forUpdate().first();
 			if (!current) return false;
 			const next = {...current, ...requestBody};
 			await assertOrganizationIdentity(trx, next, Number(this.organizationId));

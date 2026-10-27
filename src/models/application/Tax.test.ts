@@ -1,0 +1,18 @@
+import {beforeEach,describe,it,expect,vi} from 'vitest';
+const mocks=vi.hoisted(()=>({query:vi.fn()}));
+vi.mock('./appsettings/appset',()=>({default:class{}}));
+vi.mock('../../hooks/logger',()=>({default:{error:vi.fn()}}));
+vi.mock('../../hooks/helper',()=>({promisifyQuery:mocks.query,rowAffected:(row:any)=>Number(row?.affectedRows)>0,customError:(message:any,status:number,res:any)=>res.status(status).json({status:'error',message})}));
+import Tax from './Tax';
+const res=()=>({status:vi.fn().mockReturnThis(),json:vi.fn().mockReturnThis(),send:vi.fn().mockReturnThis()});
+describe('tenant-scoped application taxes',()=>{
+ beforeEach(()=>vi.clearAllMocks());
+ it('creates a tax using tenantId, with bound parameters and truthful success',async()=>{mocks.query.mockResolvedValueOnce([]).mockResolvedValueOnce({affectedRows:1});const response=res();await new Tax(0).addTax({query:{tenantId:'7'},body:{name:' VAT ',value:'5.50'}} as any,response as any);expect(mocks.query.mock.calls[0]).toEqual([7,expect.any(String),['VAT']]);expect(mocks.query.mock.calls[1]).toEqual([7,expect.any(String),['VAT','5.50']]);expect(response.status).toHaveBeenCalledWith(201);expect(response.json).toHaveBeenCalledWith(expect.objectContaining({status:'success'}));});
+ it('uses the authenticated tenant over a supplied tenant ID',async()=>{mocks.query.mockResolvedValue([]);await new Tax(0).getTax({query:{tenantId:'999'},authUser:{tenantId:2}} as any,res() as any);expect(mocks.query.mock.calls[0][0]).toBe(2)});
+ it('rejects an invalid tenant before accessing any database',async()=>{const response=res();await new Tax(0).addTax({query:{},body:{name:'VAT',value:'5'}} as any,response as any);expect(response.status).toHaveBeenCalledWith(400);expect(mocks.query).not.toHaveBeenCalled()});
+ it('reports duplicate names as conflicts, not successful additions',async()=>{mocks.query.mockResolvedValue([{id:1,name:'VAT'}]);const response=res();await new Tax(0).addTax({query:{tenantId:'7'},body:{name:'VAT',value:'5'}} as any,response as any);expect(mocks.query).toHaveBeenCalledTimes(1);expect(response.status).toHaveBeenCalledWith(409);expect(response.json).toHaveBeenCalledWith(expect.objectContaining({status:'error'}))});
+ it('does not report success if the insert affected no rows',async()=>{mocks.query.mockResolvedValueOnce([]).mockResolvedValueOnce({affectedRows:0});const response=res();await new Tax(0).addTax({query:{tenantId:'7'},body:{name:'VAT',value:'5'}} as any,response as any);expect(response.status).toHaveBeenCalledWith(500);expect(response.json).toHaveBeenCalledWith(expect.objectContaining({status:'error'}))});
+ it('accepts a numeric zero rate',async()=>{mocks.query.mockResolvedValueOnce([]).mockResolvedValueOnce({affectedRows:1});const response=res();await new Tax(0).addTax({query:{tenantId:'7'},body:{name:'Zero rated',value:0}} as any,response as any);expect(response.status).toHaveBeenCalledWith(201)});
+ it.each(['','-1','5.555','NaN','abc'])('rejects invalid tax rate %j',async value=>{const response=res();await new Tax(0).addTax({query:{tenantId:'7'},body:{name:'VAT',value}} as any,response as any);expect(response.status).toHaveBeenCalledWith(400);expect(mocks.query).not.toHaveBeenCalled()});
+ it.each(['getTax','updateTax','changeTaxStatus','deleteTax'] as const)('%s also uses the same tenantId contract',async method=>{mocks.query.mockResolvedValue(method==='getTax'?[]:{affectedRows:1});const response=res();await new Tax(0)[method]({query:{tenantId:'7',id:'3'},body:{id:3,name:'VAT',value:'0',status:true}} as any,response as any);expect(mocks.query.mock.calls[0][0]).toBe(7);});
+});

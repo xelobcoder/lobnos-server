@@ -1,4 +1,4 @@
-export const checkTaxNameExistQuery = `SELECT * FROM tax WHERE name = ?`;
+export const checkTaxNameExistQuery = `SELECT * FROM tax WHERE LOWER(TRIM(name)) = LOWER(TRIM(?))`;
 export const addTaxQuery = `INSERT INTO tax (name, value) VALUES (?, ?)`;
 export const getAllTaxesQuery = `SELECT * FROM tax`;
 export const updateTaxQuery = `UPDATE tax SET name = ?, value = ? WHERE id = ?`;

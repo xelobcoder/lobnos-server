@@ -491,7 +491,11 @@ export default class MultiPayment {
                .where({ billingid });
 
           // Prepare receipt data
+          // Older installations can print receipts before the cashier workflow migration is installed.
+          const cashierTicket = await connection.schema.hasTable('lab_cashier_codes')
+               ? await connection('lab_cashier_codes').where({billingid}).first() : null;
           const receiptData = {
+               cashierCode: cashierTicket?.code || null,
                receiptNumber,
                billing,
                patient,

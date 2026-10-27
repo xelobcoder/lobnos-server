@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import Taxes from "D:\\Primelabsys\\PHIMS\\primelabsys-current-working-version\\lobnos\\app\\settings\\tax\\page";window.__events=[];createRoot(document.getElementById('root')).render(<Taxes/>);

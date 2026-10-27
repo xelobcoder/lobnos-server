@@ -1,0 +1,1 @@
+export const ToastContainer=()=>null;export const toast=Object.fromEntries(['error','success','warning','info'].map(level=>[level,message=>window.__events.push({type:'toast',level,message})]));

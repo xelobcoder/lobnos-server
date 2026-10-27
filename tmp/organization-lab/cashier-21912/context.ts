@@ -1,0 +1,1 @@
+const app={branchid:2,company:'Synthetic Laboratory',user:{employeeid:7,username:'Synthetic Cashier',role:'cashier'},settings:{labCheckoutMode:new URLSearchParams(location.search).get('mode')||'separate_cashier'}};export const useApplication=()=>app;export const useApplicationSettings=()=>({applicationsettings:app});

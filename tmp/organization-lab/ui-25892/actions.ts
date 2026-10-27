@@ -1,0 +1,1 @@
+import{customFetch}from "D:\\Primelabsys\\PHIMS\\primelabsys-current-working-version\\lobnos\\components\\Auth\\customFetch";export const orgainzationServerSideProcessing=async p=>({result:(await customFetch('organizations/details?count='+p.count+'&page='+p.page)).result,error:false});
