@@ -1,0 +1,1 @@
+const role=new URLSearchParams(location.search).get('role')||'admin';export const useApplication=()=>({user:{employeeid:7,role},settings:{}});export const useApplicationSettings=()=>({applicationsettings:useApplication()});

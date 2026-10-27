@@ -41,8 +41,10 @@ import { TransactionManagementController } from "../../models/billing/management
 import { SuspendedBillingController } from './SuspendedBillingController';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { previewModernBilling } from './ModernBillingController';
+import {lookupLabCashier} from './LabCashierController';
 
 const router = Router();
+router.get('/api/v1/billing/lab-counter/lookup', lookupLabCashier);
 
 // Modern has an independent bulk preview contract; final persistence remains the established billing flow.
 router.post('/api/v1/billing/modern/preview', checkTokenExists, handleOverLoad(previewModernBilling));

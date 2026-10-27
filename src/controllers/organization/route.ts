@@ -9,6 +9,7 @@ import {
      getOutsourcedCasesPaginated
 } from "./outsourceHandlers"
 import { organizationImageUpload } from './uploadImages'
+import {getOrganizationLogo, uploadOrganizationLogo} from './logoHandlers';
 import {
      bulkInsertOrganizationsHandler, createAOrganization, createOrganizationPricingHandler,
      deleteOrganization, getOrganizationCommission, getOrganizationId, getOrganizationImage, getOrganizationPricingHandler, getOrganizations, getOrganizationsBasic, getOrganizationsContact, getOrganizationsPayment, getOrganizationsCommissionByDate, getOrganizationWithDetails, updateOrganizationBasic, updateOrganizationContact, updateOrganizationPayment, upload, uploadOrganizationProfilePicture
@@ -33,7 +34,7 @@ router.get("/api/v1/organization/contactperson", handleOverLoad(getOrganizations
 router.get("/api/v1/organization/payment", handleOverLoad(getOrganizationsPayment));
 router.get("/api/v1/organization/commission/summary", handleOverLoad(getOrganizationsCommissionByDate));
 router.get("/api/v1/organization/commission", handleOverLoad(getOrganizationCommission));
-router.get(`/api/v1/organization/profile/image`, handleOverLoad(getOrganizationImage));
+router.get(`/api/v1/organization/profile/image`, getOrganizationLogo);
 router.get("/api/v1/organization/id", handleOverLoad(getOrganizationId));
 router.get("/api/v1/organizations/details", handleOverLoad(getOrganizationWithDetails));
 router.post("/api/v1/new/organizations", handleOverLoad(createAOrganization));
@@ -42,7 +43,7 @@ router.put("/api/v1/organization/update/contact", handleOverLoad(updateOrganizat
 router.put("/api/v1/organization/update/payment", handleOverLoad(updateOrganizationPayment));
 router.post("/api/v1/new/organization/images", handleOverLoad(upload));
 router.delete("/api/v1/organization", isAuthorizedRoleAdmin, handleOverLoad(deleteOrganization));
-router.post(`/api/v1/organization/profile/image`, organizationImageUpload, handleOverLoad(uploadOrganizationProfilePicture));
+router.post(`/api/v1/organization/profile/image`, uploadOrganizationLogo);
 router.post("/api/v1/organization/billing/test", handleOverLoad(createOrganizationPricingHandler))
 router.get("/api/v1/organization/billing/test", handleOverLoad(getOrganizationPricingHandler))
 router.post('/api/v1/organization/bulk/registration', handleOverLoad(bulkInsertOrganizationsHandler))

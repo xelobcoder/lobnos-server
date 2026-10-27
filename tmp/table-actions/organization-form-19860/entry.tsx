@@ -1,0 +1,1 @@
+import React from'react';import{createRoot}from'react-dom/client';import Form from "D:\\Primelabsys\\PHIMS\\primelabsys-current-working-version\\lobnos\\components\\organization\\BasicOrganizationForm";window.__events=[];createRoot(document.getElementById('root')).render(<Form organizationid={new URLSearchParams(location.search).has('create')?undefined:'201'}/>);

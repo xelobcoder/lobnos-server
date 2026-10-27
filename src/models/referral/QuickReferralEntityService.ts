@@ -4,6 +4,7 @@ import { applyClinicianAfterInsert, applyOrganizationAfterInsert } from '../../d
 import { ReferralCodingRepo } from './repositories/ReferralCodingRepo';
 import { QuickReferralEntityInput, QuickReferralEntityKind } from './quickReferralEntity';
 import { ClinicianOrganizationService } from './ClinicianOrganizationService';
+import { assertOrganizationIdentity, lockOrganizationDirectory } from '../organization/OrganizationIdentity';
 
 export interface QuickReferralEntityResult {
      id: number;
@@ -23,9 +24,12 @@ export class QuickReferralEntityService {
      async createOrganization(input: QuickReferralEntityInput, parent?: Knex.Transaction): Promise<QuickReferralEntityResult> {
           const connection = parent || await KnexConnection(this.tenantId);
           return connection.transaction(async (trx: Knex.Transaction): Promise<QuickReferralEntityResult> => {
+               await lockOrganizationDirectory(trx);
                const existing = await trx('organization').select('id', 'name')
                     .whereRaw('LOWER(TRIM(name)) = ?', [input.name.toLowerCase()]).first();
                if (existing) return { id: Number(existing.id), name: existing.name, entitytype: 'organization', created: false };
+
+               await assertOrganizationIdentity(trx, {email: input.email, mobile: input.phone});
 
                const [id] = await trx('organization').insert({ name: input.name, mobile: input.phone, email: input.email });
                await applyOrganizationAfterInsert(trx, Number(id));

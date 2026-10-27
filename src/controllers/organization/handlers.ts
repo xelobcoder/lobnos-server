@@ -1,4 +1,5 @@
 import Organization from "../../models/organization/organization";
+import { OrganizationIdentityConflict } from '../../models/organization/OrganizationIdentity';
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "../../models/organization/OrgaInterfac";
 import { getUploadedImages } from "./uploadImages";
 import OrganizationalBilling from "../../models/organization/organizationBilling";
@@ -113,8 +114,10 @@ export const createAOrganization = async (request: Request<{}, {}, {}, { tenantI
 		if (isCreatedSuccess === OperationsStatus.exist) {
 			return response.send({ message: OperationsStatus.exist, status: 'exist' })
 		}
-		response.send({ message: isCreatedSuccess === true ? "Organization created successfully" : "creating a new organization failed", status: 'created' });
+		if (isCreatedSuccess !== true) return response.status(400).json({status: false, message: String(isCreatedSuccess || 'Unable to create organization')});
+		response.status(201).json({ message: 'Organization created successfully', status: 'created' });
 	} catch (error) {
+		if (error instanceof OrganizationIdentityConflict) return response.status(409).json({status: false, message: error.message, field: error.field});
 		console.log(error)
 		response.status(500).json({ error: "Internal server error" });
 	}
@@ -126,8 +129,9 @@ export const updateOrganizationBasic = async (request: Request<{}, {}, newOrgani
 		const organizationid = request.body.id;
 		if (!organizationid) return responseError(response, 'Resource Identifier Not provided')
 		const isUpdated = await new Organization(organizationid).updateOrganizationBasic(tenantIdP, request.body);
-		response.status(200).json({ message: isUpdated ? "Organization basic information updated successfully" : "resource update failed" });
+		response.status(isUpdated ? 200 : 404).json({ status: isUpdated, message: isUpdated ? 'Organization basic information updated successfully' : 'Organization not found' });
 	} catch (error) {
+		if (error instanceof OrganizationIdentityConflict) { response.status(409).json({status: false, message: error.message, field: error.field}); return; }
 		response.status(500).json({ error: "Internal server error" });
 	}
 };

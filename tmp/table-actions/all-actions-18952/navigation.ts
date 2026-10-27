@@ -1,0 +1,1 @@
+export const useRouter=()=>({push:path=>window.__events.push({type:'navigate',path})});

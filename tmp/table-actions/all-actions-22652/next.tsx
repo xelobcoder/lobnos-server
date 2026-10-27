@@ -1,0 +1,1 @@
+import React from'react';export default function Link({href,children,prefetch,onClick,...props}){return <a href={href} {...props} onClick={e=>{onClick?.(e);if(!e.defaultPrevented){e.preventDefault();window.__events.push({type:'navigate',path:href})}}}>{children}</a>}

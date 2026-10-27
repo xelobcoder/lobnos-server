@@ -48,6 +48,10 @@ export default class RolesRepository {
 
 	async createRole(roleData: IEmployee): Promise<number> {
 		try {
+			// The UI label may arrive capitalized; persist the canonical billing role.
+			if (typeof roleData.role === 'string' && roleData.role.trim().toLowerCase() === 'cashier') {
+				roleData = { ...roleData, role: 'cashier' };
+			}
 			const allowedRoles = ['cashier','pharmacist','doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');

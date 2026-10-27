@@ -5,6 +5,7 @@ import { applyOrganizationAfterInsert } from "../../database/appLevelTriggers";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
+import { assertOrganizationIdentity, lockOrganizationDirectory, OrganizationIdentityConflict, organizationEmail, organizationPhone } from './OrganizationIdentity';
 import { newOrganization, OperationsStatus, OrganizationRequestBody, OrgContactInfo, searchQueryParams } from "./OrgaInterfac";
 import {
 	q_accountInfo,
@@ -98,6 +99,8 @@ class Organization {
 				const connection = await KnexConnection(tenantId);
 				const trx = await connection.transaction();
 				try {
+					await lockOrganizationDirectory(trx);
+					await assertOrganizationIdentity(trx, org);
 					const [result] = await trx.raw(q_create_an_organization, values);
 					const insertId = result?.insertId || result?.[0]?.insertId;
 					if (insertId !== 0 && insertId !== undefined) {
@@ -139,15 +142,17 @@ class Organization {
 		const connection = await KnexConnection(tenantId);
 		const trx = await connection.transaction();
 		try {
+			await lockOrganizationDirectory(trx);
+			await assertOrganizationIdentity(trx, body);
 			const [result] = await trx('organization').insert({
 				name,
 				location: location || null,
 				street: street || null,
-				mobile,
+				mobile: organizationPhone(mobile) || null,
 				address: address || null,
 				website: website || null,
-				email: email || null,
-				gpsmapping: gpsMapping || null,
+				email: organizationEmail(email) || null,
+				gpsmapping: gpsMapping || (body as any).gpsmapping || null,
 				region: region || null,
 				type: type || null
 			});
@@ -167,6 +172,7 @@ class Organization {
 		} catch (err) {
 			console.log(err)
 			await trx.rollback();
+			if (err instanceof OrganizationIdentityConflict) throw err;
 			console.error("Error adding new organization:", err);
 			return "Error adding new organization";
 		}
@@ -209,10 +215,20 @@ class Organization {
 	async updateOrganizationBasic(tenantId: number, requestBody: newOrganization) {
 		const { name, location, street, mobile, address, website, email, gpsMapping, region, type, id } = requestBody;
 
-		const organization = await this.getOrganizationBasic(tenantId)
-		const values = [location, street, mobile, address, website, email, gpsMapping, region, name, type, id];
-		const q_packets = await promisifyQuery(tenantId, q_update_org_basic_info, values);
-		return rowAffected(q_packets);
+		const connection = await KnexConnection(tenantId);
+		return connection.transaction(async trx => {
+			await lockOrganizationDirectory(trx);
+			const current = await trx('organization').where({id: this.organizationId}).first();
+			if (!current) return false;
+			const next = {...current, ...requestBody};
+			await assertOrganizationIdentity(trx, next, Number(this.organizationId));
+			await trx('organization').where({id: this.organizationId}).update({
+				name: next.name, location: next.location, street: next.street, mobile: organizationPhone(next.mobile) || null,
+				address: next.address, website: next.website, email: organizationEmail(next.email) || null,
+				gpsmapping: requestBody.gpsMapping ?? next.gpsmapping, region: next.region, type: next.type
+			});
+			return true;
+		});
 	}
 
 	static async paginatedOrganizationInformation(tenantId: number, page: number, count: number): Promise<PrimeLimsTableorganization[]> {

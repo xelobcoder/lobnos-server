@@ -22,6 +22,7 @@ import KnexConnection from "../../../database/KnexConnections";
 import RegionsDistrictsService from "./services/regions-districts-service";
 import { isWorkspaceLayout, WorkspaceLayout } from "./workspaceLayout";
 import { isBillingLayout } from './billingLayout';
+import {isLabCheckoutMode} from '../../billing/LabCashierWorkflow';
 
 
 
@@ -35,6 +36,7 @@ export default class ApplicationSettings {
 			let record = result[0];
 			record.workspaceLayout = isWorkspaceLayout(record.workspaceLayout) ? record.workspaceLayout : 'classic';
 			record.billingLayout = isBillingLayout(record.billingLayout) ? record.billingLayout : 'multi-compact';
+			record.labCheckoutMode = isLabCheckoutMode(record.labCheckoutMode) ? record.labCheckoutMode : 'direct';
 			record.services = record?.services != null ? jsonify
 				(record.services) : null
 			record.smsSettings = record?.smsSettings != null ? jsonify
@@ -136,6 +138,7 @@ export default class ApplicationSettings {
 	}
 
 	public async updateApplicationSettings(tenantId: number, data: ApplicationSettingsData): Promise<boolean> {
+		if (data.labCheckoutMode !== undefined && !isLabCheckoutMode(data.labCheckoutMode)) throw new Error('Invalid laboratory checkout mode');
 		if (data.billingLayout !== undefined && !isBillingLayout(data.billingLayout)) throw new Error('Invalid billing layout');
 		const connection = await KnexConnection(tenantId);
 		const {
@@ -213,6 +216,7 @@ export default class ApplicationSettings {
 					? submittedServices
 					: (persistedServices && typeof persistedServices === 'object' ? persistedServices : {});
 				const record = {
+					labCheckoutMode: data.labCheckoutMode ?? (isLabCheckoutMode(existing?.labCheckoutMode) ? existing.labCheckoutMode : 'direct'),
 					billingLayout: data.billingLayout ?? (isBillingLayout(existing?.billingLayout) ? existing.billingLayout : 'multi-compact'),
 					bulkregistration,
 					fontsize,

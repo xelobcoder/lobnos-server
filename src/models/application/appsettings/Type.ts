@@ -47,6 +47,7 @@ export type ApplicationSettingsData = {
      secondaryColor?: string | null;
      workspaceLayout?: WorkspaceLayout;
      billingLayout?: BillingLayout;
+      labCheckoutMode?: 'direct' | 'separate_cashier';
      DeactivateBilling24hrs: number;
      allowManagerToRefund: numberBoolean;
      makepdfprintingcompulsory: numberBoolean;

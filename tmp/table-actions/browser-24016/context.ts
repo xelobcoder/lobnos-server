@@ -1,0 +1,1 @@
+export const useApplicationSettings=()=>({applicationsettings:{user:{role:'admin'}}});

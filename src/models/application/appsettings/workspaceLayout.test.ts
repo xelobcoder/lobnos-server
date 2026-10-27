@@ -136,4 +136,14 @@ describe('workspace layout settings', () => {
                expect((await new ApplicationSettings().getAllAppSettings(42))?.billingLayout).toBe('multi-compact');
           }
      });
+     it.each(['direct','separate_cashier'] as const)('saves and reads laboratory payment workflow %s',async labCheckoutMode=>{
+          const t=tenant({keyid:1,labCheckoutMode:'direct'});mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42,{labCheckoutMode} as any);
+          expect(t.builder.update).toHaveBeenCalledWith(expect.objectContaining({labCheckoutMode}));
+          mocks.query.mockResolvedValue([{keyid:1,labCheckoutMode}]);expect((await new ApplicationSettings().getAllAppSettings(42))?.labCheckoutMode).toBe(labCheckoutMode);
+     });
+     it('preserves the cashier workflow when an older settings client omits it',async()=>{
+          const t=tenant({keyid:1,labCheckoutMode:'separate_cashier'});mocks.connection.mockResolvedValue(t.db);await new ApplicationSettings().updateApplicationSettings(42,{} as any);expect(t.builder.update).toHaveBeenCalledWith(expect.objectContaining({labCheckoutMode:'separate_cashier'}));
+     });
+     it('rejects an unknown lab workflow before opening a connection',async()=>{await expect(new ApplicationSettings().updateApplicationSettings(42,{labCheckoutMode:'invalid'} as any)).rejects.toThrow('Invalid laboratory checkout mode');expect(mocks.connection).not.toHaveBeenCalled()});
 });

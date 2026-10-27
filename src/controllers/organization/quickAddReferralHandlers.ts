@@ -4,6 +4,7 @@ import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { normalizeQuickReferralEntity, QuickReferralEntityKind } from '../../models/referral/quickReferralEntity';
 import { QuickReferralEntityService } from '../../models/referral/QuickReferralEntityService';
 import { ClinicianOrganizationError } from '../../models/referral/ClinicianOrganizationService';
+import { OrganizationIdentityConflict } from '../../models/organization/OrganizationIdentity';
 
 const quickAddHandler = (kind: QuickReferralEntityKind) =>
      async (request: Request<{}, {}, any, { tenantId?: string }>, response: Response) => {
@@ -26,6 +27,7 @@ const quickAddHandler = (kind: QuickReferralEntityKind) =>
                     result,
                });
           } catch (error) {
+               if (error instanceof OrganizationIdentityConflict) return response.status(409).json({status: false, message: error.message, field: error.field});
                if (error instanceof ClinicianOrganizationError) return customError(error.message, error.statusCode, response);
                return PrimeSqlErrorHandler.handleError(error, response);
           }

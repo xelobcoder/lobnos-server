@@ -1,4 +1,5 @@
 import KnexConnection from "../../database/KnexConnections";
+import {assertUnpaidHandoff, createLabCashierCode, labCheckoutMode, requiresCashierHandoff} from './LabCashierWorkflow';
 import { Knex } from "knex";
 import { enqueueBillingReceivable } from "../../accountingModule/integrations/BillingAccounting";
 import { BillingSharedRepo } from "./billing_shared";
@@ -67,9 +68,14 @@ export class SubmitCustomerBilling {
         // 3. compare the two and forward the details to the frontend
     }
 
-    async submit(): Promise<{ status: boolean; message: string; billingid?: number }> {
+    async submit(): Promise<{ status: boolean; message: string; billingid?: number; cashierCode?: string }> {
         try {
             this.payload = normalizeSubmissionPayments(this.payload);
+            const separateCashier = requiresCashierHandoff(await labCheckoutMode(await this.connection), this.payload);
+            if (separateCashier) {
+                try { assertUnpaidHandoff(this.payload); }
+                catch (error: any) { return {status: false, message: error.message}; }
+            }
             if (Number(this.payload.billingSource) === 4) {
                 const identifiers = nhisIdentifiers.safeParse(this.payload);
                 if (!identifiers.success) return { status: false, message: 'Enter valid NHIS membership and claim check identifiers (up to 64 digits). Reload and re-enter any identifier previously supplied as a rounded number.' };
@@ -208,6 +214,7 @@ export class SubmitCustomerBilling {
             let billingID = 0;
             let finalBillingIdForEvent = 0;
             let shouldTriggerCommission = false;
+            let cashierCode: string | undefined;
 
             try {
                 const existingBillingId = await this.writeHooks?.beforeWrite(trx);
@@ -620,6 +627,10 @@ export class SubmitCustomerBilling {
 
                 shouldTriggerCommission = [2, 4, 6].includes(billingSource);
                 await this.writeHooks?.afterWrite(trx, billingID);
+                if (separateCashier && !hasRelatedBilling) {
+                    const saved = await trx('billing').where({billingid: billingID}).first();
+                    if (Number(saved?.outstanding || 0) > 0) cashierCode = await createLabCashierCode(trx, billingID, Number(branchid), Number(employeeid));
+                }
                 await trx.commit();
             } catch (error: any) {
                 try {
@@ -643,7 +654,7 @@ export class SubmitCustomerBilling {
             NotificationDispatcher.dispatch(tenantId, 'BILLING_CREATED', { billingId: notificationBillingId }, parsedEmployeeId)
                 .catch((err) => logger.error('BILLING_CREATED in-app notification failed', err));
 
-            return { status: true, message: "Order submitted successfully", billingid: billingID };
+            return { status: true, message: "Order submitted successfully", billingid: billingID, ...(cashierCode ? {cashierCode} : {}) };
         } catch (error: any) {
             console.log(error)
             logger.error('Failed to submit billing', { error: error.message, payload: this.payload });
