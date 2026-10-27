@@ -4,6 +4,7 @@ node_modules
 .zip
 FlowCharts
 .tmp/
+/tmp
 asserts
 .qodo
 
