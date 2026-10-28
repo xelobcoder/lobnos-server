@@ -16,6 +16,11 @@ import {
      TrialBalanceRow,
 } from '../interfaces/IAccountingReportService';
 
+import { AccountingPeriodService } from './AccountingPeriodService';
+import { FinancialFinalizationGuard } from './FinancialFinalizationGuard';
+import { AccountingError } from '../errors/AccountingErrors';
+import { minorUnits, sumMinor } from '../utils/money';
+
 const COST_OF_SALES_CODES = ['acc-5000'];
 const GENERAL_LEDGER_SORT_COLUMNS = [
      'e.occurred_at',
@@ -32,13 +37,14 @@ const INVESTING_CODES = ['acc-1006', 'acc-1007'];
 const FINANCING_CODES = ['acc-2001', 'acc-3000', 'acc-3001'];
 
 export class AccountingReportService implements IAccountingReportService {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private trx?: any) { }
 
      private async connection() {
-          return KnexConnection(this.tenantId);
+          return this.trx || KnexConnection(this.tenantId);
      }
 
      async financialOverview(asOf: string, options: { branchId?: number } = {}): Promise<FinancialOverview> {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).financialOverview(asOf, options), { isolationLevel: 'repeatable read' }); }
           const date = asOf || new Date().toISOString().split('T')[0];
           const monthStart = `${date.slice(0, 7)}-01`;
           const yearStart = `${date.slice(0, 4)}-01-01`;
@@ -50,8 +56,8 @@ export class AccountingReportService implements IAccountingReportService {
                this.incomeStatement(monthStart, date, branchId),
                this.incomeStatement(yearStart, date, branchId),
                this.balanceSheet(date, branchId),
-               this.receivableAging(date),
-               this.payableAging(date),
+               this.receivableAging(date, branchId),
+               this.payableAging(date, branchId),
                this.monthlyTrend(yearStart, date, branchId),
                db('acc_periods').where('period_start', '<=', date).where('period_end', '>=', date).first(),
           ]);
@@ -59,7 +65,7 @@ export class AccountingReportService implements IAccountingReportService {
           const accountBalance = (code: string) => balanceSheet.assets.concat(balanceSheet.liabilities, balanceSheet.equity)
                .find((row) => row.account_code === code)?.balance || 0;
           const cash = round2(accountBalance('acc-1000'));
-          const bank = round2(accountBalance('acc-1001'));
+          const bank = sumMinor((await this.cashAccountCodes()).filter(code => code !== 'acc-1000').map(accountBalance)) / 100;
           const inventory = round2(accountBalance(INVENTORY_ACCOUNT));
           const fixedAssets = round2(accountBalance('acc-1006') + accountBalance('acc-1007'));
 
@@ -87,6 +93,8 @@ export class AccountingReportService implements IAccountingReportService {
                     netAssets: round2(balanceSheet.totals.assets - balanceSheet.totals.liabilities),
                     balanceDifference: round2(balanceSheet.totals.difference),
                },
+               accountSnapshot: [...balanceSheet.assets,...balanceSheet.liabilities,...balanceSheet.equity,...yearToDate.revenue,...yearToDate.costOfSales,...yearToDate.operatingExpenses].map(row=>({accountCode:row.account_code,name:row.name,type:row.type,normalBalance:row.normal_balance,balance:row.balance,basis:['revenue','expense'].includes(row.type)?'yearToDate':'asOf'})),
+               expenseBreakdown: [...yearToDate.costOfSales,...yearToDate.operatingExpenses].map(row=>({accountCode:row.account_code,name:row.name,amount:row.balance})),
                trend,
           };
      }
@@ -96,7 +104,7 @@ export class AccountingReportService implements IAccountingReportService {
                this.periodBreakdown('revenue', from, to, branchId),
                this.periodBreakdown('expense', from, to, branchId),
           ]);
-          const periods = [...new Set([...revenue.periods, ...expense.periods])].sort();
+          const periods:string[]=[];const cursor=new Date(`${from.slice(0,7)}-01T00:00:00Z`);while(cursor.toISOString().slice(0,7)<=to.slice(0,7)){periods.push(cursor.toISOString().slice(0,7));cursor.setUTCMonth(cursor.getUTCMonth()+1);}
           return {
                periods,
                revenue: periods.map((period) => round2(revenue.totals[period] || 0)),
@@ -116,6 +124,25 @@ export class AccountingReportService implements IAccountingReportService {
           const credits = round2(rows.reduce((total, row) => total + row.credits, 0));
 
           return { rows, totals: { debits, credits, balanced: debits === credits } };
+     }
+
+     async generalLedgerSummary(filters: { from?: string; to?: string; accountCode?: string; sourceModule?: string; branchId?: number }) {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId,trx).generalLedgerSummary(filters), { isolationLevel:'repeatable read' }); }
+          const db = await this.connection();
+          const aggregate = async (opening: boolean) => {
+               const q = db('acc_journal_lines as l').join('acc_journal_entries as e','e.id','l.journal_entry_id').join('acc_accounts as a','a.id','l.account_id').whereNot('e.status','voided');
+               if (opening) { if (!filters.from) return []; q.whereRaw('DATE(e.occurred_at) < ?', [filters.from]); }
+               else { if(filters.from) q.whereRaw('DATE(e.occurred_at) >= ?', [filters.from]); if(filters.to) q.whereRaw('DATE(e.occurred_at) <= ?', [filters.to]); }
+               if(filters.branchId) q.where('l.branchid',filters.branchId);
+               if(filters.sourceModule) q.where('e.source_module',filters.sourceModule);
+               if(filters.accountCode) q.where('a.account_code',filters.accountCode);
+               return q.groupBy('a.account_code').select('a.account_code',db.raw("SUM(CASE WHEN l.direction='debit' THEN l.amount ELSE -l.amount END) AS movement"),db.raw("SUM(CASE WHEN l.direction='debit' THEN l.amount ELSE 0 END) AS debits"),db.raw("SUM(CASE WHEN l.direction='credit' THEN l.amount ELSE 0 END) AS credits"));
+          };
+          const opening = new Map((await aggregate(true)).map((r:any)=>[r.account_code,r]));
+          const movement = new Map((await aggregate(false)).map((r:any)=>[r.account_code,r]));
+          const query = db('acc_accounts').orderBy('name'); if(filters.accountCode) query.where('account_code',filters.accountCode);
+          const rows = (await query).map((a:any)=>{const o:any=opening.get(a.account_code), m:any=movement.get(a.account_code);const sign=a.normal_balance==='credit'?-1:1;return {accountCode:a.account_code,accountName:a.name,type:a.type,normalBalance:a.normal_balance,openingBalance:minorUnits(o?.movement||0)*sign/100,debits:Number(m?.debits||0),credits:Number(m?.credits||0),closingBalance:(minorUnits(o?.movement||0)+minorUnits(m?.movement||0))*sign/100};}).filter((r:any)=>r.openingBalance||r.debits||r.credits);
+          return {rows,totals:{debits:sumMinor(rows.map((r:any)=>r.debits))/100,credits:sumMinor(rows.map((r:any)=>r.credits))/100},basis:'accrual'};
      }
 
      async generalLedger(filters: {
@@ -175,7 +202,7 @@ export class AccountingReportService implements IAccountingReportService {
      }
 
      async incomeStatement(from: string, to: string, branchId?: number): Promise<IncomeStatement> {
-          const rows = await this.accountBalances({ from, to, branchId });
+          const rows = (await this.accountBalances({ from, to, branchId, excludeClosing: true })).map(presentationBalance);
 
           const revenue = rows.filter((row) => row.type === 'revenue');
           const expenses = rows.filter((row) => row.type === 'expense');
@@ -202,7 +229,7 @@ export class AccountingReportService implements IAccountingReportService {
      }
 
      async balanceSheet(asOf: string, branchId?: number): Promise<BalanceSheet> {
-          const rows = await this.accountBalances({ to: asOf, branchId });
+          const rows = (await this.accountBalances({ to: asOf, branchId })).map(presentationBalance);
 
           const assets = rows.filter((row) => row.type === 'asset');
           const liabilities = rows.filter((row) => row.type === 'liability');
@@ -231,141 +258,205 @@ export class AccountingReportService implements IAccountingReportService {
           };
      }
 
-     async receivableAging(asOf?: string): Promise<{ rows: AgingBucket[]; totals: AgingBucket }> {
+     async receivableAging(asOf?: string, branchId?: number) { return this.controlAccountAging('AR', asOf, branchId); }
+     async payableAging(asOf?: string, branchId?: number) { return this.controlAccountAging('AP', asOf, branchId); }
+
+     private async controlEvents(ledger: 'AR' | 'AP', asOf?: string, branchId?: number) {
           const db = await this.connection();
-          const cutoff = asOf || new Date().toISOString().split('T')[0];
-
-          const bills = await db('billing')
-               .select('billingid', 'patientid', 'outstanding', 'billedon')
-               .where('outstanding', '>', 0)
-               .whereNotIn('status', ['voided', 'written-off'])
-               .whereRaw('DATE(billedon) <= ?', [cutoff]);
-
-          return bucketise(
-               bills.map((bill: any) => ({
-                    reference: `BILL-${bill.billingid}`,
-                    partyId: bill.patientid ? Number(bill.patientid) : null,
-                    amount: Number(bill.outstanding || 0),
-                    age: daysBetween(bill.billedon, cutoff),
-               }))
-          );
-     }
-
-     async payableAging(asOf?: string): Promise<{ rows: AgingBucket[]; totals: AgingBucket }> {
-          const db = await this.connection();
-          const cutoff = asOf || new Date().toISOString().split('T')[0];
-
-          const received = await db('inv_purchase_order_receipts as r')
-               .join('inv_purchase_orders as o', 'r.order_id', 'o.id')
-               .whereRaw('DATE(r.received_date) <= ?', [cutoff])
-               .andWhere('o.status', '!=', 'cancelled')
-               .groupBy('o.id', 'o.supplier_id', 'o.order_number')
-               .select(
-                    'o.id as order_id',
-                    'o.order_number',
-                    'o.supplier_id',
-                    db.raw('MIN(r.received_date) AS first_received'),
-                    db.raw('COALESCE(SUM(r.quantity_received * r.unit_price), 0) AS received_value')
-               );
-
-          const rows: Array<{ reference: string; partyId: number | null; amount: number; age: number }> = [];
-
-          for (const order of received) {
-               const paidRow = await db('inv_supplier_payments')
-                    .where('purchase_order_id', order.order_id)
-                    .andWhere('payment_status', 'completed')
-                    .sum('payment_amount as paid')
-                    .first();
-
-               const balance = round2(Number(order.received_value || 0) - Number(paidRow?.paid || 0));
-               if (balance <= 0) continue;
-
-               rows.push({
-                    reference: order.order_number || String(order.order_id),
-                    partyId: null,
-                    amount: balance,
-                    age: daysBetween(order.first_received, cutoff),
-               });
+          const cutoff = asOf || new Date().toISOString().slice(0, 10);
+          const movements = await db('acc_journal_lines as l')
+               .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
+               .join('acc_accounts as a', 'l.account_id', 'a.id')
+               .where('a.account_code', ledger === 'AR' ? 'acc-1002' : 'acc-2000')
+               .whereNot('e.status', 'voided').whereRaw('DATE(e.occurred_at) <= ?', [cutoff])
+               .modify((query: any) => { if (branchId) query.where('l.branchid', branchId); })
+               .select('l.*', 'e.occurred_at', 'e.source_table', 'e.source_pk', 'e.source_ref')
+               .orderBy('e.occurred_at', 'asc').orderBy('l.id', 'asc');
+          const metadata = await db('acc_subledger_entries').where({ ledger }).where('document_date', '<=', cutoff).select('*');
+          const sources = new Map(metadata.map((row: any) => [`${row.source_table}:${row.source_ref}`, row]));
+          const billIds = [...new Set(movements.map((row: any) => Number(row.billingid)).filter(Boolean))];
+          const bills = billIds.length ? await db('billing').whereIn('billingid', billIds).select('billingid', 'patientid') : [];
+          const patients = new Map(bills.map((row: any) => [Number(row.billingid), row.patientid]));
+          // Expenses include commissions, utilities and other obligations, not only inventory receipts.
+          const expenseIds = [...new Set(movements.map((row: any) => Number(row.expense_id)).filter(Boolean))];
+          const expenses = expenseIds.length ? await db('expensesrecord').whereIn('id', expenseIds).select('*') : [];
+          const expenseById = new Map(expenses.map((row: any) => [Number(row.id), row]));
+          const patientIds = [...new Set(bills.map((row: any) => Number(row.patientid)).filter(Boolean))];
+          const patientRows = patientIds.length ? await db('new_patients').whereIn('patientid', patientIds).select('patientid', 'firstname', 'middlename', 'lastname', 'fullpatientid') : [];
+          const patientById = new Map(patientRows.map((row: any) => [Number(row.patientid), row]));
+          const receiptRefs = movements.filter((row: any) => row.source_table === 'inv_purchase_order_receipts').map((row: any) => row.source_ref || String(row.source_pk));
+          const receipts = receiptRefs.length ? await db('inv_purchase_order_receipts as r').join('inv_purchase_orders as o', 'o.id', 'r.order_id').whereIn('r.id', receiptRefs).select('r.id', 'o.supplier_id') : [];
+          const supplierPaymentRefs = movements.filter((row: any) => row.source_table === 'inv_supplier_payments').map((row: any) => row.source_ref || String(row.source_pk));
+          const supplierPayments = supplierPaymentRefs.length ? await db('inv_supplier_payments').whereIn('id', supplierPaymentRefs).select('id', 'supplier_id') : [];
+          const supplierBySource = new Map([...receipts.map((row: any) => [`inv_purchase_order_receipts:${row.id}`, row.supplier_id]), ...supplierPayments.map((row: any) => [`inv_supplier_payments:${row.id}`, row.supplier_id])]);
+          const events: any[] = [];
+          for (const movement of movements) {
+               const ref = movement.source_ref || String(movement.source_pk);
+               const meta: any = sources.get(`${movement.source_table}:${ref}`);
+               const expense: any = expenseById.get(Number(movement.expense_id));
+               const partyId = ledger === 'AR' ? patients.get(Number(movement.billingid)) ?? meta?.party_id ?? null : supplierBySource.get(`${movement.source_table}:${ref}`) ?? meta?.party_id ?? expense?.merchantid ?? expense?.merchant ?? null;
+               const partyType = ledger === 'AR' ? 'patient' : supplierBySource.has(`${movement.source_table}:${ref}`) ? 'supplier' : meta?.party_type || (expense ? 'merchant' : 'unassigned');
+               const patient: any = patientById.get(Number(partyId));
+               const partyName = ledger === 'AR' ? [patient?.firstname, patient?.middlename, patient?.lastname].filter(Boolean).join(' ') : meta?.party_name || null;
+               const reference = movement.billingid ? `BILL-${movement.billingid}` : movement.expense_id ? `EXP-${movement.expense_id}` : meta?.document_ref || `${movement.source_table}:${ref}`;
+               events.push({ id: movement.id, reference, partyId, partyType, partyName, patientIdentifier: patient?.fullpatientid || null,
+                    documentDate: new Date(movement.occurred_at).toISOString().slice(0,10),
+                    amount: minorUnits(movement.amount) * (movement.direction === (ledger === 'AR' ? 'debit' : 'credit') ? 1 : -1),
+                    source_table: movement.source_table, source_ref: ref });
           }
-
-          return bucketise(rows);
+          return events;
      }
 
-     async cashFlow(from: string, to: string): Promise<CashFlowStatement> {
-          const db = await this.connection();
+     /** Posted movements are authoritative, so historical aging always ties to its GL control. */
+     private async controlAccountAging(ledger: 'AR' | 'AP', asOf?: string, branchId?: number) {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).controlAccountAging(ledger, asOf, branchId), { isolationLevel: 'repeatable read' }); }
+          const cutoff = asOf || new Date().toISOString().slice(0, 10);
+          const movements = await this.controlEvents(ledger, cutoff, branchId);
+          const documents = new Map<string, any>();
+          for (const movement of movements) {
+               const { reference, partyId, partyType, partyName } = movement;
+               const key = `${partyType}:${partyId ?? 'unassigned'}:${reference}`;
+               const previous = documents.get(key);
+               const amount = movement.amount;
+               documents.set(key, { key: `${partyType}:${partyId ?? reference}`, reference, partyId, amount: (previous?.amount || 0) + amount, date: previous?.date || movement.documentDate, partyType, partyName, patientIdentifier: movement.patientIdentifier });
+          }
+          const groups = new Map<string, Array<any>>();
+          for (const doc of documents.values()) { if (!groups.has(doc.key)) groups.set(doc.key, []); groups.get(doc.key)!.push(doc); }
+          const items: Array<any> = [];
+          for (const docs of groups.values()) {
+               const charges = docs.filter(doc => doc.amount > 0).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+               let credit = -docs.filter(doc => doc.amount < 0).reduce((sum, doc) => sum + doc.amount, 0);
+               for (const doc of charges) {
+                    const applied = Math.min(credit, doc.amount); credit -= applied;
+                    if (doc.amount > applied) items.push({ ...doc, amount: (doc.amount - applied) / 100, age: daysBetween(doc.date, cutoff) });
+               }
+               if (credit) items.push({ ...docs[0], reference: `Unapplied credit: ${docs[0].key}`, amount: -credit / 100, age: 0 });
+          }
+          const result = bucketise(items);
+          const rows = result.rows.map((row, index) => ({ ...row, partyType: items[index].partyType, partyName: items[index].partyName || null, patientIdentifier: items[index].patientIdentifier || null, documentDate: new Date(items[index].date).toISOString().slice(0,10), ageDays: items[index].age }));
+          const generalLedger = movements.reduce((sum: number, row: any) => sum + row.amount, 0) / 100;
+          return { ...result, rows, basis: 'accrual', reconciliation: { generalLedger, difference: (minorUnits(result.totals.total) - minorUnits(generalLedger)) / 100 } };
+     }
 
+     async controlStatement(ledger: 'AR' | 'AP', partyType: string, partyId: string | number, from?: string, to?: string, options: any = {}) {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).controlStatement(ledger, partyType, partyId, from, to, options), { isolationLevel: 'repeatable read' }); }
+          const rows = (await this.controlEvents(ledger, to)).filter(row => row.partyType === partyType && String(row.partyId) === String(partyId));
+          let running = rows.filter(row => from && row.documentDate < from).reduce((sum, row) => sum + row.amount, 0);
+          const openingBalance = running / 100;
+          const entries = rows.filter(row => !from || row.documentDate >= from).map(row => {
+               running += row.amount;
+               return { id: row.id, ledger, party_type: row.partyType, party_id: row.partyId, party_name: row.partyName, document_date: row.documentDate, document_ref: row.reference,
+                    document_type: row.amount >= 0 ? 'charge' : 'settlement', source_table: row.source_table, source_ref: row.source_ref, amount: row.amount / 100, runningBalance: running / 100 };
+          });
+          const paging = parsePaging(options, 50);
+          return { entries: entries.slice(paging.offset, paging.offset + paging.count), total: entries.length, page: paging.page, count: paging.count, openingBalance, closingBalance: running / 100, basis: 'accrual' };
+     }
+
+     async aging(ledger: 'AR' | 'AP', asOf?: string, options: any = {}) {
+          const report = await this.controlAccountAging(ledger, asOf);
+          const search = String(options.search || '').trim().toLocaleLowerCase();
+          const allowedBuckets = ['current','days30','days60','days90','over90'];
+          const rows = report.rows.filter(row => (!options.from || row.documentDate >= options.from) && (!options.to || row.documentDate <= options.to) &&
+               (!options.patientId || String(row.partyId) === String(options.patientId)) && (!allowedBuckets.includes(options.ageBucket) || row[options.ageBucket] !== 0) &&
+               (!search || [row.partyName, row.patientIdentifier, row.partyId, row.reference].some(value => String(value || '').toLocaleLowerCase().includes(search))));
+          const totals = Object.fromEntries(['current','days30','days60','days90','over90','total'].map(key => [key, sumMinor(rows.map(row => row[key])) / 100]));
+          const paging = parsePaging(options, 50), sort = parseSort(options, ['partyName','partyId','patientIdentifier','reference','documentDate','ageDays','current','days30','days60','days90','over90','total'], { column:'documentDate', direction:'desc' });
+          const page = paginate(rows, paging, sort);
+          return { rows: page.data, total: page.total, page: page.page, count: page.count, totals, basis: report.basis, reconciliation: report.reconciliation };
+     }
+
+     async cashFlow(from: string, to: string, method: 'direct' | 'indirect' = 'direct'): Promise<CashFlowStatement> {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).cashFlow(from, to, method), { isolationLevel: 'repeatable read' }); }
+          const db = await this.connection();
+          const cashAccounts = await this.cashAccountCodes();
           const cashLines = await db('acc_journal_lines as l')
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
-               .whereIn('a.account_code', CASH_ACCOUNTS)
-               .andWhere('e.status', '!=', 'voided')
-               .andWhereRaw('DATE(e.occurred_at) >= ?', [from])
-               .andWhereRaw('DATE(e.occurred_at) <= ?', [to])
+               .whereIn('a.account_code', cashAccounts).whereNot('e.status', 'voided')
+               .whereRaw('DATE(e.occurred_at) >= ?', [from]).whereRaw('DATE(e.occurred_at) <= ?', [to])
                .select('e.id as entry_id', 'l.direction', 'l.amount');
-
           const netByEntry = new Map<number, number>();
-          for (const line of cashLines) {
-               const signed = line.direction === 'debit' ? Number(line.amount) : -Number(line.amount);
-               netByEntry.set(line.entry_id, round2((netByEntry.get(line.entry_id) || 0) + signed));
-          }
-
-          const entryIds = [...netByEntry.keys()].filter((id) => Math.abs(netByEntry.get(id) || 0) > 0.001);
+          for (const line of cashLines) netByEntry.set(Number(line.entry_id), (netByEntry.get(Number(line.entry_id)) || 0) + minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1));
+          const entryIds = [...netByEntry.keys()].filter(id => netByEntry.get(id) !== 0);
+          const operatingByEntry = new Map<number,number>();
           const buckets = new Map<string, CashFlowLine>();
-
-          if (entryIds.length > 0) {
-               const counterparts = await db('acc_journal_lines as l')
-                    .join('acc_accounts as a', 'l.account_id', 'a.id')
-                    .whereIn('l.journal_entry_id', entryIds)
-                    .whereNotIn('a.account_code', CASH_ACCOUNTS)
-                    .select('l.journal_entry_id', 'l.amount', 'a.account_code', 'a.name', 'a.type');
-
-               const weightByEntry = new Map<number, number>();
-               for (const line of counterparts) {
-                    weightByEntry.set(
-                         line.journal_entry_id,
-                         round2((weightByEntry.get(line.journal_entry_id) || 0) + Number(line.amount))
-                    );
-               }
-
-               for (const line of counterparts) {
-                    const entryNet = netByEntry.get(line.journal_entry_id) || 0;
-                    const weight = weightByEntry.get(line.journal_entry_id) || 0;
-                    if (weight === 0) continue;
-
-                    const share = round2(entryNet * (Number(line.amount) / weight));
-                    const category = classifyCashFlow(line.account_code, line.type);
-                    const key = `${category}:${line.account_code}`;
-
-                    const existing = buckets.get(key);
-                    if (existing) existing.amount = round2(existing.amount + share);
-                    else
-                         buckets.set(key, {
-                              category,
-                              accountCode: line.account_code,
-                              accountName: line.name,
-                              amount: share,
-                         });
+          const classificationIssues: Array<{ journalEntryId: number; amount: number }> = [];
+          if (entryIds.length) {
+               const counterparts = await db('acc_journal_lines as l').join('acc_accounts as a', 'l.account_id', 'a.id')
+                    .whereIn('l.journal_entry_id', entryIds).whereNotIn('a.account_code', cashAccounts)
+                    .select('l.journal_entry_id', 'l.amount', 'l.direction', 'a.account_code', 'a.name', 'a.type');
+               const classifications = await db('acc_cash_flow_classifications').whereIn('journal_entry_id', entryIds);
+               const reviewed = new Map(classifications.map((row: any) => [Number(row.journal_entry_id), row]));
+               const add = (entryId:number, category: CashFlowLine['category'], code: string, name: string, amount: number) => {
+                    if(category==='operating') operatingByEntry.set(entryId,(operatingByEntry.get(entryId)||0)+amount);
+                    const key = `${category}:${code}`, previous = buckets.get(key);
+                    buckets.set(key, { category, accountCode: code, accountName: name, amount: (previous?.amount || 0) + amount });
+               };
+               for (const id of entryIds) {
+                    const net = netByEntry.get(id)!;
+                    const saved: any = reviewed.get(id);
+                    if (saved && sumMinor([saved.operating, saved.investing, saved.financing]) === net) {
+                         for (const category of ['operating','investing','financing'] as const) add(id, category, `JOURNAL-${id}`, 'Reviewed cash flow classification', minorUnits(saved[category]));
+                         continue;
+                    }
+                    const parts = counterparts.filter((line: any) => Number(line.journal_entry_id) === id);
+                    const categories = new Set(parts.map((line: any) => classifyCashFlow(line.account_code, line.type)));
+                    // A compound cash/non-cash journal does not prove the gross cash split.
+                    // Keep its cash visible and require an explicit reviewed allocation.
+                    if (categories.size > 1) {
+                         add(id, 'unclassified', `JOURNAL-${id}`, 'Compound journal: classification required', net);
+                         classificationIssues.push({ journalEntryId: id, amount: net / 100 });
+                    } else {
+                         for (const line of parts) add(id, classifyCashFlow(line.account_code, line.type), line.account_code, line.name, minorUnits(line.amount) * (line.direction === 'credit' ? 1 : -1));
+                    }
                }
           }
+          const lines = [...buckets.values()].filter(line => line.amount !== 0).map(line => ({ ...line, amount: line.amount / 100 }));
+          const sumBy = (category: CashFlowLine['category']) => sumMinor(lines.filter(line => line.category === category).map(line => line.amount)) / 100;
+          const openingCash = await this.cashBalanceAsOf(previousDay(from), cashAccounts), closingCash = await this.cashBalanceAsOf(to, cashAccounts);
+          const netMovement = (minorUnits(closingCash) - minorUnits(openingCash)) / 100;
+          const allocated = sumMinor(lines.map(line => line.amount));
+          const indirect = method === 'indirect' ? await this.indirectOperating(from,to,cashAccounts,operatingByEntry) : undefined;
+          return { method, indirect, lines, classificationIssues, totals: { operating: sumBy('operating'), investing: sumBy('investing'), financing: sumBy('financing'), unclassified: sumBy('unclassified'), netMovement, openingCash, closingCash },
+               reconciliation: { difference: (minorUnits(netMovement) - allocated) / 100, balanced: minorUnits(netMovement) === allocated } };
+     }
 
-          const lines = [...buckets.values()].filter((line) => Math.abs(line.amount) > 0.001);
-          const sumBy = (category: CashFlowLine['category']) =>
-               round2(lines.filter((line) => line.category === category).reduce((total, line) => total + line.amount, 0));
+     private async indirectOperating(from:string,to:string,cashAccounts:string[],operatingByEntry:Map<number,number>) {
+          const db=await this.connection();
+          const rows=await db('acc_journal_lines as l').join('acc_journal_entries as e','e.id','l.journal_entry_id').join('acc_accounts as a','a.id','l.account_id').whereNot('e.status','voided').where((b:any)=>b.whereNull('e.source_table').orWhereNot('e.source_table','acc_year_close')).whereRaw('DATE(e.occurred_at) >= ?',[from]).whereRaw('DATE(e.occurred_at) <= ?',[to]).select('e.id','e.description','e.occurred_at','a.account_code','a.name','a.type','l.direction','l.amount');
+          let netIncome=0;const working=new Map<string,any>(),adjustments=new Map<string,any>(),entries=new Map<number,any>();
+          const add=(map:Map<string,any>,r:any,amount:number)=>{const old=map.get(r.account_code);map.set(r.account_code,{accountCode:r.account_code,accountName:r.name,amount:(old?.amount||0)+amount});};
+          for(const r of rows){const movement=minorUnits(r.amount)*(r.direction==='debit'?1:-1);let ni=0,wc=0,adj=0;
+               if(r.type==='revenue'||r.type==='expense') ni=-movement;
+               else if(r.account_code==='acc-1007') {adj=-movement;add(adjustments,r,adj);}
+               else if(!cashAccounts.includes(r.account_code)&&classifyCashFlow(r.account_code,r.type)==='operating'&&(r.type==='asset'||r.type==='liability')) {wc=-movement;add(working,r,wc);}
+               netIncome+=ni;const old=entries.get(Number(r.id))||{journalEntryId:Number(r.id),description:r.description,date:r.occurred_at,derived:0};old.derived+=ni+wc+adj;entries.set(Number(r.id),old);
+          }
+          const convert=(m:Map<string,any>)=>[...m.values()].filter(r=>r.amount!==0).map(r=>({...r,amount:r.amount/100}));
+          const reclassifications=[...entries.values()].map(e=>({journalEntryId:e.journalEntryId,description:e.description,date:e.date,amount:((operatingByEntry.get(e.journalEntryId)||0)-e.derived)/100})).filter(e=>e.amount!==0);
+          const adjustmentRows=convert(adjustments),workingCapital=convert(working);
+          return {netIncome:netIncome/100,adjustments:adjustmentRows,adjustmentsTotal:sumMinor(adjustmentRows.map(r=>r.amount))/100,workingCapital,workingCapitalTotal:sumMinor(workingCapital.map(r=>r.amount))/100,reclassifications,reclassificationsTotal:sumMinor(reclassifications.map(r=>r.amount))/100};
+     }
 
-          const openingCash = await this.cashBalanceAsOf(previousDay(from));
-          const netMovement = round2(sumBy('operating') + sumBy('investing') + sumBy('financing'));
-
-          return {
-               lines: lines.sort((left, right) => left.category.localeCompare(right.category) || right.amount - left.amount),
-               totals: {
-                    operating: sumBy('operating'),
-                    investing: sumBy('investing'),
-                    financing: sumBy('financing'),
-                    netMovement,
-                    openingCash,
-                    closingCash: round2(openingCash + netMovement),
-               },
-          };
+     async saveCashFlowClassification(journalEntryId: number, amounts: { operating: number; investing: number; financing: number }, employeeId: number) {
+          const db = await this.connection();
+          return db.transaction(async (trx: any) => {
+               const entry = await trx('acc_journal_entries').where({ id: journalEntryId }).first();
+               if (!entry || entry.status === 'voided') throw new AccountingError('Posted journal not found', 'JOURNAL_ENTRY_NOT_FOUND', 404);
+               await new AccountingPeriodService(this.tenantId).assertPostingAllowed(entry.occurred_at, trx);
+               await new FinancialFinalizationGuard(this.tenantId, trx).assertRecordMutable('acc_journal_entries', journalEntryId);
+               await trx('acc_journal_entries').where({ id: journalEntryId }).forUpdate().first();
+               const report = new AccountingReportService(this.tenantId, trx), codes = await report.cashAccountCodes();
+               const cash = await trx('acc_journal_lines as l').join('acc_accounts as a','a.id','l.account_id').where('l.journal_entry_id',journalEntryId).whereIn('a.account_code',codes).select('l.amount','l.direction','l.branchid');
+               for (const branchId of [...new Set<number>(cash.map((line: any) => Number(line.branchid)).filter(Boolean))]) await new FinancialFinalizationGuard(this.tenantId, trx).assertDateOpen(branchId, entry.occurred_at);
+               const net = cash.reduce((sum: number, line: any) => sum + minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1), 0);
+               if (!net || sumMinor([amounts.operating, amounts.investing, amounts.financing]) !== net) throw new AccountingError('Classification must exactly equal the journal cash movement', 'INVALID_CASH_FLOW_CLASSIFICATION', 400);
+               const before = await trx('acc_cash_flow_classifications').where({ journal_entry_id: journalEntryId }).first();
+               const after = { journal_entry_id: journalEntryId, operating: minorUnits(amounts.operating)/100, investing: minorUnits(amounts.investing)/100, financing: minorUnits(amounts.financing)/100, updated_by: employeeId, updated_at: new Date() };
+               await trx('acc_cash_flow_classifications').insert(after).onConflict('journal_entry_id').merge();
+               await trx('acc_control_audit').insert({ action:'cash_flow_classification', entity_id:journalEntryId, employee_id:employeeId, before_state:JSON.stringify(before || {}), after_state:JSON.stringify(after), created_at:new Date() });
+               return after;
+          });
      }
 
      async periodBreakdown(
@@ -380,6 +471,7 @@ export class AccountingReportService implements IAccountingReportService {
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
                .where('a.type', type)
+               .where((b:any)=>b.whereNull('e.source_table').orWhereNot('e.source_table','acc_year_close'))
                .andWhere('e.status', '!=', 'voided')
                .andWhereRaw('DATE(e.occurred_at) >= ?', [from])
                .andWhereRaw('DATE(e.occurred_at) <= ?', [to])
@@ -396,12 +488,12 @@ export class AccountingReportService implements IAccountingReportService {
           if (branchId) query.andWhere('l.branchid', branchId);
 
           const raw = await query;
-          const periods = [...new Set(raw.map((row: any) => row.period as string))].sort();
+          const periods: string[] = [...new Set<string>(raw.map((row: any) => String(row.period)))].sort();
           const byAccount = new Map<string, PeriodBreakdownRow>();
 
           for (const row of raw) {
                const balance =
-                    row.normal_balance === 'debit'
+                    type === 'expense'
                          ? Number(row.debits) - Number(row.credits)
                          : Number(row.credits) - Number(row.debits);
 
@@ -435,6 +527,7 @@ export class AccountingReportService implements IAccountingReportService {
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
                .whereIn('a.type', ['revenue', 'expense'])
+               .where((b:any)=>b.whereNull('e.source_table').orWhereNot('e.source_table','acc_year_close'))
                .andWhere('e.status', '!=', 'voided')
                .andWhereRaw('DATE(e.occurred_at) >= ?', [from])
                .andWhereRaw('DATE(e.occurred_at) <= ?', [to])
@@ -465,7 +558,7 @@ export class AccountingReportService implements IAccountingReportService {
 
                const entry = byBranch.get(key)!;
                const balance =
-                    row.normal_balance === 'debit'
+                    row.type === 'expense'
                          ? Number(row.debits) - Number(row.credits)
                          : Number(row.credits) - Number(row.debits);
 
@@ -540,13 +633,19 @@ export class AccountingReportService implements IAccountingReportService {
           };
      }
 
-     private async cashBalanceAsOf(asOf: string): Promise<number> {
+     private async cashAccountCodes(): Promise<string[]> {
+          const db = await this.connection();
+          const banks = await db('acc_bank_accounts').select('gl_account_code');
+          return [...new Set<string>([...CASH_ACCOUNTS, ...banks.map((bank: any) => String(bank.gl_account_code))])];
+     }
+
+     private async cashBalanceAsOf(asOf: string, codes?: string[]): Promise<number> {
           const db = await this.connection();
 
           const row = await db('acc_journal_lines as l')
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
-               .whereIn('a.account_code', CASH_ACCOUNTS)
+               .whereIn('a.account_code', codes || await this.cashAccountCodes())
                .andWhere('e.status', '!=', 'voided')
                .andWhereRaw('DATE(e.occurred_at) <= ?', [asOf])
                .select(
@@ -559,6 +658,7 @@ export class AccountingReportService implements IAccountingReportService {
      }
 
      private async accountBalances(filters: {
+          excludeClosing?: boolean;
           from?: string;
           to?: string;
           branchId?: number;
@@ -583,6 +683,7 @@ export class AccountingReportService implements IAccountingReportService {
                builder.whereNull('e.id').orWhere('e.status', '!=', 'voided');
           });
 
+          if (filters.excludeClosing) query.where((b:any)=>b.whereNull('e.source_table').orWhereNot('e.source_table','acc_year_close'));
           if (filters.from) query.andWhere((b: any) => b.whereNull('e.id').orWhereRaw('DATE(e.occurred_at) >= ?', [filters.from]));
           if (filters.to) query.andWhere((b: any) => b.whereNull('e.id').orWhereRaw('DATE(e.occurred_at) <= ?', [filters.to]));
           if (filters.branchId) query.andWhere((b: any) => b.whereNull('e.id').orWhere('l.branchid', filters.branchId));
@@ -678,4 +779,9 @@ function performanceTotals(statement: IncomeStatement) {
           expenses,
           profit: round2(statement.totals.revenue - expenses),
      };
+}
+
+/** Contra accounts retain their sign in financial statements, regardless of normal balance. */
+function presentationBalance(row: TrialBalanceRow): TrialBalanceRow {
+     return { ...row, balance: (minorUnits(row.debits) - minorUnits(row.credits)) * (['asset', 'expense'].includes(row.type) ? 1 : -1) / 100 };
 }

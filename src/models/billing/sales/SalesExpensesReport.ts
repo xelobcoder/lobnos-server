@@ -46,6 +46,7 @@ export interface ReportTransaction {
 }
 export interface ReportReceipt {
      id: number | string; date: string; billingId: number; patientName: string; method: string; amount: number;
+     cashier?: string;
      type?: 'receipt' | 'refund';
      source?: 'billinghx' | 'organization_invoice';
 }
@@ -64,6 +65,7 @@ export interface SalesExpensesReport {
           receipts: number; expensePayments: number; netCashMovement: number; outstanding: number;
           receiptCredits?: number; receiptRefunds?: number;
      };
+     inlineServices?: Array<{billingId:number;serviceId:number;name:string;department:string;amount:number;paid:number;outstanding:number}>;
      transactions: ReportTransaction[];
      receipts: ReportReceipt[];
      expenses: ReportExpense[];
@@ -198,6 +200,7 @@ export function assembleSalesReport(
           id: row.id, date: row.date, billingId: Number(row.billingid), patientName: row.patientName || '',
           method: row.method || 'Unknown', amount: number(row.type === 'debit' ? money(row.amount).negated() : money(row.amount)),
           type: row.type === 'debit' ? 'refund' : 'receipt', source: row.source,
+          ...(row.cashier!==undefined?{cashier:String(row.cashier||'Unassigned')}:{}),
      }));
      const expenses: ReportExpense[] = expenseRows.map(row => ({
           id: row.id, date: row.date, description: row.description || row.name || '', category: row.category || 'Uncategorized',
@@ -260,9 +263,20 @@ export class SalesExpensesReportService {
                // Sequential reads intentionally use the same transaction connection.
                const bills = await queries.bills;
                const services = await queries.services;
+               if(query.inlineDetails==='true')queries.receipts.leftJoin('roles as cashier','cashier.employeeid','receipt.employeeid').select('cashier.username as cashier');
                const receipts = await queries.receipts;
                const expenses = await queries.expenses;
-               return assembleSalesReport(filters, branch, company, bills, services, receipts, expenses);
+               const report=assembleSalesReport(filters, branch, company, bills, services, receipts, expenses);
+               if(query.inlineDetails==='true'){
+                    const serviceQuery=periodBills(trx('billing as bill'),filters).join('dboservices as service','service.billingid','bill.billingid')
+                         .leftJoin('test_panels as panel',function(){this.on('panel.id','=','service.trackId').andOnVal('service.serviceCategory','<>','SERVICES');})
+                         .leftJoin('additionalservices as additional',function(){this.on('additional.keyid','=','service.trackId').andOnVal('service.serviceCategory','=','SERVICES');})
+                         .leftJoin('departments as department','department.id','panel.category')
+                         .select('bill.billingid','service.serviceid','service.totalpayable','service.paidamount','service.outstanding','panel.name as panelName','additional.serviceName','department.department');
+                    validService(serviceQuery,'service');
+                    report.inlineServices=(await serviceQuery).map((row:any)=>({billingId:Number(row.billingid),serviceId:Number(row.serviceid),name:row.serviceName||row.panelName||'Unnamed service',department:row.department||'Other services',amount:number(money(row.totalpayable)),paid:number(money(row.paidamount)),outstanding:number(money(row.outstanding))}));
+               }
+               return report;
           // MariaDB rejects Knex's combined "ISOLATION LEVEL ... READ ONLY" statement; this service only reads.
           }, { isolationLevel: 'repeatable read' });
      }

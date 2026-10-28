@@ -1,3 +1,4 @@
+import { accountingPlanningRouter } from './AccountingPlanningController';
 import { Router } from 'express';
 import { AccountingReportController } from './AccountingReportController';
 import { ManualJournalController } from './ManualJournalController';
@@ -12,9 +13,11 @@ const accountingRouter = Router();
 
 // the books are visible only to signed-in administrators and accountants
 accountingRouter.use('/api/v1/accounting', checkTokenExists, requireAccountingRole);
+accountingRouter.use(accountingPlanningRouter);
 
 accountingRouter.get('/api/v1/accounting/reports/trial-balance', AccountingReportController.trialBalance);
 accountingRouter.get('/api/v1/accounting/reports/financial-overview', AccountingReportController.financialOverview);
+accountingRouter.get('/api/v1/accounting/reports/general-ledger-summary', AccountingReportController.generalLedgerSummary);
 accountingRouter.get('/api/v1/accounting/reports/general-ledger', AccountingReportController.generalLedger);
 accountingRouter.get('/api/v1/accounting/reports/income-statement', AccountingReportController.incomeStatement);
 accountingRouter.get('/api/v1/accounting/reports/balance-sheet', AccountingReportController.balanceSheet);
@@ -22,6 +25,7 @@ accountingRouter.get('/api/v1/accounting/reports/receivables', AccountingReportC
 accountingRouter.get('/api/v1/accounting/reports/receivable-aging', AccountingReportController.receivableAging);
 accountingRouter.get('/api/v1/accounting/reports/payable-aging', AccountingReportController.payableAging);
 accountingRouter.get('/api/v1/accounting/accounts', AccountingReportController.accounts);
+accountingRouter.post('/api/v1/accounting/reports/cash-flow/:journalEntryId/classification', requireAuthority('accounting.journal.post'), AccountingReportController.classifyCashFlow);
 accountingRouter.get('/api/v1/accounting/reports/cash-flow', AccountingReportController.cashFlow);
 accountingRouter.get('/api/v1/accounting/reports/revenue-analysis', AccountingReportController.revenueAnalysis);
 accountingRouter.get('/api/v1/accounting/reports/expense-analysis', AccountingReportController.expenseAnalysis);
@@ -49,6 +53,7 @@ accountingRouter.post('/api/v1/accounting/reconciliation/backfill', requireOwner
      }
 });
 
+accountingRouter.get('/api/v1/accounting/control-history', AccountingReportController.controlHistory);
 accountingRouter.get('/api/v1/accounting/periods', AccountingReportController.listPeriods);
 accountingRouter.get('/api/v1/accounting/periods/:periodCode/totals', AccountingReportController.periodTotals);
 accountingRouter.put('/api/v1/accounting/periods/:periodCode/status', requireAuthority('accounting.period.close'), AccountingReportController.setPeriodStatus);

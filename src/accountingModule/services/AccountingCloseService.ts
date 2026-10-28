@@ -12,7 +12,7 @@ import {
 } from '../interfaces/IAccountingCloseService';
 
 const RETAINED_EARNINGS = 'acc-3001';
-const BALANCE_TOLERANCE = 0.01;
+import { minorUnits, sumMinor } from '../utils/money';
 
 export class AccountingCloseService implements IAccountingCloseService {
      constructor(private tenantId: number) { }
@@ -122,10 +122,14 @@ export class AccountingCloseService implements IAccountingCloseService {
                );
           }
 
-          const debits = round2(lines.reduce((total, line) => total + Number(line.debit || 0), 0));
-          const credits = round2(lines.reduce((total, line) => total + Number(line.credit || 0), 0));
+          for (const line of lines) {
+               const debit = minorUnits(line.debit || 0), credit = minorUnits(line.credit || 0);
+               if (debit < 0 || credit < 0 || (debit > 0 && credit > 0)) throw new AccountingError('Enter either a positive debit or a positive credit per opening line', 'INVALID_JOURNAL_LINE', 400);
+          }
+          const debits = sumMinor(lines.map(line => line.debit || 0)) / 100;
+          const credits = sumMinor(lines.map(line => line.credit || 0)) / 100;
 
-          if (Math.abs(debits - credits) > BALANCE_TOLERANCE) {
+          if (minorUnits(debits) !== minorUnits(credits)) {
                throw new UnbalancedTransactionError(debits, credits);
           }
 

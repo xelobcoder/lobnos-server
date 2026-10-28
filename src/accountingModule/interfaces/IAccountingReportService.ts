@@ -79,12 +79,14 @@ export interface FinancialOverview {
           netAssets: number;
           balanceDifference: number;
      };
+     accountSnapshot?: Array<{accountCode:string;name:string;type:string;normalBalance:string;balance:number;basis:string}>;
+     expenseBreakdown?: Array<{accountCode:string;name:string;amount:number}>;
      trend: { periods: string[]; revenue: number[]; expenses: number[]; profit: number[] };
 }
 
 export interface AgingBucket {
      reference: string;
-     partyId: number | null;
+     partyId: number | string | null;
      current: number;
      days30: number;
      days60: number;
@@ -94,18 +96,23 @@ export interface AgingBucket {
 }
 
 export interface CashFlowLine {
-     category: 'operating' | 'investing' | 'financing';
+     category: 'operating' | 'investing' | 'financing' | 'unclassified';
      accountCode: string;
      accountName: string;
      amount: number;
 }
 
 export interface CashFlowStatement {
+     method?: 'direct' | 'indirect';
+     indirect?: { netIncome:number; adjustments:Array<{accountCode:string;accountName:string;amount:number}>; adjustmentsTotal:number; workingCapital:Array<{accountCode:string;accountName:string;amount:number}>; workingCapitalTotal:number; reclassifications:Array<{journalEntryId:number;description:string;date:string;amount:number}>; reclassificationsTotal:number };
+     classificationIssues?: Array<{ journalEntryId: number; amount: number }>;
+     reconciliation?: { difference: number; balanced: boolean };
      lines: CashFlowLine[];
      totals: {
           operating: number;
           investing: number;
           financing: number;
+          unclassified?: number;
           netMovement: number;
           openingCash: number;
           closingCash: number;
@@ -178,7 +185,7 @@ export interface IAccountingReportService {
      /** Outstanding customer balances bucketed by the age of the bill. */
      receivableAging(asOf?: string): Promise<{ rows: AgingBucket[]; totals: AgingBucket }>;
 
-     /** Outstanding supplier balances bucketed by the age of the purchase order receipt. */
+     /** Posted supplier and expense obligations at the cutoff, including unapplied credits. */
      payableAging(asOf?: string): Promise<{ rows: AgingBucket[]; totals: AgingBucket }>;
 
      /**

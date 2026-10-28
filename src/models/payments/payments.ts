@@ -157,7 +157,9 @@ class Payment {
 				.innerJoin('billing AS b', 'np.patientid', 'b.patientid')
 				.innerJoin("dboservices AS s", 's.billingid', 'b.billingid')
 				.innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby')
-				.innerJoin("dbobillingrefundtable AS r", 'r.serviceid', 's.serviceid')
+				.leftJoin("dbobillingrefundtable AS r", 'r.serviceid', 's.serviceid')
+               .where('s.branchid',Number(branchid))
+               .where('b.branchid',Number(branchid))
 
 			if (patientid) {
 				query = query.where('np.patientid', parseInt(patientid.toString()));

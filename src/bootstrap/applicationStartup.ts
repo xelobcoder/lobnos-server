@@ -1,3 +1,4 @@
+import { processDueRecurringExpenses } from '../accountingModule/services/RecurringExpenseService';
 import { consultationDb } from '../models/consultation/ConsultationSchema';
 import { bootstrapNhisIdentifiers } from '../models/billing/NhisIdentifiers';
 import { bootstrapOperationalControls } from '../models/operations/OperationalControlsBootstrapper';
@@ -149,6 +150,7 @@ export function startApplicationBackgroundWorkers(tenantIds: number[], options: 
 
 	const sweep = (label: string) => {
 		for (const tenantId of tenantIds) {
+			processDueRecurringExpenses(tenantId).catch(error => console.error(`[Accounting] recurring expense sweep failed for tenant ${tenantId}:`, error));
 			processPendingOutbox(tenantId).catch((error) => {
 				console.error(`[Accounting] ${label} outbox sweep failed for tenant ${tenantId}:`, error);
 			});

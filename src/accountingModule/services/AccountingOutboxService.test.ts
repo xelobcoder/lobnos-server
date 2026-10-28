@@ -9,6 +9,8 @@ vi.mock('../../database/KnexConnections', () => ({ default: connectionMock }));
 vi.mock('../index', () => ({ createAccountingService: vi.fn(() => ({ postTransaction: postTransactionMock })) }));
 vi.mock('../../hooks/logger', () => ({ default: { error: vi.fn(), warn: vi.fn() } }));
 
+vi.mock('./AccountingPeriodService', () => ({ AccountingPeriodService: class { async assertPostingAllowed() {} } }));
+
 import { enqueuePosting, processPendingOutbox } from './AccountingOutboxService';
 
 describe('AccountingOutboxService', () => {

@@ -12,12 +12,14 @@ import { JournalStatus } from '../enums/journal-status.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
 import {
      AccountNotFoundError,
+     PeriodClosedError,
      EmptyTransactionError,
      JournalEntryNotFoundError,
      UnbalancedTransactionError,
 } from '../errors/AccountingErrors';
 
-const BALANCE_TOLERANCE = 0.01;
+import { minorUnits, sumMinor } from '../utils/money';
+import { AccountingError } from '../errors/AccountingErrors';
 
 export class AccountingService implements IAccountingService {
      constructor(private repository: IAccountingRepository) { }
@@ -26,6 +28,19 @@ export class AccountingService implements IAccountingService {
           if (!input.lines || input.lines.length === 0) {
                throw new EmptyTransactionError();
           }
+
+          // All validation and the period check share the posting transaction and its lock.
+          if (!input.trx) {
+               const db = await KnexConnection(input.tenantId);
+               return db.transaction((trx) => this.postTransaction({ ...input, trx }));
+          }
+          const normalised = input.lines.map(line => {
+               const amount = minorUnits(line.amount);
+               if (amount < 0 || ![NormalBalance.DEBIT, NormalBalance.CREDIT].includes(line.direction)) throw new AccountingError('Invalid journal line', 'INVALID_JOURNAL_LINE', 400);
+               return { ...line, amount: amount / 100 };
+          });
+          input = { ...input, lines: normalised };
+          const period = await new AccountingPeriodService(input.tenantId).lockPeriodForDate(input.occurredAt || new Date(), input.trx);
 
           const existing = await this.repository.findJournalEntryBySource(
                input.sourceModule,
@@ -41,26 +56,24 @@ export class AccountingService implements IAccountingService {
                return { entry: existing, lines };
           }
 
-          await new AccountingPeriodService(input.tenantId).assertPostingAllowed(
-               input.occurredAt || new Date(),
-               input.trx
-          );
-
+          if (['closed', 'locked'].includes(period.status)) throw new PeriodClosedError(period.period_code, period.status);
           const resolvedLines = await Promise.all(
                input.lines.map(async (line) => {
                     const account = await this.repository.findAccountByCode(line.accountCode, input.trx);
                     if (!account) {
                          throw new AccountNotFoundError(line.accountCode);
                     }
+                    if (account.is_active === false || Number(account.is_active) === 0) throw new AccountingError('Account is inactive', 'ACCOUNT_INACTIVE', 400);
                     return { line, accountId: account.id };
                })
           );
 
-          const totalDebits = round2(sumByDirection(input.lines, NormalBalance.DEBIT));
-          const totalCredits = round2(sumByDirection(input.lines, NormalBalance.CREDIT));
+          const totalDebits = sumMinor(input.lines.filter(line => line.direction === NormalBalance.DEBIT).map(line => line.amount));
+          const totalCredits = sumMinor(input.lines.filter(line => line.direction === NormalBalance.CREDIT).map(line => line.amount));
 
-          if (Math.abs(totalDebits - totalCredits) > BALANCE_TOLERANCE) {
-               throw new UnbalancedTransactionError(totalDebits, totalCredits);
+          if (totalDebits <= 0 || totalCredits <= 0) throw new EmptyTransactionError();
+          if (totalDebits !== totalCredits) {
+               throw new UnbalancedTransactionError(totalDebits / 100, totalCredits / 100);
           }
 
           const runInTransaction = async (trx: any) => {
@@ -114,20 +127,24 @@ export class AccountingService implements IAccountingService {
                return { entry, lines };
           };
 
-          if (input.trx) {
-               return runInTransaction(input.trx);
-          }
-
-          const db = await KnexConnection(input.tenantId);
-          return db.transaction((trx) => runInTransaction(trx));
+          return runInTransaction(input.trx);
      }
 
      async reverse(input: ReverseTransactionDto): Promise<{ entry: IJournalEntry; lines: IJournalLine[] }> {
+          if (!input.trx) {
+               const db = await KnexConnection(input.tenantId);
+               return db.transaction((trx) => this.reverse({ ...input, trx }));
+          }
+          const reversedAt = new Date();
+          await new AccountingPeriodService(input.tenantId).lockPeriodForDate(reversedAt, input.trx);
+          // Serialize reversals of the same entry, including concurrent retries.
+          await input.trx('acc_journal_entries').where({ id: input.journalEntryId }).forUpdate().first();
           const original = await this.repository.findJournalEntryById(input.journalEntryId, input.trx);
           if (!original) {
                throw new JournalEntryNotFoundError(input.journalEntryId);
           }
 
+          if (original.transaction_type === TransactionType.REVERSAL) throw new AccountingError('Create a correcting journal instead of reversing a reversal', 'INVALID_REVERSAL', 409);
           const originalLines = await this.repository.findLinesByJournalEntryId(original.id, input.trx);
           const accounts = await this.repository.listAccounts(input.trx);
           const accountCodeById = new Map(accounts.map((account) => [account.id, account.account_code]));
@@ -152,6 +169,7 @@ export class AccountingService implements IAccountingService {
                sourcePk: original.source_pk,
                sourceRef: original.source_ref || '',
                description: input.description || `Reversal of journal entry ${original.id}`,
+               occurredAt: reversedAt,
                createdBy: input.createdBy,
                reversalOfEntryId: original.id,
                lines: reversalLines,
@@ -161,12 +179,4 @@ export class AccountingService implements IAccountingService {
 
           return reversal;
      }
-}
-
-function sumByDirection(lines: PostTransactionDto['lines'], direction: NormalBalance): number {
-     return lines.filter((line) => line.direction === direction).reduce((total, line) => total + Number(line.amount), 0);
-}
-
-function round2(value: number): number {
-     return Math.round(value * 100) / 100;
 }

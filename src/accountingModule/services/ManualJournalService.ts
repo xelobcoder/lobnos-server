@@ -14,7 +14,7 @@ import {
 } from '../interfaces/IManualJournalService';
 import { FinancialFinalizationGuard } from './FinancialFinalizationGuard';
 
-const BALANCE_TOLERANCE = 0.01;
+import { minorUnits, sumMinor } from '../utils/money';
 
 export class ManualJournalService implements IManualJournalService {
      constructor(private tenantId: number) { }
@@ -232,14 +232,14 @@ export class ManualJournalService implements IManualJournalService {
                throw new EmptyTransactionError();
           }
 
-          const debits = round2(sumDirection(input.lines, 'debit'));
-          const credits = round2(sumDirection(input.lines, 'credit'));
-          if (Math.abs(debits - credits) > BALANCE_TOLERANCE) {
+          const debits = sumMinor(input.lines.filter(line => line.direction === 'debit').map(line => line.amount)) / 100;
+          const credits = sumMinor(input.lines.filter(line => line.direction === 'credit').map(line => line.amount)) / 100;
+          if (minorUnits(debits) !== minorUnits(credits)) {
                throw new UnbalancedTransactionError(debits, credits);
           }
 
           for (const line of input.lines) {
-               if (!(Number(line.amount) > 0)) {
+               if (!(minorUnits(line.amount) > 0) || !['debit', 'credit'].includes(line.direction)) {
                     throw new AccountingError('Every journal line needs a positive amount', 'INVALID_LINE_AMOUNT', 400);
                }
                const account = await db('acc_accounts').where({ account_code: line.account_code }).first();

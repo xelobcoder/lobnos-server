@@ -14,7 +14,13 @@ export const processMultiServicePayment = async (req: Request, res: Response): P
                return;
           }
 
+          const requestKey = req.body.request_key;
+          if (typeof requestKey !== 'string' || !/^[a-zA-Z0-9_-]{16,80}$/.test(requestKey)) {
+               res.status(400).json({ success: false, message: 'Reload Cash Collection before submitting this payment.' });
+               return;
+          }
           const paymentData = {
+               requestKey,
                service_payments,
                total_amount,
                total_discount: total_discount || 0,

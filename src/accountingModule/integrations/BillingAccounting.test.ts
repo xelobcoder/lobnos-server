@@ -63,6 +63,7 @@ describe('billing accounting collection and refund postings', () => {
           expect(posting.sourceTable).toBe('billinghx');
           expect(posting.sourcePk).toBe(77);
           expect(posting.occurredAt).toEqual(new Date('2026-10-04T00:00:00Z'));
+          expect(recordSubledgerEntryMock.mock.calls[0][2].documentDate).toEqual(new Date('2026-10-04T00:00:00Z'));
           expect(posting.lines).toEqual(expect.arrayContaining([
                expect.objectContaining({ accountCode: 'acc-1001', direction: 'debit', amount: 25 }),
                expect.objectContaining({ accountCode: 'acc-1002', direction: 'credit', amount: 25 }),

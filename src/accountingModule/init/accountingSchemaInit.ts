@@ -1,3 +1,4 @@
+import { ensureAccountingPlanningSchema } from './AccountingPlanningSchema';
 import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
 import { ensureIndexes } from '../../database/ensureIndexes';
@@ -25,6 +26,47 @@ const pendingAccountingEnsures = new Map<number, Promise<void>>();
 
 async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
+     await ensureAccountingPlanningSchema(knex);
+
+     if (!(await knex.schema.hasTable('acc_cash_flow_classifications'))) {
+          await knex.schema.createTable('acc_cash_flow_classifications', table => {
+               table.integer('journal_entry_id').unsigned().primary();
+               table.decimal('operating', 14, 2).notNullable();
+               table.decimal('investing', 14, 2).notNullable();
+               table.decimal('financing', 14, 2).notNullable();
+               table.integer('updated_by').unsigned().notNullable();
+               table.datetime('updated_at').notNullable();
+          });
+     }
+
+     if (!(await knex.schema.hasTable('acc_collection_requests'))) {
+          await knex.schema.createTable('acc_collection_requests', table => {
+               table.string('request_key', 80).primary();
+               table.string('fingerprint', 64).notNullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+          });
+     }
+
+     if (!(await knex.schema.hasTable('acc_control_audit'))) {
+          await knex.schema.createTable('acc_control_audit', table => {
+               table.increments('id').primary();
+               table.string('action', 40).notNullable();
+               table.integer('entity_id').unsigned().notNullable();
+               table.integer('employee_id').unsigned().nullable();
+               table.text('before_state','longtext').notNullable();
+               table.text('after_state','longtext').notNullable();
+               table.datetime('created_at').notNullable().defaultTo(knex.fn.now());
+               table.index(['action', 'entity_id']);
+          });
+     }
+
+     if (String(knex.client.config.client).includes('mysql')) {
+          const auditColumn = await knex('acc_control_audit').columnInfo('before_state');
+          if (String(auditColumn?.type).toLowerCase() !== 'longtext') await knex.schema.alterTable('acc_control_audit', table => {
+               table.text('before_state','longtext').notNullable().alter();
+               table.text('after_state','longtext').notNullable().alter();
+          });
+     }
 
      if (!(await knex.schema.hasTable('acc_accounts'))) {
           await knex.schema.createTable('acc_accounts', (table) => {
@@ -301,6 +343,7 @@ async function ensureFinancialFinalizationTriggers(tenantId: number): Promise<vo
           { table: 'acc_journal_lines', key: 'id', branch: 'NEW.branchid', date: '(SELECT DATE(occurred_at) FROM acc_journal_entries WHERE id = NEW.journal_entry_id LIMIT 1)' },
           { table: 'acc_manual_journals', key: 'id', branch: '(SELECT branchid FROM acc_manual_journal_lines WHERE manual_journal_id = NEW.id AND branchid IS NOT NULL LIMIT 1)', date: 'NEW.journal_date' },
           { table: 'acc_manual_journal_lines', key: 'id', branch: 'NEW.branchid', date: '(SELECT journal_date FROM acc_manual_journals WHERE id = NEW.manual_journal_id LIMIT 1)' },
+          { table: 'acc_cash_flow_classifications', key: 'journal_entry_id', branch: '(SELECT branchid FROM acc_journal_lines WHERE journal_entry_id = NEW.journal_entry_id AND branchid IS NOT NULL LIMIT 1)', date: '(SELECT DATE(occurred_at) FROM acc_journal_entries WHERE id = NEW.journal_entry_id)' },
           { table: 'acc_subledger_entries', key: 'id', branch: 'NEW.branchid', date: 'NEW.document_date' },
      ];
 
@@ -317,7 +360,7 @@ async function ensureFinancialFinalizationTriggers(tenantId: number): Promise<vo
 
      const appendOnlyTables = [
           'financial_day_close_actions', 'financial_day_close_snapshots', 'financial_record_locks',
-          'financial_correction_actions', 'financial_authorization_attempts', 'receipt_print_events',
+          'financial_correction_actions', 'financial_authorization_attempts', 'receipt_print_events', 'acc_control_audit', 'acc_collection_requests',
      ];
      for (const tableName of appendOnlyTables) {
           const prefix = `trg_fin_append_${tableName}`;

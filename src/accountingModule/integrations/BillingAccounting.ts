@@ -95,7 +95,7 @@ export async function enqueueBillingReceivable(
                     sourcePk: Number(bill.billingid),
                     sourceRef: isInitial ? '' : `${round2(Number(previousPayable || 0))}>${round2(Number(bill.payable || 0))}`,
                     description: isInitial ? 'Bill issued' : 'Bill adjusted',
-                    occurredAt: bill.billedon || new Date(),
+                    occurredAt: isInitial ? bill.billedon || new Date() : new Date(),
                     createdBy: bill.lastupdatedby ? Number(bill.lastupdatedby) : null,
                     lines,
                },
@@ -108,7 +108,7 @@ export async function enqueueBillingReceivable(
                partyId: bill.patientid ? Number(bill.patientid) : null,
                documentType: isInitial ? 'invoice' : 'adjustment',
                documentRef: `BILL-${bill.billingid}`,
-               documentDate: bill.billedon || new Date(),
+               documentDate: isInitial ? bill.billedon || new Date() : new Date(),
                amount: grossDelta,
                grossAmount: grossDelta,
                taxAmount: taxDelta,
@@ -184,7 +184,7 @@ export async function enqueueBillingPayment(
                     partyId: bill?.patientid ? Number(bill.patientid) : null,
                     documentType: 'payment',
                     documentRef: `PAY-${historyId}`,
-                    documentDate: bill?.billedon || new Date(),
+                    documentDate: history?.Date || new Date(),
                     amount: -Number(paid),
                     sourceModule: SourceModule.BILLING,
                     sourceTable: 'billinghx',
@@ -208,7 +208,8 @@ export async function enqueueBillingWriteOff(
      billingId: number,
      amount: number,
      employeeId?: number | null,
-     trx?: any
+     trx?: any,
+     sourceRef = ''
 ): Promise<void> {
      try {
           const written = round2(Number(amount));
@@ -234,6 +235,7 @@ export async function enqueueBillingWriteOff(
                     transactionType: TransactionType.ADJUSTMENT,
                     sourceModule: SourceModule.BILLING,
                     sourceTable: 'billing_writeoff',
+                    sourceRef,
                     sourcePk: Number(billingId),
                     description: 'Outstanding balance written off',
                     occurredAt: new Date(),
@@ -256,7 +258,7 @@ export async function enqueueBillingWriteOff(
                amount: -written,
                sourceModule: SourceModule.BILLING,
                sourceTable: 'billing_writeoff',
-               sourceRef: String(billingId),
+               sourceRef: sourceRef ? `${billingId}:${sourceRef}` : String(billingId),
                branchid: bill?.branchid ? Number(bill.branchid) : null,
           });
      } catch (error: any) {

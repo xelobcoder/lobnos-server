@@ -2,6 +2,9 @@ import { PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
 import type { Knex } from 'knex';
 import KnexConnection from "../../database/KnexConnections";
 import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";
+import { createHash, randomUUID } from 'crypto';
+import { minorUnits, sumMinor } from '../../accountingModule/utils/money';
+import { enqueueBillingWriteOff } from '../../accountingModule/integrations/BillingAccounting';
 import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 
 
@@ -25,6 +28,7 @@ type MultiServicePaymentRequest = {
      tenantId: number;
      /** When set, the payment is recorded at most once for this key (a verified gateway reference). */
      idempotencyKey?: string;
+     requestKey?: string;
 }
 
 type PaymentRequestBody = {
@@ -57,28 +61,39 @@ export default class MultiPayment {
           const connection = await this.connection;
 
           try {
-               const calculatedTotal = paymentData.service_payments.reduce((sum, payment) => sum + payment.amount, 0);
-               if (Math.abs(calculatedTotal - paymentData.total_amount) > 0.01) {
-                    return {
-                         success: false,
-                         message: `Total amount mismatch. Expected: ${calculatedTotal}, Received: ${paymentData.total_amount}`
-                    };
-               }
-
+               if (!paymentData.service_payments?.length) throw new Error('Select at least one service');
+               const collectionRef = paymentData.requestKey || paymentData.idempotencyKey || randomUUID();
                const serviceIds = paymentData.service_payments.map(p => p.service_id);
-               const servicesCheck = await connection(this.servicesTable)
-                    .select('serviceid', 'outstanding')
-                    .whereIn('serviceid', serviceIds);
-
-               const invalidServices = servicesCheck.filter((service: any) => service.outstanding <= 0);
-               if (invalidServices.length > 0) {
-                    const invalidIds = invalidServices.map((s: any) => s.serviceid).join(', ');
-                    throw new Error(`Cannot process payment for services with no outstanding balance: ${invalidIds}. These services are already fully paid.`);
+               if (new Set(serviceIds).size !== serviceIds.length) throw new Error('A service cannot appear twice');
+               for (const payment of paymentData.service_payments) {
+                    if (!Number.isSafeInteger(payment.service_id) || payment.service_id <= 0 || !Number.isSafeInteger(payment.billing_id) || payment.billing_id <= 0) throw new Error('Invalid service or bill');
+                    const amount = minorUnits(payment.amount), waived = minorUnits(payment.waive_off ?? 0);
+                    if (amount < 0 || waived < 0 || amount + waived <= 0 || minorUnits(payment.discount ?? 0) !== 0) throw new Error('Invalid payment or waiver amount');
+                    if (amount > 0 && !(Number(payment.payment_mode_id) > 0)) throw new Error('Select a payment method');
                }
+               if (sumMinor(paymentData.service_payments.map(p => p.amount)) !== minorUnits(paymentData.total_amount) ||
+                    sumMinor(paymentData.service_payments.map(p => p.waive_off ?? 0)) !== minorUnits(paymentData.total_waive_off ?? 0)) throw new Error('Payment and waiver totals must exactly match the selected services');
+               if (paymentData.requestKey && !/^[a-zA-Z0-9_-]{16,80}$/.test(paymentData.requestKey)) throw new Error('Invalid payment request key');
 
                const trx = await connection.transaction();
 
                try {
+                    if (paymentData.requestKey) {
+                         const fingerprint = createHash('sha256').update(JSON.stringify({ employeeid: paymentData.employeeid, payments: [...paymentData.service_payments].sort((a,b) => a.service_id - b.service_id).map(p => [p.service_id, p.billing_id, minorUnits(p.amount), minorUnits(p.waive_off ?? 0), Number(p.payment_mode_id)]) })).digest('hex');
+                         try { await trx('acc_collection_requests').insert({ request_key: paymentData.requestKey, fingerprint, created_at: new Date() }); }
+                         catch (error: any) {
+                              if (error?.code !== 'ER_DUP_ENTRY') throw error;
+                              const existing = await trx('acc_collection_requests').where({ request_key: paymentData.requestKey }).forUpdate().first();
+                              if (existing?.fingerprint !== fingerprint) throw new Error('This payment request key was used for different amounts');
+                              await trx.rollback();
+                              return { success: true, message: 'Payment was already applied', alreadyApplied: true };
+                         }
+                    }
+                    // Consistent bill ordering serializes concurrent collectors and bill-level totals.
+                    for (const billingid of [...new Set(paymentData.service_payments.map(p => p.billing_id))].sort((a,b) => a-b)) {
+                         const bill = await trx(this.billingTable).where({ billingid }).forUpdate().first();
+                         if (!bill) throw new Error('Billing record not found');
+                    }
                     if (paymentData.idempotencyKey) {
                          try {
                               await trx('gateway_payment_applications').insert({
@@ -99,12 +114,13 @@ export default class MultiPayment {
                               .join(this.billingTable, `${this.servicesTable}.billingid`, `${this.billingTable}.billingid`)
                               .select(`${this.servicesTable}.*`, `${this.billingTable}.patientid`)
                               .where({ [`${this.servicesTable}.serviceid`]: servicePayment.service_id })
-                              .first();
+                              .forUpdate().first();
 
                          if (!service) {
                               throw new Error(`Service with ID ${servicePayment.service_id} not found`);
                          }
 
+                         if (Number(service.billingid) !== servicePayment.billing_id) throw new Error('Service does not belong to the selected bill');
                          if (service.outstanding <= 0) {
                               throw new Error(`Service with ID ${servicePayment.service_id} has no outstanding balance`);
                          }
@@ -112,12 +128,14 @@ export default class MultiPayment {
                          const currentPaid = parseFloat(service.paidamount as string) || 0;
                          const currentOutstanding = parseFloat(service.outstanding as string) || 0;
 
-                         const newPaidAmount = currentPaid + servicePayment.amount;
+                         const newPaidAmount = (minorUnits(currentPaid) + minorUnits(servicePayment.amount)) / 100;
                          const totalPayable = parseFloat(service.totalpayable as string) || 0;
 
                          // If there's a waive-off, it reduces the outstanding balance without increasing paid amount
                          const waiveOffAmount = servicePayment.waive_off || 0;
-                         const newOutstanding = Math.max(0, currentOutstanding - servicePayment.amount - waiveOffAmount);
+                         const remaining = minorUnits(currentOutstanding) - minorUnits(servicePayment.amount) - minorUnits(waiveOffAmount);
+                         if (remaining < 0) throw new Error('Payment and waiver exceed the latest outstanding balance. Reload and review the bill.');
+                         const newOutstanding = remaining / 100;
 
                          // Track waive-off per billing for billing table update
                          if (waiveOffAmount > 0) {
@@ -189,22 +207,18 @@ export default class MultiPayment {
 
                     for (const billingId of uniqueBillingIds) {
                          const billingServices = await trx(this.servicesTable)
-                              .leftJoin('dbobillingrefundtable', 'dboservices.serviceid', 'dbobillingrefundtable.serviceid')
-                              .select(
-                                   'dboservices.*',
-                                   'dbobillingrefundtable.amountRefunded'
-                              )
+                              .select('dboservices.*')
                               .where({ 'dboservices.billingid': billingId });
 
-                         const totalPaid = billingServices.reduce((sum: number, service) => sum + (parseFloat(service.paidamount as string) || 0), 0);
-                         const totalOutstanding = billingServices.reduce((sum, service) => sum + (parseFloat(service.outstanding as string) || 0), 0);
-                         const totalPayable = billingServices.reduce((sum, service) => sum + (parseFloat(service.totalpayable as string) || 0), 0);
-                         const totalRefunded = billingServices.reduce((sum, service) => sum + (parseFloat(service.amountRefunded as string) || 0), 0);
+                         const totalPaid = sumMinor(billingServices.map(service => service.paidamount || 0)) / 100;
+                         const totalOutstanding = sumMinor(billingServices.map(service => service.outstanding || 0)) / 100;
+                         const totalPayable = sumMinor(billingServices.map(service => service.totalpayable || 0)) / 100;
 
                          const billingRecord = await trx(this.billingTable).where({ billingid: billingId }).first();
                          const existingWriteOff = parseFloat(billingRecord?.writeoff as string) || 0;
                          const currentWaiveOff = waiveOffsPerBilling[billingId] || 0;
-                         const newWriteOff = existingWriteOff + currentWaiveOff;
+                         const newWriteOff = (minorUnits(existingWriteOff) + minorUnits(currentWaiveOff)) / 100;
+                         if (currentWaiveOff > 0) await enqueueBillingWriteOff(this.tenantId, billingId, currentWaiveOff, paymentData.employeeid, trx, collectionRef);
 
                          let newStatus = totalOutstanding === 0 ? 'paid' : (totalPaid > 0 ? 'partial' : 'pending');
 

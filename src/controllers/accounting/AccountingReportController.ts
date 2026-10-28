@@ -7,6 +7,7 @@ import { SubledgerService } from '../../accountingModule/services/SubledgerServi
 import { OutstandingReceivablesService } from '../../accountingModule/services/OutstandingReceivablesService';
 import KnexConnection from '../../database/KnexConnections';
 import { parsePaging, parseSort, paginate } from '../../accountingModule/utils/pagination';
+import { getAuthUser } from '../../middleware/authority';
 import { AccountingError } from '../../accountingModule/errors/AccountingErrors';
 import { customError } from '../../hooks/helper';
 
@@ -78,6 +79,10 @@ export class AccountingReportController {
           }
      }
 
+     static async generalLedgerSummary(req:Request,res:Response) {
+          try {return ok(res,await new AccountingReportService(getTenantId(req)).generalLedgerSummary({from:req.query.from as string,to:req.query.to as string,accountCode:req.query.accountCode as string,sourceModule:req.query.sourceModule as string,branchId:req.query.branchId?Number(req.query.branchId):undefined}));}catch(error){return handle(error,res);}
+     }
+
      static async generalLedger(req: Request, res: Response) {
           try {
                const service = new AccountingReportService(getTenantId(req));
@@ -131,7 +136,7 @@ export class AccountingReportController {
 
      static async receivableAging(req: Request, res: Response) {
           try {
-               const service = new SubledgerService(getTenantId(req));
+               const service = new AccountingReportService(getTenantId(req));
                return ok(res, await service.aging('AR', req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
@@ -140,7 +145,7 @@ export class AccountingReportController {
 
      static async payableAging(req: Request, res: Response) {
           try {
-               const service = new SubledgerService(getTenantId(req));
+               const service = new AccountingReportService(getTenantId(req));
                return ok(res, await service.aging('AP', req.query.asOf as string | undefined, req.query));
           } catch (error) {
                return handle(error, res);
@@ -187,13 +192,13 @@ export class AccountingReportController {
                const ledger = String(req.params.ledger).toUpperCase();
                if (ledger !== 'AR' && ledger !== 'AP') return customError('ledger must be AR or AP', 400, res);
 
-               const service = new SubledgerService(getTenantId(req));
+               const service = new AccountingReportService(getTenantId(req));
                return ok(
                     res,
-                    await service.statement(
+                    await service.controlStatement(
                          ledger,
                          String(req.params.partyType),
-                         Number(req.params.partyId),
+                         String(req.params.partyId),
                          req.query.from as string | undefined,
                          req.query.to as string | undefined,
                          req.query
@@ -223,7 +228,7 @@ export class AccountingReportController {
                if (!from || !to) return customError('from and to are required', 400, res);
 
                const service = new AccountingReportService(getTenantId(req));
-               return ok(res, await service.cashFlow(from, to));
+               return ok(res, await service.cashFlow(from, to, req.query.method === 'indirect' ? 'indirect' : 'direct'));
           } catch (error) {
                return handle(error, res);
           }
@@ -303,18 +308,36 @@ export class AccountingReportController {
 
      static async setPeriodStatus(req: Request, res: Response) {
           try {
-               const { status, employeeid, notes } = req.body || {};
+               const { status, notes } = req.body || {};
                const allowed = ['open', 'soft_closed', 'closed', 'locked'];
                if (!allowed.includes(status)) {
                     return customError(`status must be one of ${allowed.join(', ')}`, 400, res);
                }
 
                const service = new AccountingPeriodService(getTenantId(req));
-               const result = await service.setStatus(String(req.params.periodCode), status, employeeid, notes);
+               const result = await service.setStatus(String(req.params.periodCode), status, getAuthUser(req)?.employeeid, notes);
                return ok(res, result);
           } catch (error) {
                return handle(error, res);
           }
+     }
+
+     static async classifyCashFlow(req: Request, res: Response) {
+          try { return ok(res, await new AccountingReportService(getTenantId(req)).saveCashFlowClassification(Number(req.params.journalEntryId), req.body || {}, getAuthUser(req)!.employeeid)); }
+          catch (error) { return handle(error, res); }
+     }
+
+     static async controlHistory(req: Request, res: Response) {
+          try {
+               const db = await KnexConnection(getTenantId(req)), paging = parsePaging(req.query, 50);
+               const query = db('acc_control_audit');
+               if (req.query.action) query.where('action', String(req.query.action));
+               if (req.query.from) query.whereRaw('DATE(created_at) >= ?', [String(req.query.from)]);
+               if (req.query.to) query.whereRaw('DATE(created_at) <= ?', [String(req.query.to)]);
+               const total = await query.clone().count('* as total').first();
+               const data = await query.orderBy('id','desc').limit(paging.count).offset(paging.offset);
+               return ok(res, { data, total: Number(total?.total || 0), page: paging.page, count: paging.count });
+          } catch (error) { return handle(error, res); }
      }
 
      static async listOutbox(req: Request, res: Response) {

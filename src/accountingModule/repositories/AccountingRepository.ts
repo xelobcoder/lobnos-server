@@ -58,6 +58,7 @@ export class AccountingRepository implements IAccountingRepository {
                     transaction_type: transactionType,
                     source_ref: sourceRef,
                })
+               .modify((query: any) => { if (trx) query.forUpdate(); })
                .first();
           return row || null;
      }

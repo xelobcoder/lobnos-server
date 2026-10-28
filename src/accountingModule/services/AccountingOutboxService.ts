@@ -4,6 +4,8 @@ import { PostTransactionDto } from '../dto/PostTransactionDto';
 import { parsePaging, parseSort } from '../utils/pagination';
 import logger from '../../hooks/logger';
 
+import { AccountingPeriodService } from './AccountingPeriodService';
+
 const MAX_ATTEMPTS = 5;
 const DEFAULT_BATCH_SIZE = 100;
 const MAX_BATCHES_PER_SWEEP = 50;
@@ -11,11 +13,16 @@ const activeOutboxSweeps = new Set<number>();
 
 /**
  * Producer modules (billing, expenses, ...) call enqueue() inside their own DB transaction.
- * It never throws for ledger-side reasons — only if the outbox insert itself fails — so a
- * ledger/accounting problem can never block or roll back the caller's transaction.
+ * Posting remains asynchronous. Closed-period violations and an outbox write failure reject
+ * the source transaction; other ledger failures remain visible and retryable in the outbox.
  */
 export async function enqueuePosting(tenantId: number, input: PostTransactionDto, trx: any): Promise<void> {
-     const db = trx || await KnexConnection(tenantId);
+     if (!trx) {
+          const connection = await KnexConnection(tenantId);
+          return connection.transaction((transaction: any) => enqueuePosting(tenantId, input, transaction));
+     }
+     const db = trx;
+     await new AccountingPeriodService(tenantId).assertPostingAllowed(input.occurredAt || new Date(), db);
      await db('acc_posting_outbox')
           .insert({
                source_module: input.sourceModule,

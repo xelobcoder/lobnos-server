@@ -4,6 +4,7 @@ import { IExpenseAccounting } from '../interfaces/IAccountingIntegrations';
 import { NormalBalance } from '../enums/normal-balance.enum';
 import { SourceModule } from '../enums/source-module.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
+import { recordSubledgerEntry } from '../services/SubledgerService';
 import logger from '../../hooks/logger';
 
 const ACCOUNTS_PAYABLE = 'acc-2000';
@@ -51,7 +52,7 @@ export async function enqueueExpenseAccrual(tenantId: number, expenseId: number,
      try {
           const db = await resolveDb(tenantId, trx);
           const expense = await db('expensesrecord')
-               .select('id', 'amount', 'category', 'branchid', 'employeeid', 'date', 'approvedby')
+               .select('merchant', 'id', 'amount', 'category', 'branchid', 'employeeid', 'date', 'approvedby')
                .where({ id: expenseId })
                .first();
 
@@ -87,6 +88,12 @@ export async function enqueueExpenseAccrual(tenantId: number, expenseId: number,
                },
                db
           );
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP', partyType: 'merchant', partyId: expense?.merchant ? Number(expense.merchant) : null,
+               documentType: 'bill', documentRef: `EXP-${expense.id}`, documentDate: expense.date || new Date(),
+               amount: amount, sourceModule: SourceModule.EXPENSE, sourceTable: 'expensesrecord', sourceRef: String(expense.id),
+               branchid: expense?.branchid ? Number(expense.branchid) : null,
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue expense accrual posting', {
                tenantId,
@@ -101,7 +108,7 @@ export async function enqueueExpenseAccrualReversal(tenantId: number, expenseId:
      try {
           const db = await resolveDb(tenantId, trx);
           const expense = await db('expensesrecord')
-               .select('id', 'amount', 'category', 'branchid', 'employeeid')
+               .select('merchant', 'id', 'amount', 'category', 'branchid', 'employeeid')
                .where({ id: expenseId })
                .first();
 
@@ -136,6 +143,12 @@ export async function enqueueExpenseAccrualReversal(tenantId: number, expenseId:
                },
                db
           );
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP', partyType: 'merchant', partyId: expense?.merchant ? Number(expense.merchant) : null,
+               documentType: 'credit_note', documentRef: `EXP-${expense.id}`, documentDate: new Date(),
+               amount: -amount, sourceModule: SourceModule.EXPENSE, sourceTable: 'expensesrecord', sourceRef: `reversal:${expense.id}`,
+               branchid: expense?.branchid ? Number(expense.branchid) : null,
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue expense accrual reversal posting', {
                tenantId,
@@ -158,7 +171,7 @@ export async function enqueueExpensePayment(tenantId: number, paymentId: number,
           if (!payment || Number(payment.amount) <= 0) return;
 
           const expense = await db('expensesrecord')
-               .select('branchid', 'employeeid', 'category')
+               .select('merchant', 'branchid', 'employeeid', 'category')
                .where({ id: payment.expense_id })
                .first();
 
@@ -190,6 +203,12 @@ export async function enqueueExpensePayment(tenantId: number, paymentId: number,
                },
                db
           );
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP', partyType: 'merchant', partyId: expense?.merchant ? Number(expense.merchant) : null,
+               documentType: 'payment', documentRef: `EXP-${payment.expense_id}`, documentDate: payment.payment_date || new Date(),
+               amount: -Number(payment.amount), sourceModule: SourceModule.EXPENSE, sourceTable: 'expense_payments', sourceRef: String(payment.id),
+               branchid: expense?.branchid ? Number(expense.branchid) : null,
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue expense payment posting', {
                tenantId,
@@ -212,7 +231,7 @@ export async function enqueueExpensePaymentReversal(tenantId: number, paymentId:
           if (!payment || Number(payment.amount) <= 0) return;
 
           const expense = await db('expensesrecord')
-               .select('branchid', 'employeeid', 'category')
+               .select('merchant', 'branchid', 'employeeid', 'category')
                .where({ id: payment.expense_id })
                .first();
 
@@ -243,6 +262,12 @@ export async function enqueueExpensePaymentReversal(tenantId: number, paymentId:
                },
                db
           );
+          await recordSubledgerEntry(tenantId, db, {
+               ledger: 'AP', partyType: 'merchant', partyId: expense?.merchant ? Number(expense.merchant) : null,
+               documentType: 'adjustment', documentRef: `EXP-${payment.expense_id}`, documentDate: new Date(),
+               amount: Number(payment.amount), sourceModule: SourceModule.EXPENSE, sourceTable: 'expense_payments', sourceRef: `reversal:${payment.id}`,
+               branchid: expense?.branchid ? Number(expense.branchid) : null,
+          });
      } catch (error: any) {
           logger.warn('Failed to enqueue expense payment reversal posting', {
                tenantId,

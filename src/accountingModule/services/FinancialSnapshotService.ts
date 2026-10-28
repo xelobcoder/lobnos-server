@@ -22,7 +22,11 @@ export class FinancialSnapshotService implements IFinancialSnapshotService {
                db('expensesrecord').where({ branchid: branchId }).whereRaw('DATE(date) = ?', [financialDate]).select(
                     db.raw('COUNT(*) AS count'), db.raw('COALESCE(SUM(amount), 0) AS amount')
                ).first(),
-               db('expense_payments').where({ branchid: branchId }).whereRaw('DATE(payment_date) = ?', [financialDate]).where({ is_reversed: false }).select(
+               db('expense_payments').where({ branchid: branchId }).whereRaw('DATE(payment_date) = ?', [financialDate]).where({ is_reversed: false }).whereNotExists(
+                    db('expensesrecord as expense').join('dboexpensecategory as category', 'category.id', 'expense.category')
+                         .whereRaw('expense.id = expense_payments.expense_id')
+                         .whereIn(db.raw('LOWER(category.category)'), ['bad debt','bad_debt','bad-debt']).select(db.raw('1'))
+               ).select(
                     db.raw('COUNT(*) AS count'), db.raw('COALESCE(SUM(amount), 0) AS amount')
                ).first(),
                db('dbobillingrefundtable as refund').join('dboservices as service', 'service.serviceid', 'refund.serviceid').where('service.branchid', branchId).whereRaw('DATE(refund.approvalDate) = ?', [financialDate]).where('refund.isRefundCompleted', 1).select(
@@ -32,7 +36,7 @@ export class FinancialSnapshotService implements IFinancialSnapshotService {
                     db.raw('COUNT(DISTINCT entry.id) AS entries'), db.raw("COALESCE(SUM(CASE WHEN line.direction = 'debit' THEN line.amount ELSE 0 END), 0) AS debits"),
                     db.raw("COALESCE(SUM(CASE WHEN line.direction = 'credit' THEN line.amount ELSE 0 END), 0) AS credits")
                ).first(),
-               db('acc_posting_outbox').whereRaw('DATE(created_at) <= ?', [financialDate]).whereIn('status', ['pending', 'failed', 'dead_letter']).select(
+               db('acc_posting_outbox').whereRaw("COALESCE(DATE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.occurredAt'))), DATE(created_at)) <= ?", [financialDate]).whereIn('status', ['pending', 'failed', 'dead_letter']).select(
                     db.raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending"),
                     db.raw("SUM(CASE WHEN status IN ('failed', 'dead_letter') THEN 1 ELSE 0 END) AS failed")
                ).first(),

@@ -12,13 +12,16 @@ import {
 } from '../interfaces/IBankReconciliationService';
 import { ExcelHelper } from '../../utils/ExcelHelper';
 
+import { minorUnits } from '../utils/money';
+import { ensureIndexes } from '../../database/ensureIndexes';
+
 const DEFAULT_DAY_TOLERANCE = 5;
 
 export class BankReconciliationService implements IBankReconciliationService {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private trx?: any) { }
 
      private async connection() {
-          return KnexConnection(this.tenantId);
+          return this.trx || KnexConnection(this.tenantId);
      }
 
      async listAccounts(): Promise<BankAccount[]> {
@@ -178,8 +181,12 @@ export class BankReconciliationService implements IBankReconciliationService {
           const query = db('acc_journal_lines as l')
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
-               .leftJoin('acc_bank_statement_lines as s', 's.matched_journal_line_id', 'l.id')
+               .leftJoin('acc_bank_statement_lines as s', function () {
+                    this.on('s.matched_journal_line_id', '=', 'l.id');
+                    if (to) this.andOn('s.txn_date', '<=', db.raw('?', [to]));
+               })
                .where('a.account_code', bank.gl_account_code)
+               .modify((query: any) => { if (bank.branchid != null) query.where('l.branchid', bank.branchid); })
                .andWhere('e.status', '!=', 'voided')
                .whereNull('s.id')
                .select(
@@ -260,45 +267,52 @@ export class BankReconciliationService implements IBankReconciliationService {
      }
 
      async match(statementLineId: number, journalLineId: number, employeeId: number): Promise<void> {
-          const db = await this.connection();
-
-          const alreadyMatched = await db('acc_bank_statement_lines')
-               .where({ matched_journal_line_id: journalLineId })
-               .whereNot({ id: statementLineId })
-               .first();
-
-          if (alreadyMatched) {
-               throw new AccountingError('That ledger posting is already matched to another statement line', 'ALREADY_MATCHED', 409);
-          }
-
-          await db('acc_bank_statement_lines').where({ id: statementLineId }).update({
-               matched_journal_line_id: journalLineId,
-               status: 'matched',
-               matched_by: employeeId,
-               matched_at: new Date(),
+          const connection = await this.connection();
+          await connection.transaction(async (db: any) => {
+               const statement = await db('acc_bank_statement_lines').where({ id: statementLineId }).forUpdate().first();
+               if (!statement) throw new AccountingError('Statement line not found', 'STATEMENT_LINE_NOT_FOUND', 404);
+               const line = await db('acc_journal_lines').where({ id: journalLineId }).forUpdate().first();
+               if (!line) throw new AccountingError('Ledger line not found', 'JOURNAL_LINE_NOT_FOUND', 404);
+               const bank = await this.requireAccount(db, statement.bank_account_id);
+               const account = await db('acc_accounts').where({ id: line.account_id }).first();
+               const entry = await db('acc_journal_entries').where({ id: line.journal_entry_id }).first();
+               if (Number(bank.is_active) !== 1 || account?.account_code !== bank.gl_account_code || !entry || entry.status === 'voided' ||
+                    (bank.branchid != null && Number(line.branchid) !== Number(bank.branchid))) {
+                    throw new AccountingError('The posting does not belong to this active bank account and location', 'INVALID_BANK_MATCH', 400);
+               }
+               const signed = minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1);
+               if (!signed || signed !== minorUnits(statement.amount)) throw new AccountingError('Statement and ledger amounts must match, including direction', 'INVALID_BANK_MATCH', 400);
+               if (statement.status === 'matched' && Number(statement.matched_journal_line_id) === journalLineId) return;
+               if (statement.status !== 'unmatched' || statement.matched_journal_line_id != null) throw new AccountingError('Unmatch or restore this statement line first', 'ALREADY_MATCHED', 409);
+               const alreadyMatched = await db('acc_bank_statement_lines').where({ matched_journal_line_id: journalLineId }).forUpdate().first();
+               if (alreadyMatched) throw new AccountingError('That ledger posting is already matched', 'ALREADY_MATCHED', 409);
+               const after = { matched_journal_line_id: journalLineId, status: 'matched', matched_by: employeeId, matched_at: new Date() };
+               await db('acc_bank_statement_lines').where({ id: statementLineId }).update(after);
+               await this.audit(db, 'bank_match', statement, after, employeeId);
           });
      }
 
-     async unmatch(statementLineId: number, employeeId: number): Promise<void> {
-          const db = await this.connection();
-          await db('acc_bank_statement_lines').where({ id: statementLineId }).update({
-               matched_journal_line_id: null,
-               status: 'unmatched',
-               matched_by: employeeId,
-               matched_at: null,
-          });
+     private async audit(db: any, action: string, before: any, after: any, employeeId: number) {
+          await db('acc_control_audit').insert({ action, entity_id: before.id, employee_id: employeeId, before_state: JSON.stringify(before), after_state: JSON.stringify(after), created_at: new Date() });
      }
 
-     async ignore(statementLineId: number, employeeId: number): Promise<void> {
-          const db = await this.connection();
-          await db('acc_bank_statement_lines').where({ id: statementLineId }).update({
-               status: 'ignored',
-               matched_by: employeeId,
-               matched_at: new Date(),
+     private async changeStatementState(statementLineId: number, employeeId: number, status: 'unmatched' | 'ignored') {
+          const connection = await this.connection();
+          await connection.transaction(async (db: any) => {
+               const before = await db('acc_bank_statement_lines').where({ id: statementLineId }).forUpdate().first();
+               if (!before) throw new AccountingError('Statement line not found', 'STATEMENT_LINE_NOT_FOUND', 404);
+               if (status === 'ignored' && before.status === 'matched') throw new AccountingError('Unmatch this line before ignoring it', 'ALREADY_MATCHED', 409);
+               const after = { matched_journal_line_id: null, status, matched_by: employeeId, matched_at: null };
+               await db('acc_bank_statement_lines').where({ id: statementLineId }).update(after);
+               await this.audit(db, status === 'ignored' ? 'bank_ignore' : 'bank_unmatch', before, after, employeeId);
           });
      }
+     async unmatch(statementLineId: number, employeeId: number): Promise<void> { await this.changeStatementState(statementLineId, employeeId, 'unmatched'); }
+     async ignore(statementLineId: number, employeeId: number): Promise<void> { await this.changeStatementState(statementLineId, employeeId, 'ignored'); }
 
      async summary(bankAccountId: number, asOf: string, statementBalance: number): Promise<ReconciliationSummary> {
+          if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new BankReconciliationService(this.tenantId, trx).summary(bankAccountId, asOf, statementBalance), { isolationLevel: 'repeatable read' }); }
+          minorUnits(statementBalance);
           const db = await this.connection();
           const bank = await this.requireAccount(db, bankAccountId);
 
@@ -306,6 +320,7 @@ export class BankReconciliationService implements IBankReconciliationService {
                .join('acc_journal_entries as e', 'l.journal_entry_id', 'e.id')
                .join('acc_accounts as a', 'l.account_id', 'a.id')
                .where('a.account_code', bank.gl_account_code)
+               .modify((query: any) => { if (bank.branchid != null) query.where('l.branchid', bank.branchid); })
                .andWhere('e.status', '!=', 'voided')
                .andWhereRaw('DATE(e.occurred_at) <= ?', [asOf])
                .select(
@@ -348,7 +363,7 @@ export class BankReconciliationService implements IBankReconciliationService {
      }
 
      private async requireAccount(db: any, bankAccountId: number) {
-          const bank = await db('acc_bank_accounts').where({ id: bankAccountId }).first();
+          const bank = await db('acc_bank_accounts').where({ id: bankAccountId }).modify((query: any) => { if (db.isTransaction) query.forUpdate(); }).first();
           if (!bank) throw new AccountingError(`Bank account ${bankAccountId} not found`, 'BANK_ACCOUNT_NOT_FOUND', 404);
           return bank;
      }
@@ -436,6 +451,8 @@ export async function ensureBankTables(tenantId: number): Promise<void> {
                table.index(['bank_account_id', 'txn_date'], 'idx_bank_line_account_date');
           });
      }
+     await ensureIndexes(knex, 'acc_bank_statement_lines', [{ name: 'uq_acc_bank_matched_line', columns: ['matched_journal_line_id'], unique: true }]);
+
 }
 
 function buildFingerprint(bankAccountId: number, txnDate: string, amount: number, reference?: string | null): string {

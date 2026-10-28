@@ -1,7 +1,8 @@
 import KnexConnection from '../../database/KnexConnections';
 import { IAccountingPeriod, PeriodStatus } from '../interfaces/IAccountingPeriod';
 import { IAccountingPeriodService } from '../interfaces/IAccountingPeriodService';
-import { PeriodClosedError, PeriodNotFoundError, UnbalancedTransactionError } from '../errors/AccountingErrors';
+import { AccountingReportService } from './AccountingReportService';
+import { AccountingError, PeriodClosedError, PeriodNotFoundError, UnbalancedTransactionError } from '../errors/AccountingErrors';
 
 const BLOCKING_STATUSES: PeriodStatus[] = ['closed', 'locked'];
 
@@ -39,11 +40,20 @@ export class AccountingPeriodService implements IAccountingPeriodService {
           return db('acc_periods').where({ period_code: periodCode }).first();
      }
 
+     async lockPeriodForDate(date: Date | string, trx: any): Promise<IAccountingPeriod> {
+          const target = new Date(date);
+          if (!Number.isFinite(target.getTime())) throw new AccountingError('Invalid posting date', 'INVALID_DATE', 400);
+          await this.ensurePeriodForDate(date, trx);
+          return trx('acc_periods').where({ period_code: toPeriodCode(target) }).forUpdate().first();
+     }
+
      async assertPostingAllowed(date: Date | string, trx?: any): Promise<void> {
-          const period = await this.ensurePeriodForDate(date, trx);
-          if (period && BLOCKING_STATUSES.includes(period.status)) {
-               throw new PeriodClosedError(period.period_code, period.status);
+          if (!trx) {
+               const db = await this.connection();
+               return db.transaction((transaction: any) => this.assertPostingAllowed(date, transaction));
           }
+          const period = await this.lockPeriodForDate(date, trx);
+          if (BLOCKING_STATUSES.includes(period.status)) throw new PeriodClosedError(period.period_code, period.status);
      }
 
      async list(from?: string, to?: string): Promise<IAccountingPeriod[]> {
@@ -60,15 +70,21 @@ export class AccountingPeriodService implements IAccountingPeriodService {
           employeeId?: number | null,
           notes?: string
      ): Promise<IAccountingPeriod> {
-          const db = await this.connection();
-          const period = await db('acc_periods').where({ period_code: periodCode }).first();
+          const connection = await this.connection();
+          return connection.transaction(async (db: any) => {
+          const period = await db('acc_periods').where({ period_code: periodCode }).forUpdate().first();
           if (!period) throw new PeriodNotFoundError(periodCode);
 
           if (BLOCKING_STATUSES.includes(status)) {
-               const totals = await this.getPeriodTotals(periodCode);
+               const pending = await db('acc_posting_outbox').whereNot({ status: 'posted' }).whereRaw("COALESCE(DATE(JSON_UNQUOTE(JSON_EXTRACT(payload, '$.occurredAt'))), DATE(created_at)) BETWEEN ? AND ?", [period.period_start, period.period_end]).first();
+               if (pending) throw new AccountingError('Resolve pending or failed accounting postings before closing this period', 'UNPOSTED_TRANSACTIONS', 409);
+               const totals = await this.getPeriodTotals(periodCode, db);
                if (round2(totals.debits) !== round2(totals.credits)) {
                     throw new UnbalancedTransactionError(round2(totals.debits), round2(totals.credits));
                }
+               const cashFlow = await new AccountingReportService(this.tenantId, db).cashFlow(toDateOnly(new Date(period.period_start)), toDateOnly(new Date(period.period_end)));
+               if (cashFlow.classificationIssues?.length) throw new AccountingError('Review compound journal cash-flow classifications before closing this period', 'CASH_FLOW_CLASSIFICATION_REQUIRED', 409);
+               if (cashFlow.reconciliation?.balanced === false) throw new AccountingError('Cash flow must reconcile to the ledger before closing this period', 'UNRECONCILED_CASH_FLOW', 409);
           }
 
           await db('acc_periods')
@@ -81,11 +97,13 @@ export class AccountingPeriodService implements IAccountingPeriodService {
                     updated_at: new Date(),
                });
 
+          await db('acc_control_audit').insert({ action: 'period_status', entity_id: period.id, employee_id: employeeId ?? null, before_state: JSON.stringify(period), after_state: JSON.stringify({ status, notes: notes ?? period.notes }), created_at: new Date() });
           return db('acc_periods').where({ period_code: periodCode }).first();
+          });
      }
 
-     async getPeriodTotals(periodCode: string): Promise<{ debits: number; credits: number; entries: number }> {
-          const db = await this.connection();
+     async getPeriodTotals(periodCode: string, trx?: any): Promise<{ debits: number; credits: number; entries: number }> {
+          const db = await this.connection(trx);
           const period = await db('acc_periods').where({ period_code: periodCode }).first();
           if (!period) throw new PeriodNotFoundError(periodCode);
 

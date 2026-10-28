@@ -13,6 +13,7 @@ import MultiPayment from './multi-payment';
 
 function queryBuilder(result: any) {
      const query: any = {
+          forUpdate: () => query,
           select: () => query,
           where: () => query,
           whereIn: () => query,

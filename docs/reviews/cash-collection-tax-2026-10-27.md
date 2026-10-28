@@ -7,3 +7,11 @@ Tax handlers read `query.tenant` while the frontend sends `tenantId`. All five h
 Payment allocation, outstanding-balance calculations, waiver handling, receipt destinations and existing role authorization were not changed.
 
 Validation: 28 backend tests; 11 cashier browser checks covering lookup, full/partial payments, reprints, keyboard entry, mobile and larger text; 5 tax browser checks covering creation, duplicates, edits, activation and partial bulk deletion. Full frontend type check and backend build passed. Tests used synthetic records and responses; no live payments or tax records were changed.
+
+## Summary-card and reprint follow-up
+
+Both overview sections were redesigned. The directory shows the outstanding amount and compact supporting metrics with explicit filter scope. The payment overview prioritizes current balance, collecting now and remaining after payment. Already-paid and entered-waiver amounts are secondary; zero waivers do not occupy a card. Pending entries are labelled “Not yet recorded,” and totals explicitly apply to all loaded bills rather than only the selected bill. Existing calculations and payment handlers remain unchanged.
+
+Paid and partially paid bills now have a left-list Reprint receipt action. It opens the existing POS receipt route for that row’s bill ID in a new tab; the click does not select another bill, stage amounts or record a payment.
+
+The expanded browser suite checks exact summary values when entering/clearing a waiver, partial payments, multiple-bill scope, paid/partial receipt actions, correct row IDs, unchanged selection/payment requests, mobile layout and larger text. The frontend type check passed for the summary redesign.
