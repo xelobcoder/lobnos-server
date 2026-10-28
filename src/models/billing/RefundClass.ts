@@ -314,7 +314,8 @@ export class Refund {
 		employeeid: number,
 		serviceid: number,
 		reason: string,
-		trx?: any
+		trx?: any,
+		verifiedRole?: string
 	): Promise<boolean | string | undefined> {
 		try {
 			if (
@@ -326,7 +327,7 @@ export class Refund {
 				return false;
 			}
 
-			const role = await new User().getUserRole(employeeid, tenantId);
+			const role = verifiedRole || await new User().getUserRole(employeeid, tenantId);
 			if (!role) return false;
 
 			const withnessStatus = await this.withnessStatus(tenantId, serviceid);
@@ -412,41 +413,9 @@ export class Refund {
 	}
 
 	static async issueOutCashOutOfRefund(tenantId: number, records: updateRefundCashRequestBodyType) {
-		const { serviceid, employeeid, refundAmount, selectedPaymentMode, billingid } = records;
-		try {
-			const isApproved = await this.isServiceRefundApproved(tenantId, serviceid);
-			if (!isApproved) return OperationsFailures.notapproved;
-
-			const isRefundAmmountExceeded = await this.amountRefundableExceeded(tenantId, serviceid);
-			if (isRefundAmmountExceeded === null) return OperationsFailures.notFound;
-			if (isRefundAmmountExceeded === true) return OperationsFailures.refundAmmountExceeded;
-
-			if (isRefundAmmountExceeded === false) {
-				const refundResult = await Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
-				if (refundResult) {
-					const trackingRepository = new CommissionTrackingRepository(tenantId);
-					const trackingRecords = await trackingRepository.findByServiceId(serviceid);
-					const originalTracking = trackingRecords.find((tracking) =>
-						tracking.status !== 'adjusted' && tracking.final_commission > 0
-					);
-
-					if (originalTracking) {
-						await trackingRepository.createAdjustment(
-							originalTracking.id,
-							Number(refundAmount),
-							`Service refund completed for service ${serviceid}`,
-							'refund'
-						);
-					}
-				}
-
-				return refundResult;
-			}
-
-			return OperationsFailures.unauthorized;
-		} catch (err) {
-			await promisifyQuery(tenantId, q_service_refund_update_is_cashout, [null, 0, serviceid]);
-		}
+		// The writer validates approval, document ownership, balances and replay
+		// under row locks, and includes commission/accounting writes atomically.
+		return Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
 	}
 
 	static async calculateServiceRefundableAmount(tenantId: number, serviceid: number) {

@@ -42,6 +42,8 @@ import { SuspendedBillingController } from './SuspendedBillingController';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { previewModernBilling } from './ModernBillingController';
 import {lookupLabCashier} from './LabCashierController';
+import { requireRefundActor } from '../../middleware/refundAuthority';
+import { requireOwnerRole } from '../../middleware/authority';
 
 const router = Router();
 router.get('/api/v1/billing/lab-counter/lookup', lookupLabCashier);
@@ -67,18 +69,20 @@ router.put('/api/v1/billing/multi', handleMultiUpdateBilling);
 router.put("/api/v1/billing", isAuthorizedRoleAdmin, handleOverLoad(updateBilledTransaction));
 router.get("/api/v1/billing/caninitialbill", canInitiateBill);
 router.get("/api/v1/billing/information/single", getSavedCLientBillingInformation);
-router.post(`/api/v1/billing/previous/request/refund`, determineStageOfRefundRequestHandler);
-router.post(`/api/v1/billing/previous/request/refund/update`, handleOverLoad(requestForRefundHandler));
-router.post("/api/v1/billing/previous/refund/update/previous", handleOverLoad(updateWitnessWitnessNote as unknown as RequestHandler));
-router.post("/api/v1/billing/previous/refund/update/approve", isAuthorizedRoleAdmin, handleOverLoad(approveRequestForRefund));
-router.post("/api/v1/billing/previous/refund/update/cashout", requestForRefundCashIssueOut);
-router.get("/api/v1/billing/previous/refund/update/verification/cashout", verificationBeforeCashoutHandler as unknown as RequestHandler);
+router.post(`/api/v1/billing/previous/request/refund`, requireRefundActor, determineStageOfRefundRequestHandler);
+router.post(`/api/v1/billing/previous/request/refund/update`, requireRefundActor, handleOverLoad(requestForRefundHandler));
+router.post("/api/v1/billing/previous/refund/update/previous", requireRefundActor, handleOverLoad(updateWitnessWitnessNote as unknown as RequestHandler));
+router.post("/api/v1/billing/previous/refund/update/approve", requireRefundActor, requireOwnerRole, handleOverLoad(approveRequestForRefund));
+router.post("/api/v1/billing/previous/refund/update/cashout", requireRefundActor, requestForRefundCashIssueOut);
+router.get("/api/v1/billing/previous/refund/update/verification/cashout", requireRefundActor, verificationBeforeCashoutHandler as unknown as RequestHandler);
 router.get("/api/v1/billing/filtering/service/refund", getServiceRefundItem);
 router.get("/api/v1/billing/previous/transaction/data", getTransactionBillDataHandler);
 router.get("/api/v1/billing/previous/refund/all/:billingid/:employeeid/:selectedPaymentMode",
-     handleAuthenticationEmployee as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, {}, {}, { tenantId: string; }>,
+     requireRefundActor,
+     requireOwnerRole,
+     handleAuthenticationEmployee as unknown as RequestHandler,
      handleOverLoad(isAuthorizedRoleAdmin),
-     refundAllTransactionHandler as unknown as RequestHandler<{ billingid: number; employeeid: number; selectedPaymentMode: number; }, any, any>)
+     refundAllTransactionHandler as unknown as RequestHandler)
 router.post('/api/v1/billing/write-off/transaction', isAuthorizedRoleAdmin, handleOverLoad(WriteOffTransaction as unknown as RequestHandler<{ tenantId: string }, any, { billingid: number; reason: string; employeeid: number; }>));
 router.post('/api/v1/billing/correction/source', isAuthorizedRoleAdmin, handleOverLoad(correctRefererErrorPostRegistrationHandler));
 router.get('/api/v1/billing/discount-limits', isAuthorizedRoleAdmin, handleOverLoad(listDiscountLimitRules));
@@ -114,8 +118,8 @@ router.get('/api/v1/billing/patient/transactions/:billingid', getPatientTransact
 router.post("/api/v1/billing/sales/session/create", handleOverLoad(handleCreateNewSalesSesion));
 router.get("/api/v1/billing/sales/session/list", getSalesSessionList);
 router.get("/api/v1/billing/sales/session/by-date", handleOverLoad(getSessionsByDateHandler));
-router.put("/api/v1/billing/sales/session/:sessionId", handleOverLoad(handleUpdateSalesSession));
 router.put("/api/v1/billing/sales/session/endsession", handleEndSalesSession);
+router.put("/api/v1/billing/sales/session/:sessionId", handleOverLoad(handleUpdateSalesSession));
 router.get('/api/v1/billing/sales/session/verify/session', hasSalesSessionAvailableHandler)
 router.get(`/api/v1/billing/load/session/:sessionid/summary`, handleOverLoad(getSessionFinancialSummaryHandler))
 router.get("/api/v1/billing/sales/session/config", handleOverLoad(getSalesSessionConfigHandler));

@@ -1,4 +1,5 @@
 import { getAuthUser } from '../../middleware/authority';
+import { requireOrganizationFinanceRole } from '../../middleware/businessConfigurationAuthority';
 import { labSupervisor } from '../../models/operations/LabAccessPolicy';
 import express from 'express'
 import {
@@ -40,11 +41,11 @@ router.get("/api/v1/organizations/details", handleOverLoad(getOrganizationWithDe
 router.post("/api/v1/new/organizations", handleOverLoad(createAOrganization));
 router.put("/api/v1/organization/update/basic", handleOverLoad(updateOrganizationBasic));
 router.put("/api/v1/organization/update/contact", handleOverLoad(updateOrganizationContact));
-router.put("/api/v1/organization/update/payment", handleOverLoad(updateOrganizationPayment));
+router.put("/api/v1/organization/update/payment", requireOrganizationFinanceRole, handleOverLoad(updateOrganizationPayment));
 router.post("/api/v1/new/organization/images", handleOverLoad(upload));
 router.delete("/api/v1/organization", isAuthorizedRoleAdmin, handleOverLoad(deleteOrganization));
 router.post(`/api/v1/organization/profile/image`, uploadOrganizationLogo);
-router.post("/api/v1/organization/billing/test", handleOverLoad(createOrganizationPricingHandler))
+router.post("/api/v1/organization/billing/test", requireOrganizationFinanceRole, handleOverLoad(createOrganizationPricingHandler))
 router.get("/api/v1/organization/billing/test", handleOverLoad(getOrganizationPricingHandler))
 router.post('/api/v1/organization/bulk/registration', handleOverLoad(bulkInsertOrganizationsHandler))
 

@@ -16,6 +16,8 @@ import rejectedRouter from "./controllers/samples/rejected/route";
 import clinicianRouter from "./controllers/clinicians/route";
 import drugsRouter from "./controllers/drugs/drugsRouter";
 import SMSRouter from "./controllers/sms/route";
+import { recordSmsDelivery, startSmsCampaignWorker } from './models/application/sms/SmsCampaignWorker';
+import { smsAuthority } from './middleware/smsAuthority';
 import settingsRouter from "./controllers/settings/route";
 import LoginsRouter from "./controllers/logins/route";
 import insuranceRouters from './controllers/insurance/routes'
@@ -139,6 +141,10 @@ app.use(publicWalkInQueueRouter);
 // Patient portal activation derives the facility from an invitation or public facility identifier.
 app.use(publicPatientPortalRouter);
 app.use(publicPractitionerRouter);
+app.get('/api/v1/sms-delivery/:tenantId/:jobid/:token', async (req,res) => {
+    try { const accepted=await recordSmsDelivery(Number(req.params.tenantId),Number(req.params.jobid),req.params.token,req.query.sms_id,req.query.status);res.status(accepted?200:404).json({accepted}); }
+    catch { res.status(503).json({error:'Delivery report temporarily unavailable'}); }
+});
 app.use(ValidateTenancyAgreement)
 app.use(facilityModuleAccess);
 app.use(subscriptionRouter);
@@ -146,6 +152,7 @@ app.use(checkTokenExists)
 app.use(practitionerBoundary);
 app.use(pharmacyModuleBoundary);
 app.use(labAssignmentAccess);
+app.use(smsAuthority);
 app.use('/api/v1/operations/control', operationalControlRoutes);
 app.use('/api/v1/queue', walkInQueueRouter);
 app.use(patientPortalRouter);
@@ -270,6 +277,7 @@ async function startApplication() {
         startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
         startPatientPortalWorkers(readyTenants);
         startAppointmentReminderWorker(readyTenants);
+        startSmsCampaignWorker(readyTenants);
         // Tenants hold their own gateway credentials, so recovery must run even when no platform provider is configured.
         startPaymentReconciliationWorker(getPaymentGatewayService());
     });

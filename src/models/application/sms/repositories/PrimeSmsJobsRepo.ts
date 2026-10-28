@@ -9,7 +9,7 @@ export interface PrimeSmsJob {
 	targetids?: any;
 	sendtype: 'immediate' | 'scheduled';
 	scheduledat?: Date;
-	status?: 'pending' | 'processing' | 'sent' | 'partialfailed' | 'failed';
+	status?: 'pending' | 'processing' | 'sent' | 'partialfailed' | 'failed' | 'scheduled' | 'submitted' | 'delivered' | 'unknown' | 'cancelled';
 	createdby: number;
 	createdat?: Date;
 }

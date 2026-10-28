@@ -40,8 +40,14 @@ export const LOCAL_MIGRATIONS = [
      '20261023_pharmacy_integrity',
      '20261023_pharmacy_separation',
      '20261024_pharmacy_operations',
+     '20261024_pharmacy_enterprise_workflows',
+     '20261024_pharmacy_price_types',
+     '20261025_billing_layout',
      '20261025_practitioner_consultation',
      '20261025_nhis_identifiers',
+     '20261027_lab_cashier_workflow',
+     '20261027_organization_directory',
+     '20261028_sms_campaign_integrity',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

@@ -4,6 +4,8 @@ import { customError, responseError } from "../../../hooks/helper";
 import { OperationsFailures } from "../../../models/operations/types";
 import SalesSessionServices from "../../../models/billing/billing-services/salesSessionService";
 import { parse } from "node:path";
+import { getAuthUser } from '../../../middleware/authority';
+import { roleAllowed } from '../../../middleware/roles';
 
 
 
@@ -49,18 +51,22 @@ export const getSalesSessionList = async function (request: Request<{}, {}, {}, 
 export const handleEndSalesSession = async function (request: Request<{}, {}, { sessionId: number, handingoveramount: number, validatedby: string }, { tenantId: string }>, response: Response) {
      try {
           const { tenantId } = request.query;
-          const { sessionId, validatedby, handingoveramount } = request.body;
+          const { sessionId, handingoveramount } = request.body;
+          const actor = getAuthUser(request);
+          if (!actor) return response.status(401).json({ status: false, message: 'Authentication required' });
           const parsedTenantId = parseInt(tenantId.toString());
+          if (parsedTenantId !== Number(actor.tenantId)) return response.status(403).json({ status: false, message: 'Tenant access denied' });
 
-          const status = await new SalesSessionRepo(parsedTenantId).endSession(
+          const status = await new SalesSessionRepo(parsedTenantId).endSessionAsActor(
                sessionId,
-               parseInt(validatedby),
-               handingoveramount
+               handingoveramount,
+               actor
           );
 
           response.status(200).send({ status: status > 0 });
      } catch (err: any) {
-          responseError(response, err?.message);
+          if (err?.statusCode) return response.status(err.statusCode).json({ status: false, message: err.message });
+          responseError(response);
      }
 }
 
@@ -190,14 +196,29 @@ export const handleUpdateSalesSession = async function (request: Request<{ sessi
           const { tenantId } = request.query;
           const { sessionId } = request.params;
           const parsedTenantId = parseInt(tenantId.toString());
-          const parsedSessionId = parseInt(sessionId);
-          const updateData = request.body;
+          const parsedSessionId = Number(sessionId);
+          const actor = getAuthUser(request);
+          if (!actor) return response.status(401).json({ status: false, message: 'Authentication required' });
+          if (Number(actor.tenantId) !== parsedTenantId || !roleAllowed(actor.role, ['admin', 'manager', 'accountant'])) {
+               return response.status(403).json({ status: false, message: 'Sales session management access denied' });
+          }
+          const updateData = { ...request.body as object } as Record<string, any>;
+          if ('validatedby' in updateData) updateData.validatedby = actor.employeeid;
 
-          if (!sessionId || isNaN(parsedSessionId)) {
+          if (!Number.isSafeInteger(parsedSessionId) || parsedSessionId <= 0) {
                return customError(OperationsFailures.invalidResquestQuery + " sessionId not provided or invalid", 400, response);
           }
 
-          const result = await new SalesSessionRepo(parsedTenantId).update(parsedSessionId, updateData);
+          const repository = new SalesSessionRepo(parsedTenantId);
+          const session = await repository.findById(parsedSessionId);
+          if (!session) return response.status(404).json({ status: false, message: 'Sales session not found' });
+          if (!roleAllowed(actor.role, ['admin']) && (actor.branch == null || Number(session.branchid) !== Number(actor.branch) ||
+               (updateData.branchid != null && Number(updateData.branchid) !== Number(actor.branch)))) {
+               return response.status(403).json({ status: false, message: 'Sales session is outside your branch' });
+          }
+          // Closing always uses the locked, actor-bound close operation.
+          if ('sessionendedon' in updateData) return response.status(400).json({ status: false, message: 'Use the close session action to record a handover' });
+          const result = await repository.update(parsedSessionId, updateData);
           if (result > 0) {
                response.status(200).send({ status: true, message: "Session updated successfully" });
           } else {

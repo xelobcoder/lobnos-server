@@ -18,13 +18,14 @@ function DuplicateError(response: any) {
 }
 
 function responseError(response: any, err: any = null, statusCode?: number) {
-	const errorMessage = err
+	const code = Number.isInteger(statusCode) && statusCode! >= 400 && statusCode! <= 599 ? statusCode! : 500;
+	const errorMessage = code < 500 && err
 		? (typeof err === "string" ? err : (err.message || err.toString() || "something wrong occurred"))
-		: "something wrong occurred";
+		: "Unable to complete the request. Please retry or contact support.";
 
-	response.status(statusCode || 500).send({
+	response.status(code).send({
 		message: errorMessage,
-		statusCode: 500,
+		statusCode: code,
 		status: "error",
 	});
 

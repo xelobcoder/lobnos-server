@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction } from "express";
+export const redactRequestUrl = (url: string) => url.replace(/(\/sms-delivery\/\d+\/\d+\/)[^/?]+/gi, '$1[redacted]');
 
 const requestLogger = (
      req: Request,
@@ -19,7 +20,7 @@ const requestLogger = (
      });
 
      console.log(
-          `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[HTTP]\x1b[0m ${req.method} ${req.originalUrl}`
+          `\x1b[32m[PrimeLabSys]\x1b[0m ${pid}  - ${timestamp}     \x1b[32mLOG\x1b[0m \x1b[38;5;39m[HTTP]\x1b[0m ${req.method} ${redactRequestUrl(req.originalUrl)}`
      );
 
      

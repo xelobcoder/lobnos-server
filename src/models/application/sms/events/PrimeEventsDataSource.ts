@@ -9,6 +9,8 @@ import { PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
 import { validateModuleConfiguration } from "../../../Tenancy/FacilityModules";
 import logger from "../../../../hooks/logger";
 
+import { isSmsActive } from '../SmsActivation';
+
 export class PrimeEventsSMSDataSource {
 
      private tenantId: number;
@@ -53,14 +55,8 @@ export class PrimeEventsSMSDataSource {
           }
      }
 
-     private async isSmsModuleEnabled(): Promise<boolean> {
-          const connection = await KnexConnection(this.tenantId);
-          const settings = await connection('applicationsettings').where({ keyid: 1 }).first();
-          if (!settings?.moduleConfiguration) return true;
-          const config = validateModuleConfiguration(JSON.parse(settings.moduleConfiguration));
-          if (!config) throw new Error('Invalid stored module configuration');
-          return config.modules.sms.enabled;
-     }
+     private async isSmsModuleEnabled(): Promise<boolean> { return isSmsActive(this.tenantId); }
+
 
 
      private async logSentSmsJob({ smsconstent, phonee164, arkeselResponse, eventCode, refId, isEvent = false, eventcode = null, createdby = 0 }: {
@@ -101,8 +97,8 @@ export class PrimeEventsSMSDataSource {
                     recipientscope: 'single',
                     targetids: null,
                     sendtype: 'immediate',
-                    status: 'sent',
-                    createdby: 0
+                    status: 'submitted',
+                    createdby
                }, trx);
 
                const arkeselData = arkeselResponse.data[0];
@@ -114,7 +110,7 @@ export class PrimeEventsSMSDataSource {
                     jobid: jobId,
                     phonee164,
                     personalizedbody: smsconstent,
-                    deliverystatus: 'sent',
+                    deliverystatus: 'submitted',
                     messageid: arkeselData.id,
                     refid: refidNum,
                     sentat: new Date(),

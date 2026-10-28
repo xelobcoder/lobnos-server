@@ -1,10 +1,11 @@
+import { getAuthUser } from '../../../middleware/authority';
 import { Request, Response } from "express";
 import { PrimeEventsSMSDataSource } from "../../../models/application/sms/events/PrimeEventsDataSource";
 
 export const sendEventSmsPaymentHandler = async (req: Request, res: Response) => {
      const tenantId = Number(req.query.tenantId);
      const billingid = req.query.billingid;
-     const employeeId = req.query.employeeid;
+     const employeeId = getAuthUser(req)?.employeeid;
 
      if (!billingid || !employeeId) return res.status(400).json({ success: false, error: 'Missing tenantId or billingid' });
      try {
@@ -38,12 +39,12 @@ export const getClientResultReadySentcount = async (req: Request, res: Response)
 export const sendResultReadyEvent = async (req: Request, res: Response) => {
      const tenantId = Number(req.query.tenantId);
      const billingid = req.query.billingid;
-     const employeeId = typeof req.query.employeeid !== 'undefined' ? req.query.employeeid : '';
+     const employeeId = getAuthUser(req)?.employeeid;
      const customMessage = typeof req.query.message !== 'undefined' && req.query.message !== null ? req.query.message.toString() : '';
      if (!tenantId || !billingid) return res.status(400).json({ success: false, error: 'Missing tenantId or billingid' });
      try {
           const parsedBillingId = parseInt(billingid.toString(), 10);
-          const parsedEmployeeId = employeeId !== '' ? parseInt(employeeId.toString(), 10) : undefined;
+          const parsedEmployeeId = employeeId;
           if (isNaN(parsedBillingId)) return res.status(400).json({ success: false, error: 'Invalid billingid' });
           const repo = new PrimeEventsSMSDataSource(tenantId);
           const sms = await repo.testAscensionEventDataAllDone(tenantId, parsedBillingId, parsedEmployeeId, true, customMessage);

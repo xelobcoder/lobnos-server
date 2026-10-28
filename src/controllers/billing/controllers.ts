@@ -14,6 +14,9 @@ import OutstandingClass from "../../models/billing/outstanding/outstanding_class
 import { MultiTBillingDataShared } from "../../models/billing/multi/billing_shared_types";
 import KnexConnection from "../../database/KnexConnections";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
+import { getAuthUser } from '../../middleware/authority';
+import { roleAllowed } from '../../middleware/roles';
+import { minorUnits } from '../../accountingModule/utils/money';
 
 
 
@@ -128,7 +131,7 @@ export async function requestForRefundHandler(request: Request<{}, {}, RefundReq
 		}
 
 		const tenantId = parseInt(request.query.tenantId.toString(), 10);
-		const result = await Refund.requestForServicesAsRefundWitness(tenantId, parsedEmployeeId, parsedServiceId, cleanReason);
+		const result = await Refund.requestForServicesAsRefundWitness(tenantId, parsedEmployeeId, parsedServiceId, cleanReason, undefined, getAuthUser(request as unknown as Request)?.role);
 
 		if (result === OperationsFailures.allWitnessesAssigned) {
 			return customError("A refund request has already been submitted for this service", 400, response);
@@ -221,7 +224,7 @@ export async function updateWitnessWitnessNote(request: Request<{}, {}, UpdatePr
 		if (!["firstWitness", "secondWitness", "thirdWitness"].includes(witness)) {
 			const parseEmployeeid = parseInt(employeeid.toString());
 			const parseServicedId = parseInt(serviceid.toString());
-			const addNewWitness = await Refund.requestForServicesAsRefundWitness(tenantId, parseEmployeeid, parseServicedId, message);
+			const addNewWitness = await Refund.requestForServicesAsRefundWitness(tenantId, parseEmployeeid, parseServicedId, message, undefined, getAuthUser(request)?.role);
 
 			let Responsemessage = "";
 
@@ -276,13 +279,23 @@ export async function requestForRefundCashIssueOut(
 	response: Response
 ) {
 	try {
-		const { serviceid, employeeid, selectedPaymentMode, refundAmount } = request.body;
-
-		if (!serviceid || !employeeid || typeof serviceid !== 'number' || typeof employeeid !== 'number' || !selectedPaymentMode || !refundAmount) {
-			return customError(OperationsFailures.invalidResponseBodyParams, 404, response);
+		const actor = getAuthUser(request);
+		if (!actor) return response.status(401).send({ status: false, message: 'Authentication required' });
+		if (!roleAllowed(actor.role, ['admin', 'manager', 'accountant', 'cashier'])) return response.status(403).send({ status: false, message: 'Refund payment access denied' });
+		const { serviceid, refundAmount, billingid } = request.body;
+		const rawPaymentMode: unknown = request.body.selectedPaymentMode;
+		const selectedPaymentMode = typeof rawPaymentMode === 'number' || (typeof rawPaymentMode === 'string' && /^\d+$/.test(rawPaymentMode)) ? Number(rawPaymentMode) : NaN;
+		const employeeid = actor.employeeid;
+		if (![serviceid, selectedPaymentMode, billingid].every(value => Number.isSafeInteger(value) && value > 0) ||
+			typeof refundAmount !== 'number' || !Number.isFinite(refundAmount) || refundAmount <= 0) {
+			return customError(OperationsFailures.invalidResponseBodyParams, 400, response);
 		}
+		try { minorUnits(refundAmount); } catch { return customError('Invalid refund amount', 400, response); }
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
-		const isCashoutDocumented = await Refund.issueOutCashOutOfRefund(tenantId, request.body);
+		if (tenantId !== Number(actor.tenantId)) return response.status(403).send({ status: false, message: 'Tenant access denied' });
+		const result = await Refund.issueOutCashOutOfRefund(tenantId, { ...request.body, employeeid, selectedPaymentMode });
+		const isCashoutDocumented = result === true;
+		if (!isCashoutDocumented) return response.status(400).send({ status: false, message: typeof result === 'string' ? result : 'Service refund failed' });
 
 		if (isCashoutDocumented) {
 			NotificationDispatcher.dispatch(tenantId, 'REFUND_PROCESSED', { serviceId: serviceid }, employeeid).catch(() => { });
@@ -316,10 +329,10 @@ export async function verificationBeforeCashoutHandler(request: Request<{}, {}, 
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		const refundInformation = await Refund.refundVerification(tenantId, serviceId, billinId);
 		if (typeof refundInformation == "string") {
-			return {
+			return response.status(400).send({
 				status: false,
 				message: refundInformation
-			}
+			});
 		}
 		response.send(refundInformation);
 	} catch (err) {

@@ -11,16 +11,13 @@ import { PrimeSmsJobRecipientsRepo } from '../../../models/application/sms/repos
  * @param res - Express response object
  */
 
+import { getAuthUser } from '../../../middleware/authority';
+import { SmsCampaignService } from '../../../models/application/sms/SmsCampaignService';
 export async function retryFailedTransactionHandler(req: Request, res: Response) {
-     try {
-          const tenantId = parseInt(req.query.tenantId as string);
-          const jobid = Number(req.params.jobid);
-          const refid = req.params.refid;
-          const jobsRepo = new PrimeSmsJobsRepo(tenantId);
-          const jobRecipientsRepo = new PrimeSmsJobRecipientsRepo(tenantId);
-          const result = await new SmsJobsService(jobsRepo, jobRecipientsRepo, tenantId).retryFailedTransaction(tenantId, jobid, refid as string);
-          res.status(200).json({ status: result.status === "success" ? 'success' : 'failed', message: result.message || 'Transaction retry initiated.' });
-     } catch (err:any) {
-          res.status(400).json({ error: err.message });
-     }
+ try {
+  const actor=getAuthUser(req);if(!actor)return res.status(401).json({error:'Authentication required'});
+  const jobid=Number(req.params.jobid),refid=Number(req.params.refid);
+  if(!Number.isSafeInteger(jobid)||jobid<=0||!Number.isSafeInteger(refid)||refid<=0)return res.status(400).json({error:'Invalid message reference'});
+  res.json(await new SmsCampaignService(actor.tenantId).retry(jobid,refid,actor));
+ }catch(error:any){res.status(error?.statusCode||500).json({error:error?.statusCode?error.message:'Unable to queue the retry'});}
 }

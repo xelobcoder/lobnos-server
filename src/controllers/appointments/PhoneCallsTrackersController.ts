@@ -3,6 +3,9 @@ import { PhoneCallsTrackersRepo } from "../../models/appointments/PhoneCallsTrac
 import { customError } from "../../hooks/helper";
 import { SmsService } from "../../models/application/integrations/Arkesel";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import { getAuthUser } from '../../middleware/authority';
+import { SmsCampaignService } from '../../models/application/sms/SmsCampaignService';
+import { isSmsActive } from '../../models/application/sms/SmsActivation';
 
 
 
@@ -140,6 +143,9 @@ export class PhoneCallsTrackersController {
           try {
                const tenantId = parseInt(req.query.tenantId as string, 10);
                const { appointmentDetails, scheduleDate, type } = req.body;
+               const actor = getAuthUser(req as unknown as Request);
+               if (!actor || Number(actor.tenantId) !== tenantId) return res.status(401).json({ error: 'Authentication required' });
+               if (!(await isSmsActive(tenantId))) return res.status(403).json({ error: 'SMS is not activated for this facility' });
                if (!appointmentDetails || !type) return res.status(400).json({ error: "Missing required fields in request body" });
                if (type == "schedule" && !scheduleDate) return res.status(400).json({ error: "Missing scheduleDate for non-schedule type" });
                const { purpose ,mobile_number} = appointmentDetails;
@@ -149,12 +155,12 @@ export class PhoneCallsTrackersController {
                if (!isMobileValid.isValid) {
                     return res.status(400).json({ error: "Invalid mobile number format in appointmentDetails" });
                }
-               const smsMessages = await new SmsService(tenantId).sendSms([mobile_number], purpose);
-               const { status, code, message } = smsMessages as any;
-               if (status === "error") {
-                    return res.status(code).json({ error: message });
-               }
-               res.json({ status: "success", message: "Appointment reminder sent successfully" });
+               const jobId = await new SmsCampaignService(tenantId).enqueue({ category: 'patient', recipientScope: 'single',
+                    targetIds: [{ id: Number(appointmentDetails.patientid) }], customBody: purpose,
+                    sendType: type === 'schedule' ? 'scheduled' : 'immediate', scheduledAt: type === 'schedule' ? scheduleDate : undefined,
+                    createdBy: actor.employeeid,
+               }, actor);
+               res.json({ status: 'success', jobId, message: type === 'schedule' ? 'Appointment reminder scheduled' : 'Appointment reminder queued' });
                
           } catch (error: any) {
                res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });

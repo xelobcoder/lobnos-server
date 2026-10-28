@@ -1,17 +1,21 @@
 import { Request, Response } from 'express';
 import { CreateSmsTemplateSchema } from '../../../models/application/sms/dtos/CreateSmsTemplateDto';
 import { SmsTemplatesService } from '../../../models/application/sms/services/SmsTemplatesService';
+import { getAuthUser } from '../../../middleware/authority';
+import { ZodError } from 'zod';
 
 export class SmsTemplatesController {
      constructor(private templatesService: SmsTemplatesService) { }
 
      async create(req: Request, res: Response) {
           try {
-               const dto = CreateSmsTemplateSchema.parse(req.body);
+               const actor = getAuthUser(req);
+               if (!actor) return res.status(401).json({ error: 'Authentication required' });
+               const dto = CreateSmsTemplateSchema.parse({ ...req.body, createdBy: actor.employeeid });
                const id = await this.templatesService.createTemplate(dto);
                res.status(201).json({ id });
           } catch (err) {
-               res.status(400).json({ error: err });
+               res.status(400).json({ error: err instanceof ZodError ? err.issues.map(issue => issue.message).join('. ') : 'Unable to create SMS template' });
           }
      }
 
@@ -24,11 +28,11 @@ export class SmsTemplatesController {
      async update(req: Request, res: Response) {
           try {
                const partialSchema = CreateSmsTemplateSchema.partial();
-               const dto = partialSchema.parse(req.body);
+               const { createdBy: _createdBy, ...dto } = partialSchema.parse(req.body);
                const updated = await this.templatesService.updateTemplate(Number(req.params.id), dto);
                res.json({ updated });
           } catch (err) {
-               res.status(400).json({ error: err });
+               res.status(400).json({ error: err instanceof ZodError ? err.issues.map(issue => issue.message).join('. ') : 'Unable to update SMS template' });
           }
      }
 

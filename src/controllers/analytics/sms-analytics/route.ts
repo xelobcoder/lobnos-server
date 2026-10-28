@@ -8,7 +8,8 @@ const router = Router();
 
 const primeSmsAnalyticsController = new PrimeSmsAnalyticsController();
 
-router.get(`/api/v1/prime/sms/failed/transaction/retry/:jobid/:refid`, retryFailedTransactionHandler);
+router.post(`/api/v1/prime/sms/failed/transaction/retry/:jobid/:refid`, retryFailedTransactionHandler);
+router.get(`/api/v1/prime/sms/failed/transaction/retry/:jobid/:refid`, (_req,res)=>res.status(405).json({error:"Use POST to retry a failed message"}));
 router.get('/api/v1/prime/sms-analytics/job-status-counts', handleOverLoad(primeSmsAnalyticsController.getJobStatusCounts.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/recipient-delivery-counts', handleOverLoad(primeSmsAnalyticsController.getRecipientDeliveryCounts.bind(primeSmsAnalyticsController)));
 router.get('/api/v1/prime/sms-analytics/totals', handleOverLoad(primeSmsAnalyticsController.getTotals.bind(primeSmsAnalyticsController)));

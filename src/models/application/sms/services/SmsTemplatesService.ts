@@ -2,19 +2,19 @@ import { PrimeSmsTemplatesRepo } from '../repositories/PrimeSmsTemplatesRepo';
 import { CreateSmsTemplateDto } from '../dtos/CreateSmsTemplateDto';
 
 function mapTemplateDtoToDb(dto: any) {
-     return {
+     return Object.fromEntries(Object.entries({
           name: dto.name,
           body: dto.body,
           category: dto.category,
           createdby: dto.createdBy,
-     };
+     }).filter(([, value]) => value !== undefined));
 }
 
 export class SmsTemplatesService {
      constructor(private templatesRepo: PrimeSmsTemplatesRepo) { }
 
      async createTemplate(dto: CreateSmsTemplateDto) {
-          return this.templatesRepo.create(mapTemplateDtoToDb(dto));
+          return this.templatesRepo.create(mapTemplateDtoToDb(dto) as any);
      }
 
      async getTemplateById(id: number) {

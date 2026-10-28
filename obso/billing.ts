@@ -30,6 +30,9 @@ import {
 } from "../src/models/billing/queries";
 import { Refund } from "../src/models/billing/RefundClass";
 import { enqueueBillingRefund } from "../src/accountingModule/integrations/BillingAccounting";
+import { minorUnits } from '../src/accountingModule/utils/money';
+import { CommissionTrackingRepository } from '../src/models/commissions/commission-configurations/repositories/CommissionTrackingRepository';
+import { FinancialFinalizationGuard } from '../src/accountingModule/services/FinancialFinalizationGuard';
 
 
 
@@ -981,18 +984,34 @@ export class Billing {
 		let trx: any;
 		try {
 			const { billingid, refundAmount, serviceid, employeeid, selectedPaymentMode } = records;
-			const isBillingIdValid: boolean = await Billing.checkValidityOfBillingid(tenantId, billingid);
-			if (!isBillingIdValid) return false;
-
-			const previousBillingRecord: PrimeLimsTablebilling[] = await new Billing(0).getTransactionBillData(tenantId, billingid);
-			if (previousBillingRecord.length === 0) return false;
-			let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = previousBillingRecord[0]
+			if (![billingid, serviceid, employeeid, selectedPaymentMode].every(value => Number.isSafeInteger(value) && value > 0) ||
+				typeof refundAmount !== 'number') return false;
+			const refundCents = minorUnits(refundAmount);
+			if (refundCents <= 0) return false;
 			const connection = await KnexConnection(tenantId);
-			const serviceInformation: (PrimeLimsTabledboservices & PrimeLimsTabledbobillingrefundtable) = await connection("dboservices as s")
+			trx = await connection.transaction();
+			// Every balance and refund-state decision is made under the same locks
+			// as the resulting financial writes. All callers share this boundary.
+			const bill = await trx('billing').where({ billingid }).forUpdate().first();
+			if (!bill) return false;
+			if (Number(bill.islocked) === 1 || Number(bill.isWriteOff) === 1) return false;
+			const finalizationGuard = new FinancialFinalizationGuard(tenantId, trx);
+			await finalizationGuard.assertRecordMutable('billing', billingid);
+			await finalizationGuard.assertDateOpen(Number(bill.branchid), bill.billedon);
+			let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = bill;
+			const serviceInformation = await trx("dboservices as s")
 				.join("dbobillingrefundtable as r", "s.serviceid", "r.serviceid")
-				.select("s.totalpayable", "s.totalcost", "s.discount", "s.amountIncurredDueTax", "s.paidamount", "r.amountRefunded")
+				.select("s.totalpayable", "s.totalcost", "s.discount", "s.amountIncurredDueTax", "s.paidamount", "r.amountRefunded", 'r.isRefundApproved', 'r.isRefundCompleted', 'r.isRefundMatterClosed')
 				.where("s.serviceid", serviceid)
+				.where('s.billingid', billingid)
+				.forUpdate()
 				.first();
+			if (!serviceInformation || Number(serviceInformation.isRefundApproved) !== 1 ||
+				Number(serviceInformation.isRefundCompleted) === 1 || Number(serviceInformation.isRefundMatterClosed) === 1 ||
+				refundCents > minorUnits(serviceInformation.paidamount) || refundCents > minorUnits(serviceInformation.totalpayable) ||
+				refundCents > minorUnits(paid) || refundCents > minorUnits(payable)) return false;
+			const mode = await trx('paymentmodes').where({ KeyID: selectedPaymentMode }).first();
+			if (!mode) return false;
 
 			if (serviceInformation) {
 				const servicepayable = parseFloat(serviceInformation.totalpayable.toString()) - parseFloat(refundAmount.toString());
@@ -1021,9 +1040,6 @@ export class Billing {
 					newOutstandingAmount = currentPayable - currentPaid;
 				}
 
-
-				const conenction = await KnexConnection(tenantId);
-				trx = await conenction.transaction();
 
 				await trx.raw(q_update_Billing_Information, [
 					currentPaid,
@@ -1084,6 +1100,11 @@ export class Billing {
 					refundHistoryId,
 					Number(selectedPaymentMode)
 				);
+				const trackingRepository = new CommissionTrackingRepository(tenantId, trx);
+				const trackingRecords = await trackingRepository.findByServiceId(serviceid);
+				const originalTracking = trackingRecords.find(tracking => tracking.status !== 'adjusted' && tracking.final_commission > 0);
+				if (originalTracking) await trackingRepository.createAdjustment(originalTracking.id, refundAmount,
+					`Service refund completed for service ${serviceid}`, 'refund');
 
 				await trx.commit();
 
@@ -1094,6 +1115,8 @@ export class Billing {
 		catch (err: any) {
 			if (trx && !trx.isCompleted?.()) await trx.rollback().catch(() => undefined);
 			throw err;
+		} finally {
+			if (trx && !trx.isCompleted()) await trx.rollback();
 		}
 	}
 

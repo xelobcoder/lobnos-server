@@ -1,5 +1,8 @@
 import KnexConnection from "../../../database/KnexConnections";
 import { OperationsFailures } from "../../operations/types";
+import type { AuthUser } from '../../../middleware/authority';
+import { roleAllowed } from '../../../middleware/roles';
+import { minorUnits } from '../../../accountingModule/utils/money';
 
 interface SalesSession {
      sessionid: number;
@@ -576,6 +579,28 @@ export class SalesSessionRepo {
      }
 
 
+
+     async endSessionAsActor(sessionId: number, handingoveramount: number, actor: AuthUser) {
+          const fail = (message: string, statusCode: number): never => { throw Object.assign(new Error(message), { statusCode }); };
+          if (!Number.isSafeInteger(sessionId) || sessionId <= 0) fail('Invalid session ID', 400);
+          const amount = minorUnits(handingoveramount);
+          if (amount < 0) fail('Handover amount cannot be negative', 400);
+          if (Number(actor.tenantId) !== Number(this.tenantId) ||
+               !roleAllowed(actor.role, ['admin', 'manager', 'accountant', 'cashier'])) fail('Sales session access denied', 403);
+          const conn = await this.connection;
+          return conn.transaction(async (trx: any) => {
+               const session = await trx('salessessionmanager').where({ sessionid: sessionId }).forUpdate().first();
+               if (!session) fail('Sales session not found', 404);
+               if (!roleAllowed(actor.role, ['admin']) &&
+                    (actor.branch == null || Number(session.branchid) !== Number(actor.branch))) fail('Sales session is outside your branch', 403);
+               if (roleAllowed(actor.role, ['cashier']) && !roleAllowed(actor.role, ['admin', 'manager', 'accountant']) &&
+                    Number(session.session_started_by) !== Number(actor.employeeid)) fail('You may only close your own cashier session', 403);
+               if (session.sessionendedon) fail('Sales session is already closed', 409);
+               return trx('salessessionmanager').where({ sessionid: sessionId }).whereNull('sessionendedon').update({
+                    sessionendedon: trx.fn.now(), validatedby: actor.employeeid, handingoveramount: amount / 100,
+               });
+          });
+     }
 
      async endSession(sessionId: number, validatedby: number, handingoveramount: number) {
           try {

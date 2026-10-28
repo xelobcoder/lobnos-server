@@ -20,6 +20,7 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/inventory(?:\/|$)/i.test(path)) return 'inventory';
      if (/^\/api\/v1\/email(?:\/|$)/i.test(path)) return 'email';
      if (/^\/api\/v1\/(?:sms(?:\/|$)|prime\/sms(?:[-/]|$))/i.test(path)) return 'sms';
+     if (/^\/api\/v1\/(?:applicationsettings\/smsupdate|application\/sms\/create\/template\/columns)(?:\/|$)/i.test(path)) return 'sms';
      if (/^\/api\/v1\/(?:interfacing\/devices|devices\/interfacing)(?:\/|$)/i.test(path)) return 'deviceInterfacing';
      if (/^\/api\/v1\/(?:commission(?:-payments)?)(?:\/|$)/i.test(path)) return 'commissions';
      if (/^\/api\/v1\/appointments?(?:\/|$)/i.test(path)) return 'appointments';

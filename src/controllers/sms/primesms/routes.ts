@@ -53,6 +53,9 @@ const tenantHandler = <K extends keyof SmsControllers>(controller: K, method: ke
 const router = Router();
 
 // Jobs
+router.post('/api/v1/prime/sms-jobs/preview', handleOverLoad(tenantHandler('smsJobsController', 'preview')));
+router.post('/api/v1/prime/sms-jobs/:id/cancel', handleOverLoad(tenantHandler('smsJobsController', 'cancel')));
+router.post('/api/v1/prime/sms-jobs/:id/reconcile', handleOverLoad(tenantHandler('smsJobsController', 'reconcile')));
 router.post('/api/v1/prime/sms-jobs', handleOverLoad(tenantHandler('smsJobsController', 'create')));
 router.get('/api/v1/prime/sms-jobs/:id', handleOverLoad(tenantHandler('smsJobsController', 'getById')));
 router.put('/api/v1/prime/sms-jobs/:id', handleOverLoad(tenantHandler('smsJobsController', 'update')));

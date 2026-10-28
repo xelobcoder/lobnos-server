@@ -1,4 +1,5 @@
 import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkflowAuthority';
+import { requireQcConfigurationRole } from '../../middleware/businessConfigurationAuthority';
 import { getAuthUser } from '../../middleware/authority';
 import { roleAllowed } from '../../middleware/roles';
 import express from 'express';
@@ -11,6 +12,9 @@ import { QCDashboardController, QCSessionsController } from './QCDashboard';
 import { isAuthorizedRoleAdmin, isAuthorizedRoleScientistPhelobotomist } from '../../middleware/validateTenancy';
 
 const router = express.Router();
+// Targets and their device/material definitions use the same clinical authority
+// as QC sessions. Protect both reads and writes, including direct API requests.
+router.use(['/api/v1/devices', '/api/v1/controlmaterials', '/api/v1/controlparameters'], requireQcConfigurationRole);
 router.get('/api/v1/qc/settings', requireLaboratoryWorkflowRole, getQcSettings);
 router.put('/api/v1/qc/settings', requireLaboratoryWorkflowRole, saveQcSettings);
 const deviceController = new DeviceController();

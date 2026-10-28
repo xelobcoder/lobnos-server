@@ -7,6 +7,7 @@ interface SmsResponse {
     code: number;
     message: string;
     data?: any;
+    uncertain?: boolean;
 }
 
 interface SmsSendOptions {
@@ -51,6 +52,7 @@ export class SmsService {
                 method: config.method,
                 headers: config.headers as HeadersInit,
                 body: config.method !== 'GET' && config.data ? JSON.stringify(config.data) : undefined,
+                signal: AbortSignal.timeout(20000),
             });
 
 
@@ -58,15 +60,19 @@ export class SmsService {
                 return {
                     status: 'error',
                     code: response.status,
+                    uncertain: response.status >= 500 || response.status === 408,
                     message: `Request failed with status ${response.status}: ${response.statusText}`,
                 };
             }
-            return await response.json();
+            const result = await response.json();
+            if (result?.status === 'error' && Number(result.code) >= 500) result.uncertain = true;
+            return result;
         } catch (error) {
-            console.log('Error sending SMS API request:', error);
+            // A timeout or unreadable response does not establish rejection.
             return {
                 status: 'error',
                 code: 500,
+                uncertain: true,
                 message: error instanceof Error ? error.message : 'Unknown error occurred',
             };
         }
@@ -160,6 +166,11 @@ export class SmsService {
             ...(options.scheduledDate && { scheduled_date: options.scheduledDate })
         }
         return this.sendRequest(config, '/api/v2/sms/send', 'POST', data)
+    }
+
+    async getMessageReport(messageId: string): Promise<SmsResponse> {
+        if (!/^[\w-]{1,64}$/.test(messageId)) throw new Error('Invalid provider message ID');
+        return this.sendRequest(await this.getConfig(), '/api/v2/sms/' + encodeURIComponent(messageId), 'GET');
     }
 
     async sendSingleSms(

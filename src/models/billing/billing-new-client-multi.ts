@@ -1340,8 +1340,12 @@ export class SubmitCustomerBilling {
 
         } catch (err) {
             console.log('Error removing pending non paid service:', err);
-            await transaction.rollback();
+            if (!transaction.isCompleted()) await transaction.rollback();
             return OperationsFailures.internalServerError;
+        } finally {
+            // Validation failures also leave through this block. Never return an
+            // unfinished transaction (and its checked-out connection) to callers.
+            if (!transaction.isCompleted()) await transaction.rollback();
         }
     }
 

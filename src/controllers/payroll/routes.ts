@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requirePayrollCompensationRole } from '../../middleware/businessConfigurationAuthority';
 import * as compensationController from './compensationController';
 import * as bonusController from './bonusController';
 import * as allowanceController from './allowanceController';
@@ -14,6 +15,7 @@ import { handleOverLoad } from '../../hooks/helper';
 
 
 const payrollRouter = Router();
+payrollRouter.use('/compensation', requirePayrollCompensationRole);
 payrollRouter.post('/compensation', compensationController.createCompensationHandler);
 payrollRouter.post('/allowances', allowanceController.createAllowanceHandler);
 payrollRouter.get('/allowances', allowanceController.getAllActiveAllowancesHandler);

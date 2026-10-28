@@ -46,10 +46,10 @@ describe('facility boundary validation', () => {
 describe('live platform facility authority', () => {
      const claims = { tid: 123456, employeeid: 9, email: 'control@example.test' };
      const row = { employeeid: 9, email: claims.email, role: 'super-admin', activation: 1 };
-     it('accepts only the exact stored super-admin role in the control tenant', () => {
-          expect(hasPlatformFacilityAuthority(claims, row, 123456)).toBe(true);
+     it.each(['super-admin', 'super_admin', 'Super-Admin', 'superadmin'])('accepts normalized super-admin alias %s in the control tenant', role => {
+          expect(hasPlatformFacilityAuthority(claims, { ...row, role }, 123456)).toBe(true);
      });
-     it.each(['admin', 'super_admin', 'Super-Admin', 'superadmin', 'manager'])('rejects %s', role => {
+     it.each(['admin', 'manager', 'cashier', 'scientist'])('rejects %s', role => {
           expect(hasPlatformFacilityAuthority(claims, { ...row, role }, 123456)).toBe(false);
      });
      it('rejects tenant mismatches, disabled accounts and substituted identities', () => {

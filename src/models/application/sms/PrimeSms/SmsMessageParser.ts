@@ -48,7 +48,7 @@ export class SmsMessageParser {
 		(Partial<PrimeLimsTablenew_patients> & { phonee164: string })[] |
 		(Partial<PrimeLimsTableclinicianbasicinfo> & { phonee164: string })[] {
 		if (Array.isArray(data) && data.length > 0) {
-			return data.map((item: PrimeLimsTablenew_patients | PrimeLimsTableclinicianbasicinfo | PrimeLimsTableorganization) => ({ ...item, phonee164: item[mobiletarget] }));
+			return data.map((item: PrimeLimsTablenew_patients | PrimeLimsTableclinicianbasicinfo | PrimeLimsTableorganization) => ({ ...item, id: (item as any).id ?? (item as any).patientid, phonee164: item[mobiletarget] }));
 		}
 		return [];
 	}
@@ -71,7 +71,7 @@ export class SmsMessageParser {
 				return this.reformatData(patients, 'mobile_number');
 			case 'organization':
 				const organizations = await Organization.paginatedOrganizationInformation(this.tenantId, start, end);
-				return this.reformatData(organizations, 'phone');
+				return this.reformatData(organizations, 'mobile');
 			default:
 				throw new Error(`Unknown category: ${this.category}`);
 		}
@@ -125,7 +125,7 @@ export class SmsMessageParser {
 		const job = typeof jobId === 'number' ? await new PrimeSmsJobsRepo(this.tenantId).findById(jobId) : jobId;
 
 		if (!job) throw new Error(`Job with ID ${jobId} not found`);
-		const { templateid } = jobId as PrimeSmsJob;
+		const { templateid } = job;
 		if (!templateid) throw new Error(`Job with ID ${jobId} does not have a template associated`);
 
 		const template: PrimeSmsTemplate | null = await new PrimeSmsTemplatesRepo(this.tenantId).findById(templateid);

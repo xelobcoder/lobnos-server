@@ -6,7 +6,7 @@ export interface PrimeSmsJobRecipient {
      jobid: number;
      phonee164: string;
      personalizedbody: string;
-     deliverystatus?: 'queued' | 'sent' | 'failed' | 'retrying';
+     deliverystatus?: 'queued' | 'sent' | 'failed' | 'retrying' | 'submitting' | 'submitted' | 'delivered' | 'unknown' | 'cancelled';
      sentat?: Date;
      errorcode?: string;
      refid: number;
@@ -67,6 +67,11 @@ export class PrimeSmsJobRecipientsRepo {
      async update(recid: number, data: Partial<PrimeSmsJobRecipient>): Promise<number> {
           const connection = await this.connection;
           return await connection(this.tablename).where({ recid }).update(data);
+     }
+
+     async claimFailedRecipient(recid: number): Promise<number> {
+          const connection = await this.connection;
+          return connection(this.tablename).where({ recid, deliverystatus: 'failed' }).update({ deliverystatus: 'retrying' });
      }
 
      async delete(recid: number): Promise<number> {

@@ -1,24 +1,30 @@
 import { PrimeSmsJob, PrimeSmsJobsRepo } from '../repositories/PrimeSmsJobsRepo';
 import { PrimeSmsJobRecipientsRepo } from '../repositories/PrimeSmsJobRecipientsRepo';
-import { CreateSmsJobDto } from '../dtos/CreateSmsJobDto';
+import { CreateSmsJobDto, CreateSmsJobSchema } from '../dtos/CreateSmsJobDto';
 import KnexConnection from '../../../../database/KnexConnections';
 import { SmsMessageParser } from '../PrimeSms/SmsMessageParser';
 import { SmsService } from '../../integrations/Arkesel';
 import { PrimeSmsTemplatesRepo } from '../repositories/PrimeSmsTemplatesRepo';
 import { Logger } from './Logger';
 
-function mapJobDtoToDb(dto: any) {
-	return {
-		templateid: dto.templateId,
-		custombody: dto.customBody ? dto.customBody : null,
-		category: dto.category,
-		recipientscope: dto.recipientScope,
-		targetids: dto.recipientScope === 'all' ? dto.targetIds : null,
-		sendtype: dto.sendType,
-		scheduledat: (typeof dto.scheduledAt === 'string' && !isNaN(Date.parse(dto.scheduledAt))) ? new Date(dto.scheduledAt) : null,
-		status: dto.status ? dto.status : 'pending',
-		createdby: dto.createdBy,
-	};
+/** Match local and international representations returned by the SMS provider. */
+export function smsRecipientKey(phone: unknown): string {
+	let digits = String(phone ?? '').replace(/\D/g, '').replace(/^00/, '');
+	if (digits.startsWith('233') && digits.length === 12) return digits.slice(3);
+	if (digits.startsWith('0') && digits.length === 10) return digits.slice(1);
+	return digits;
+}
+
+export function mapJobDtoToDb(dto: Partial<CreateSmsJobDto>) {
+	const result: any = {};
+	const fields = { templateId: 'templateid', customBody: 'custombody', category: 'category',
+		recipientScope: 'recipientscope', sendType: 'sendtype', status: 'status', createdBy: 'createdby' };
+	for (const [input, column] of Object.entries(fields)) {
+		if (dto[input] !== undefined) result[column] = dto[input];
+	}
+	if (dto.scheduledAt !== undefined) result.scheduledat = new Date(dto.scheduledAt);
+	if (dto.targetIds !== undefined) result.targetids = dto.recipientScope === 'all' ? JSON.stringify(dto.targetIds) : null;
+	return result;
 }
 
 export class SmsJobsService {
@@ -28,59 +34,33 @@ export class SmsJobsService {
 		private tenantId: number,
 	) { }
 
-	async createJob(dto: CreateSmsJobDto, tenantId: number) {
-		try {
-			// 1. Create the job
-			const transaction = await KnexConnection(tenantId);
-			const trx = await transaction.transaction();
-			const jobId = await this.jobsRepo.create(mapJobDtoToDb(dto), trx);
-
-			if (dto.recipientScope !== 'all' && dto.targetIds) {
-				const targets = Array.isArray(dto.targetIds) ? dto.targetIds : [dto.targetIds];
-				// Validate phone numbers (simple E.164 regex, can be improved)
-				const validPhone = (phone: string) => /^\+?\d{7,15}$/.test(phone);
-				let recipients = await Promise.all(
-					targets
-						.filter((target: any) => target.phone && validPhone(target.phone))
-						.map(async (target: any) => {
-							const personalizedbody = dto.customBody
-								? dto.customBody
-								: await new SmsMessageParser(tenantId, dto.category, target.id).humanizeTemplate({ ...target, templateid: dto.templateId });
-
-							return {
-								phonee164: target.phone,
-								personalizedbody,
-								refid: target.id
-							};
-						})
-				);
-
-				if (recipients.length !== targets.length) {
-					throw new Error('One or more recipient phone numbers are invalid.');
-				}
-
-				this.jobRecipientsRepo = this.jobRecipientsRepo || new PrimeSmsJobRecipientsRepo(tenantId);
-
-				if (!this.jobRecipientsRepo) {
-					throw new Error('jobRecipientsRepo is not initialized. Please ensure you pass it to the SmsJobsService constructor.');
-				}
-
-				await this.jobRecipientsRepo.bulkInsert(jobId, recipients, trx);
-
-				await trx.commit();
-				this.processJobData(jobId);
-
-			} else if (dto.recipientScope === 'all') {
-				await trx.commit();
-				// 1. load the batch job
-				const info = await this.jobsRepo.findById(jobId);
-				this.processBatchJob(3, info);
+	async createJob(input: CreateSmsJobDto, tenantId: number) {
+		if (Number(tenantId) !== Number(this.tenantId)) throw new Error('SMS tenant mismatch');
+		const dto = CreateSmsJobSchema.parse(input);
+		if (dto.customBody) dto.templateId = undefined;
+		const connection = await KnexConnection(this.tenantId);
+		const jobId = await connection.transaction(async trx => {
+			const id = await this.jobsRepo.create(mapJobDtoToDb({ ...dto, status: 'pending' }), trx);
+			if (dto.recipientScope !== 'all') {
+				const targets = dto.targetIds as Array<{ id: number; phone: string }>;
+				const unique = [...new Map(targets.map(target => [smsRecipientKey(target.phone), target])).values()];
+				const recipients = await Promise.all(unique.map(async target => ({
+					phonee164: String(target.phone).replace(/[\s()-]/g, ''), refid: target.id,
+					personalizedbody: dto.customBody || await new SmsMessageParser(this.tenantId, dto.category, target.id)
+						.humanizeTemplate({ ...target, templateid: dto.templateId }),
+				})));
+				await this.jobRecipientsRepo.bulkInsert(id, recipients, trx);
 			}
-			return jobId;
-		} catch (error) {
-			Logger.error('Error creating SMS job:', error);
-			throw new Error('Failed to create SMS job. Please try again later.');
-		}
+			return id;
+		});
+		// Delivery starts only after persistence succeeds. A provider failure must
+		// never turn an already-created campaign into an apparent creation failure.
+		void this.processJobData(jobId).catch(async error => {
+			Logger.error('SMS job processing failed: ' + jobId, error);
+			try { await this.jobsRepo.update(jobId, { status: 'failed' }); }
+			catch (updateError) { Logger.error('Unable to record SMS job failure: ' + jobId, updateError); }
+		});
+		return jobId;
 	}
 
 	async getJobById(jobId: number) {
@@ -107,7 +87,7 @@ export class SmsJobsService {
 		if (status === "sent" || status === "processing") return;
 
 		if (recipientscope === 'all') {
-			this.processBatchJob(3, job);
+			await this.processBatchJob(this.tenantId, job);
 			return;
 		}
 
@@ -135,6 +115,16 @@ export class SmsJobsService {
 		}
 
 		await this.processSingleOrMultipleJob(job, recipients);
+		await this.refreshJobStatus(job.jobid);
+	}
+
+	private async refreshJobStatus(jobid: number) {
+		const recipients = await this.jobRecipientsRepo.findAllByJob(jobid);
+		const sent = recipients.filter(row => row.deliverystatus === 'sent').length;
+		const failed = recipients.filter(row => row.deliverystatus === 'failed').length;
+		const status = !recipients.length ? 'failed' : sent === recipients.length ? 'sent' :
+			failed === recipients.length ? 'failed' : failed > 0 ? 'partialfailed' : 'pending';
+		await this.jobsRepo.update(jobid, { status });
 	}
 
 	private async processSingleOrMultipleJob(job: PrimeSmsJob, recipients: any[], isAll: boolean = false) {
@@ -165,7 +155,7 @@ export class SmsJobsService {
 						}
 						// Update job status to sent
 						await this.jobsRepo.update(job.jobid, { status: 'sent' });
-					} else if (result.status === 'error') {
+					} else {
 						Logger.error('Error sending single SMS:', result.message);
 						if (isAll) {
 							await this.jobRecipientsRepo.create({
@@ -228,7 +218,7 @@ export class SmsJobsService {
 						}
 						// Update job status to sent
 						await this.jobsRepo.update(job.jobid, { status: 'sent' });
-					} else if (result.status === 'error') {
+					} else {
 						Logger.error('Error sending single SMS (template):', result.message);
 						if (isAll) {
 							await this.jobRecipientsRepo.create({
@@ -279,19 +269,19 @@ export class SmsJobsService {
 						// Map phone to message id
 						let allSent = true;
 						for (const recipient of recipients) {
-							const sentInfo = result.data.find((d: any) => d.recipient === recipient.phonee164.replace(/^\+/, ''));
+							const sentInfo = result.data.find((d: any) => smsRecipientKey(d.recipient) === smsRecipientKey(recipient.phonee164));
 							if (isAll) {
 								await this.jobRecipientsRepo.create({
 									jobid: job.jobid,
 									phonee164: recipient.phonee164,
 									personalizedbody: job.custombody,
-									deliverystatus: 'sent',
+									deliverystatus: sentInfo ? 'sent' : 'failed',
 									messageid: sentInfo ? sentInfo.id : null,
 									refid: recipient.id || recipient.refid
 								});
 							} else {
 								await this.jobRecipientsRepo.update(recipient.recid, {
-									deliverystatus: 'sent',
+									deliverystatus: sentInfo ? 'sent' : 'failed',
 									messageid: sentInfo ? sentInfo.id : null
 								});
 							}
@@ -300,7 +290,7 @@ export class SmsJobsService {
 						if (allSent) {
 							await this.jobsRepo.update(job.jobid, { status: 'sent' });
 						}
-					} else if (result.status === 'error') {
+					} else {
 						Logger.error('Error sending bulk SMS (custom body):', result.message);
 						for (const recipient of recipients) {
 							if (isAll) {
@@ -351,7 +341,6 @@ export class SmsJobsService {
 				for (const recipient of recipients) {
 					try {
 						const result = await smsService.sendSms([recipient.phonee164], recipient.personalizedbody);
-						console.log('Result', result)
 						if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
 							if (isAll) {
 								await this.jobRecipientsRepo.create({
@@ -370,7 +359,7 @@ export class SmsJobsService {
 									sentat: new Date()
 								});
 							}
-						} else if (result.status === 'error') {
+						} else {
 							allSent = false;
 							Logger.error('Error sending personalized SMS:', result.message);
 							if (isAll) {
@@ -392,8 +381,6 @@ export class SmsJobsService {
 									sentat: new Date()
 								});
 							}
-						} else {
-							allSent = false;
 						}
 					} catch (err) {
 						console.log(err)
@@ -434,7 +421,7 @@ export class SmsJobsService {
 			const smsService = new SmsMessageParser(tenantId, category, targetids);
 			const totalCount = await smsService.getTotalCount();
 			const batchSize = 50;
-			let offset = 1;
+			let offset = 0;
 
 			while (offset < totalCount) {
 
@@ -477,13 +464,11 @@ export class SmsJobsService {
 					if (!template) {
 						throw new Error(`Template with ID ${job.templateid} not found`);
 					}
-					Logger.info(JSON.stringify(template));
 					for (let i = 0; i < recipients.length; i++) {
 						const personalizedBody = SmsMessageParser.parse(
 							template.body,
 							recipients[i],
-						)
-						Logger.info('Personalized body: ' + personalizedBody);
+						);
 						(recipients[i] as any).personalizedbody = personalizedBody;
 					}
 				}
@@ -491,14 +476,15 @@ export class SmsJobsService {
 				if (isScheduled) {
 
 					await this.processScheduledJobs(job.jobid, hasCustomBody, recipients, job.custombody, job.scheduledat, true);
-					offset += recipients.length;
+					offset += batch.length;
 					continue;
 				}
 
 				await this.processSingleOrMultipleJob(job, recipients, true);
 
-				offset += recipients.length;
+				offset += batch.length;
 			}
+			await this.refreshJobStatus(job.jobid);
 		} catch (error) {
 			Logger.error('Error processing batch job:', error);
 			throw new Error('Failed to process batch job. Please try again later.');
@@ -581,6 +567,7 @@ export class SmsJobsService {
 	}
 
 	public async retryFailedTransaction(tenantId: number, jobid: number, refid: string | number): Promise<{ status: string; message: string }> {
+		if (Number(tenantId) !== Number(this.tenantId)) return { status: 'error', message: 'SMS tenant mismatch' };
 		const job = await this.jobsRepo.findById(jobid);
 		if (!job) return { status: 'error', message: `Job with ID ${jobid} not found` };
 		const recipients = await this.jobRecipientsRepo.findByJobAndRefids(jobid, [refid]);
@@ -603,36 +590,27 @@ export class SmsJobsService {
 			}
 		}
 
-		// Send SMS
-		const smsService = new SmsService(this.tenantId);
+		if (recipient.deliverystatus !== 'failed') return { status: 'error', message: 'Only failed messages can be retried.' };
+		const claimed = await this.jobRecipientsRepo.claimFailedRecipient(recipient.recid);
+		if (!claimed) return { status: 'error', message: 'This message is already being retried. Refresh its status.' };
+		let result: any;
 		try {
-			const result = await smsService.sendSms([recipient.phonee164], personalizedBody);
-			if (result.status === 'success' && Array.isArray(result.data) && result.data[0]) {
-				await this.jobRecipientsRepo.update(recipient.recid, {
-					deliverystatus: 'sent',
-					messageid: result.data[0].id,
-					sentat: new Date(),
-					errorcode: null
-				});
-			} else if (result.status === 'error') {
-				Logger.error('Retry failed (API error):', result.message);
-				await this.jobRecipientsRepo.update(recipient.recid, {
-					deliverystatus: 'failed',
-					messageid: null,
-					errorcode: result.message,
-					sentat: new Date()
-				});
-			}
-		} catch (err) {
-			Logger.error('Retry failed (exception):', err);
-			await this.jobRecipientsRepo.update(recipient.recid, {
-				deliverystatus: 'failed',
-				messageid: null,
-				errorcode: err?.message || String(err),
-				sentat: new Date()
-			});
-			return { status: 'error', message: 'Failed to retry sending SMS. Please try again later.' };
+			result = await new SmsService(this.tenantId).sendSms([recipient.phonee164], personalizedBody);
+		} catch (error) {
+			await this.jobRecipientsRepo.update(recipient.recid, { deliverystatus: 'failed', errorcode: 'Provider request failed' });
+			Logger.error('SMS retry provider request failed', error);
+			return { status: 'error', message: 'Unable to retry the message. Review its delivery status before retrying.' };
 		}
+		const acknowledged = result.status === 'success' && Array.isArray(result.data) && result.data[0]?.id;
+		await this.jobRecipientsRepo.update(recipient.recid, {
+			deliverystatus: acknowledged ? 'sent' : 'failed', messageid: acknowledged ? result.data[0].id : null,
+			errorcode: acknowledged ? null : 'Provider did not acknowledge this message', sentat: new Date(),
+		});
+		try { await this.refreshJobStatus(jobid); }
+		catch (error) { Logger.error('Unable to refresh SMS campaign totals after retry', error); }
+		return acknowledged ? { status: 'success', message: 'Message accepted by the SMS provider.' } :
+			{ status: 'error', message: 'The SMS provider did not accept this message.' };
+
 	}
 }
 

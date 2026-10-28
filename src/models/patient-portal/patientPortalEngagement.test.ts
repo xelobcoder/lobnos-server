@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('./PatientPortalBootstrapper', () => ({ bootstrapPatientPortal: vi.fn() }));
 
@@ -8,6 +8,8 @@ import { HOME_COLLECTION_STATUSES, parseHomeCollectionBooking } from './PatientH
 import { normalizePatientPortalSettings, validatePatientPortalSettingsUpdate } from './PatientPortalSettings';
 
 const now = new Date(2026, 9, 21, 9, 30);
+beforeEach(() => { vi.useFakeTimers(); vi.setSystemTime(now); });
+afterEach(() => vi.useRealTimers());
 const day = (offset: number) => localDateIso(new Date(2026, 9, 21 + offset, 12));
 
 describe('portal booking slots', () => {
