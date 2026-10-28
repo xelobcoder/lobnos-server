@@ -177,7 +177,8 @@ describe('sales report tenant connection and snapshot', () => {
                     sql.push(compiled.sql);
                     if (compiled.sql.includes('from `branch`')) return foundBranch ? branch : undefined;
                     if (compiled.sql.includes('from `companyprofile`')) return { name: 'Facility' };
-                    if (compiled.sql.includes('from `billinghx`')) return receiptRows;
+                    if (compiled.sql.includes('from `billinghx`')) return compiled.sql.includes('`cashier`')?receiptRows.map(row=>({...row,cashier:'Test Cashier'})):receiptRows;
+                    if(compiled.sql.includes('as `panelName`'))return [{billingid:1,serviceid:11,panelName:'FBC',department:'Hematology',totalpayable:'99.00',paidamount:'40.00',outstanding:'59.00'}];
                     if (compiled.sql.includes('from `expense_payments`')) return expenseRows;
                     if (compiled.sql.includes('select distinct')) return services;
                     return bills;
@@ -193,6 +194,12 @@ describe('sales report tenant connection and snapshot', () => {
           expect(result.summary.netCashMovement).toBe(74.7);
           expect(sql).toHaveLength(6);
           expect(sql.every(statement => statement.startsWith('select '))).toBe(true);
+     });
+     it('adds cashier and service detail only when explicitly requested, in the same branch-scoped read snapshot',async()=>{
+          const result=await new SalesExpensesReportService(17).generate({...query,inlineDetails:'true'});
+          expect(result.receipts[0].cashier).toBe('Test Cashier');
+          expect(result.inlineServices).toEqual([{billingId:1,serviceId:11,name:'FBC',department:'Hematology',amount:99,paid:40,outstanding:59}]);
+          const detail=sql.find(statement=>statement.includes('as `panelName`'))!;expect(detail).toContain('`bill`.`branchid` = ?');expect(detail).toContain('`service`.`isDeleted`');expect(detail).toContain('`bill`.`billedon` >= ?');expect(sql.every(statement=>statement.startsWith('select '))).toBe(true);
      });
      it('returns 404 for nonexistent branches without reading any financial data', async () => {
           foundBranch = false;

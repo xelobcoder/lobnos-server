@@ -130,6 +130,7 @@ class Payment {
 					connection.raw(`CASE WHEN s.status IN ('refunded','voided') THEN s.status ELSE 
 					'active' END AS status`),
 					's.serviceCategory',
+                    connection.raw("GROUP_CONCAT(DISTINCT s.registrationType ORDER BY s.registrationType SEPARATOR ', ') AS registrationType"),
 					'b.billingid',
 					'rr.username AS salesperson',
 					connection.raw("CONCAT(np.firstname, ' ', np.middlename, ' ', np.lastname) AS fullname"),
@@ -157,7 +158,7 @@ class Payment {
 				.innerJoin('billing AS b', 'np.patientid', 'b.patientid')
 				.innerJoin("dboservices AS s", 's.billingid', 'b.billingid')
 				.innerJoin('roles AS rr', 'rr.employeeid', 'b.lastupdatedby')
-				.leftJoin("dbobillingrefundtable AS r", 'r.serviceid', 's.serviceid')
+				.leftJoin(connection('dbobillingrefundtable').select('serviceid').sum('amountRefunded as amountRefunded').groupBy('serviceid').as('r'), 'r.serviceid', 's.serviceid')
                .where('s.branchid',Number(branchid))
                .where('b.branchid',Number(branchid))
 
@@ -181,8 +182,9 @@ class Payment {
 			}
 
 			const result = await query;
-			const expensesPaymentMade = await connection.raw(QUERY_EXPENSE_PAYMENTS_SUMMARY, [from, to] as any);
-			const summary = await this.summaryRangeOfDates(tenantId, from as any, to as any, branchid);
+               const rangeFrom=from||'1000-01-01',rangeTo=to||'9999-12-30';
+			const expensesPaymentMade = await connection.raw(QUERY_EXPENSE_PAYMENTS_SUMMARY.replace('WHERE e.date BETWEEN ? AND ?', 'WHERE DATE(p.payment_date) BETWEEN ? AND ? AND e.branchid = ?').replace('GROUP BY p.status, p.method','GROUP BY p.status, p.method, em.name'), [rangeFrom, rangeTo,Number(branchid)] as any);
+			const summary = await this.summaryRangeOfDates(tenantId, rangeFrom, rangeTo, branchid);
 			return { data: result, expensesPaymentMade: expensesPaymentMade[0], summary } as { data: TransactionData[], summary: any }
 		} catch (err: any) {
 			logger.error(err);
@@ -371,20 +373,20 @@ class Payment {
 		COUNT(DISTINCT dboservices.billingid) AS total_billing,
         COUNT(*) AS transactioncount
         FROM dboservices
-        LEFT JOIN dbobillingrefundtable r ON dboservices.serviceid = r.serviceid
-        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? AND (dboservices.status IN ('active','refunded','written-off')) AND (isDeleted = 0 OR isDeleted IS NULL)
+        LEFT JOIN (SELECT serviceid,SUM(amountRefunded) AS amountRefunded FROM dbobillingrefundtable GROUP BY serviceid) r ON dboservices.serviceid = r.serviceid
+        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? AND dboservices.branchid = ? AND (dboservices.status IN ('active','refunded','written-off')) AND (isDeleted = 0 OR isDeleted IS NULL)
     ),
     expenses AS (
         SELECT  
         COALESCE(SUM(amount), 0) AS expenses_paid
         FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid'
+        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid' AND EXISTS (SELECT 1 FROM expensesrecord branch_expense WHERE branch_expense.id=expense_payments.expense_id AND branch_expense.branchid=?)
 	),
 	patients AS (
 		SELECT
-		COUNT(*) AS total_patients_registered
+		COUNT(DISTINCT new_patients.patientid) AS total_patients_registered
 		FROM new_patients
-		WHERE DATE(\`date\`) BETWEEN ? AND ?
+		WHERE DATE(\`date\`) BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM billing registered_bill WHERE registered_bill.patientid=new_patients.patientid AND registered_bill.branchid=?)
     )
             SELECT 
             s.gross_revenue, 
@@ -400,7 +402,7 @@ class Payment {
             s.outstanding
 			FROM sales s, expenses e, patients p;
 				 `,
-				[from, to, from, to, from, to]
+				[from, to, branchid, from, to, branchid, from, to, branchid]
 			);
 			return summary;
 
