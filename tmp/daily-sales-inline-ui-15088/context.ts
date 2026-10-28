@@ -1,0 +1,1 @@
+const app={branchid:2,company:'Synthetic Laboratory',user:{employeeid:7,username:'Test user',role:new URLSearchParams(location.search).get('role')||'admin'},settings:{}};export const useApplication=()=>app;export const useApplicationSettings=()=>({applicationsettings:app});

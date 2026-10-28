@@ -1,0 +1,1 @@
+export const handleDatePicker=(data)=>window.__events.push({type:'period',data});export const handleSeverSideProcessing=async()=>({result:[],total:0});

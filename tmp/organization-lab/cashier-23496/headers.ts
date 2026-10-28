@@ -1,0 +1,1 @@
+export const getRequestContext=async()=>({tenantId:2,PLS_PRIME_TENANT_SESSION:'synthetic-tenant',PLS_SESSION:'synthetic-staff',loginsessionId:'synthetic-login'});

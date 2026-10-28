@@ -1,0 +1,1 @@
+export const useParams=()=>({billingid:location.pathname.split('/').pop()});export const usePathname=()=>new URLSearchParams(location.search).has('overview')?'/accounting':'/accounting/cash-flow';export const useSearchParams=()=>new URLSearchParams(location.search);export const useRouter=()=>({push:url=>window.__events.push({type:'navigate',url})});

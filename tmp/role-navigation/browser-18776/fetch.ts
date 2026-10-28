@@ -1,0 +1,1 @@
+export const customFetch=async()=>({result:[],count:0});export const customFetchMutation=async()=>({status:'success'});

@@ -1,0 +1,822 @@
+{
+  "advisories": {
+    "1115131": {
+      "findings": [
+        {
+          "version": "0.27.6",
+          "paths": [
+            ".>kysely"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1115131,
+      "title": "SQL Injection via unsanitized JSON path keys when ignoring/silencing compilation errors or using `Kysely<any>`.",
+      "module_name": "kysely",
+      "vulnerable_versions": ">=0.26.0 <=0.28.11",
+      "patched_versions": ">=0.28.12",
+      "severity": "high",
+      "cwe": "CWE-89",
+      "github_advisory_id": "GHSA-wmrf-hv6w-mr66",
+      "url": "https://github.com/advisories/GHSA-wmrf-hv6w-mr66"
+    },
+    "1115531": {
+      "findings": [
+        {
+          "version": "0.27.6",
+          "paths": [
+            ".>kysely"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1115531,
+      "title": "Kysely has a MySQL SQL Injection via Insufficient Backslash Escaping in `sql.lit(string)` usage or similar methods that append string literal values into the compiled SQL strings",
+      "module_name": "kysely",
+      "vulnerable_versions": "<=0.28.13",
+      "patched_versions": ">=0.28.14",
+      "severity": "high",
+      "cwe": "CWE-89",
+      "github_advisory_id": "GHSA-8cpq-38p9-67gx",
+      "url": "https://github.com/advisories/GHSA-8cpq-38p9-67gx"
+    },
+    "1119441": {
+      "findings": [
+        {
+          "version": "8.3.2",
+          "paths": [
+            ".>exceljs>uuid"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1119441,
+      "title": "uuid: Missing buffer bounds check in v3/v5/v6 when buf is provided",
+      "module_name": "uuid",
+      "vulnerable_versions": "<11.1.1",
+      "patched_versions": ">=11.1.1",
+      "severity": "moderate",
+      "cwe": "CWE-787, CWE-1285",
+      "github_advisory_id": "GHSA-w5hq-g745-h8pq",
+      "url": "https://github.com/advisories/GHSA-w5hq-g745-h8pq"
+    },
+    "1120248": {
+      "findings": [
+        {
+          "version": "0.27.6",
+          "paths": [
+            ".>kysely"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1120248,
+      "title": "Kysely: JSON-path traversal injection via unsanitized path-leg metacharacters in `JSONPathBuilder.key()` / `.at()`",
+      "module_name": "kysely",
+      "vulnerable_versions": ">=0.26.0 <0.28.17",
+      "patched_versions": ">=0.28.17",
+      "severity": "high",
+      "cwe": "CWE-22, CWE-89, CWE-915, CWE-1284",
+      "github_advisory_id": "GHSA-pv5w-4p9q-p3v2",
+      "url": "https://github.com/advisories/GHSA-pv5w-4p9q-p3v2"
+    },
+    "1130588": {
+      "findings": [
+        {
+          "version": "1.1.16",
+          "paths": [
+            ".>exceljs>archiver>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>archiver>zip-stream>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>unzipper>fstream>rimraf>glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130588,
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.17",
+      "patched_versions": ">=1.1.17",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    "1130589": {
+      "findings": [
+        {
+          "version": "2.1.2",
+          "paths": [
+            ".>exceljs>archiver>readdir-glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130589,
+      "title": "brace-expansion: DoS via unbounded expansion length causing an out-of-memory process crash",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.3",
+      "patched_versions": ">=2.1.3",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-mh99-v99m-4gvg",
+      "url": "https://github.com/advisories/GHSA-mh99-v99m-4gvg"
+    },
+    "1130736": {
+      "findings": [
+        {
+          "version": "2.1.2",
+          "paths": [
+            ".>exceljs>archiver>readdir-glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130736,
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.4",
+      "patched_versions": ">=2.1.4",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    "1130737": {
+      "findings": [
+        {
+          "version": "1.1.16",
+          "paths": [
+            ".>exceljs>archiver>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>archiver>zip-stream>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>unzipper>fstream>rimraf>glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1130737,
+      "title": "brace-expansion: DoS via unbounded intermediate arrays, bypassing the CVE-2026-14257 mitigation",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.18",
+      "patched_versions": ">=1.1.18",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-770",
+      "github_advisory_id": "GHSA-rgw5-rvv9-x895",
+      "url": "https://github.com/advisories/GHSA-rgw5-rvv9-x895"
+    },
+    "1158506": {
+      "findings": [
+        {
+          "version": "6.15.3",
+          "paths": [
+            ".>express>qs",
+            ".>express>body-parser>qs"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158506,
+      "title": "qs array-limit bypass via bracket-key comma parsing",
+      "module_name": "qs",
+      "vulnerable_versions": ">=6.14.2 <=6.15.3",
+      "patched_versions": ">=6.15.4",
+      "severity": "moderate",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-x5fp-wj9c-mxmx",
+      "url": "https://github.com/advisories/GHSA-x5fp-wj9c-mxmx"
+    },
+    "1158507": {
+      "findings": [
+        {
+          "version": "6.15.3",
+          "paths": [
+            ".>express>qs",
+            ".>express>body-parser>qs"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158507,
+      "title": "qs: Denial of Service via Attacker Controlled isBuffer",
+      "module_name": "qs",
+      "vulnerable_versions": ">=2.2.5 <6.16.0",
+      "patched_versions": ">=6.16.0",
+      "severity": "moderate",
+      "cwe": "CWE-248, CWE-703",
+      "github_advisory_id": "GHSA-4mjr-xmp4-gh2g",
+      "url": "https://github.com/advisories/GHSA-4mjr-xmp4-gh2g"
+    },
+    "1158532": {
+      "findings": [
+        {
+          "version": "3.23.0",
+          "paths": [
+            ".>mysql2"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1158532,
+      "title": "MySQL2: Unbounded zlib inflate in compressed MySQL protocol handler allows decompression-bomb DoS",
+      "module_name": "mysql2",
+      "vulnerable_versions": "<=3.23.0",
+      "patched_versions": ">=3.23.1",
+      "severity": "moderate",
+      "cwe": "CWE-409",
+      "github_advisory_id": "GHSA-rgwj-5xj2-c3m3",
+      "url": "https://github.com/advisories/GHSA-rgwj-5xj2-c3m3"
+    },
+    "1193741": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193741,
+      "title": "Nodemailer: resolveContent() on a MailMessage bypasses disableFileAccess/disableUrlAccess when called with the legacy signature",
+      "module_name": "nodemailer",
+      "vulnerable_versions": "<=9.1.0",
+      "patched_versions": ">=9.1.1",
+      "severity": "moderate",
+      "cwe": "CWE-73, CWE-918",
+      "github_advisory_id": "GHSA-8m3c-c648-2xjj",
+      "url": "https://github.com/advisories/GHSA-8m3c-c648-2xjj"
+    },
+    "1193770": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193770,
+      "title": "Nodemailer: IDN/Punycode domain allow-list bypass leads to email delivery to an attacker-controlled domain",
+      "module_name": "nodemailer",
+      "vulnerable_versions": "<9.1.0",
+      "patched_versions": ">=9.1.0",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-wmmp-3585-3rmp",
+      "url": "https://github.com/advisories/GHSA-wmmp-3585-3rmp"
+    },
+    "1193778": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193778,
+      "title": "Nodemailer: Quadratic (O(n²)) time complexity in addressparser allows remote denial of service via a crafted address list",
+      "module_name": "nodemailer",
+      "vulnerable_versions": "<9.1.0",
+      "patched_versions": ">=9.1.0",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-2x7j-588g-ccc2",
+      "url": "https://github.com/advisories/GHSA-2x7j-588g-ccc2"
+    },
+    "1193779": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1193779,
+      "title": "Nodemailer: Recipient-domain validation bypass via RFC 5322 comment mis-parsing leads to email delivery to an attacker-controlled domain",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=6.9.16 <9.1.0",
+      "patched_versions": ">=9.1.0",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-cc9r-2j5m-2m83",
+      "url": "https://github.com/advisories/GHSA-cc9r-2j5m-2m83"
+    },
+    "1239931": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1239931,
+      "title": "Nodemailer: Process-global DNS cache reuses TLS `servername` across transports, enabling cross-tenant SMTP credential disclosure",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=5.0.0 <10.0.2",
+      "patched_versions": ">=10.0.2",
+      "severity": "moderate",
+      "cwe": "CWE-295",
+      "github_advisory_id": "GHSA-6vj9-mwq6-2f5v",
+      "url": "https://github.com/advisories/GHSA-6vj9-mwq6-2f5v"
+    },
+    "1240033": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240033,
+      "title": "Nodemailer: Nested structured recipient arrays bypass the parser depth limit and cause stack exhaustion DoS",
+      "module_name": "nodemailer",
+      "vulnerable_versions": "<10.0.2",
+      "patched_versions": ">=10.0.2",
+      "severity": "moderate",
+      "cwe": "CWE-674",
+      "github_advisory_id": "GHSA-8vvx-rff5-p5rq",
+      "url": "https://github.com/advisories/GHSA-8vvx-rff5-p5rq"
+    },
+    "1240099": {
+      "findings": [
+        {
+          "version": "2.30.1",
+          "paths": [
+            ".>moment"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240099,
+      "title": "moment vulnerable to Path Traversal via crafted non-string locale name",
+      "module_name": "moment",
+      "vulnerable_versions": ">=2.29.2 <2.31.0",
+      "patched_versions": ">=2.31.0",
+      "severity": "moderate",
+      "cwe": "CWE-27",
+      "github_advisory_id": "GHSA-4p3w-j4w9-5jqw",
+      "url": "https://github.com/advisories/GHSA-4p3w-j4w9-5jqw"
+    },
+    "1240100": {
+      "findings": [
+        {
+          "version": "1.1.16",
+          "paths": [
+            ".>exceljs>archiver>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>archiver>zip-stream>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>unzipper>fstream>rimraf>glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240100,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.21",
+      "patched_versions": ">=1.1.21",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240101": {
+      "findings": [
+        {
+          "version": "2.1.2",
+          "paths": [
+            ".>exceljs>archiver>readdir-glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240101,
+      "title": "brace-expansion: Quadratic-time expansion of the `{a},b}` rewrite causes CPU denial of service",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.7",
+      "patched_versions": ">=2.1.7",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-q2hr-2g5m-vwhr",
+      "url": "https://github.com/advisories/GHSA-q2hr-2g5m-vwhr"
+    },
+    "1240104": {
+      "findings": [
+        {
+          "version": "1.1.16",
+          "paths": [
+            ".>exceljs>archiver>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>archiver>zip-stream>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>unzipper>fstream>rimraf>glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240104,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.20",
+      "patched_versions": ">=1.1.20",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240105": {
+      "findings": [
+        {
+          "version": "2.1.2",
+          "paths": [
+            ".>exceljs>archiver>readdir-glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240105,
+      "title": "brace-expansion: DoS via uncontrolled recursion on nested brace groups causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.6",
+      "patched_versions": ">=2.1.6",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-qhr7-859c-m2p7",
+      "url": "https://github.com/advisories/GHSA-qhr7-859c-m2p7"
+    },
+    "1240108": {
+      "findings": [
+        {
+          "version": "1.1.16",
+          "paths": [
+            ".>exceljs>archiver>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>archiver>zip-stream>archiver-utils>glob>minimatch>brace-expansion",
+            ".>exceljs>unzipper>fstream>rimraf>glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240108,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": "<1.1.19",
+      "patched_versions": ">=1.1.19",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1240109": {
+      "findings": [
+        {
+          "version": "2.1.2",
+          "paths": [
+            ".>exceljs>archiver>readdir-glob>minimatch>brace-expansion"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240109,
+      "title": "brace-expansion: DoS via uncontrolled recursion in parseCommaParts causing stack exhaustion",
+      "module_name": "brace-expansion",
+      "vulnerable_versions": ">=2.0.0 <2.1.5",
+      "patched_versions": ">=2.1.5",
+      "severity": "high",
+      "cwe": "CWE-400, CWE-674",
+      "github_advisory_id": "GHSA-6j4f-fj2g-mc7p",
+      "url": "https://github.com/advisories/GHSA-6j4f-fj2g-mc7p"
+    },
+    "1240114": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1240114,
+      "title": "Nodemailer: Quadratic backtracking in the addressparser free-text fallback allows remote denial of service",
+      "module_name": "nodemailer",
+      "vulnerable_versions": "<=10.0.5",
+      "patched_versions": ">=10.0.6",
+      "severity": "high",
+      "cwe": "CWE-407, CWE-1333",
+      "github_advisory_id": "GHSA-v53p-9fqp-m79j",
+      "url": "https://github.com/advisories/GHSA-v53p-9fqp-m79j"
+    },
+    "1241210": {
+      "findings": [
+        {
+          "version": "2.0.7",
+          "paths": [
+            ".>express>proxy-addr"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1241210,
+      "title": "proxy-addr vulnerable to IP spoofing via IPv4-mapped IPv6 trust subnet",
+      "module_name": "proxy-addr",
+      "vulnerable_versions": ">=1.1.0 <2.0.8",
+      "patched_versions": ">=2.0.8",
+      "severity": "critical",
+      "cwe": "CWE-290, CWE-348, CWE-697",
+      "github_advisory_id": "GHSA-jqcg-44mw-7w3h",
+      "url": "https://github.com/advisories/GHSA-jqcg-44mw-7w3h"
+    },
+    "1242826": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1242826,
+      "title": "Nodemailer: Quadratic (O(n^2)) DKIM header unfolding lets a large folded header cause remote denial of service during signing",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <=10.0.9",
+      "patched_versions": ">=10.0.10",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-39m8-27wv-hr27",
+      "url": "https://github.com/advisories/GHSA-39m8-27wv-hr27"
+    },
+    "1243066": {
+      "findings": [
+        {
+          "version": "3.25.76",
+          "paths": [
+            ".>zod"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243066,
+      "title": "Zod can exhaust memory while validating oversized constrained collections",
+      "module_name": "zod",
+      "vulnerable_versions": "<4.6.6",
+      "patched_versions": ">=4.6.6",
+      "severity": "high",
+      "cwe": "CWE-770",
+      "github_advisory_id": "GHSA-mrhx-c7xc-m3w5",
+      "url": "https://github.com/advisories/GHSA-mrhx-c7xc-m3w5"
+    },
+    "1243073": {
+      "findings": [
+        {
+          "version": "1.20.6",
+          "paths": [
+            ".>express>body-parser"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243073,
+      "title": "body-parser vulnerable to Denial of Service via trailing bytes after a compressed request body",
+      "module_name": "body-parser",
+      "vulnerable_versions": "<1.20.9",
+      "patched_versions": ">=1.20.9",
+      "severity": "high",
+      "cwe": "CWE-248",
+      "github_advisory_id": "GHSA-27r3-jxmh-p828",
+      "url": "https://github.com/advisories/GHSA-27r3-jxmh-p828"
+    },
+    "1243091": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243091,
+      "title": "Nodemailer: A nested comment ends early in addressparser, releasing the rest of the comment as a recipient",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <10.1.4",
+      "patched_versions": ">=10.1.4",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-8c8m-p3m8-cjg8",
+      "url": "https://github.com/advisories/GHSA-8c8m-p3m8-cjg8"
+    },
+    "1243092": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243092,
+      "title": "Nodemailer: A \";\" inside a quoted string or comment ends an address group early in addressparser, turning display text into a recipient",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <10.1.4",
+      "patched_versions": ">=10.1.4",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-m943-m63m-w62w",
+      "url": "https://github.com/advisories/GHSA-m943-m63m-w62w"
+    },
+    "1243093": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243093,
+      "title": "Nodemailer: A \">\" inside a quoted local part ends an angle-addr early in addressparser, delivering to a domain the header does not name",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <10.1.4",
+      "patched_versions": ">=10.1.4",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-85x2-q946-cp5h",
+      "url": "https://github.com/advisories/GHSA-85x2-q946-cp5h"
+    },
+    "1243442": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243442,
+      "title": "Nodemailer: Quadratic backtracking in SMTP AUTH mechanism detection regexes allows pre-auth remote denial of service",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <=10.0.12",
+      "patched_versions": ">=10.0.13",
+      "severity": "moderate",
+      "cwe": "CWE-1333",
+      "github_advisory_id": "GHSA-4ffr-jq9g-5ffx",
+      "url": "https://github.com/advisories/GHSA-4ffr-jq9g-5ffx"
+    },
+    "1243443": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243443,
+      "title": "Nodemailer: RFC 5322 comment inside an angle-bracket address is never stripped",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <=10.0.12",
+      "patched_versions": ">=10.0.13",
+      "severity": "moderate",
+      "cwe": "CWE-20, CWE-436",
+      "github_advisory_id": "GHSA-g73g-hqqh-jr95",
+      "url": "https://github.com/advisories/GHSA-g73g-hqqh-jr95"
+    },
+    "1243444": {
+      "findings": [
+        {
+          "version": "9.0.4",
+          "paths": [
+            ".>nodemailer"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243444,
+      "title": "Nodemailer: Quadratic (O(n^2)) SMTP client reply parsing lets a malicious server or MITM cause a pre-auth remote denial of service",
+      "module_name": "nodemailer",
+      "vulnerable_versions": ">=3.0.0 <=10.0.9",
+      "patched_versions": ">=10.0.10",
+      "severity": "moderate",
+      "cwe": "CWE-400, CWE-407",
+      "github_advisory_id": "GHSA-4g23-2xm8-66gc",
+      "url": "https://github.com/advisories/GHSA-4g23-2xm8-66gc"
+    },
+    "1243452": {
+      "findings": [
+        {
+          "version": "6.15.3",
+          "paths": [
+            ".>express>qs",
+            ".>express>body-parser>qs"
+          ],
+          "dev": false,
+          "optional": false,
+          "bundled": false
+        }
+      ],
+      "id": 1243452,
+      "title": "qs : qs.stringify with arrayFormat 'comma' throws an uncaught TypeError on array elements carrying a non-callable own toString (DoS)",
+      "module_name": "qs",
+      "vulnerable_versions": ">=6.7.0 <=6.16.0",
+      "patched_versions": ">=6.16.1",
+      "severity": "moderate",
+      "cwe": "CWE-248, CWE-704",
+      "github_advisory_id": "GHSA-6pq8-jhm2-2vcw",
+      "url": "https://github.com/advisories/GHSA-6pq8-jhm2-2vcw"
+    }
+  },
+  "metadata": {
+    "vulnerabilities": {
+      "info": 0,
+      "low": 0,
+      "moderate": 20,
+      "high": 15,
+      "critical": 1
+    },
+    "dependencies": 253,
+    "devDependencies": 0,
+    "optionalDependencies": 11,
+    "totalDependencies": 264
+  }
+}
