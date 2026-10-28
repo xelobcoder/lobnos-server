@@ -3,7 +3,8 @@ node_modules
 # Keep environment variables out of version control
 .zip
 FlowCharts
-
+.tmp/
+/tmp
 asserts
 .qodo
 
