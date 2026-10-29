@@ -4,6 +4,7 @@ export async function ensureSmsContactGroupSchema(db:Knex){
   t.increments('id');t.string('name',100).notNullable();t.string('category',24).notNullable();t.string('remote_name',100).notNullable().unique();t.string('provider_fingerprint',64).notNullable();
   t.boolean('remote_created').notNullable().defaultTo(false);t.integer('branch_id').nullable().index();t.integer('created_by').notNullable();t.timestamps(true,true);
  });
+ if(!await db.schema.hasColumn('sms_contact_groups','provider_contact_mode'))await db.schema.alterTable('sms_contact_groups',t=>{t.string('provider_contact_mode',24).notNullable().defaultTo('v2');});
  if(!await db.schema.hasTable('sms_contact_group_members'))await db.schema.createTable('sms_contact_group_members',t=>{
   t.increments('id');t.integer('group_id').notNullable().index();t.string('phone_hash',64).notNullable();t.dateTime('synced_at').notNullable().defaultTo(db.fn.now());t.unique(['group_id','phone_hash']);
  });

@@ -48,3 +48,36 @@ describe('contact synchronization batching and recovery',()=>{
  });
  it('does not import a local number after its patient leaves the authorizing branch',async()=>{const g=await group();await queue(g.id);await db('new_patients').where({patientid:1}).update({registeredby:9});await processContactGroupSync(7,db,api);expect(api.createContactGroup).not.toHaveBeenCalled();expect((await db('sms_contact_sync_runs').first()).state).toBe('blocked');});
 });
+
+describe('V2 contact-group lookup compatibility recovery',()=>{
+ it('switches only after a definitive group rejection and checkpoints each accepted contact',async()=>{
+  const g=await group();await db('new_patients').insert({patientid:5,firstname:'Second',lastname:'Selected',mobile_number:'0241234588',registeredby:8});await queue(g.id,{scope:'selected',ids:[1,5],includeNames:false});await processContactGroupSync(7,db,api);
+  api.addContactsToGroup.mockResolvedValue({status:'error',code:422,reason:'CONTACT_GROUP_NOT_FOUND',uncertain:false});
+  const compatibility={...api,addContactToGroupCompatibility:vi.fn().mockResolvedValue({status:'success'})};
+  await processContactGroupSync(7,db,compatibility);expect((await db('sms_contact_groups').first()).provider_contact_mode).toBe('compatibility');expect(compatibility.addContactToGroupCompatibility).not.toHaveBeenCalled();expect(await db('sms_contact_group_members')).toHaveLength(0);
+  await processContactGroupSync(7,db,compatibility);expect((await db('sms_contact_sync_runs').first()).position).toBe(1);expect(await db('sms_contact_group_members')).toHaveLength(1);
+  await processContactGroupSync(7,db,compatibility);await processContactGroupSync(7,db,compatibility);expect(compatibility.addContactToGroupCompatibility).toHaveBeenCalledTimes(2);expect((await db('sms_contact_sync_runs').first()).state).toBe('completed');expect(await db('sms_contact_group_members')).toHaveLength(2);
+ });
+ it('never uses compatibility after an ambiguous V2 failure',async()=>{
+  const g=await group();await queue(g.id);await processContactGroupSync(7,db,api);api.addContactsToGroup.mockResolvedValue({status:'error',code:500,reason:'CONTACT_GROUP_NOT_FOUND',uncertain:true});const compatibility={...api,addContactToGroupCompatibility:vi.fn()};await processContactGroupSync(7,db,compatibility);expect((await db('sms_contact_groups').first()).provider_contact_mode).toBe('v2');expect((await db('sms_contact_sync_runs').first()).state).toBe('unknown');expect(compatibility.addContactToGroupCompatibility).not.toHaveBeenCalled();
+ });
+ it('retains a one-contact uncertain outcome and never repeats it automatically',async()=>{
+  const g=await group();await queue(g.id);await db('sms_contact_groups').where({id:g.id}).update({provider_contact_mode:'compatibility',remote_created:1});const compatibility={...api,addContactToGroupCompatibility:vi.fn().mockResolvedValue({status:'error',uncertain:true,code:500})};await processContactGroupSync(7,db,compatibility);await processContactGroupSync(7,db,compatibility);expect(compatibility.addContactToGroupCompatibility).toHaveBeenCalledTimes(1);expect((await db('sms_contact_sync_runs').first())).toMatchObject({state:'unknown',attempt_count:1,position:0});expect(await db('sms_contact_group_members')).toHaveLength(0);
+ });
+});
+
+describe('scoped contact progress for the selection page',()=>{
+ it('distinguishes available, pending, syncing, uncertain and synced contacts',async()=>{
+  const g=await group();expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1).status).toBe('available');
+  await queue(g.id);expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1)).toMatchObject({status:'pending',runId:1,synced:false});
+  await db('sms_contact_sync_runs').update({state:'processing',phase:'contacts',attempt_count:1});expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1).status).toBe('syncing');
+  await db('sms_contact_sync_runs').update({state:'unknown',last_error:'Check provider before continuing'});expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1)).toMatchObject({status:'needs_review',statusReason:'Check provider before continuing'});
+  await service.control(g.id,1,'confirm-imported',true,admin);expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1)).toMatchObject({status:'synced',synced:true});
+ });
+ it('shows blocked and failed contacts without confusing cancellation with success',async()=>{
+  const g=await group();await queue(g.id);await db('sms_contact_sync_runs').update({state:'blocked',last_error:'Provider rejected this import'});expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1)).toMatchObject({status:'blocked',synced:false});
+  await db('sms_contact_sync_runs').update({state:'failed'});expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1).status).toBe('failed');
+  await db('sms_contact_sync_runs').update({state:'cancelled'});expect((await service.candidates(g.id,manager)).contacts.find((row:any)=>row.id===1).status).toBe('available');
+  await expect(service.candidates(g.id,other)).rejects.toThrow();await expect(service.candidates(g.id,{...manager,tenantId:8})).rejects.toThrow();
+ });
+});

@@ -56,13 +56,20 @@ const attendanceSchema = z.object({
 }, {
      message: 'Clock in time is required when status is not absent',
      path: ['clock_in']
+}).superRefine((data, ctx) => {
+     if (data.total_hours !== undefined && data.overtime_hours > data.total_hours) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Overtime cannot exceed total worked hours', path: ['overtime_hours'] });
+     }
+     if (data.status === 'absent' && ((data.total_hours ?? 0) > 0 || data.overtime_hours > 0)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Absent attendance cannot contain worked hours', path: ['total_hours'] });
+     }
 });
 
 export class AttendanceRepository {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number, private suppliedConnection?: Knex) { }
 
      private get connection(): Promise<Knex> {
-          return KnexConnection(this.tenantId);
+          return this.suppliedConnection ? Promise.resolve(this.suppliedConnection) : KnexConnection(this.tenantId);
      }
 
      private parseAttendanceRecord(record: any): IAttendance {
@@ -72,7 +79,7 @@ export class AttendanceRepository {
                attendance_date: String(record.attendance_date),
                clock_in: record.clock_in ? this.extractTimeFromDateTime(record.clock_in) : undefined,
                clock_out: record.clock_out ? this.extractTimeFromDateTime(record.clock_out) : undefined,
-               total_hours: record.total_hours ? Number(record.total_hours) : undefined,
+               total_hours: record.total_hours == null ? undefined : Number(record.total_hours),
                shift_type: record.shift_type,
                work_location: record.work_location,
                status: record.status,
@@ -223,6 +230,7 @@ export class AttendanceRepository {
           late_days: number;
           total_hours: number;
           overtime_hours: number;
+          regular_hours: number;
      }> {
           if (!employeeid || typeof employeeid !== 'number' || employeeid <= 0) {
                throw new Error('Valid employee ID is required');
@@ -249,10 +257,11 @@ export class AttendanceRepository {
                     connection.raw('COUNT(*) as total_days'),
                     connection.raw("SUM(CASE WHEN status = 'present' THEN 1 ELSE 0 END) as present_days"),
                     connection.raw("SUM(CASE WHEN status = 'absent' THEN 1 ELSE 0 END) as absent_days"),
-                    connection.raw("SUM(CASE WHEN status = 'half-day' THEN 1 ELSE 0 END) as half_days"),
+                    connection.raw("SUM(CASE WHEN status = 'half_day' THEN 1 ELSE 0 END) as half_days"),
                     connection.raw("SUM(CASE WHEN status = 'late' THEN 1 ELSE 0 END) as late_days"),
                     connection.raw('COALESCE(SUM(total_hours), 0) as total_hours'),
-                    connection.raw('COALESCE(SUM(overtime_hours), 0) as overtime_hours')
+                    connection.raw('COALESCE(SUM(CASE WHEN overtime_approved = 1 THEN overtime_hours ELSE 0 END), 0) as overtime_hours'),
+                    connection.raw('COALESCE(SUM(CASE WHEN total_hours > COALESCE(overtime_hours, 0) THEN total_hours - COALESCE(overtime_hours, 0) ELSE 0 END), 0) as regular_hours')
                )
                .first() as any;
 
@@ -263,7 +272,8 @@ export class AttendanceRepository {
                half_days: Number(result?.half_days || 0),
                late_days: Number(result?.late_days || 0),
                total_hours: Number(result?.total_hours || 0),
-               overtime_hours: Number(result?.overtime_hours || 0)
+               overtime_hours: Number(result?.overtime_hours || 0),
+               regular_hours: Number(result?.regular_hours || 0)
           };
      }
 

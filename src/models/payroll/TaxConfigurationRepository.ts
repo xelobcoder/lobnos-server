@@ -9,6 +9,7 @@ export interface ITaxConfiguration {
      country: string;
      tax_bands: any;
      is_active: boolean;
+     managed_by?:string;rule_version?:string;effective_from?:string;effective_to?:string;
      created_by?: number;
      created_by_name?: string;
      updated_by?: number;
@@ -43,6 +44,7 @@ export class TaxConfigurationRepository {
 
      private parseConfigDetails(config: any): ITaxConfiguration {
           return {
+               managed_by:config.managed_by||undefined,rule_version:config.rule_version||undefined,effective_from:config.effective_from||undefined,effective_to:config.effective_to||undefined,
                id: config.id ? Number(config.id) : undefined,
                tax_year: String(config.tax_year),
                country: String(config.country),
@@ -65,10 +67,10 @@ export class TaxConfigurationRepository {
           };
      }
      async create(config: ITaxConfiguration): Promise<number> {
-          taxConfigurationSchema.parse(config);
+          const parsed=taxConfigurationSchema.parse(config);
           const connection = await this.connection;
           const dataToInsert = {
-               ...config,
+               ...parsed,
                tax_bands: typeof config.tax_bands === 'string'
                     ? config.tax_bands
                     : JSON.stringify(config.tax_bands)
@@ -76,14 +78,14 @@ export class TaxConfigurationRepository {
 
           return connection.transaction(async (trx) => {
                if (config.is_active) {
-                    await trx('payroll_tax_configuration').update({ is_active: false });
+                    await trx('payroll_tax_configuration').where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup')).update({ is_active: false });
                }
 
                const [id] = await trx('payroll_tax_configuration').insert(dataToInsert);
 
                if (config.is_active) {
                     const activeCount = await trx('payroll_tax_configuration')
-                         .where({ is_active: true })
+                         .where({ is_active: true }).where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup'))
                          .count('id as count')
                          .first();
 
@@ -111,8 +113,13 @@ export class TaxConfigurationRepository {
           return result ? this.parseConfigDetails(result) : undefined;
      }
 
-     async getActive(): Promise<ITaxConfiguration | undefined> {
+     async getActive(includeManaged=true): Promise<ITaxConfiguration | undefined> {
           const connection = await this.connection;
+          if(includeManaged&&await connection.schema.hasTable('payroll_country_setup')){
+               const today=new Date().toISOString().slice(0,10);
+               const setup=await connection('payroll_country_setup').where({id:1,country:'GH'}).where('effective_from','<=',today).first();
+               if(setup?.tax_configuration_id){const managed=await this.getById(Number(setup.tax_configuration_id));if(managed?.is_active&&managed.effective_from<=today&&managed.effective_to>=today)return managed;}
+          }
           const result = await connection('payroll_tax_configuration')
                .leftJoin('roles as creator', 'payroll_tax_configuration.created_by', 'creator.employeeid')
                .leftJoin('roles as updater', 'payroll_tax_configuration.updated_by', 'updater.employeeid')
@@ -122,6 +129,7 @@ export class TaxConfigurationRepository {
                     'updater.username as updated_by_name'
                )
                .where('payroll_tax_configuration.is_active', true)
+               .where(builder=>builder.whereNull('payroll_tax_configuration.managed_by').orWhereNot('payroll_tax_configuration.managed_by','ghana_setup'))
                .orderBy('payroll_tax_configuration.tax_year', 'desc')
                .first();
           return result ? this.parseConfigDetails(result) : undefined;
@@ -158,6 +166,7 @@ export class TaxConfigurationRepository {
                throw new Error(`Tax configuration with ID ${id} not found`);
           }
 
+          if(existing.managed_by==='ghana_setup')throw new Error('Ghana PAYE presets are versioned. Manage this configuration through Ghana payroll setup.');
           console.log('UPDATE DEBUG - Existing record:', existing);
           console.log('UPDATE DEBUG - Update config:', config);
 
@@ -173,7 +182,7 @@ export class TaxConfigurationRepository {
                console.log('Trigger drop failed (may not exist):', triggerError);
           }
           return connection.transaction(async (trx) => {
-               const dataToUpdate = { ...config };
+               const dataToUpdate = { ...taxConfigurationSchema.partial().parse(config) };
                if (dataToUpdate.tax_bands !== undefined) {
                     dataToUpdate.tax_bands = typeof dataToUpdate.tax_bands === 'string'
                          ? dataToUpdate.tax_bands
@@ -188,7 +197,7 @@ export class TaxConfigurationRepository {
 
                if (config.is_active === true) {
                     const activeCount = await trx('payroll_tax_configuration')
-                         .where({ is_active: true })
+                         .where({ is_active: true }).where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup'))
                          .count('id as count')
                          .first();
 
@@ -236,14 +245,14 @@ export class TaxConfigurationRepository {
           const connection = await this.connection;
 
           return connection.transaction(async (trx) => {
-               await trx('payroll_tax_configuration').update({ is_active: false });
+               await trx('payroll_tax_configuration').where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup')).update({ is_active: false });
 
                const affectedRows = await trx('payroll_tax_configuration')
-                    .where({ tax_year })
+                    .where({ tax_year }).where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup'))
                     .update({ is_active: true, updated_at: trx.fn.now() });
 
                const activeCount = await trx('payroll_tax_configuration')
-                    .where({ is_active: true })
+                    .where({ is_active: true }).where(builder=>builder.whereNull('managed_by').orWhereNot('managed_by','ghana_setup'))
                     .count('id as count')
                     .first();
 

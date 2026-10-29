@@ -1,3 +1,5 @@
+import {ensureSalaryTemplateSchema} from './SalaryTemplateRepository';
+import {ensureGhanaPayrollSchema} from './GhanaPayrollSchema';
 import KnexConnection from '../../database/KnexConnections';
 
 export async function bootstrapPayrollTables(tenantId = 1): Promise<void> {
@@ -520,4 +522,6 @@ export async function bootstrapPayrollTables(tenantId = 1): Promise<void> {
                table.foreign('performed_by').references('employeeid').inTable('roles').onDelete('CASCADE').onUpdate('CASCADE');
           });
      }
+     await ensureGhanaPayrollSchema(connection);
+     await ensureSalaryTemplateSchema(connection);
 }

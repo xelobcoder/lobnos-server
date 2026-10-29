@@ -96,7 +96,7 @@ export class TaxCalculationService {
 		dependents: number = 0,
 		isDisabled: boolean = false
 	): Promise<ITaxCalculationResult> {
-		const taxConfig = await this.taxConfigRepo.getActive();
+		const taxConfig = await this.taxConfigRepo.getActive(false);
 
 		if (!taxConfig) {
 			throw new Error('No active tax configuration found');
@@ -188,7 +188,7 @@ export class TaxCalculationService {
 		taxMethod: 'aggregate' | 'separate' | 'bonus_rate',
 		dependents: number = 0
 	): Promise<number> {
-		const taxConfig = await this.taxConfigRepo.getActive();
+		const taxConfig = await this.taxConfigRepo.getActive(false);
 		if (!taxConfig) {
 			throw new Error('No active tax configuration found');
 		}
@@ -226,7 +226,7 @@ export class TaxCalculationService {
 	 * Get current tax configuration
 	 */
 	async getTaxConfiguration(): Promise<ITaxConfiguration | undefined> {
-		return this.taxConfigRepo.getActive();
+		return this.taxConfigRepo.getActive(false);
 	}
 
 	/**
@@ -241,7 +241,7 @@ export class TaxCalculationService {
 		disability_exemption: number;
 		total_relief: number;
 	}> {
-		const taxConfig = await this.taxConfigRepo.getActive();
+		const taxConfig = await this.taxConfigRepo.getActive(false);
 
 		if (!taxConfig) {
 			throw new Error('No active tax configuration found');

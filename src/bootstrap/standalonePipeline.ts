@@ -51,6 +51,10 @@ export const LOCAL_MIGRATIONS = [
      '20261029_sms_campaign_review_hash',
      '20261029_arkesel_features',
      '20261029_sms_contact_groups',
+     '20261029_sms_contact_compatibility',
+     '20261029_ghana_payroll_setup',
+     '20261029_salary_templates',
+     '20261029_ghana_paye_configuration_link',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

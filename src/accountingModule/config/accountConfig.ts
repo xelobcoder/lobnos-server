@@ -92,6 +92,8 @@ export const ACCOUNT_CONFIG: AccountConfig = {
           type: 'liability',
           normalBalance: 'credit'
      },
+     'acc-2009': { name: 'Tier 2 Pension Payable', type: 'liability', normalBalance: 'credit' },
+     'acc-2010': { name: 'Tier 3 Pension Payable', type: 'liability', normalBalance: 'credit' },
      'acc-3000': {
           name: 'Owner\'s Equity',
           type: 'equity',

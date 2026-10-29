@@ -1,5 +1,7 @@
+import {getAuthUser} from '../../middleware/authority';
 import { Request, Response } from 'express';
 import { CompensationRepository } from '../../models/payroll/CompensationRepository';
+import { PayrollPeriodRepository } from '../../models/payroll/PayrollPeriodRepository';
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { customError } from '../../hooks/helper';
 
@@ -9,7 +11,8 @@ import { customError } from '../../hooks/helper';
 export const createCompensationHandler = async (req: Request, res: Response) => {
      try {
           const tenantId = parseInt(req.query.tenantId as string);
-          const compensationData = req.body;
+          const actor=getAuthUser(req);if(!actor||actor.tenantId!==tenantId)return customError('Authenticated facility context required',403,res);
+          const compensationData = {...req.body,created_by:actor.employeeid};
           const repo = new CompensationRepository(tenantId);
 
           const id = await repo.create(compensationData);
@@ -220,7 +223,17 @@ export const getAllActiveCompensationsHandler = async (req: Request, res: Respon
           }
 
           const repo = new CompensationRepository(tenantId);
-          const compensations = await repo.getAll(status, page, count);
+          let compensations;
+          if (req.query.payrollPeriodId !== undefined) {
+               const periodId = Number(req.query.payrollPeriodId);
+               if (!Number.isSafeInteger(periodId) || periodId <= 0) return customError('Valid payroll period required',400,res);
+               const period = await new PayrollPeriodRepository(tenantId).getById(periodId);
+               if (!period) return customError('Payroll period not found',404,res);
+               const date = (value:any) => value instanceof Date ? value.toISOString().slice(0,10) : String(value).slice(0,10);
+               compensations = await repo.getPayrollCandidates(date(period.period_start_date),date(period.period_end_date));
+          } else {
+               compensations = await repo.getAll(status, page, count);
+          }
 
           res.json({
                status: 'success',

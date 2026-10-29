@@ -8,7 +8,7 @@ import {decryptSmsSecret} from './SmsSecretCipher';
 import {candidateQuery,contactSources,contactPhoneHash,providerContactFingerprint,FrozenContact,contactName} from './SmsContactGroupService';
 import logger from '../../../hooks/logger';
 
-export async function processContactGroupSync(tenantId:number,db:any,transport?:{createContactGroup:(name:string)=>Promise<any>;addContactsToGroup:(name:string,contacts:any[])=>Promise<any>}){
+export async function processContactGroupSync(tenantId:number,db:any,transport?:{createContactGroup:(name:string)=>Promise<any>;addContactsToGroup:(name:string,contacts:any[])=>Promise<any>;addContactToGroupCompatibility?:(name:string,contact:any)=>Promise<any>}){
  // An expired claim may already have changed the provider. Hold it for review, never replay it.
  await db('sms_contact_sync_runs').where({state:'processing'}).where('lease_until','<',new Date()).update({state:'unknown',last_error:'Synchronization was interrupted. Check the provider before confirming this batch.',lease_token:null,lease_until:null,updated_at:new Date()});
  const candidate=await db('sms_contact_sync_runs').where({state:'queued'}).orderBy('id').first();if(!candidate)return;
@@ -27,7 +27,7 @@ export async function processContactGroupSync(tenantId:number,db:any,transport?:
   if(providerContactFingerprint(tenantId,provider)!==group.provider_fingerprint){await finish('blocked','Provider account changed. Create a new group for the current account.');return;}
   const actor={employeeid:Number(run.authorized_by),role:role.role,branch:role.branch??null,tenantId,email:''};
   const all:FrozenContact[]=JSON.parse(decryptSmsSecret(run.payload));
-  const batch=all.slice(Number(run.position),Number(run.position)+200);
+  const batch=all.slice(Number(run.position),Number(run.position)+(group.provider_contact_mode==='compatibility'?1:200));
   if(!batch.length){await finish('completed',null);return;}
   const source=contactSources[group.category as keyof typeof contactSources];
   const latest=await candidateQuery(db,group.category,actor).whereIn(source.id,batch.map(row=>row.refid)).select(...source.fields);
@@ -42,9 +42,16 @@ export async function processContactGroupSync(tenantId:number,db:any,transport?:
    await db.transaction(async(trx:any)=>{await trx('sms_contact_groups').where({id:group.id}).forUpdate().first();const held=await trx('sms_contact_sync_runs').where({id:run.id,state:'processing',lease_token:token}).forUpdate().first();if(held){await trx('sms_contact_groups').where({id:group.id}).update({remote_created:true,updated_at:new Date()});await trx('sms_contact_sync_runs').where({id:run.id}).update({state:'queued',phase:null,lease_token:null,lease_until:null,last_error:null,updated_at:new Date()});}});return;
   }
   if(!await db('sms_contact_sync_runs').where({id:run.id,state:'processing',lease_token:token}).where('lease_until','>',new Date()).update({phase:'contacts',attempt_count:batch.length}))return;
-  const result=await api.addContactsToGroup(group.remote_name,batch.map(row=>({phone_number:row.phone_number,...(row.first_name?{first_name:row.first_name}:{}),...(row.company?{company:row.company}:{})})));
+  const contacts=batch.map(row=>({phone_number:row.phone_number,...(row.first_name?{first_name:row.first_name}:{}),...(row.company?{company:row.company}:{})}));
+  const compatibility=group.provider_contact_mode==='compatibility';
+  const result=compatibility?await api.addContactToGroupCompatibility!(group.remote_name,contacts[0]):await api.addContactsToGroup(group.remote_name,contacts);
+  // A definitive V2 group lookup rejection accepted no contacts. Switch this group to
+  // the documented subscription contract, then claim a fresh one-contact checkpoint.
+  if(!compatibility&&result.reason==='CONTACT_GROUP_NOT_FOUND'&&!result.uncertain){
+   await db.transaction(async(trx:any)=>{await trx('sms_contact_groups').where({id:group.id}).forUpdate().first();const held=await trx('sms_contact_sync_runs').where({id:run.id,state:'processing',lease_token:token}).forUpdate().first();if(!held)return;await trx('sms_contact_groups').where({id:group.id}).update({provider_contact_mode:'compatibility',updated_at:new Date()});await trx('sms_contact_sync_runs').where({id:run.id}).update({state:'queued',phase:null,attempt_count:0,lease_token:null,lease_until:null,last_error:null,updated_at:new Date()});});return;
+  }
   // This API has no per-contact acceptance report. Treat errors as uncertain unless account access was definitively rejected.
-  if(result.status!=='success'){const rejected=[401,402,403,429].includes(Number(result.code))&&!result.uncertain;await finish(rejected?'blocked':'unknown',rejected?String(result.message||'Provider account needs attention').slice(0,250):result.code===422 && String(result.message).startsWith('Arkesel could not find this contact group') ? result.message : 'Contact import could not be confirmed. Check this batch in Arkesel before proceeding.','contacts',batch.length);return;}
+  if(result.status!=='success'){const rejected=([401,402,403,429].includes(Number(result.code))||compatibility&&Number(result.code)===422)&&!result.uncertain;await finish(rejected?'blocked':'unknown',rejected?String(result.message||'Provider account needs attention').slice(0,250):result.code===422 && String(result.message).startsWith('Arkesel could not find this contact group') ? result.message : 'Contact import could not be confirmed. Check this batch in Arkesel before proceeding.','contacts',batch.length);return;}
   await db.transaction(async(trx:any)=>{
    await trx('sms_contact_groups').where({id:group.id}).forUpdate().first();const held=await trx('sms_contact_sync_runs').where({id:run.id,state:'processing',lease_token:token}).forUpdate().first();if(!held)return;
    for(const row of batch)await trx('sms_contact_group_members').insert({group_id:group.id,phone_hash:row.phone_hash,synced_at:new Date()}).onConflict(['group_id','phone_hash']).ignore();

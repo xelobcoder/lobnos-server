@@ -1,3 +1,5 @@
+import Decimal from 'decimal.js';
+import {money} from './GhanaPayrollRules';
 import { PayrollPeriodRepository, IPayrollPeriod } from '../../models/payroll/PayrollPeriodRepository';
 import { PayrollTransactionRepository, IPayrollTransaction } from '../../models/payroll/PayrollTransactionRepository';
 import { OtherDeductionRepository } from '../../models/payroll/DeductionRepository';
@@ -64,7 +66,8 @@ export class PayrollProcessingService {
           const errors: Array<{ employeeid: number; error: string }> = [];
           const successfulTransactions: IPayrollTransaction[] = [];
 
-          const calculationInputs: IPayrollCalculationInput[] = employeeIds.map(employeeid => ({
+          if(!employeeIds.length||employeeIds.some(id=>!Number.isSafeInteger(id)||id<=0))throw new Error('Select valid employees for payroll');
+          const calculationInputs: IPayrollCalculationInput[] = [...new Set(employeeIds)].map(employeeid => ({
                employeeid,
                payroll_period_id,
                period_start_date: this.formatDateForCalculation(period.period_start_date),
@@ -76,6 +79,8 @@ export class PayrollProcessingService {
           return connection.transaction(async (trx) => {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
+               const lockedPeriod=await trx('payroll_periods').where({id:payroll_period_id}).forUpdate().first();
+               if(!lockedPeriod||!['draft','calculated'].includes(lockedPeriod.status))throw new Error('Payroll period is no longer open for calculation');
 
                for (const input of calculationInputs) {
                     try {
@@ -107,12 +112,9 @@ export class PayrollProcessingService {
                     }
                }
 
-               const totals = {
-                    total_gross_salary: successfulTransactions.reduce((sum, t) => sum + t.gross_salary, 0),
-                    total_deductions: successfulTransactions.reduce((sum, t) => sum + t.total_deductions, 0),
-                    total_net_salary: successfulTransactions.reduce((sum, t) => sum + t.net_salary, 0),
-                    employee_count: successfulTransactions.length
-               };
+               const persisted=(await trxTransactionRepo.getByPayrollPeriod(payroll_period_id)).filter(row=>row.status!=='cancelled');
+               const sum=(field:keyof IPayrollTransaction)=>money(persisted.reduce((total,row)=>total.plus(Number(row[field])||0),new Decimal(0)));
+               const totals = {total_gross_salary:sum('gross_salary'),total_deductions:sum('total_deductions'),total_net_salary:sum('net_salary'),employee_count:persisted.length};
 
                await trxPeriodRepo.updateTotals(
                     payroll_period_id,
@@ -125,6 +127,7 @@ export class PayrollProcessingService {
                if (errors.length === 0) {
                     await trxPeriodRepo.markAsCalculated(payroll_period_id, calculated_by);
                } else {
+                    await trxPeriodRepo.update(payroll_period_id,{status:'draft'});
                     console.warn(`Payroll period ${payroll_period_id} has ${errors.length} errors - keeping in draft status`);
                }
 
@@ -151,6 +154,8 @@ export class PayrollProcessingService {
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
                const trxDeductionRepo = new OtherDeductionRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
                if (!period) {
@@ -186,6 +191,8 @@ export class PayrollProcessingService {
           return connection.transaction(async (trx) => {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
                if (!period) {
@@ -215,6 +222,8 @@ export class PayrollProcessingService {
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
                const trxDeductionRepo = new OtherDeductionRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
                if (!period) {
@@ -335,6 +344,8 @@ export class PayrollProcessingService {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
                if (!period) {
@@ -384,6 +395,8 @@ export class PayrollProcessingService {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
 
                if (!period) {
@@ -438,6 +451,8 @@ export class PayrollProcessingService {
                const trxPeriodRepo = new PayrollPeriodRepository(this.tenantId, trx);
                const trxTransactionRepo = new PayrollTransactionRepository(this.tenantId, trx);
 
+               // Serialize workflow transitions with processing and payment requests.
+               await trx('payroll_periods').where({id: payroll_period_id}).forUpdate().first();
                const period = await trxPeriodRepo.getById(payroll_period_id);
                if (!period) {
                     throw new Error(`Payroll period ${payroll_period_id} not found`);
@@ -490,12 +505,9 @@ export class PayrollProcessingService {
                     }
                }
 
-               const totals = {
-                    total_gross_salary: successfulTransactions.reduce((sum, t) => sum + t.gross_salary, 0),
-                    total_deductions: successfulTransactions.reduce((sum, t) => sum + t.total_deductions, 0),
-                    total_net_salary: successfulTransactions.reduce((sum, t) => sum + t.net_salary, 0),
-                    employee_count: successfulTransactions.length
-               };
+               const persisted=(await trxTransactionRepo.getByPayrollPeriod(payroll_period_id)).filter(row=>row.status!=='cancelled');
+               const sum=(field:keyof IPayrollTransaction)=>money(persisted.reduce((total,row)=>total.plus(Number(row[field])||0),new Decimal(0)));
+               const totals = {total_gross_salary:sum('gross_salary'),total_deductions:sum('total_deductions'),total_net_salary:sum('net_salary'),employee_count:persisted.length};
 
                await trxPeriodRepo.updateTotals(
                     payroll_period_id,
@@ -507,6 +519,8 @@ export class PayrollProcessingService {
 
                if (errors.length === 0) {
                     await trxPeriodRepo.markAsCalculated(payroll_period_id, recalculated_by);
+               } else {
+                    await trxPeriodRepo.update(payroll_period_id, {status: 'draft'});
                }
 
                return {

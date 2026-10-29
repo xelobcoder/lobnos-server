@@ -1,5 +1,8 @@
+import {salaryTemplateHandler} from './SalaryTemplateController';
+import {ghanaPayrollHandler} from './GhanaPayrollSetupController';
 import { Router } from 'express';
 import { requirePayrollCompensationRole } from '../../middleware/businessConfigurationAuthority';
+import { payrollAuthority } from '../../middleware/payrollAuthority';
 import * as compensationController from './compensationController';
 import * as bonusController from './bonusController';
 import * as allowanceController from './allowanceController';
@@ -15,6 +18,19 @@ import { handleOverLoad } from '../../hooks/helper';
 
 
 const payrollRouter = Router();
+payrollRouter.use(payrollAuthority);
+payrollRouter.use('/salary-templates',requirePayrollCompensationRole);
+payrollRouter.get('/salary-templates',salaryTemplateHandler('list'));
+payrollRouter.post('/salary-templates',salaryTemplateHandler('save'));
+payrollRouter.put('/salary-templates/:id',salaryTemplateHandler('save'));
+
+payrollRouter.use('/ghana-setup',requirePayrollCompensationRole);
+payrollRouter.get('/ghana-setup',ghanaPayrollHandler('read'));
+payrollRouter.post('/ghana-setup/preview',ghanaPayrollHandler('preview'));
+payrollRouter.post('/ghana-setup',ghanaPayrollHandler('save'));
+payrollRouter.get('/ghana-setup/employees/:employeeid',ghanaPayrollHandler('employee'));
+payrollRouter.put('/ghana-setup/employees/:employeeid',ghanaPayrollHandler('save-employee'));
+
 payrollRouter.use('/compensation', requirePayrollCompensationRole);
 payrollRouter.post('/compensation', compensationController.createCompensationHandler);
 payrollRouter.post('/allowances', allowanceController.createAllowanceHandler);

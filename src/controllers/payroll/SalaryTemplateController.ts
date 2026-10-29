@@ -1,0 +1,5 @@
+import type {Request,Response} from 'express';
+import {ZodError} from 'zod';
+import {getAuthUser} from '../../middleware/authority';
+import {SalaryTemplateRepository} from '../../models/payroll/SalaryTemplateRepository';
+export const salaryTemplateHandler=(operation:string)=>async(req:Request,res:Response)=>{const actor=getAuthUser(req);if(!actor||Number(req.query.tenantId)!==actor.tenantId)return res.status(403).json({error:'Authenticated facility context required'});try{const repo=new SalaryTemplateRepository(actor.tenantId);let result:any;if(operation==='list')result=await repo.list(actor);else{const id=req.params.id===undefined?undefined:Number(req.params.id);if(id!==undefined&&(!Number.isSafeInteger(id)||id<=0))return res.status(400).json({error:'Invalid template reference'});result=await repo.save(req.body,actor,id);}return res.json({status:'success',result});}catch(error:any){return res.status(error.statusCode||400).json({error:error instanceof ZodError?error.issues.map(row=>row.message).join('. '):error.code==='ER_DUP_ENTRY'?'A template with this name already exists':error.code?'Unable to save salary template':error.message});}};

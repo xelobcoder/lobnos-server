@@ -17,7 +17,7 @@ export interface IPayrollPeriod {
      total_deductions: number;
      total_net_salary: number;
      employee_count: number;
-     tax_configuration_id?: number;
+     tax_configuration_id?: number|null;
      calculated_by?: number;
      calculated_at?: string;
      approved_by?: number;
@@ -50,7 +50,7 @@ const payrollPeriodSchema = z.object({
      total_deductions: z.number().min(0, 'Total deductions cannot be negative'),
      total_net_salary: z.number().min(0, 'Total net salary cannot be negative'),
      employee_count: z.number().min(0, 'Employee count cannot be negative').int('Employee count must be a whole number'),
-     tax_configuration_id: z.number().positive('Tax configuration ID must be a positive number').optional(),
+     tax_configuration_id: z.number().positive('Tax configuration ID must be a positive number').nullable().optional(),
      calculated_by: z.number().positive('Calculated by must be a positive number').optional(),
      calculated_at: z.string().regex(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/, 'Calculated at must be a valid datetime').optional(),
      approved_by: z.number().positive('Approved by must be a positive number').optional(),

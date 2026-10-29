@@ -53,7 +53,18 @@ export class SmsContactGroupService{
   const total=Number((await base().count(`${source.id} as count`).first())?.count||0);
   const rows=await base().select(...source.fields).orderBy(source.id).limit(count).offset((page-1)*count);
   const members=new Set((await db('sms_contact_group_members').where({group_id:groupId}).select('phone_hash')).map((row:any)=>row.phone_hash));
-  return {contacts:rows.map((row:any)=>{const phone=normalizeSmsPhone(row[source.phone]);return{id:Number(row[source.id]),name:contactName(row),phone:phone||String(row[source.phone]||''),reference:row.fullpatientid||null,valid:!!phone,synced:!!phone&&members.has(contactPhoneHash(phone))};}),total,page,count};
+  const pageHashes=new Set(rows.map((row:any)=>normalizeSmsPhone(row[source.phone])).filter(Boolean).map((phone:any)=>contactPhoneHash(phone)));
+  const progress=new Map<string,{status:string;runId:number;statusReason?:string}>();
+  const runs=await db('sms_contact_sync_runs').where({group_id:groupId}).whereIn('state',['queued','processing','blocked','unknown','failed']).orderBy('id','desc').limit(30).select('id','state','position','attempt_count','phase','last_error','payload');
+  for(const run of runs){const snapshot:FrozenContact[]=JSON.parse(decryptSmsSecret(run.payload));
+   for(let index=Number(run.position);index<snapshot.length;index++){const hash=snapshot[index].phone_hash;if(!pageHashes.has(hash)||progress.has(hash)||members.has(hash))continue;
+    const inAttempt=run.phase==='contacts'&&index<Number(run.position)+Number(run.attempt_count);
+    const status=run.state==='unknown'?(inAttempt?'needs_review':'pending'):run.state==='processing'?(inAttempt?'syncing':'pending'):run.state==='queued'?'pending':run.state;
+    progress.set(hash,{status,runId:Number(run.id),...(run.last_error&&['needs_review','blocked','failed'].includes(status)?{statusReason:run.last_error}:{})});
+   }
+  }
+  return {contacts:rows.map((row:any)=>{const phone=normalizeSmsPhone(row[source.phone]),synced=!!phone&&members.has(contactPhoneHash(phone));const status=!phone?{status:'invalid'}:synced?{status:'synced'}:progress.get(contactPhoneHash(phone))||{status:'available'};
+   return{id:Number(row[source.id]),name:contactName(row),phone:phone||String(row[source.phone]||''),reference:row.fullpatientid||null,valid:!!phone,synced,...status};}),total,page,count};
  }
  async plan(groupId:number,input:unknown,actor:AuthUser){
   const db=await this.db(actor),group=await this.find(groupId,actor),dto=selectionSchema.parse(input);

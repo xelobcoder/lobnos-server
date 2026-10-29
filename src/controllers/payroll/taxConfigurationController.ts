@@ -1,3 +1,4 @@
+import {ensureGhanaPayrollSchema} from '../../models/payroll/GhanaPayrollSchema';
 import { Request, Response } from 'express';
 import { TaxConfigurationRepository, ITaxConfiguration } from '../../models/payroll/TaxConfigurationRepository';
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
@@ -40,9 +41,8 @@ export const getAllTaxConfigurationsHandler = async (req: Request, res: Response
           const repo = new TaxConfigurationRepository(tenantId);
           const connection = await repo['connection']; // Access private connection
 
-          const configs = await connection('payroll_tax_configuration')
-               .select('*')
-               .orderBy('tax_year', 'desc');
+          await ensureGhanaPayrollSchema(connection);
+          const configs = await repo.getAll();
 
           res.json({
                status: 'success',
@@ -245,6 +245,7 @@ export const deleteTaxConfigurationHandler = async (req: Request, res: Response)
                return customError('Tax configuration not found', 404, res);
           }
 
+          if(existing.managed_by==='ghana_setup')return customError('Ghana PAYE presets are versioned. Manage this configuration through Ghana payroll setup.',400,res);
           // Check if it's active
           if (existing.is_active) {
                return customError('Cannot delete active tax configuration', 400, res);

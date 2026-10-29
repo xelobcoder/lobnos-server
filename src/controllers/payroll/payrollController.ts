@@ -7,6 +7,7 @@ import { TaxConfigurationRepository } from '../../models/payroll/TaxConfiguratio
 import { PrimeSqlErrorHandler } from '../../hooks/utility';
 import { customError } from '../../hooks/helper';
 import { NotificationDispatcher } from '../../models/application/notifications/services/NotificationDispatcher';
+import { payrollProcessingOutcome } from '../../services/payroll/PayrollProcessingOutcome';
 
 /**
  * Create new payroll period
@@ -225,26 +226,30 @@ export const processPayrollHandler = async (req: Request, res: Response) => {
           }
 
           const taxRepo = new TaxConfigurationRepository(tenantId);
-          const activeTaxConfig = await taxRepo.getActive();
-          if (!activeTaxConfig) {
-               return customError('No active tax configuration found', 400, res);
-          }
-
+          const activeTaxConfig = await taxRepo.getActive(false);
           const periodRepo = new PayrollPeriodRepository(tenantId);
-          await periodRepo.update(periodId, { tax_configuration_id: activeTaxConfig.id });
+          const period=await periodRepo.getById(periodId);
+          if(!period||!['draft','calculated'].includes(period.status))return customError('Only draft or calculated payroll can be processed',400,res);
+          const db=await (await import('../../database/KnexConnections')).default(tenantId);
+          const ghana=await db.schema.hasTable('payroll_country_setup')?await db('payroll_country_setup').where({id:1,country:'GH'}).first():null;
+          const periodStart=(period.period_start_date as any) instanceof Date?(period.period_start_date as unknown as Date).toISOString().slice(0,10):String(period.period_start_date).slice(0,10);
+          if(!activeTaxConfig&&!(ghana&&periodStart>=String(ghana.effective_from).slice(0,10)))return customError('Configure Ghana payroll or an active tax configuration before processing',400,res);
+          const usesGhana=ghana&&periodStart>=String(ghana.effective_from).slice(0,10);
+          await periodRepo.update(periodId, { tax_configuration_id: usesGhana?ghana.tax_configuration_id:activeTaxConfig!.id });
 
           const service = new PayrollProcessingService(tenantId);
           NotificationDispatcher.dispatch(tenantId, 'PAYROLL_PROCESSING_STARTED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
           const result = await service.processPayrollPeriod(periodId, employeeIds, calculated_by);
-
+          const outcome = payrollProcessingOutcome(result);
+          if (outcome.complete) {
           NotificationDispatcher.dispatch(tenantId, 'PAYROLL_PROCESSED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
           NotificationDispatcher.dispatch(tenantId, 'PAYSLIP_GENERATED', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
           NotificationDispatcher.dispatch(tenantId, 'SALARY_PAYMENT_PENDING', { payrollId: periodId }, Number(calculated_by) || undefined).catch(() => { });
-
+          }
           res.json({
-               status: 'success',
+               status: outcome.status,
                statusCode: 200,
-               message: 'Payroll processed successfully',
+               message: outcome.message,
                result
           });
      } catch (error) {
@@ -540,11 +545,11 @@ export const recalculatePayrollPeriodHandler = async (req: Request, res: Respons
 
           const service = new PayrollProcessingService(tenantId);
           const result = await service.recalculatePayrollPeriod(periodId, recalculatedBy);
-
+          const outcome = payrollProcessingOutcome(result);
           res.json({
-               status: 'success',
+               status: outcome.status,
                statusCode: 200,
-               message: 'Payroll period recalculated successfully',
+               message: outcome.message,
                result
           });
      } catch (error: any) {
@@ -626,7 +631,8 @@ export const getEmployeePayrollHistoryHandler = async (req: Request<{ employeeid
           res.json({
                status: 'success',
                statusCode: 200,
-               result: transactions.data
+               result: transactions.data,
+               pagination: { total: transactions.total, page: transactions.page, pageSize: transactions.pageSize }
           });
      } catch (error) {
           PrimeSqlErrorHandler.handleError(error, res);

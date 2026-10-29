@@ -58,3 +58,24 @@ it('reports the known missing-group rejection without exposing arbitrary provide
  fetchMock.mockResolvedValue(new Response(JSON.stringify({status:'error',message:'Private customer 0241234567'}),{status:422}));expect((await new SmsService(7,config).addContactsToGroup('PLS-7-selected-test',[{phone_number:'0241234567'}])).message).not.toContain('0241234567');
  }finally{vi.unstubAllGlobals();}
 });
+
+describe('Arkesel contact subscription compatibility',()=>{
+ afterEach(()=>vi.unstubAllGlobals());
+ it.each(['ok','105'])('accepts membership acknowledgement %s without sending SMS',async code=>{
+  const fetchMock=vi.fn().mockResolvedValue(new Response(JSON.stringify({code})));vi.stubGlobal('fetch',fetchMock);
+  const result=await new SmsService(7,config).addContactToGroupCompatibility('PLS-7-selected-test',{phone_number:'0241234567'});
+  expect(result.status).toBe('success');const [value,options]=fetchMock.mock.calls[0];const url=new URL(value);expect(url.pathname).toBe('/contacts/api');expect(url.searchParams.get('action')).toBe('subscribe-us');expect(url.searchParams.get('phone_number')).toBe('233241234567');expect(url.searchParams.has('first_name')).toBe(false);expect(options.redirect).toBe('error');
+ });
+ it('does not expose credential-bearing errors or provider contact data',async()=>{
+  vi.stubGlobal('fetch',vi.fn().mockRejectedValue(new Error('https://provider/?api_key=secret&phone_number=private')));
+  const result=await new SmsService(7,config).addContactToGroupCompatibility('PLS-7-selected-test',{phone_number:'0241234567'});expect(result.uncertain).toBe(true);expect(JSON.stringify(result)).not.toMatch(/secret|private/);
+ });
+ it('holds unknown responses and blocks known rejections without claiming membership',async()=>{
+  const fetchMock=vi.fn().mockResolvedValue(new Response(JSON.stringify({code:'unrecognized',message:'private'})));vi.stubGlobal('fetch',fetchMock);const service=new SmsService(7,config);
+  expect((await service.addContactToGroupCompatibility('PLS-7-selected-test',{phone_number:'0241234567'})).uncertain).toBe(true);
+  fetchMock.mockResolvedValue(new Response(JSON.stringify({code:'104'})));expect(await service.addContactToGroupCompatibility('PLS-7-selected-test',{phone_number:'0241234567'})).toMatchObject({status:'error',uncertain:false,code:422});
+ });
+ it('rejects insecure transport before including credentials in a request',async()=>{
+  const fetchMock=vi.fn();vi.stubGlobal('fetch',fetchMock);await expect(new SmsService(7,{...config,baseUrl:'http://provider.test'}).addContactToGroupCompatibility('PLS-7-selected-test',{phone_number:'0241234567'})).rejects.toThrow('HTTPS');expect(fetchMock).not.toHaveBeenCalled();
+ });
+});

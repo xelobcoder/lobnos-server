@@ -1,3 +1,4 @@
+import {money} from '../../services/payroll/GhanaPayrollRules';
 import KnexConnection from '../../database/KnexConnections';
 import { enqueuePosting } from '../services/AccountingOutboxService';
 import { IPayrollAccounting } from '../interfaces/IAccountingIntegrations';
@@ -39,8 +40,11 @@ async function periodTotals(db: any, periodId: number) {
      const net = round2(Number(row?.net || 0));
      const employerCost = round2(Number(row?.employer_cost || 0));
 
+     const snapshots=await db('payroll_transactions').where({payroll_period_id:periodId}).whereNot('status','cancelled').select('other_deductions_detail');
+     const ghana={ssnit:0,tier2:0,tier3:0};for(const row of snapshots){const details=typeof row.other_deductions_detail==='string'?JSON.parse(row.other_deductions_detail):row.other_deductions_detail;const record=(details||[]).find((item:any)=>item.type==='ghana_compliance');if(record){ghana.ssnit=money(ghana.ssnit+Number(record.ssnit||0));ghana.tier2=money(ghana.tier2+Number(record.tier2||0));ghana.tier3=money(ghana.tier3+Number(record.tier3Employee||0)+Number(record.tier3Employer||0));}}
      return {
           gross,
+          ghana,
           paye,
           otherDeductions,
           net,
@@ -49,6 +53,13 @@ async function periodTotals(db: any, periodId: number) {
           // Employer-side contribution carried on top of gross pay.
           employerContribution: employerCost > gross ? round2(employerCost - gross) : 0,
      };
+}
+
+export function payrollAccrualLines(totals:{gross:number;paye:number;otherDeductions:number;net:number;statutoryDeductions:number;employerContribution:number;ghana?:{ssnit:number;tier2:number;tier3:number}}){
+ const ghana=totals.ghana||{ssnit:0,tier2:0,tier3:0};const legacy=money(totals.statutoryDeductions+totals.employerContribution-ghana.ssnit-ghana.tier2-ghana.tier3);
+ if(legacy<0)throw new Error('Payroll pension liabilities do not reconcile with salary deductions and employer cost');
+ const lines=[{accountCode:SALARIES_EXPENSE,direction:NormalBalance.DEBIT,amount:totals.gross},...(totals.employerContribution>0?[{accountCode:SALARIES_EXPENSE,direction:NormalBalance.DEBIT,amount:totals.employerContribution}]:[])];
+ for(const [accountCode,amount] of [[SSNIT_PAYABLE,money(legacy+ghana.ssnit)],['acc-2009',ghana.tier2],['acc-2010',ghana.tier3],[PAYE_PAYABLE,totals.paye],[OTHER_DEDUCTIONS_PAYABLE,totals.otherDeductions],[SALARIES_PAYABLE,totals.net]] as [string,number][])if(amount>0)lines.push({accountCode,direction:NormalBalance.CREDIT,amount});return lines;
 }
 
 export async function enqueuePayrollAccrual(
@@ -69,27 +80,7 @@ export async function enqueuePayrollAccrual(
                return;
           }
 
-          const lines = [
-               { accountCode: SALARIES_EXPENSE, direction: NormalBalance.DEBIT, amount: totals.gross },
-               ...(totals.employerContribution > 0
-                    ? [
-                         { accountCode: SALARIES_EXPENSE, direction: NormalBalance.DEBIT, amount: totals.employerContribution },
-                         { accountCode: SSNIT_PAYABLE, direction: NormalBalance.CREDIT, amount: totals.employerContribution },
-                    ]
-                    : []),
-               ...(totals.statutoryDeductions > 0
-                    ? [{ accountCode: SSNIT_PAYABLE, direction: NormalBalance.CREDIT, amount: totals.statutoryDeductions }]
-                    : []),
-               ...(totals.paye > 0
-                    ? [{ accountCode: PAYE_PAYABLE, direction: NormalBalance.CREDIT, amount: totals.paye }]
-                    : []),
-               ...(totals.otherDeductions > 0
-                    ? [{ accountCode: OTHER_DEDUCTIONS_PAYABLE, direction: NormalBalance.CREDIT, amount: totals.otherDeductions }]
-                    : []),
-               ...(totals.net > 0
-                    ? [{ accountCode: SALARIES_PAYABLE, direction: NormalBalance.CREDIT, amount: totals.net }]
-                    : []),
-          ];
+          const lines = payrollAccrualLines(totals);
 
           await enqueuePosting(
                tenantId,

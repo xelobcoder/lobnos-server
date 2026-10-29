@@ -8,6 +8,7 @@ interface SmsResponse {
     message: string;
     data?: any;
     uncertain?: boolean;
+    reason?: 'CONTACT_GROUP_NOT_FOUND';
 }
 
 interface SmsSendOptions {
@@ -64,7 +65,7 @@ export class SmsService {
                 const code = Number(result?.code) || response.status;
                 const descriptions: Record<number,string> = {401:'Arkesel credentials were rejected',402:'Arkesel balance is insufficient',403:'Arkesel gateway is inactive',422:'Arkesel rejected the message fields',429:'Arkesel rate limit reached; try later'};
                 const missingContactGroup = endpoint === '/api/v2/contacts' && response.status === 422 && /^the group name provided does not exist!?$/i.test(String(result?.message || '').trim());
-                return {status:'error',code,uncertain:code >= 500 || code === 408,message:missingContactGroup ? 'Arkesel could not find this contact group for the configured API account. Check the group and account with Arkesel before retrying.' : descriptions[code] || 'Arkesel could not confirm this request'};
+                return {status:'error',code,...(missingContactGroup?{reason:'CONTACT_GROUP_NOT_FOUND' as const}:{}),uncertain:code >= 500 || code === 408,message:missingContactGroup ? 'Arkesel could not find this contact group for the configured API account. Check the group and account with Arkesel before retrying.' : descriptions[code] || 'Arkesel could not confirm this request'};
             }
             if (!result || typeof result !== 'object') return {status:'error',code:500,uncertain:true,message:'Invalid provider response'};
 
@@ -205,6 +206,29 @@ export class SmsService {
         if(!/^[A-Za-z0-9_-]{1,100}$/.test(groupName)||!contacts.length||contacts.length>200)throw new Error('Provide a group and 1 to 200 contacts');
         const safe=contacts.map(contact=>{const phone=this.validatePhoneNumber(contact.phone_number);if(!phone.isValid)throw new Error('Invalid contact number');return {phone_number:phone.formattedNumber!,...(contact.first_name?{first_name:contact.first_name}:{}),...(contact.company?{company:contact.company}:{})};});
         return this.sendRequest(await this.getConfiguration(),'/api/v2/contacts','POST',{group_name:groupName,contacts:safe});
+    }
+    /** Arkesel's contact-only compatibility API. Never log its URL or fetch errors:
+     * this documented GET contract places credentials and contact data in the query.
+     * A single contact per worker checkpoint keeps uncertain outcomes isolated. */
+    async addContactToGroupCompatibility(groupName:string,contact:{phone_number:string;first_name?:string;company?:string}):Promise<SmsResponse>{
+        if(!/^[A-Za-z0-9_-]{1,100}$/.test(groupName))throw new Error('Invalid provider group reference');
+        const phone=this.validatePhoneNumber(contact.phone_number);
+        if(!phone.isValid)throw new Error('Invalid contact number');
+        const provider=await this.getConfiguration();
+        const url=new URL('/contacts/api',provider.baseUrl);
+        if(url.protocol!=='https:')throw new Error('Contact synchronization requires HTTPS');
+        url.search=new URLSearchParams({action:'subscribe-us',api_key:provider.apiKey,phone_book:groupName,
+            phone_number:phone.formattedNumber!.replace(/^0/,'233'),response:'json',
+            ...(contact.first_name?{first_name:contact.first_name}:{}),...(contact.company?{company:contact.company}:{})}).toString();
+        try{
+            const response=await fetch(url.toString(),{method:'GET',headers:{Accept:'application/json'},redirect:'error',signal:AbortSignal.timeout(20000)});
+            let result:any;try{result=await response.json();}catch{return{status:'error',code:response.status||500,uncertain:true,message:'Contact acceptance could not be confirmed'};}
+            // Both outcomes establish membership; the provider's duplicate response is not a new insertion.
+            if(response.ok&&(result?.code==='ok'||String(result?.code)==='105'))return{status:'success',code:200,message:String(result.code)==='105'?'Contact already belongs to the group':'Contact synchronized'};
+            const known:Record<string,string>={'102':'Arkesel credentials were rejected','103':'Arkesel rejected this contact number','104':'Arkesel could not find the contact subscription list'};
+            const message=known[String(result?.code)];
+            return{status:'error',code:message?422:response.status||500,uncertain:!message,message:message||'Contact acceptance could not be confirmed'};
+        }catch{return{status:'error',code:500,uncertain:true,message:'Contact acceptance could not be confirmed; check Arkesel before retrying'};}
     }
     async getBalance(): Promise<SmsResponse> { return this.sendRequest(await this.getConfiguration(),'/api/v2/clients/balance-details','GET'); }
     async getWebhookSecret(): Promise<SmsResponse> { return this.sendRequest(await this.getConfiguration(),'/api/v2/webhooks/secret','GET'); }

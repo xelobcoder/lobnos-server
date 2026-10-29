@@ -1,9 +1,12 @@
+import {salaryTermsSchema} from './SalaryTemplateRepository';
 import KnexConnection from '../../database/KnexConnections';
 import { Knex } from 'knex';
 import { z } from 'zod';
 
 export interface ICompensation {
      id?: number;
+     salary_template_id?:number;
+     salary_template_version?:number;
      employeeid: number;
      compensation_type: 'salary' | 'hourly' | 'commission' | 'hybrid';
      basic_salary?: number;
@@ -103,10 +106,10 @@ const compensationSchema = z.object({
 });
 
 export class CompensationRepository {
-     constructor(private tenantId: number) { }
+     constructor(private tenantId: number,private suppliedDb?:Knex) { }
 
      private get connection(): Promise<Knex> {
-          return KnexConnection(this.tenantId);
+          return this.suppliedDb?Promise.resolve(this.suppliedDb):KnexConnection(this.tenantId);
      }
 
      private async deactivateOtherActiveCompensations(
@@ -124,12 +127,12 @@ export class CompensationRepository {
           await query.update({ is_active: false, updated_at: db.fn.now() });
      }
 
-     private async validateSalaryWithinGrade(compensation: Partial<ICompensation>): Promise<void> {
+     private async validateSalaryWithinGrade(compensation: Partial<ICompensation>, db?:Knex|Knex.Transaction, requireActive=false): Promise<void> {
           if (!compensation.salary_grade_id || compensation.basic_salary === undefined || compensation.basic_salary === null) {
                return;
           }
 
-          const connection = await this.connection;
+          const connection = db||await this.connection;
           const grade = await connection('payroll_salary_grades')
                .where({ id: compensation.salary_grade_id })
                .first();
@@ -138,6 +141,8 @@ export class CompensationRepository {
                throw new Error(`Salary grade ${compensation.salary_grade_id} not found`);
           }
 
+          if(requireActive&&!Number(grade.is_active))throw new Error('Choose an active salary grade');
+          if(requireActive&&grade.currency&&grade.currency!==compensation.currency)throw new Error('Compensation currency must match the salary level currency');
           const basicSalary = Number(compensation.basic_salary);
           const minSalary = grade.min_salary !== null && grade.min_salary !== undefined ? Number(grade.min_salary) : undefined;
           const maxSalary = grade.max_salary !== null && grade.max_salary !== undefined ? Number(grade.max_salary) : undefined;
@@ -152,18 +157,22 @@ export class CompensationRepository {
      }
 
      async create(compensation: ICompensation): Promise<number> {
-          // Validate data using Zod schema
-          compensationSchema.parse(compensation);
-          await this.validateSalaryWithinGrade(compensation);
-
           const connection = await this.connection;
           return connection.transaction(async (trx) => {
-               if (compensation.is_active) {
-                    await this.deactivateOtherActiveCompensations(trx, compensation.employeeid);
+               if(!await trx('roles').where({employeeid:compensation.employeeid}).forUpdate().first())throw new Error('Employee not found');
+               let defaults:any={},source:any={};
+               if(compensation.salary_template_id!==undefined){
+                    if(!Number.isSafeInteger(compensation.salary_template_id)||compensation.salary_template_id<=0)throw new Error('Invalid salary template');
+                    const template=await trx('payroll_salary_templates').where({id:compensation.salary_template_id}).forUpdate().first();
+                    if(!template||!Number(template.is_active))throw new Error('Select an active salary template');
+                    if(Number(template.version)!==compensation.salary_template_version)throw new Error('Salary template changed. Select it again to review the latest terms.');
+                    defaults=Object.fromEntries(Object.entries(salaryTermsSchema.parse(typeof template.terms==='string'?JSON.parse(template.terms):template.terms)).filter(([,value])=>value!=null));
+                    source={salary_template_id:template.id,salary_template_version:template.version,salary_template_snapshot:JSON.stringify({id:template.id,name:template.name,version:template.version,terms:defaults})};
                }
-
-               const [id] = await trx('payroll_employee_compensation').insert(compensation);
-               return id;
+               const data=compensationSchema.parse({...defaults,...compensation});
+               await this.validateSalaryWithinGrade(data,trx,!!compensation.salary_template_id);
+               if(data.is_active)await this.deactivateOtherActiveCompensations(trx,data.employeeid);
+               const [id]=await trx('payroll_employee_compensation').insert({...data,...source});return id;
           });
      }
 
@@ -177,6 +186,20 @@ export class CompensationRepository {
           return connection('payroll_employee_compensation')
                .where({ employeeid })
                .orderBy('effective_from', 'desc');
+     }
+
+     async getForPayrollPeriod(employeeid:number,start:string,end:string):Promise<ICompensation|undefined>{
+          const connection=await this.connection;
+          // Do not silently pay an old rate over a newer term within this period.
+          const change = await connection('payroll_employee_compensation').where({employeeid})
+               .where('effective_from','>',start).where('effective_from','<=',end)
+               .where(builder=>builder.where({is_active:true}).orWhereNotNull('effective_to')).first();
+          if(change) return undefined;
+          return connection('payroll_employee_compensation').where({employeeid})
+               .where('effective_from','<=',start)
+               .where(builder=>builder.where({is_active:true}).orWhereNotNull('effective_to'))
+               .where(builder=>builder.whereNull('effective_to').orWhere('effective_to','>=',end))
+               .orderBy('effective_from','desc').first();
      }
 
      async getActiveByEmployeeId(employeeid: number): Promise<ICompensation | undefined> {
@@ -194,6 +217,7 @@ export class CompensationRepository {
      }
 
      async update(id: number, compensation: Partial<ICompensation>): Promise<boolean> {
+          if(Object.keys(compensation).some(key=>key.startsWith('salary_template_')))throw new Error('Compensation template provenance cannot be changed');
           if (!id || typeof id !== 'number' || id <= 0) {
                throw new Error('Valid compensation ID is required for update');
           }
@@ -287,6 +311,16 @@ export class CompensationRepository {
           return query;
      }
 
+     async getPayrollCandidates(start: string, end: string): Promise<Array<{employeeid:number}>> {
+          const db = await this.connection;
+          // Selection is not paginated: a payroll must not silently omit employees
+          // after the ordinary compensation list's first ten records.
+          return db('payroll_employee_compensation').distinct('employeeid')
+               .where('effective_from','<=',end)
+               .where(q=>q.where({is_active:true}).orWhereNotNull('effective_to'))
+               .where(q=>q.whereNull('effective_to').orWhere('effective_to','>=',start));
+     }
+
      async createWithHistory(
           employeeid: number,
           newCompensation: ICompensation,
@@ -301,6 +335,7 @@ export class CompensationRepository {
           }
 
           // Validate new compensation data
+          if(Object.keys(newCompensation).some(key=>key.startsWith('salary_template_')))throw new Error('Apply a salary template through the compensation creation form');
           compensationSchema.parse(newCompensation);
           await this.validateSalaryWithinGrade(newCompensation);
 

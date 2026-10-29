@@ -1,3 +1,4 @@
+import { payrollYearToDate } from '../../services/payroll/PayrollYearToDate';
 import KnexConnection from '../../database/KnexConnections';
 import { Knex } from 'knex';
 import { z } from 'zod';
@@ -22,6 +23,7 @@ export interface IPayrollTransaction {
      salary_grade_id?: number;
      salary_grade?: string;
      tax_relief?: number;
+     employee_ssnit?:number;employer_ssnit?:number;employee_tier3?:number;employer_tier3?:number;
      net_salary: number;
      employer_cost: number;
      days_worked: number;
@@ -122,7 +124,9 @@ export class PayrollTransactionRepository {
                });
           }
 
+          const ghana=normalizedOtherDeductions.find((item:any)=>item.type==='ghana_compliance');
           return {
+               ...(ghana?{employee_ssnit:Number(ghana.employeePension),employer_ssnit:Number(ghana.employerPension),employee_tier3:Number(ghana.tier3Employee),employer_tier3:Number(ghana.tier3Employer)}:{}),
                id: transaction.id ? Number(transaction.id) : undefined,
                payroll_period_id: Number(transaction.payroll_period_id),
                employeeid: Number(transaction.employeeid),
@@ -380,27 +384,14 @@ export class PayrollTransactionRepository {
           return result || { total_gross: 0, total_deductions: 0, total_net: 0, employee_count: 0 };
      }
 
-     async getEmployeeYTDTotals(employeeid: number, year: number): Promise<{
-          ytd_gross: number;
-          ytd_net: number;
-          ytd_tax: number;
-          ytd_ssnit: number;
-     }> {
+     async getEmployeeYTDTotals(employeeid: number, year: number) {
           const connection = await this.connection;
-
-          const result = await connection('payroll_transactions as pt')
+          const rows = await connection('payroll_transactions as pt')
                .join('payroll_periods as pp', 'pt.payroll_period_id', 'pp.id')
-               .where({ 'pt.employeeid': employeeid, 'pp.period_year': year })
-               .where('pt.status', 'paid')
-               .select(
-                    connection.raw('COALESCE(SUM(pt.gross_salary), 0) as ytd_gross'),
-                    connection.raw('COALESCE(SUM(pt.net_salary), 0) as ytd_net'),
-                    connection.raw('COALESCE(SUM(pt.income_tax), 0) as ytd_tax'),
-                    connection.raw('0 as ytd_ssnit')
-               )
-               .first() as any;
-
-          return result || { ytd_gross: 0, ytd_net: 0, ytd_tax: 0, ytd_ssnit: 0 };
+               .where({ 'pt.employeeid': employeeid, 'pp.period_year': year, 'pt.status': 'paid' })
+               .select('pt.*', 'pp.period_name')
+               .orderBy('pp.period_start_date');
+          return payrollYearToDate(employeeid, year, rows.map(row => ({ ...this.parseTransactionDetails(row), period_name: row.period_name })));
      }
 
      async getPayrollSummaryByEmployee(
