@@ -25,6 +25,11 @@ export async function ensureSmsCampaignSchema(db: Knex): Promise<void> {
         t.dateTime('updated_at').notNullable().defaultTo(db.fn.now());
         t.index(['state', 'available_at']);
     });
+    // Earlier queue installations already have this table but predate reviewed
+    // campaign fingerprints. Creation alone cannot upgrade those installations.
+    if (!(await db.schema.hasColumn('sms_campaign_dispatch', 'review_hash'))) {
+        await db.schema.alterTable('sms_campaign_dispatch', t => { t.string('review_hash', 64).nullable(); });
+    }
     if (!(await db.schema.hasTable('sms_delivery_receipts'))) await db.schema.createTable('sms_delivery_receipts', t => {
         t.increments('id'); t.integer('jobid').unsigned().notNullable();
         t.string('messageid', 64).notNullable(); t.string('provider_status', 40).notNullable();

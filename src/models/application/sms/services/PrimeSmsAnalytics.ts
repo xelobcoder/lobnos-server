@@ -7,6 +7,7 @@ export class PrimeSmsAnalytics {
   const db=await KnexConnection(this.tenantId);
   let query=recipients?db('primesmsjobrecipients as p').join('primesmsjobs as j','j.jobid','p.jobid'):db('primesmsjobs as j');
   query=query.leftJoin('sms_campaign_dispatch as d','d.jobid','j.jobid').leftJoin('roles as r','r.employeeid','j.createdby');
+  query=query.where(function(this:any){this.whereNull('d.sandbox').orWhere('d.sandbox',false);});
   return {db,query:this.actor?scopeSmsCampaigns(query,this.actor):query};
  }
  private async counts(column:string,recipients=false){

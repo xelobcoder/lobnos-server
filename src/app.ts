@@ -16,6 +16,7 @@ import rejectedRouter from "./controllers/samples/rejected/route";
 import clinicianRouter from "./controllers/clinicians/route";
 import drugsRouter from "./controllers/drugs/drugsRouter";
 import SMSRouter from "./controllers/sms/route";
+import { startSmsContactGroupWorker } from './models/application/sms/SmsContactGroupWorker';
 import { recordSmsDelivery, startSmsCampaignWorker } from './models/application/sms/SmsCampaignWorker';
 import { smsAuthority } from './middleware/smsAuthority';
 import settingsRouter from "./controllers/settings/route";
@@ -142,7 +143,7 @@ app.use(publicWalkInQueueRouter);
 app.use(publicPatientPortalRouter);
 app.use(publicPractitionerRouter);
 app.get('/api/v1/sms-delivery/:tenantId/:jobid/:token', async (req,res) => {
-    try { const accepted=await recordSmsDelivery(Number(req.params.tenantId),Number(req.params.jobid),req.params.token,req.query.sms_id,req.query.status);res.status(accepted?200:404).json({accepted}); }
+    try { const accepted=await recordSmsDelivery(Number(req.params.tenantId),Number(req.params.jobid),req.params.token,req.query.sms_id,req.query.status,{query:req.query as any,headers:req.headers as any});res.status(accepted?200:404).json({accepted}); }
     catch { res.status(503).json({error:'Delivery report temporarily unavailable'}); }
 });
 app.use(ValidateTenancyAgreement)
@@ -278,6 +279,7 @@ async function startApplication() {
         startPatientPortalWorkers(readyTenants);
         startAppointmentReminderWorker(readyTenants);
         startSmsCampaignWorker(readyTenants);
+    startSmsContactGroupWorker(readyTenants);
         // Tenants hold their own gateway credentials, so recovery must run even when no platform provider is configured.
         startPaymentReconciliationWorker(getPaymentGatewayService());
     });

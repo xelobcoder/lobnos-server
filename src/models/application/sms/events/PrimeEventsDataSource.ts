@@ -3,7 +3,6 @@ import ClinicianClass from "../../../clincians/clinicianClass";
 import Organization from "../../../organization/organization";
 import Registration from "../../../registration/registration";
 import { getAllCompanyProfiles } from "../../../settings/companyProfile";
-import { SmsService } from "../../integrations/Arkesel";
 import { SmsMessageParser } from "../PrimeSms/SmsMessageParser";
 import { PrimesmsEventsRepository } from "./PrimesmsEventsRepository";
 import { validateModuleConfiguration } from "../../../Tenancy/FacilityModules";
@@ -29,28 +28,18 @@ export class PrimeEventsSMSDataSource {
      }
 
 
-     async sendSMSMessage(smsconstent: string, phonee164: string, eventCode: string, refId: string | number, isevent: boolean, createdby: number): Promise<{ status: boolean | string }> {
+     async sendSMSMessage(smsconstent: string, phonee164: string, eventCode: string, refId: string | number, isevent: boolean, createdby: number, sourceKey = ''): Promise<{ status: boolean | string }> {
           if (!(await this.isSmsModuleEnabled())) {
                logger.info('SMS event skipped because the facility module is not activated', { tenantId: this.tenantId, eventCode });
                return { status: false };
           }
           try {
-               const sms = await new SmsService(this.tenantId).sendSms([phonee164], smsconstent);
-               if (sms && sms.status === 'success' && Array.isArray(sms.data) && sms.data[0]) {
-                    await this.logSentSmsJob({
-                         smsconstent,
-                         phonee164,
-                         arkeselResponse: sms,
-                         eventCode,
-                         refId,
-                         isEvent: isevent,
-                         eventcode: eventCode || null,
-                         createdby: createdby
-                    });
-               }
-               return { status: sms.status || false }
+               const { SmsCampaignService } = await import('../SmsCampaignService');
+               const { EVENTS } = await import('./EventsRepository');
+               await new SmsCampaignService(this.tenantId).enqueueEvent(smsconstent,phonee164,eventCode,Number(refId),createdby,EVENTS.find(event=>event.code===eventCode)?.category || 'patient',sourceKey || (eventCode==='BIRTHDAY_SMS'?new Date().toISOString().slice(0,10):''));
+               return {status:'success'};
           } catch (error) {
-               console.error('Error sending SMS message:', error);
+               logger.error('Unable to queue SMS event',{tenantId:this.tenantId,eventCode,code:(error as any)?.code||'UNKNOWN'});
                return { status: false };
           }
      }
@@ -58,67 +47,6 @@ export class PrimeEventsSMSDataSource {
      private async isSmsModuleEnabled(): Promise<boolean> { return isSmsActive(this.tenantId); }
 
 
-
-     private async logSentSmsJob({ smsconstent, phonee164, arkeselResponse, eventCode, refId, isEvent = false, eventcode = null, createdby = 0 }: {
-          smsconstent: string,
-          phonee164: string,
-          arkeselResponse: any,
-          eventCode?: string,
-          refId?: string | number,
-          isEvent?: boolean,
-          eventcode?: string | null,
-          createdby: number
-     }) {
-          // Import repositories dynamically to avoid circular dependencies
-          const { PrimeSmsJobsRepo } = await import('../repositories/PrimeSmsJobsRepo');
-          const { PrimeSmsJobRecipientsRepo } = await import('../repositories/PrimeSmsJobRecipientsRepo');
-
-
-          const jobsRepo = new PrimeSmsJobsRepo(this.tenantId);
-
-
-          let category: 'patient' | 'clinician' | 'organization' = 'patient';
-          if (eventCode) {
-               try {
-                    const { EVENTS } = await import('./EventsRepository');
-                    const found = EVENTS.find(e => e.code === eventCode);
-                    if (found && found.category) category = found.category;
-               } catch {
-                    console.error('Error finding event category');
-               }
-          }
-
-          // Use transaction for both job and recipient creation
-          const connection = await KnexConnection(this.tenantId);
-          await connection.transaction(async (trx: any) => {
-               const jobId = await jobsRepo.create({
-                    custombody: smsconstent,
-                    category,
-                    recipientscope: 'single',
-                    targetids: null,
-                    sendtype: 'immediate',
-                    status: 'submitted',
-                    createdby
-               }, trx);
-
-               const arkeselData = arkeselResponse.data[0];
-               let refidNum: number | null = null;
-               if (typeof refId === 'number') refidNum = refId;
-               else if (typeof refId === 'string' && /^\d+$/.test(refId)) refidNum = parseInt(refId, 10);
-
-               await trx('primesmsjobrecipients').insert({
-                    jobid: jobId,
-                    phonee164,
-                    personalizedbody: smsconstent,
-                    deliverystatus: 'submitted',
-                    messageid: arkeselData.id,
-                    refid: refidNum,
-                    sentat: new Date(),
-                    isevent: isEvent == true ? 1 : 0,
-                    eventcode: eventcode || null,
-               });
-          });
-     }
 
      async paymentConfirmationEvent(tenantId: number, billingid: number, employeeid: number): Promise<{ status: boolean | string } | undefined> {
           try {
@@ -158,7 +86,7 @@ export class PrimeEventsSMSDataSource {
                const smscontent = parsedContent + '';
                const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
                const refid = result[0].patientid;
-               return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid);
+               return await this.sendSMSMessage(smscontent, phonee164, 'PAYMENT_CONFIRMATION_SMS', refid, true, employeeid,`${billingid}:${JSON.stringify(billinghx)}`);
           } catch (error) {
                console.error('Error in paymentConfirmationEvent:', error);
                throw error;
@@ -222,7 +150,7 @@ export class PrimeEventsSMSDataSource {
           if (!event) return;
           const parsedContent = await this.parsedEventTemplate(tenantId, result[0], event.content);
           const phonee164 = result[0].mobile_number ? result[0].mobile_number.replace(/^\+/, '') : '';
-          return await this.sendSMSMessage(parsedContent as string, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid, true, employeeId);
+          return await this.sendSMSMessage(parsedContent as string, phonee164, 'PATIENT_BILLING_SMS', result[0].patientid, true, employeeId,String(result[0].billingid));
      }
 
 

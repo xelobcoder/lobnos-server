@@ -2,6 +2,7 @@ import { z } from 'zod';
 
 
 export const BaseSmsJobSchema = z.object({
+     sandbox: z.boolean().optional(),
      templateId: z.number().int().positive().optional(),
      customBody: z.string().trim().min(1).max(5000).optional(),
      category: z.enum(['patient', 'clinician', 'organization']),

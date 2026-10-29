@@ -60,7 +60,7 @@ export function memorySmsDb(initial: Record<string, any[]> = {}) {
                 for(const item of Array.isArray(input)?input:[input]){
                     const idColumn=table==='primesmsjobs'?'jobid':table==='primesmsjobrecipients'?'recid':'id';
                     const row={...item};if(table!=='sms_campaign_dispatch'&&row[idColumn]==null)row[idColumn]=Math.max(0,...data[table].map(row=>Number(row[idColumn])||0))+1;
-                    const duplicate=table==='sms_campaign_dispatch'&&data[table].some(existing=>existing.jobid===row.jobid||(row.request_key&&existing.request_key===row.request_key));
+                    const duplicate=table==='sms_campaign_dispatch'&&data[table].some(existing=>existing.jobid===row.jobid||(row.request_key&&existing.request_key===row.request_key)||(row.event_key&&existing.event_key===row.event_key));
                     if(duplicate){if(ignore)continue;throw Object.assign(new Error('Duplicate'),{code:'ER_DUP_ENTRY'});}
                     data[table].push(row);inserted.push(row[idColumn]);
                 }return Promise.resolve(inserted).then(resolve,reject);

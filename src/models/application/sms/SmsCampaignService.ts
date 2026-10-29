@@ -41,6 +41,9 @@ export class SmsCampaignService {
         if (Number(actor.tenantId) !== Number(this.tenantId)) smsFailure('SMS tenant mismatch', 403);
         const dto = CreateSmsJobSchema.parse({ ...(input as any), createdBy: actor.employeeid });
         const db = await this.db(actor), source = sources[dto.category];
+        const provider = await db('sms_provider_settings').where({id:1}).first();
+        if (dto.sandbox === true && !roleAllowed(actor.role,['admin'])) smsFailure('Only administrators can choose sandbox campaigns',403);
+        dto.sandbox = !!provider?.sandbox || dto.sandbox === true;
         let body = dto.customBody;
         if (!body) {
             const template = await db('primesmstemplates').where({ templateid: dto.templateId }).first();
@@ -64,8 +67,8 @@ export class SmsCampaignService {
             recipients.push({ refid: Number(row[source.id]), phonee164: phone, personalizedbody });
         }
         const hash = createHash('sha256').update(JSON.stringify({ category: dto.category, scope: dto.recipientScope,
-            sendType: dto.sendType, scheduledAt: dto.scheduledAt || null, recipients })).digest('hex');
-        return { dto, recipients, fingerprint: hash, recipientCount: recipients.length, excluded, duplicates, segmentCount: segments,
+            sandbox: dto.sandbox, sendType: dto.sendType, scheduledAt: dto.scheduledAt || null, recipients })).digest('hex');
+        return { dto, recipients, sandbox: dto.sandbox, fingerprint: hash, recipientCount: recipients.length, excluded, duplicates, segmentCount: segments,
             sample: recipients.slice(0, 3).map(row => ({ phone: '••••' + row.phonee164.slice(-4), message: row.personalizedbody,
                 ...smsMessageMetrics(row.personalizedbody) })) };
     }
@@ -97,7 +100,7 @@ export class SmsCampaignService {
                     await trx('primesmsjobrecipients').insert(plan.recipients.slice(offset, offset + 200).map(row => ({ ...row, jobid: id, deliverystatus: 'queued' })));
                 }
                 await trx('sms_campaign_dispatch').insert({ jobid: id, request_key: input.requestKey || null,
-                    review_hash: plan.fingerprint, branchid: actor.branch, callback_token: randomBytes(32).toString('hex'),
+                    review_hash: plan.fingerprint, sandbox:plan.dto.sandbox, branchid: actor.branch, callback_token: randomBytes(32).toString('hex'),
                     state: 'queued', available_at: plan.dto.scheduledAt ? new Date(plan.dto.scheduledAt) : new Date() });
                 return Number(id);
             });
@@ -110,10 +113,24 @@ export class SmsCampaignService {
             throw error;
         }
     }
+    async enqueueEvent(body: string, phoneInput: string, eventCode: string, refid: number, createdby: number, category: 'patient'|'clinician'|'organization' = 'patient', sourceKey = ''): Promise<number> {
+        const db=await this.db(), phone=normalizeSmsPhone(phoneInput);
+        if (!phone || !body.trim() || !Number.isSafeInteger(refid) || refid<=0) smsFailure('Event recipient and message are required');
+        const key=createHash('sha256').update(JSON.stringify({eventCode,refid,phone,body,category,sourceKey})).digest('hex');
+        const existing=await db('sms_campaign_dispatch').where({event_key:key}).first('jobid');
+        if(existing)return Number(existing.jobid);
+        const provider=await db('sms_provider_settings').where({id:1}).first(), role=createdby>0?await db('roles').where({employeeid:createdby}).first('branch'):null;
+        try { return await db.transaction(async(trx:any)=>{
+            const [id]=await trx('primesmsjobs').insert({category,recipientscope:'single',custombody:body,sendtype:'immediate',status:'pending',createdby});
+            await trx('primesmsjobrecipients').insert({jobid:id,phonee164:phone,personalizedbody:body,refid,isevent:1,eventcode:eventCode,deliverystatus:'queued'});
+            await trx('sms_campaign_dispatch').insert({jobid:id,event_key:key,branchid:role?.branch||null,sandbox:!!provider?.sandbox,callback_token:randomBytes(32).toString('hex'),state:'queued',available_at:new Date()});
+            return Number(id);
+        }); }catch(error:any){if(error?.code==='ER_DUP_ENTRY'){const found=await db('sms_campaign_dispatch').where({event_key:key}).first('jobid');if(found)return Number(found.jobid);}throw error;}
+    }
     async find(id: number, actor: AuthUser) {
         const db = await this.db(actor);
         return scopeSmsCampaigns(db('primesmsjobs as j').leftJoin('sms_campaign_dispatch as d', 'd.jobid', 'j.jobid')
-            .leftJoin('roles as r', 'r.employeeid', 'j.createdby').where('j.jobid', id).select('j.*', 'd.state as dispatchstate'), actor).first();
+            .leftJoin('roles as r', 'r.employeeid', 'j.createdby').where('j.jobid', id).select('j.*', 'd.state as dispatchstate', 'd.sandbox as sandbox', 'd.block_reason as blockreason'), actor).first();
     }
     async list(actor: AuthUser, filters: any = {}) {
         const db = await this.db(actor), page = Math.max(1, Math.floor(Number(filters.page) || 1)), count = Math.min(100, Math.max(1, Math.floor(Number(filters.count) || 10)));
@@ -127,7 +144,7 @@ export class SmsCampaignService {
             return q;
         };
         const total = await base().count('j.jobid as count').first();
-        const jobs = await base().select('j.*', 'r.username as createdbyusername', 'd.state as dispatchstate')
+        const jobs = await base().select('j.*', 'r.username as createdbyusername', 'd.state as dispatchstate', 'd.sandbox as sandbox', 'd.block_reason as blockreason')
             .orderBy('j.createdat', 'desc').orderBy('j.jobid', 'desc').limit(count).offset((page - 1) * count);
         const counts = jobs.length ? await db('primesmsjobrecipients').whereIn('jobid', jobs.map((job: any) => job.jobid))
             .select('jobid', 'deliverystatus').count('* as count').groupBy('jobid', 'deliverystatus') : [];
@@ -151,7 +168,7 @@ export class SmsCampaignService {
         const db = await this.db(actor), job = await this.find(id, actor);
         if (!job) smsFailure('Campaign not found', 404);
         const recipients = await db('primesmsjobrecipients').where({ jobid: id }).select('refid', 'phonee164');
-        const input = { templateId: job.templateid || undefined, customBody: job.custombody || undefined, category: job.category,
+        const input = { sandbox:!!job.sandbox, templateId: job.templateid || undefined, customBody: job.custombody || undefined, category: job.category,
             recipientScope: job.recipientscope, sendType: job.sendtype, scheduledAt: job.scheduledat ? new Date(job.scheduledat).toISOString() : undefined,
             targetIds: recipients.map((row: any) => ({ id: row.refid, phone: row.phonee164 })), ...patch };
         if (patch.templateId) input.customBody = undefined;
@@ -168,7 +185,7 @@ export class SmsCampaignService {
                 templateid: plan.dto.customBody ? null : plan.dto.templateId, custombody: plan.dto.customBody || null,
                 sendtype: plan.dto.sendType, scheduledat: plan.dto.scheduledAt ? new Date(plan.dto.scheduledAt) : null,
                 status: plan.dto.sendType === 'scheduled' ? 'scheduled' : 'pending' });
-            await trx('sms_campaign_dispatch').where({ jobid: id }).update({ review_hash: plan.fingerprint,
+            await trx('sms_campaign_dispatch').where({ jobid: id }).update({ sandbox:plan.dto.sandbox, review_hash: plan.fingerprint,
                 available_at: plan.dto.scheduledAt ? new Date(plan.dto.scheduledAt) : new Date(), updated_at: new Date() });
         });
     }

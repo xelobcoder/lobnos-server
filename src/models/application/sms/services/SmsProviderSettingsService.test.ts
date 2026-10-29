@@ -59,3 +59,15 @@ describe('SmsProviderSettingsService', () => {
                .rejects.toThrow('disabled for this facility');
      });
 });
+
+it('retains signing secrets and sandbox mode when an older settings client omits the new fields',async()=>{
+ const repo=repository({api_key:'saved-key',webhook_secret:'saved-signing-secret',require_signed_webhooks:1,sandbox:1,low_credit_threshold:50});
+ await new SmsProviderSettingsService(repo).save({providerType:'arkesel',senderId:'PrimeLab',baseUrl:'https://sms.arkesel.com',isActive:true},7);
+ expect(repo.save).toHaveBeenCalledWith(expect.objectContaining({webhook_secret:'saved-signing-secret',require_signed_webhooks:true,sandbox:true,low_credit_threshold:50}));
+});
+it('refuses required signatures until a secret exists and never returns the raw secret to administration',async()=>{
+ const repo=repository({api_key:'saved-key'}),service=new SmsProviderSettingsService(repo);
+ await expect(service.save({providerType:'arkesel',senderId:'PrimeLab',baseUrl:'https://sms.arkesel.com',isActive:true,requireSignedWebhooks:true},7)).rejects.toThrow('webhook secret');
+ const result=await new SmsProviderSettingsService(repository({api_key:'saved-key',webhook_secret:'never-return-this'})).getForAdministration();
+ expect(JSON.stringify(result)).not.toContain('never-return-this');expect(result).toMatchObject({webhookConfigured:true});
+});

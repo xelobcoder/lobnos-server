@@ -6,6 +6,8 @@ import { SmsCampaignService } from '../../../models/application/sms/SmsCampaignS
 import { PartialSmsJobSchema } from '../../../models/application/sms/dtos/CreateSmsJobDto';
 import KnexConnection from '../../../database/KnexConnections';
 import { reconcileSmsMessages } from '../../../models/application/sms/SmsCampaignWorker';
+import { randomUUID } from 'crypto';
+import logger from '../../../hooks/logger';
 
 export class SmsJobsController {
  constructor(private jobsService: SmsJobsService) {}
@@ -15,7 +17,16 @@ export class SmsJobsController {
   return {actor, service:new SmsCampaignService(actor.tenantId)};
  }
  private failure(res:Response,error:any) {
-  return res.status(error instanceof ZodError?400:error?.statusCode||500).json({error:error instanceof ZodError?error.issues.map(issue=>issue.message).join('. '):error?.statusCode?error.message:'Unable to complete the SMS campaign action'});
+  if (error instanceof ZodError) return res.status(400).json({error:error.issues.map(issue=>issue.message).join('. ')});
+  if (error?.statusCode) return res.status(error.statusCode).json({error:error.message});
+  const reference = randomUUID();
+  // Do not log SQL bindings, message bodies, contact details or provider credentials.
+  logger.error('[SMS campaign] Action failed', {reference, code:String(error?.code || 'UNKNOWN'), errno:error?.errno, name:error?.name});
+  const schemaError = ['ER_NO_SUCH_TABLE','ER_BAD_FIELD_ERROR'].includes(error?.code);
+  return res.status(schemaError?503:500).json({
+   error:schemaError?'SMS campaign setup is incomplete. Ask an administrator to check the tenant database migrations.':'Unable to complete the SMS campaign action. Please retry; if it continues, share the reference with support.',
+   code:schemaError?'SMS_SCHEMA_NOT_READY':'SMS_CAMPAIGN_FAILED',reference,
+  });
  }
  async preview(req:Request,res:Response) {
   try { const {actor,service}=this.context(req); res.json(await service.preview(req.body,actor)); } catch(error){this.failure(res,error);}

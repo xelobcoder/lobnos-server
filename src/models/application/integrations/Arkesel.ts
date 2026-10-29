@@ -14,6 +14,8 @@ interface SmsSendOptions {
     sender?: string;
     callbackUrl?: string;
     scheduledDate?: string;
+    sandbox?: boolean;
+    useCase?: 'promotional' | 'transactional';
 }
 
 interface PhoneValidationResult {
@@ -26,7 +28,7 @@ export class SmsService {
     private resolvedProvider?: SmsProviderConfiguration;
     constructor(private tenantId: number, private readonly configuredProvider?: SmsProviderConfiguration) { }
 
-    private async getConfig(): Promise<SmsProviderConfiguration> {
+    public async getConfiguration(): Promise<SmsProviderConfiguration> {
         if (this.configuredProvider) return this.configuredProvider;
         if (!this.resolvedProvider) {
             this.resolvedProvider = await new SmsProviderSettingsService(
@@ -40,7 +42,7 @@ export class SmsService {
         try {
             const config = {
                 method: method,
-                url: `${provider.baseUrl}${endpoint}`,
+                url: new URL(endpoint,provider.baseUrl).toString(),
                 headers: {
                     'api-key': provider.apiKey,
                     'Content-Type': 'application/json'
@@ -56,16 +58,16 @@ export class SmsService {
             });
 
 
-            if (!response.ok) {
-                return {
-                    status: 'error',
-                    code: response.status,
-                    uncertain: response.status >= 500 || response.status === 408,
-                    message: `Request failed with status ${response.status}: ${response.statusText}`,
-                };
+            let result: any;
+            try { result = await response.json(); } catch { return {status:'error',code:response.status || 500,uncertain:true,message:'Provider returned an unreadable response; check acceptance before retrying'}; }
+            if (!response.ok || result?.status === 'error') {
+                const code = Number(result?.code) || response.status;
+                const descriptions: Record<number,string> = {401:'Arkesel credentials were rejected',402:'Arkesel balance is insufficient',403:'Arkesel gateway is inactive',422:'Arkesel rejected the message fields',429:'Arkesel rate limit reached; try later'};
+                const missingContactGroup = endpoint === '/api/v2/contacts' && response.status === 422 && /^the group name provided does not exist!?$/i.test(String(result?.message || '').trim());
+                return {status:'error',code,uncertain:code >= 500 || code === 408,message:missingContactGroup ? 'Arkesel could not find this contact group for the configured API account. Check the group and account with Arkesel before retrying.' : descriptions[code] || 'Arkesel could not confirm this request'};
             }
-            const result = await response.json();
-            if (result?.status === 'error' && Number(result.code) >= 500) result.uncertain = true;
+            if (!result || typeof result !== 'object') return {status:'error',code:500,uncertain:true,message:'Invalid provider response'};
+
             return result;
         } catch (error) {
             // A timeout or unreadable response does not establish rejection.
@@ -86,10 +88,12 @@ export class SmsService {
                 error: 'Phone number is required'
             }
         }
-        let digits = phone.replace(/\D/g, '')
+        let digits = phone.replace(/[\s()+-]/g, '')
+        if (!/^\d+$/.test(digits)) return {isValid:false,formattedNumber:null,error:'Invalid phone number format'}
         if (digits.startsWith('00')) {
             digits = digits.slice(2)
         }
+        if (/^[1-9]\d{10,14}$/.test(digits) && !digits.startsWith('233')) return {isValid:true,formattedNumber:digits,error:undefined};
         let formattedNumber: string | null = null
         if (digits.length === 9) {
             formattedNumber = '0' + digits
@@ -135,9 +139,7 @@ export class SmsService {
         if (!sender) {
             throw new Error('Sender is required');
         }
-        if (sender.length > 11) {
-            return sender.substring(0, 11);
-        }
+        if (sender.length > 11) throw new Error('Sender ID must be no more than 11 characters');
         return sender;
     }
 
@@ -146,13 +148,13 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
-        const config = await this.getConfig();
+        const config = await this.getConfiguration();
         if (!recipients.length || !message || !message.trim()) {
             throw new Error('Recipients and message are required')
         }
         const { validNumbers, invalidNumbers } = this.validateRecipients(recipients)
         if (invalidNumbers.length > 0) {
-            console.warn('Invalid phone numbers detected:', invalidNumbers)
+            console.warn('Invalid SMS recipients excluded:', invalidNumbers.length)
         }
         if (validNumbers.length === 0) {
             throw new Error('No valid phone numbers provided')
@@ -163,14 +165,16 @@ export class SmsService {
             message: message.trim(),
             recipients: validNumbers,
             ...(options.callbackUrl && { callback_url: options.callbackUrl }),
-            ...(options.scheduledDate && { scheduled_date: options.scheduledDate })
+            ...(options.scheduledDate && { scheduled_date: options.scheduledDate }),
+            ...((options.sandbox ?? config.sandbox) ? {sandbox:true} : {}),
+            ...(options.useCase ? {use_case:options.useCase} : {})
         }
         return this.sendRequest(config, '/api/v2/sms/send', 'POST', data)
     }
 
     async getMessageReport(messageId: string): Promise<SmsResponse> {
         if (!/^[\w-]{1,64}$/.test(messageId)) throw new Error('Invalid provider message ID');
-        return this.sendRequest(await this.getConfig(), '/api/v2/sms/' + encodeURIComponent(messageId), 'GET');
+        return this.sendRequest(await this.getConfiguration(), '/api/v2/sms/' + encodeURIComponent(messageId), 'GET');
     }
 
     async sendSingleSms(
@@ -178,7 +182,7 @@ export class SmsService {
         message: string,
         options: SmsSendOptions = {}
     ): Promise<SmsResponse> {
-        const config = await this.getConfig();
+        const config = await this.getConfiguration();
         if (!to || !message.trim()) {
             throw new Error('Recipient and message are required')
         }
@@ -186,14 +190,33 @@ export class SmsService {
         if (!validation.isValid) {
             throw new Error(`Invalid phone number: ${validation.error}`)
         }
-        const queryParams = new URLSearchParams({
-            action: 'send-sms',
-            api_key: config.apiKey,
-            to: validation.formattedNumber!,
-            sms: message.trim(),
-            sender: options.sender || config.defaultSender
-        })
-        return this.sendRequest(config, `/sms/api?${queryParams}`, 'GET')
+        return this.sendSms([to],message,options);
+    }
+
+    async getMessageReports(ids: string[]): Promise<SmsResponse> {
+        if (!ids.length || ids.length > 1000 || ids.some(id=> !/^[\w-]{1,64}$/.test(id))) throw new Error('Provide 1 to 1000 valid provider message IDs');
+        return this.sendRequest(await this.getConfiguration(),'/api/v2/sms/message-reports','POST',{msg_ids:[...new Set(ids)]});
+    }
+    async createContactGroup(groupName:string):Promise<SmsResponse>{
+        if(!/^[A-Za-z0-9_-]{1,100}$/.test(groupName))throw new Error('Invalid provider group reference');
+        return this.sendRequest(await this.getConfiguration(),'/api/v2/contacts/groups','POST',{group_name:groupName});
+    }
+    async addContactsToGroup(groupName:string,contacts:Array<{phone_number:string;first_name?:string;company?:string}>):Promise<SmsResponse>{
+        if(!/^[A-Za-z0-9_-]{1,100}$/.test(groupName)||!contacts.length||contacts.length>200)throw new Error('Provide a group and 1 to 200 contacts');
+        const safe=contacts.map(contact=>{const phone=this.validatePhoneNumber(contact.phone_number);if(!phone.isValid)throw new Error('Invalid contact number');return {phone_number:phone.formattedNumber!,...(contact.first_name?{first_name:contact.first_name}:{}),...(contact.company?{company:contact.company}:{})};});
+        return this.sendRequest(await this.getConfiguration(),'/api/v2/contacts','POST',{group_name:groupName,contacts:safe});
+    }
+    async getBalance(): Promise<SmsResponse> { return this.sendRequest(await this.getConfiguration(),'/api/v2/clients/balance-details','GET'); }
+    async getWebhookSecret(): Promise<SmsResponse> { return this.sendRequest(await this.getConfiguration(),'/api/v2/webhooks/secret','GET'); }
+    async rotateWebhookSecret(): Promise<SmsResponse> { return this.sendRequest(await this.getConfiguration(),'/api/v2/webhooks/secret/rotate','POST',{}); }
+    async sendTemplateSms(message: string, recipients: Record<string,Record<string,string>>, options: SmsSendOptions = {}): Promise<SmsResponse> {
+        const config=await this.getConfiguration();
+        if (options.sandbox || config.sandbox) throw new Error('Arkesel template endpoint does not document sandbox support; use standard sandbox sending');
+        const entries=Object.entries(recipients);
+        if (!message.trim() || !entries.length) throw new Error('Template and recipients are required');
+        const normalized: Record<string,Record<string,string>>={};
+        for (const [phone,variables] of entries) { const valid=this.validatePhoneNumber(phone);if(!valid.isValid)throw new Error('Invalid template recipient');normalized[valid.formattedNumber!]=variables; }
+        return this.sendRequest(config,'/api/v2/sms/template/send','POST',{sender:this.validateSender(options.sender||config.defaultSender),message,recipients:normalized,...(options.callbackUrl?{callback_url:options.callbackUrl}:{})});
     }
 
     private formatScheduledDate(date: string | Date): string {

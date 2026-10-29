@@ -9,6 +9,7 @@ it.each(['admin','super_admin','super-admin','manager','customer service represe
   expect(canUseSms(role,'send')).toBe(owner||['manager','customer service representative'].includes(role));
  });
 it.each([
+ ['GET','/api/v1/prime/sms-provider/health','setup'],['POST','/api/v1/prime/sms-provider/webhook-secret','setup'],
  ['GET','/api/v1/prime/sms/failed/transaction/retry/1/2','send'],['GET','/api/v1/sms/events/1/toggle','setup'],
  ['GET','/api/v1/applicationsettings/smsupdate','setup'],['PUT','/api/v1/application/sms/create/template/columns','setup'],
  ['GET','/api/v1/sms/events/trigger/payment-made','transactional'],['POST','/api/v1/prime/sms-templates','manage'],
@@ -32,4 +33,9 @@ it('does not bypass campaign scope through route casing',async()=>{
 });
 it('does not log the credential used by provider delivery callbacks',()=>{
  const token='a'.repeat(64);expect(redactRequestUrl(`/api/v1/sms-delivery/1/2/${token}?sms_id=provider`)).toBe('/api/v1/sms-delivery/1/2/[redacted]?sms_id=provider');
+});
+
+it.each(['GET','POST'])('restricts contact-group exports independently from campaign reading: %s',method=>{
+ expect(smsCapabilityFor(method,'/api/v1/prime/sms-contact-groups/1/contacts')).toBe('sync');
+ expect(canUseSms('manager','sync')).toBe(true);expect(canUseSms('admin','sync')).toBe(true);expect(canUseSms('customer service representative','sync')).toBe(false);
 });

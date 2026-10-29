@@ -42,6 +42,20 @@ vi.mock('./TenantRegistry', async importOriginal => {
      return { ...actual, TenantRegistry: class { static ensureReady = vi.fn(); static invalidate = vi.fn(); } };
 });
 
+// Parse the real checked-in exports once for this lifecycle suite. Parser behavior has
+// dedicated coverage; repeated synchronous parsing can exhaust individual test deadlines
+// when the complete backend suite runs concurrently.
+vi.mock('./FacilityCatalogSeeds', async importOriginal => {
+     const actual: any = await importOriginal();
+     const snapshot = actual.loadFacilityCatalogSeeds();
+     return { ...actual, loadFacilityCatalogSeeds: () => structuredClone(snapshot) };
+});
+vi.mock('./FacilityStructureExports', async importOriginal => {
+     const actual: any = await importOriginal();
+     const snapshot = actual.loadFacilityStructureExports();
+     return { ...actual, loadFacilityStructureExports: () => structuredClone(snapshot) };
+});
+
 import { FacilityProvisioningService, assertNotControlAssignment } from './FacilityProvisioningService';
 import { configuration } from '../../hooks/configuration';
 import { validateFacilityInput } from './FacilityInput';

@@ -48,6 +48,9 @@ export const LOCAL_MIGRATIONS = [
      '20261027_lab_cashier_workflow',
      '20261027_organization_directory',
      '20261028_sms_campaign_integrity',
+     '20261029_sms_campaign_review_hash',
+     '20261029_arkesel_features',
+     '20261029_sms_contact_groups',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

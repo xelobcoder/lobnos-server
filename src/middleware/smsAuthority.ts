@@ -4,12 +4,12 @@ import { roleAllowed, normalizeRole } from './roles';
 import { SmsCampaignService } from '../models/application/sms/SmsCampaignService';
 import KnexConnection from '../database/KnexConnections';
 
-export type SmsCapability = 'read' | 'send' | 'manage' | 'setup' | 'transactional';
+export type SmsCapability = 'read' | 'send' | 'manage' | 'setup' | 'transactional' | 'sync';
 export function canUseSms(role: unknown, capability: SmsCapability): boolean {
     const key = normalizeRole(role);
     if (['crm', 'receptionist', 'frontdesk', 'frontdeskofficer', 'customerrepresentative'].includes(key)) role = 'customer service representative';
     if (['billing', 'billingofficer'].includes(key)) role = 'cashier';
-    const roles = capability === 'setup' ? ['admin'] : capability === 'manage' ? ['admin', 'manager'] :
+    const roles = capability === 'setup' ? ['admin'] : (capability === 'manage' || capability === 'sync') ? ['admin', 'manager'] :
         capability === 'transactional' ? ['admin', 'manager', 'customer service representative', 'cashier', 'scientist'] :
         ['admin', 'manager', 'customer service representative'];
     return roleAllowed(role, roles);
@@ -19,6 +19,8 @@ export function smsCapabilityFor(method: string, path: string): SmsCapability | 
     if (path === '/api/v1/appointment/reminder') return 'transactional';
     if (/^\/api\/v1\/(?:applicationsettings\/smsupdate|application\/sms\/create\/template\/columns)(?:\/|$)/i.test(path)) return 'setup';
     if (!/^\/api\/v1\/(?:sms(?:\/|$)|prime\/sms(?:[-/]|$))/i.test(path)) return null;
+    if (/\/sms-contact-groups(?:\/|$)/.test(path)) return 'sync';
+    if (/\/sms-provider(?:\/|$)/.test(path)) return 'setup';
     if (/\/events\/trigger\//.test(path)) return 'transactional';
     if (/\/transaction\/result\/ready\/|\/events\/get\//.test(path)) return 'transactional';
     if (/\/failed\/transaction\/retry\//.test(path)) return 'send';

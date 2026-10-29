@@ -1,3 +1,6 @@
+import {contactGroupHandler} from '../SmsContactGroupsController';
+import { arkeselHealth, syncArkeselWebhookSecret, resumeArkeselQueue } from '../ArkeselAdministration';
+import { getSmsProviderSettings, updateSmsProviderSettings } from '../SmsProviderSettingsController';
 import { Request, Response, Router } from 'express';
 
 import { SmsJobsController } from './SmsJobsController';
@@ -51,6 +54,21 @@ const tenantHandler = <K extends keyof SmsControllers>(controller: K, method: ke
 	};
 
 const router = Router();
+router.get('/api/v1/prime/sms-contact-groups',contactGroupHandler('list'));
+router.post('/api/v1/prime/sms-contact-groups',contactGroupHandler('create'));
+router.get('/api/v1/prime/sms-contact-groups/:groupId/contacts',contactGroupHandler('contacts'));
+router.post('/api/v1/prime/sms-contact-groups/:groupId/preview',contactGroupHandler('preview'));
+router.post('/api/v1/prime/sms-contact-groups/:groupId/sync',contactGroupHandler('sync'));
+router.get('/api/v1/prime/sms-contact-groups/:groupId/runs',contactGroupHandler('runs'));
+router.get('/api/v1/prime/sms-contact-groups/:groupId/runs/:runId/review',contactGroupHandler('review-unknown'));
+router.post('/api/v1/prime/sms-contact-groups/:groupId/runs/:runId/:action',contactGroupHandler('control'));
+
+router.get('/api/v1/prime/sms-provider',getSmsProviderSettings);
+router.put('/api/v1/prime/sms-provider',updateSmsProviderSettings);
+router.get('/api/v1/prime/sms-provider/health',arkeselHealth);
+router.post('/api/v1/prime/sms-provider/webhook-secret',syncArkeselWebhookSecret);
+router.post('/api/v1/prime/sms-provider/resume',resumeArkeselQueue);
+
 
 // Jobs
 router.post('/api/v1/prime/sms-jobs/preview', handleOverLoad(tenantHandler('smsJobsController', 'preview')));

@@ -77,3 +77,19 @@ it('compiles branch audience restrictions into SQL rather than trusting a filter
  const db=knex({client:'mysql2'}),query=scopeSmsAudience(db('new_patients').select('*'),'patient',{...actor,role:'customer service representative'}).toSQL();
  expect(query.sql).toContain('exists');expect(query.sql).toContain('`staff`.`branch` = ?');expect(query.sql).toContain('`b`.`branchid` = ?');expect(query.bindings).toEqual([2,2]);
 });
+
+describe('reviewed sandbox and durable event enqueue',()=>{
+ it('binds test environment into the review and refuses privilege escalation',async()=>{
+  const {service}=harness();const live=await service.preview(input,actor),test=await service.preview({...input,sandbox:true},actor);
+  expect(test.sandbox).toBe(true);expect(test.fingerprint).not.toBe(live.fingerprint);
+  await expect(service.preview({...input,sandbox:true},{...actor,role:'manager'})).rejects.toMatchObject({statusCode:403});
+ });
+ it('honours provider sandbox mode for normal campaigns and retains it in the queue',async()=>{
+  const {service,db}=harness();await db('sms_provider_settings').insert({id:1,sandbox:1});const reviewed=await service.preview(input,actor);
+  expect(reviewed.sandbox).toBe(true);await service.enqueue({...input,reviewFingerprint:reviewed.fingerprint},actor);expect(db.snapshot().sms_campaign_dispatch[0].sandbox).toBe(true);
+ });
+ it('queues event snapshots without sending and deduplicates repeated/concurrent triggers',async()=>{
+  const {service,db}=harness();const ids=await Promise.all([service.enqueueEvent('Payment received','0241234567','PAYMENT',1,7),service.enqueueEvent('Payment received','0241234567','PAYMENT',1,7)]);
+  expect(ids[0]).toBe(ids[1]);expect(db.snapshot().sms_campaign_dispatch).toHaveLength(1);expect(db.snapshot().primesmsjobrecipients[0]).toMatchObject({eventcode:'PAYMENT',deliverystatus:'queued'});
+ });
+});

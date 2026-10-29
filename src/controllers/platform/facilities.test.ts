@@ -367,7 +367,7 @@ describe('platform facility routes', () => {
           const body = { senderId: 'PRIMELAB', baseUrl: 'https://sms.arkesel.com/api/v2', apiKey: 'secret-key', isActive: true };
           const saved = await invoke('put', '/api/v1/platform/facilities/:tenantId/sms-provider', { params: { tenantId: '654321' }, body });
           expect(mocks.setSmsProvider).toHaveBeenCalledWith(654321,
-               { providerType: 'arkesel', senderId: 'PRIMELAB', baseUrl: 'https://sms.arkesel.com/api/v2', apiKey: 'secret-key', isActive: true },
+               { providerType: 'arkesel', senderId: 'PRIMELAB', baseUrl: 'https://sms.arkesel.com', apiKey: 'secret-key', isActive: true },
                { tenantId: 123456, employeeId: 9 });
           expect(saved.json).toHaveBeenCalledWith({ status: 'success', result: { tenantId: 654321, settings } });
 
