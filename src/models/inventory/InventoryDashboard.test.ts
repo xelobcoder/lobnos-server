@@ -1,0 +1,11 @@
+import {it,expect} from 'vitest';
+import {accountingSqlDatabase} from '../../testSupport/accountingSqlDatabase';
+import {inventoryDashboard} from './InventoryDashboard';
+it('reports physical inventory value including departmental custody and separates item counts from movement costs',async()=>{const {db}=accountingSqlDatabase();try{
+ await db.schema.createTable('inv_inventory_items',t=>{t.string('id');t.string('name');t.integer('category_id');t.integer('consumption_unit');t.boolean('is_active');for(const k of ['current_stock','min_stock','cost_price','department_reserved_qty'])t.decimal(k);});
+ for(const table of ['inv_categories','inv_suppliers','inv_storage_locations','inv_units']){await db.schema.createTable(table,t=>{t.increments('id');t.string('name');});await db(table).insert({name:'Test'});}
+ await db.schema.createTable('inv_inventory_transactions',t=>{t.string('transaction_date');t.string('transaction_type');t.decimal('total_cost');});
+ await db('inv_inventory_items').insert([{id:'a',name:'Stock A',category_id:1,consumption_unit:1,is_active:true,current_stock:10,min_stock:2,cost_price:3,department_reserved_qty:4},{id:'b',name:'Stock B',category_id:1,consumption_unit:1,is_active:true,current_stock:0,min_stock:3,cost_price:2,department_reserved_qty:0},{id:'c',name:'Inactive',category_id:1,consumption_unit:1,is_active:false,current_stock:5,min_stock:1,cost_price:4,department_reserved_qty:0}]);
+ await db('inv_inventory_transactions').insert([{transaction_date:new Date().toISOString().slice(0,10),transaction_type:'consumption',total_cost:6},{transaction_date:new Date().toISOString().slice(0,10),transaction_type:'wastage',total_cost:3},{transaction_date:'2020-01-01',transaction_type:'wastage',total_cost:100}]);
+ const result=await inventoryDashboard(db);expect(result).toMatchObject({total_items:3,active_items:2,out_of_stock_items:1,low_stock_items:0,total_stock_value:50});expect(result.charts.custody_value).toEqual([{name:'Stores stock',value:38},{name:'Department / in transit',value:12}]);expect(result.charts.usage_trend[0]).toMatchObject({consumed:6,wastage:3});expect(result.charts.watchlist).toHaveLength(1);expect(result.charts.watchlist[0].name).toBe('Stock B');expect(result.charts.valuation_by_category[0].value).toBe(50);
+ }finally{await db.destroy();}});

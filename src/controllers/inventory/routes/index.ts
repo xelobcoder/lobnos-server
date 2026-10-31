@@ -1,3 +1,4 @@
+import departmentStockRoutes from './departmentStockRoutes';
 import { Router } from 'express';
 import { checkTokenExists } from '../../../middleware/validateTenancy';
 import { legacyPharmacyGuard } from '../legacyPharmacyGuard';
@@ -30,6 +31,7 @@ router.use('/', inventoryTemplateRoutes);
 router.use('/', purchaseOrderRoutes);
 router.use('/transactions', inventoryConsumptionRoutes);
 router.use('/transactions', inventoryStockRoutes);
+router.use('/department-stock',departmentStockRoutes);
 router.use('/supplier-payments', supplierPaymentRoutes);
 router.use('/', journalRoutes);
 router.use('/', analyticsRoutes);

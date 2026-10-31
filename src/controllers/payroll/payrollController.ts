@@ -1,3 +1,5 @@
+import {PaymentFundingError} from '../../models/Expenses/FundingAvailability';
+import {getAuthUser} from '../../middleware/authority';
 import { Request, RequestHandler, Response } from 'express';
 import { PayrollProcessingService } from '../../services/payroll/PayrollProcessingService';
 import { PayrollReversalService } from '../../services/payroll/PayrollReversalService';
@@ -358,12 +360,12 @@ export const markPayrollPaidHandler = async (req: Request, res: Response) => {
                : undefined;
 
           const service = new PayrollProcessingService(tenantId);
-          let refinedPaymentMethod = payment_method;
+          let refinedPaymentMethod = String(payment_method).trim().toLowerCase();
 
           if (payment_method.trim() == "Bank Transfer") refinedPaymentMethod = "bank_transfer";
           if (payment_method.trim() == "MoMo") refinedPaymentMethod = "mobile_money";
 
-          await service.markPayrollAsPaid(periodId, payment_date, refinedPaymentMethod, employeeid, branchid, referencesMap);
+          await service.markPayrollAsPaid(periodId, payment_date, refinedPaymentMethod, employeeid, branchid, referencesMap, getAuthUser(req) || undefined, Number(req.body.payment_account_id));
 
           NotificationDispatcher.dispatch(tenantId, 'SALARY_PAYMENT_PROCESSED', { payrollId: periodId }, employeeid || undefined).catch(() => { });
           NotificationDispatcher.dispatch(tenantId, 'PAYSLIP_SENT', { payrollId: periodId }, employeeid || undefined).catch(() => { });

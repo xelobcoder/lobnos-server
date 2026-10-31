@@ -1,3 +1,4 @@
+import {PaymentFundingError} from '../../models/Expenses/FundingAvailability';
 import { getAuthUser } from '../../middleware/authority';
 import { SupplierPaymentValidationError } from '../../models/inventory/SupplierPaymentFunding';
 import { Request, Response } from 'express';
@@ -203,7 +204,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to create supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -239,7 +240,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -275,7 +276,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -312,7 +313,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve supplier payments',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -410,7 +411,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve grouped supplier payments',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -480,7 +481,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to update supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -548,7 +549,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to approve supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -591,7 +592,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to cancel supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -651,7 +652,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to reject supplier payment',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -693,7 +694,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to add payment allocation',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -719,7 +720,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to remove payment allocation',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 
@@ -750,7 +751,7 @@ export class SupplierPaymentController {
                     message: error.message || 'Failed to retrieve payment summary',
                     data: null
                };
-               res.status(error instanceof SupplierPaymentValidationError ? error.statusCode : 500).json(response);
+               res.status(error instanceof PaymentFundingError ? error.statusCode : 500).json(response);
           }
      }
 }

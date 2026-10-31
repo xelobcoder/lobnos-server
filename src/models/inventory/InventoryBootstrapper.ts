@@ -1,3 +1,4 @@
+import {ensureDepartmentStockSchema} from './DepartmentStock';
 import { ensureSupplierPaymentFundingColumns } from './SupplierPaymentFunding';
 import KnexConnection from '../../database/KnexConnections';
 
@@ -420,6 +421,7 @@ export async function bootstrapInventoryDefaults(tenantId = 1): Promise<void> {
           if (!pharmacyCategory) await connection('inv_categories').insert({ id: 'CAT-PHARMACY', name: 'Pharmacy', description: 'Medicines and pharmacy retail products.', item_count: 0, created_at: new Date(), updated_at: new Date() });
      }
 
+     await ensureDepartmentStockSchema(connection);
      const generalSupplier = await connection('inv_suppliers').where('id', 'SUP-GENERAL').first();
      if (!generalSupplier) {
           const now = new Date();

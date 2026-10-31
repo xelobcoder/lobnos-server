@@ -2,7 +2,7 @@ import bcrypt from "bcrypt";
 export interface IEmployee {
 	employeeid?: number;
 	username: string;
-	role: 'cashier' | 'pharmacist' | 'doctor' | 'medical_officer' | 'consultant' | 'nurse' | 'pharmacy_doctor' | 'pharmacy_nurse' | 'marketer' | 'scientist' | 'sonographer' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
+	role: 'cashier' | 'pharmacist' | 'doctor' | 'medical_officer' | 'consultant' | 'nurse' | 'pharmacy_doctor' | 'pharmacy_nurse' | 'marketer' | 'scientist' | 'sonographer' | 'head_of_laboratory' | 'head_of_imaging' | 'admin' | 'manager' | 'phelobotomist' | 'pharmacy_accountant' | 'pharmacy_cashier' | 'pharmacy_manager' | 'pharmacy_storekeeper' | 'pharmacy_dispensary_officer';
 	password: string;
 	pin?: number | string | null;
 	pin_hash?: string | null;
@@ -52,7 +52,7 @@ export default class RolesRepository {
 			if (typeof roleData.role === 'string' && roleData.role.trim().toLowerCase() === 'cashier') {
 				roleData = { ...roleData, role: 'cashier' };
 			}
-			const allowedRoles = ['cashier','pharmacist','doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
+			const allowedRoles = ['cashier','pharmacist','doctor','medical_officer','consultant','nurse','pharmacy_doctor','pharmacy_nurse','marketer', 'scientist', 'sonographer', 'head_of_laboratory', 'head_of_imaging', 'admin', 'manager', 'phelobotomist', 'customer service representative', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 			if (!roleData.username || typeof roleData.username !== 'string') throw new Error('Invalid username');
 			if (!allowedRoles.includes(roleData.role)) throw new Error('Invalid role');
 			if (!roleData.password || typeof roleData.password !== 'string') throw new Error('Invalid password');
@@ -120,7 +120,7 @@ export default class RolesRepository {
 
 	async getEmployeeRole(employeeId: number): Promise<IEmployee['role'] | undefined> {
 		const employee = await this.getRoleById(employeeId);
-		const allowedRoles = ['cashier','marketer', 'scientist', 'sonographer', 'admin', 'manager', 'phelobotomist', 'super_admin', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
+		const allowedRoles = ['cashier','marketer', 'scientist', 'sonographer', 'head_of_laboratory', 'head_of_imaging', 'admin', 'manager', 'phelobotomist', 'super_admin', 'pharmacy_accountant', 'pharmacy_cashier', 'pharmacy_manager', 'pharmacy_storekeeper', 'pharmacy_dispensary_officer'];
 		return employee && roleAllowed(employee.role, allowedRoles) ? employee.role as IEmployee['role'] : undefined;
 	}
 	async validatePin(employeeId: number, pin: string): Promise<boolean> {

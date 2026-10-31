@@ -22,7 +22,9 @@ export async function enqueuePosting(tenantId: number, input: PostTransactionDto
           return connection.transaction((transaction: any) => enqueuePosting(tenantId, input, transaction));
      }
      const db = trx;
+     // Match the accounting worker: period first, then ledger accounts in stable order.
      await new AccountingPeriodService(tenantId).assertPostingAllowed(input.occurredAt || new Date(), db);
+     await db('acc_accounts').whereIn('account_code',[...new Set(input.lines.map(line=>line.accountCode))]).orderBy('id').forUpdate().select('id');
      await db('acc_posting_outbox')
           .insert({
                source_module: input.sourceModule,

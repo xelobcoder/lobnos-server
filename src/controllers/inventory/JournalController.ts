@@ -1,3 +1,4 @@
+import {inventoryJournalSource} from '../../models/inventory/InventoryJournalSource';
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../models/inventory/types';
 import KnexConnection from '../../database/KnexConnections';
@@ -63,14 +64,14 @@ export class JournalController {
                     reference_type: req.query.reference_type as string,
                     entry_status: req.query.entry_status as string,
                     source_module: req.query.source_module as string,
-                    startDate: req.query.startDate as string,
-                    endDate: req.query.endDate as string,
+                    startDate: (req.query.startDate || req.query.start_date) as string,
+                    endDate: (req.query.endDate || req.query.end_date) as string,
                     sortby: (req.query.sortby as 'ASC' | 'DESC') || 'DESC'
                };
 
                const connection = await KnexConnection(tenantId);
 
-               let query = connection('acc_journal_entry_lines')
+               let query = connection.from(inventoryJournalSource(connection).as('journal'))
                     .select('*')
                     .orderBy('created_at', filters.sortby === 'ASC' ? 'asc' : 'desc');
                     
@@ -93,12 +94,13 @@ export class JournalController {
                     query = query.where('entry_date', '>=', filters.startDate);
                }
                if (filters.endDate) {
-                    query = query.where('entry_date', '<=', filters.endDate);
+                    query = query.whereRaw('DATE(entry_date) <= ?', [filters.endDate]);
                }
 
+               if(req.query.search){const pattern=`%${String(req.query.search)}%`;query=query.where(q=>q.where('id','like',pattern).orWhere('line_description','like',pattern).orWhere('reference_id','like',pattern).orWhere('account_name','like',pattern).orWhere('account_id','like',pattern));}
                // Get total count for pagination
                const totalQuery = query.clone().clearSelect().clearOrder().count('* as count').first();
-               const totalResult = await totalQuery;
+               const totalResult: any = await totalQuery;
                const total = parseInt(totalResult.count as string);
 
                // Apply pagination
@@ -113,7 +115,7 @@ export class JournalController {
                     entries: entries.map((entry: any) => ({
                          id: entry.id,
                          account_id: entry.account_id,
-                         account_name: getAccountName(entry.account_id),
+                         account_name: entry.account_name || getAccountName(entry.account_id),
                          debit_amount: parseFloat(entry.debit_amount),
                          credit_amount: parseFloat(entry.credit_amount),
                          line_description: entry.line_description,
@@ -158,7 +160,7 @@ export class JournalController {
                const { id } = req.params;
 
                const connection = await KnexConnection(tenantId);
-               const entry = await connection('acc_journal_entry_lines')
+               const entry = await connection.from(inventoryJournalSource(connection).as('journal'))
                     .where('id', id)
                     .first();
 
@@ -175,7 +177,7 @@ export class JournalController {
                const journalEntry: JournalEntry = {
                     id: entry.id,
                     account_id: entry.account_id,
-                    account_name: getAccountName(entry.account_id),
+                    account_name: entry.account_name || getAccountName(entry.account_id),
                     debit_amount: parseFloat(entry.debit_amount),
                     credit_amount: parseFloat(entry.credit_amount),
                     line_description: entry.line_description,

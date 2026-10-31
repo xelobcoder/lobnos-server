@@ -55,7 +55,7 @@ export interface NewAccountRequest {
           mobile: string;
           password: string;
           cpassword: string;
-          role: "marketer" | "scientist" | "sonographer" | "admin" | "manager" | "phelobotomist",
+          role: "marketer" | "scientist" | "sonographer" | "head_of_laboratory" | "head_of_imaging" | "admin" | "manager" | "phelobotomist",
           branch: string;
           pin: string;
           altMobile: string;

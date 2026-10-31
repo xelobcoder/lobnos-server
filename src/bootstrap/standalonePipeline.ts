@@ -55,6 +55,11 @@ export const LOCAL_MIGRATIONS = [
      '20261029_ghana_payroll_setup',
      '20261029_salary_templates',
      '20261029_ghana_paye_configuration_link',
+     '20261030_funded_payroll_department_stock',
+     '20261030_department_requisition_approvals',
+     '20261031_department_receipts_permissions',
+     '20261031_department_stock_collations',
+     '20261031_department_requisition_baskets',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

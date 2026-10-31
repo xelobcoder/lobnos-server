@@ -61,6 +61,8 @@ describe('AccountingOutboxService', () => {
 
      it('starts processing after the producer transaction commits', async () => {
           const outboxQuery: any = {
+               forUpdate: () => outboxQuery,
+               select: async () => [],
                insert: () => outboxQuery,
                onConflict: () => outboxQuery,
                ignore: async () => undefined,

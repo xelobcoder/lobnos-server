@@ -1,3 +1,4 @@
+vi.mock('../../accountingModule/services/AccountingPeriodService',()=>({AccountingPeriodService:class{assertPostingAllowed=vi.fn().mockResolvedValue(undefined);}}));
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { transactionalDatabase } from '../../testSupport/transactionalDatabase';
 const authority = vi.hoisted(() => ({ can: vi.fn() }));
@@ -9,13 +10,15 @@ import { enqueueSupplierPayment } from '../../accountingModule/integrations/Supp
 import { SupplierPaymentModel } from './SupplierPayment';
 
 const actor: any = { employeeid: 22, branch: 4, tenantId: 1, role: 'accountant' };
-function setup(options: { account?: any; access?: boolean; payment?: any; ledger?: boolean } = {}) {
+function setup(options: { account?: any; access?: boolean; payment?: any; ledger?: boolean;balance?:number } = {}) {
      const store = transactionalDatabase({
           inv_supplier_payments: [{ id: 'SP-1', payment_amount: 250, payment_status: 'pending', payment_account_id: 5,
                payment_method: 'bank_transfer', branchid: 4, ...options.payment }],
           payment_accounts: [{ id: 5, name: 'Main Bank', is_active: true, account_type: 'bank', currency: 'GHS', branchid: 4, gl_account_code: 'acc-bank-2', ...options.account }],
           payment_account_users: options.access === false ? [] : [{ payment_account_id: 5, employeeid: 22, can_pay: true, is_active: true }],
-          acc_accounts: options.ledger === false ? [] : [{ account_code: 'acc-bank-2', type: 'asset', is_active: true }],
+          acc_journal_lines:[{account_id:1,direction:'debit',amount:options.balance??1000}],
+          acc_journal_entries:[],acc_posting_outbox:[],
+          acc_accounts: options.ledger === false ? [] : [{ id:1, account_code: 'acc-bank-2', type: 'asset', is_active: true }],
      });
      vi.mocked(KnexConnection).mockResolvedValue(store.db);
      const model = new SupplierPaymentModel(1);
@@ -38,7 +41,13 @@ describe('supplier payment funding', () => {
           expect(authority.can).toHaveBeenCalledWith(22, 'purchase_order.pay', 250, 4);
           expect(enqueueSupplierPayment).toHaveBeenCalledWith(1, 'SP-1', expect.any(Function));
      });
-     it('requires a source for legacy pending payments', async () => {
+     it('rejects a payment when the account has insufficient funds',async()=>{
+          const {model,store}=setup({balance:100});
+          await expect(model.approve('SP-1',actor)).rejects.toThrow('Insufficient funds');
+          expect(store.rows('inv_supplier_payments')[0].payment_status).toBe('pending');
+          expect(enqueueSupplierPayment).not.toHaveBeenCalled();
+     });
+     it('requires a source for legacy pending payments' , async () => {
           const { model } = setup({ payment: { payment_account_id: null } });
           await expect(model.approve('SP-1', actor)).rejects.toThrow('Select a payment source');
           await expect(model.approve('SP-1', actor, { payment_account_id: 5 })).resolves.toMatchObject({ payment_status: 'completed' });

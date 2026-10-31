@@ -522,6 +522,11 @@ export async function bootstrapPayrollTables(tenantId = 1): Promise<void> {
                table.foreign('performed_by').references('employeeid').inTable('roles').onDelete('CASCADE').onUpdate('CASCADE');
           });
      }
+     for(const column of ['payment_account_id','payment_account_gl_code']){
+          if(!await connection.schema.hasColumn('payroll_periods',column))await connection.schema.alterTable('payroll_periods',table=>{
+               if(column==='payment_account_id')table.integer(column).unsigned().nullable();else table.string(column,20).nullable();
+          });
+     }
      await ensureGhanaPayrollSchema(connection);
      await ensureSalaryTemplateSchema(connection);
 }

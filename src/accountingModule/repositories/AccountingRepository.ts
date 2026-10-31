@@ -81,6 +81,7 @@ export class AccountingRepository implements IAccountingRepository {
      ): Promise<{ entry: IJournalEntry; lines: IJournalLine[] }> {
           const db = await this.connection(trx);
 
+          await db('acc_accounts').whereIn('id',[...new Set(lines.map(line=>line.account_id))]).orderBy('id').forUpdate().select('id');
           const [journalEntryId] = await db('acc_journal_entries').insert({
                transaction_type: entry.transaction_type,
                source_module: entry.source_module,

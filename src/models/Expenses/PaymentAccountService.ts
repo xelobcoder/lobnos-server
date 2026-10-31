@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { AuthUser } from '../../middleware/authority';
+import { fundingAvailability } from './FundingAvailability';
 
 export interface CreatePaymentAccountInput {
      name: string;
@@ -23,7 +24,7 @@ export class PaymentAccountService {
      async listAvailable(actor: AuthUser, capability: 'view' | 'pay' = 'view'): Promise<any[]> {
           const connection = await KnexConnection(this.tenantId);
           const permissionColumn = capability === 'pay' ? 'access.can_pay' : 'access.can_view';
-          return connection('payment_accounts as account')
+          const accounts = await connection('payment_accounts as account')
                .join('payment_account_users as access', 'access.payment_account_id', 'account.id')
                .select('account.id', 'account.name', 'account.account_type', 'account.currency', 'account.branchid', 'account.gl_account_code', 'account.bank_account_id')
                .where('account.is_active', true)
@@ -32,6 +33,7 @@ export class PaymentAccountService {
                .where(permissionColumn, true)
                .andWhere((builder) => builder.whereNull('account.branchid').orWhere('account.branchid', actor.branch))
                .orderBy('account.name');
+          return Promise.all(accounts.map(async (account:any)=>({...account,...await fundingAvailability(connection,account.gl_account_code)})));
      }
 
      async managementOptions(actor: AuthUser): Promise<{ employees: any[]; ledgerAccounts: any[] }> {

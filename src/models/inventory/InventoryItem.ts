@@ -283,6 +283,8 @@ export class InventoryItemModel {
                inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
+               department_reserved_qty: Number(result.department_reserved_qty||0),
+               available_stores_qty: Number(result.current_stock||0)-Number(result.department_reserved_qty||0),
                min_stock: result.min_stock,
                max_stock: result.max_stock,
                cost_price: Number(result.cost_price || 0),
@@ -328,6 +330,8 @@ export class InventoryItemModel {
                inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
+               department_reserved_qty: Number(result.department_reserved_qty||0),
+               available_stores_qty: Number(result.current_stock||0)-Number(result.department_reserved_qty||0),
                min_stock: result.min_stock,
                max_stock: result.max_stock,
                cost_price: Number(result.cost_price || 0),
@@ -421,6 +425,8 @@ export class InventoryItemModel {
                inventory_domain: result.inventory_domain,
                consumption_unit: result.consumption_unit,
                current_stock: result.current_stock,
+               department_reserved_qty: Number(result.department_reserved_qty||0),
+               available_stores_qty: Number(result.current_stock||0)-Number(result.department_reserved_qty||0),
                min_stock: result.min_stock,
                max_stock: result.max_stock,
                cost_price: Number(result.cost_price || 0),
@@ -460,9 +466,12 @@ export class InventoryItemModel {
 
      async update(id: string, updates: UpdateInventoryItemRequest): Promise<InventoryItem | null> {
           try {
-               const connection = await this.connection;
+               const db = await this.connection;
+               return db.transaction(async connection=>{
+               const locked=await connection('inv_inventory_items').where({id}).forUpdate().first();
+               if(Number(locked?.department_reserved_qty||0)>0 && ((updates.is_active!==undefined&&!updates.is_active) || (updates.consumption_unit!==undefined&&updates.consumption_unit!==locked.consumption_unit) || (updates.current_stock!==undefined&&Number(updates.current_stock)<Number(locked.department_reserved_qty))))throw new Error('Return or consume departmental stock before reducing stock, changing units or deactivating this item');
 
-               const currentItem = await this.findById(id);
+               const currentItem = locked;
                if (currentItem?.inventory_domain === 'pharmacy' || updates.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
                if (!currentItem) {
                     throw new Error('Inventory item not found');
@@ -553,16 +562,20 @@ export class InventoryItemModel {
                     .where({ id })
                     .update(updateData);
 
-               return await this.findById(id);
+               return {...currentItem,...updateData};
+               });
           } catch (err: any) {
                throw err;
           }
      }
 
      async delete(id: string): Promise<boolean> {
-          const connection = await this.connection;
+          const db = await this.connection;
+          return db.transaction(async connection=>{
+          const locked=await connection('inv_inventory_items').where({id}).forUpdate().first();
+          if(await connection('inv_department_requests').where({item_id:id}).first())throw new Error('This item has departmental history. Keep the item for audit instead of deleting it');
 
-          const item = await this.findById(id);
+          const item = locked;
           if (item?.inventory_domain === 'pharmacy') throw new Error('Legacy pharmacy stock is read-only; use pharmacy inventory');
           if (!item) {
                return false;
@@ -580,6 +593,7 @@ export class InventoryItemModel {
                .del();
 
           return result > 0;
+          });
      }
 
      async getInventorySummary(): Promise<InventorySummary> {

@@ -1,8 +1,9 @@
+import {PaymentFundingError} from '../Expenses/FundingAvailability';
 import { Knex } from 'knex';
 import { AuthUser } from '../../middleware/authority';
 
-export class SupplierPaymentValidationError extends Error {
-     constructor(message: string, readonly statusCode = 400) { super(message); }
+export class SupplierPaymentValidationError extends PaymentFundingError {
+     constructor(message: string, readonly statusCode = 400) { super(message,statusCode); }
 }
 
 export async function ensureSupplierPaymentFundingColumns(connection: Knex): Promise<void> {
@@ -26,12 +27,12 @@ export async function ensureSupplierPaymentFundingColumns(connection: Knex): Pro
 export async function validateSupplierPaymentFunding(db: any, actor: AuthUser, accountId: number, method: string, branchid?: number | null) {
      if (!actor?.employeeid) throw new SupplierPaymentValidationError('Authentication required', 401);
      if (!Number.isSafeInteger(accountId) || accountId <= 0) throw new SupplierPaymentValidationError('Select a payment source account');
-     const account = await db('payment_accounts').where({ id: accountId, is_active: true }).first();
+     const account = await db('payment_accounts').where({ id: accountId, is_active: true }).forUpdate().first();
      if (!account) throw new SupplierPaymentValidationError('Payment source account was not found or is inactive');
      const branch = branchid ?? actor.branch ?? account.branchid;
      if (actor.branch != null && branch != null && Number(actor.branch) !== Number(branch)) throw new SupplierPaymentValidationError('Payment belongs to another branch', 403);
      if (account.branchid != null && Number(account.branchid) !== Number(branch)) throw new SupplierPaymentValidationError('Payment source account belongs to another branch', 403);
-     const access = await db('payment_account_users').where({ payment_account_id: accountId, employeeid: actor.employeeid, can_pay: true, is_active: true }).first();
+     const access = await db('payment_account_users').where({ payment_account_id: accountId, employeeid: actor.employeeid, can_pay: true, is_active: true }).forUpdate().first();
      if (!access) throw new SupplierPaymentValidationError('You are not authorized to pay from this account', 403);
      if (account.currency !== 'GHS') throw new SupplierPaymentValidationError('Supplier payments currently require a GHS payment account');
      const allowed: Record<string, string[]> = {

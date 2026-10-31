@@ -175,6 +175,8 @@ export interface InventoryItem extends BaseEntity {
      inventory_domain: InventoryDomain;
      consumption_unit: string; // Unit you use/consume in (pieces, tubes, ml, etc.)
      current_stock: number; // Always in consumption units
+     department_reserved_qty?: number;
+     available_stores_qty?: number;
      min_stock: number; // Always in consumption units
      max_stock: number; // Always in consumption units
      cost_price?: number;

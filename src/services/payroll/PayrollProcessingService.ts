@@ -1,3 +1,8 @@
+import {AccountingPeriodService} from '../../accountingModule/services/AccountingPeriodService';
+import {AuthorityService} from '../../accountingModule/services/AuthorityService';
+import {AuthUser} from '../../middleware/authority';
+import {validateSupplierPaymentFunding} from '../../models/inventory/SupplierPaymentFunding';
+import {assertFundingAvailable,PaymentFundingError} from '../../models/Expenses/FundingAvailability';
 import Decimal from 'decimal.js';
 import {money} from './GhanaPayrollRules';
 import { PayrollPeriodRepository, IPayrollPeriod } from '../../models/payroll/PayrollPeriodRepository';
@@ -213,7 +218,8 @@ export class PayrollProcessingService {
           payment_method: string,
           employeeid: number,
           branchid: number,
-          payment_references?: Map<number, string>
+          payment_references?: Map<number, string>,
+          fundingActor?: AuthUser, paymentAccountId?: number
      ): Promise<boolean> {
           const connection = await KnexConnection(this.tenantId);
 
@@ -234,7 +240,17 @@ export class PayrollProcessingService {
                     throw new Error(`Cannot mark payroll as paid with status ${period.status}`);
                }
 
-               const transactions = await trxTransactionRepo.getByPayrollPeriod(payroll_period_id);
+               const transactions = (await trxTransactionRepo.getByPayrollPeriod(payroll_period_id)).filter(row=>row.status!=='cancelled');
+               if(!transactions.length||transactions.some(row=>row.status!=='approved'))throw new PaymentFundingError('All payable salary records must be approved before payment');
+               const netTotal=money(transactions.reduce((total,row)=>total.plus(row.net_salary),new Decimal(0)));
+               if(netTotal!==money(Number(period.total_net_salary)))throw new PaymentFundingError('Payroll totals do not reconcile. Review the locked payroll before payment');
+               if(!fundingActor || fundingActor.tenantId!==this.tenantId)throw new PaymentFundingError('Authenticated funding actor required',403);
+               const funding=await validateSupplierPaymentFunding(trx,fundingActor,Number(paymentAccountId),payment_method,branchid);
+               const authority=await new AuthorityService(this.tenantId).can(fundingActor.employeeid,'expense.pay',Number(period.total_net_salary),branchid);
+               if(!authority.allowed)throw new PaymentFundingError(authority.reason,403);
+               await new AccountingPeriodService(this.tenantId).assertPostingAllowed(payment_date,trx);
+               await trx('acc_accounts').whereIn('account_code',[funding.account.gl_account_code,'acc-2006']).orderBy('id').forUpdate().select('id');
+               await assertFundingAvailable(trx,funding.account.gl_account_code,Number(period.total_net_salary));
 
                for (const transaction of transactions) {
                     const reference = payment_references?.get(transaction.employeeid) || undefined;
@@ -310,9 +326,12 @@ export class PayrollProcessingService {
                     invoicePrefix: "PAYROLL"
                }, trx);
 
+               if(lifecycleResult.paymentId)await trx('expense_payments').where({id:lifecycleResult.paymentId}).update({payment_account_id:funding.account.id,recorded_by:fundingActor.employeeid,executed_by:fundingActor.employeeid,branchid});
                await trx('payroll_periods')
                     .where({ id: payroll_period_id })
                     .update({
+                         payment_account_id: funding.account.id,
+                         payment_account_gl_code: funding.account.gl_account_code,
                          expense_synced: true,
                          expense_id: lifecycleResult.expenseId,
                          expense_invoice_id: lifecycleResult.invoiceId,
@@ -326,11 +345,12 @@ export class PayrollProcessingService {
                     payment_method,
                     payment_date,
                     employeeid,
-                    trx
+                    trx,
+                    funding.account.gl_account_code
                );
 
                return true;
-          });
+          }, {isolationLevel:'read committed'});
      }
 
      async revertPayrollPeriodStatus(
@@ -563,7 +583,7 @@ export class PayrollProcessingService {
           const connection = await KnexConnection(this.tenantId);
 
           const employees = await connection('roles')
-               .where({ activationstatus: 1 })
+               .where({ activation: 1 })
                .select('employeeid');
 
           return employees.map(e => e.employeeid);

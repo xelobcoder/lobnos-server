@@ -7,7 +7,7 @@ import {formatLoginUsername} from './TenantLoginDirectory';
 import {revokePasswordSessions} from './passwordSessions';
 
 export const PHARMACY_STAFF_ROLES=['pharmacy_manager','pharmacy_accountant','pharmacy_cashier','pharmacy_storekeeper','pharmacy_dispensary_officer','pharmacist','pharmacy_doctor','pharmacy_nurse'];
-export const STAFF_ROLES=['admin','manager','scientist','sonographer','phelobotomist','customer service representative','cashier','accountant','storekeeper','marketer','doctor','medical_officer','consultant','nurse',...PHARMACY_STAFF_ROLES];
+export const STAFF_ROLES=['admin','manager','scientist','sonographer','head_of_laboratory','head_of_imaging','phelobotomist','customer service representative','cashier','accountant','storekeeper','marketer','doctor','medical_officer','consultant','nurse',...PHARMACY_STAFF_ROLES];
 const owner=(role:string)=>roleAllowed(role,['admin']);
 const id=(value:any)=>{if(!Number.isSafeInteger(Number(value))||Number(value)<=0)throw Error('Select a valid employee or location');return Number(value);};
 const text=(value:any,label:string,max=100)=>{if(typeof value!=='string'||!value.trim()||value.trim().length>max)throw Error('Enter a valid '+label);return value.trim();};

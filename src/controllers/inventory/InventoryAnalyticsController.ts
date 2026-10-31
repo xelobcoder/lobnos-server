@@ -1,3 +1,4 @@
+import {inventoryDashboard} from '../../models/inventory/InventoryDashboard';
 import { Request, Response } from 'express';
 import { ApiResponse } from '../../models/inventory/types';
 import KnexConnection from '../../database/KnexConnections';
@@ -27,46 +28,7 @@ export class InventoryAnalyticsController {
                const tenantId = this.getTenantId(req);
                const connection = await KnexConnection(tenantId);
 
-               // Get inventory summary
-               const inventorySummary = await connection('inv_inventory_items')
-                    .select(
-                         connection.raw('COUNT(*) as total_items'),
-                         connection.raw('SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active_items'),
-                         connection.raw('SUM(CASE WHEN status = "low_stock" THEN 1 ELSE 0 END) as low_stock_items'),
-                         connection.raw('SUM(CASE WHEN status = "out_of_stock" THEN 1 ELSE 0 END) as out_of_stock_items')
-                    )
-                    .first() as any;
-
-               // Get total categories and suppliers
-               const [categoryCount] = await connection('inv_categories').count('* as count') as any[];
-               const [supplierCount] = await connection('inv_suppliers').count('* as count') as any[];
-               const [locationCount] = await connection('inv_storage_locations').count('* as count') as any[];
-
-               // Calculate total stock value: received items minus consumed/wasted
-               const totalReceivedValue = await connection.raw(`
-                    SELECT COALESCE(SUM(unit_price * quantity_received), 0) as total_received
-                    FROM inv_purchase_order_receipts 
-               `);
-
-               const totalConsumedValue = await connection.raw(`
-                    SELECT COALESCE(SUM(total_cost), 0) as total_consumed
-                    FROM inv_consumption_history
-                    WHERE consumption_reason IN ('consumption', 'wastage')
-               `);
-
-               const totalStockValue = parseFloat(totalReceivedValue[0][0]?.total_received || 0) -
-                    parseFloat(totalConsumedValue[0][0]?.total_consumed || 0);
-
-               const summary: InventoryAnalyticsSummary = {
-                    total_items: parseInt(inventorySummary.total_items) || 0,
-                    active_items: parseInt(inventorySummary.active_items) || 0,
-                    low_stock_items: parseInt(inventorySummary.low_stock_items) || 0,
-                    out_of_stock_items: parseInt(inventorySummary.out_of_stock_items) || 0,
-                    total_stock_value: totalStockValue,
-                    total_categories: parseInt(categoryCount.count) || 0,
-                    total_suppliers: parseInt(supplierCount.count) || 0,
-                    total_locations: parseInt(locationCount.count) || 0
-               };
+               const summary = await inventoryDashboard(connection);
 
                const response: ApiResponse<InventoryAnalyticsSummary> = {
                     success: true,

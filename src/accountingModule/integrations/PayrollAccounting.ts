@@ -113,14 +113,14 @@ export async function enqueuePayrollPayment(
      paymentMethod: string,
      paymentDate: string | Date,
      employeeId?: number | null,
-     trx?: any
+     trx?: any, fundingGlCode?: string
 ): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
           const totals = await periodTotals(db, periodId);
           if (totals.net <= 0) return;
 
-          const cashAccount = CASH_METHODS.has(String(paymentMethod).toLowerCase()) ? CASH : BANK;
+          const cashAccount = fundingGlCode || (CASH_METHODS.has(String(paymentMethod).toLowerCase()) ? CASH : BANK);
 
           await enqueuePosting(
                tenantId,

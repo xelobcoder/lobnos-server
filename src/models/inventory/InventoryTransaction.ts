@@ -105,6 +105,7 @@ export class InventoryTransactionModel {
                     const quantity = request.quantity * (request.unit_type === 'purchase' ? request.units_per_purchase_unit! : 1);
                     if (!Number.isFinite(quantity) || quantity <= 0) throw new Error('Invalid converted quantity');
                     const previous = Number(item.current_stock);
+                    if(['consumption','wastage','transfer','adjustment'].includes(request.transaction_type) && quantity>previous-Number(item.department_reserved_qty||0))throw new Error('Stock is allocated to a department; record usage from departmental stock');
                     const next = previous + (request.transaction_type === 'addition' ? quantity : -quantity);
                     if (!Number.isFinite(previous) || !Number.isFinite(next) || next < 0) throw new Error('Transaction would result in invalid or negative stock: ' + request.item_id);
                     const totalCost = request.unit_cost !== undefined

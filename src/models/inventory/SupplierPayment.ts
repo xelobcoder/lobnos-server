@@ -1,6 +1,8 @@
+import {AccountingPeriodService} from '../../accountingModule/services/AccountingPeriodService';
 import { AuthUser } from '../../middleware/authority';
 import { AuthorityService } from '../../accountingModule/services/AuthorityService';
 import { validateSupplierPaymentFunding, SupplierPaymentValidationError } from './SupplierPaymentFunding';
+import { assertFundingAvailable } from '../Expenses/FundingAvailability';
 import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
 import {
@@ -394,6 +396,7 @@ export class SupplierPaymentModel {
      }
 
      async approve(id: string, actor: AuthUser, input: { payment_account_id?: number; payment_method?: string } = {}): Promise<SupplierPayment | null> {
+          if(actor.tenantId!==this.tenantId)throw new SupplierPaymentValidationError('Authenticated facility context required',403);
           const connection = await this.connection;
           await connection.transaction(async trx => {
                const payment = await trx('inv_supplier_payments').where({ id }).forUpdate().first();
@@ -413,13 +416,16 @@ export class SupplierPaymentModel {
                const funding = await validateSupplierPaymentFunding(trx, actor, accountId, method, payment.branchid);
                const decision = await new AuthorityService(this.tenantId).can(actor.employeeid, 'purchase_order.pay', Number(payment.payment_amount), funding.branchid);
                if (!decision.allowed) throw new SupplierPaymentValidationError(decision.reason, 403);
+               await new AccountingPeriodService(this.tenantId).assertPostingAllowed(payment.payment_date||new Date(),trx);
+               await trx('acc_accounts').whereIn('account_code',[funding.account.gl_account_code,'acc-2000']).orderBy('id').forUpdate().select('id');
+               await assertFundingAvailable(trx, funding.account.gl_account_code, Number(payment.payment_amount));
                await trx('inv_supplier_payments').where({ id }).update({
                     payment_account_id: funding.account.id, payment_account_gl_code: funding.account.gl_account_code,
                     branchid: funding.branchid, payment_method: method, payment_status: 'completed',
                     approved_by: String(actor.employeeid), approved_at: new Date(), processed_at: new Date(), updated_at: new Date()
                });
                await enqueueSupplierPayment(this.tenantId, id, trx);
-          });
+          }, {isolationLevel:'read committed'});
           return this.findById(id);
      }
 
