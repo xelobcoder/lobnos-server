@@ -11,6 +11,7 @@ import KnexConnection from "../database/KnexConnections";
 import knex from "knex";
 import { NotificationDispatcher } from "../models/application/notifications/services/NotificationDispatcher";
 import { formatTenantLoginUsername } from "../models/auth/TenantLoginUsername";
+import { getAuthUser } from "../middleware/authority";
 
 export interface UserRequest extends Request {
      body: {
@@ -381,7 +382,7 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
                mobile: mobile || "",
                alternativeMobile: altMobile || alternativeMobile || null,
                role: role,
-               branch: parseInt(branch),
+               branch: branch == null || branch === '' ? null : Number(branch),
                pin: pin ? parseInt(pin.toString()) : null,
                dob: dob || null,
                firstname: firstname || null,
@@ -394,9 +395,7 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
                updatePayload.password = passwordHash;
           }
 
-          const updateCount = await knex('roles')
-               .where('employeeid', employeeid)
-               .update(updatePayload);
+          const updateCount = await roleRepo.updateRole(targetEmployeeid, updatePayload);
 
           if (updateCount > 0) {
                const newRow = await knex("roles")
@@ -549,10 +548,18 @@ const getPermissions = async (tenantId: number, employeeid: number, res: Respons
 const updateUserPermission = async (req: UserRequest, res: Response): Promise<void> => {
      try {
           const { id } = req.query;
-          const permissions = req.body;
+          const permissions: unknown = req.body;
           const tenantId = parseInt(req.query.tenantId);
           const conn = await KnexConnection(tenantId);
           const targetEmployeeid = parseInt(id!, 10);
+          if (!Number.isSafeInteger(targetEmployeeid) || targetEmployeeid <= 0) return customError('A valid employee ID is required', 400, res);
+          if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) return customError('Permissions must be an object', 400, res);
+          if ('testPanels' in permissions) {
+               const panel = permissions.testPanels;
+               if (!panel || typeof panel !== 'object' || !('manage' in panel) || typeof panel.manage !== 'boolean') {
+                    return customError('Test-panel management permission must be a boolean', 400, res);
+               }
+          }
           const oldRow = await conn("roles")
                .select([
                     "employeeid",
@@ -568,7 +575,8 @@ const updateUserPermission = async (req: UserRequest, res: Response): Promise<vo
                     "branch",
                     "mobile",
                     "alternativeMobile",
-                    "dob"
+                    "dob",
+                    "permissions"
                ])
                .where({ employeeid: targetEmployeeid })
                .first();
@@ -593,12 +601,13 @@ const updateUserPermission = async (req: UserRequest, res: Response): Promise<vo
                          "branch",
                          "mobile",
                          "alternativeMobile",
-                         "dob"
+                         "dob",
+                         "permissions"
                     ])
                     .where({ employeeid: targetEmployeeid })
                     .first();
 
-               const actorEmployeeidRaw = (req.body as any)?.employeeid || (req.body as any)?.employeeId || (req.query as any)?.employeeid;
+               const actorEmployeeidRaw = getAuthUser(req)?.employeeid;
                const actorEmployeeid = actorEmployeeidRaw ? parseInt(actorEmployeeidRaw.toString(), 10) : null;
                await RolesAuditRepository.insertAudit({
                     tenantId,

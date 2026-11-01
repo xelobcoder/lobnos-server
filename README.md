@@ -2,6 +2,39 @@
 
 **High Performance Laboratory Information Management System**
 
+## Department boundaries and delegated panel editing
+
+Scientists and laboratory heads cannot access imaging stock, and sonographers
+and imaging heads cannot access laboratory stock, even with a legacy foreign
+department grant. New incompatible grants are rejected; revoking an old grant
+remains possible. Branch/facility checks, administrator oversight and storekeeper
+issuance remain intact.
+
+Owners manage staff permissions through `GET/PUT /api/v1/user/permissions`.
+The explicit JSON grant is `testPanels.manage: true`; it is effective only for
+scientists, laboratory heads and managers. Administrators already have access.
+`GET /api/v1/testpanel/my-access` returns current session-bound authority for
+navigation and page guards. Panel metadata, parameters/constraints, calculations,
+procedures, literature, QC requirements and per-test report-setting writes all
+require this authority. Parameter categories and multi-test conditions use the
+same guard. Legacy editor IDs are replaced with the authenticated editor ID.
+Unmodified registration/billing panel reads remain available. Bulk pricing
+retains owner-only access; this permission does not grant general system settings,
+financial authority, outsourcing administration or critical-action policy control.
+
+No new schema is needed: grants use `roles.permissions`. Rebuild and deploy the
+backend together with the laboratory-operations frontend workspace. Existing
+broad page/administration flags do not automatically become panel-management grants.
+Legacy account creation/deletion, activation and permission delegation are
+owner-only. Self-service profile edits cannot change another account, role or
+location. Administrative legacy role/location edits use the existing access
+revision mechanism; accounts with explicit assignments must be managed through
+Staff & role access instead.
+
+```powershell
+pnpm exec vitest run src\middleware\testPanelAuthority.test.ts src\models\inventory\DepartmentStock.test.ts src\controllers\logins\staffProfileAuthority.test.ts src\models\auth\StaffAccessService.test.ts src\models\settings\users\RolesRepository.access.test.ts
+```
+
 ## Specimen aliquots, storage, retention and disposal
 
 The Lobnos frontend exposes **Specimen Storage & Retention** from both laboratory

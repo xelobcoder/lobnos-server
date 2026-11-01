@@ -5,7 +5,7 @@ const fixture=vi.hoisted(()=>({db:null as any}));vi.mock('../../database/KnexCon
 import router from './routes/departmentStockRoutes';import {ensureDepartmentStockSchema} from '../../models/inventory/DepartmentStock';
 let db:any,server:any,origin:string;
 beforeAll(async()=>{({db}=accountingSqlDatabase());fixture.db=db;
- await db.schema.createTable('roles',t=>{t.integer('employeeid');t.integer('branch');t.string('username');});await db('roles').insert({employeeid:7,branch:1,username:'Staff'});
+ await db.schema.createTable('roles',t=>{t.integer('employeeid');t.integer('branch');t.string('username');t.string('role');});await db('roles').insert({employeeid:7,branch:1,username:'Staff',role:'scientist'});
  await db.schema.createTable('inv_units',t=>{t.string('id');t.string('name');});await db('inv_units').insert({id:'unit',name:'Unit'});
  await db.schema.createTable('inv_inventory_items',t=>{t.string('id');t.boolean('is_active');t.integer('branchid');t.string('inventory_domain');t.string('consumption_unit');});await db('inv_inventory_items').insert({id:'item',is_active:true,branchid:1,inventory_domain:'lab',consumption_unit:'unit'});
  await ensureDepartmentStockSchema(db);
@@ -29,5 +29,16 @@ describe('department stock route authorization',()=>{
   const denied=await post('/?tenantId=2','scientist',{client_key:'imaging-key',department:'imaging',item_id:'item',quantity:1});expect(denied.status).toBe(403);expect((await denied.json()).success).toBe(false);
  });
  it('authorizes bulk requisitions per department and rejects audit-field spoofing',async()=>{const response=await post('/requisitions?tenantId=2','scientist',{department:'laboratory',client_key:'bulk-route',items:[{item_id:'item',quantity:2,requested_by:999}]});expect(response.status).toBe(201);const result=await response.json();const row=await db('inv_department_requests').where({id:result.data.ids[0]}).first();expect(row.requested_by).toBe(7);expect(row.batch_id).toBe(result.data.batch_id);const replay=await post('/requisitions?tenantId=2','scientist',{department:'laboratory',client_key:'bulk-route',items:[{item_id:'item',quantity:2}]});expect(replay.status).toBe(200);const denied=await post('/requisitions?tenantId=2','scientist',{department:'imaging',client_key:'bulk-other-department',items:[{item_id:'item',quantity:2}]});expect(denied.status).toBe(403);const single=await post('/?tenantId=2','scientist',{department:'laboratory',client_key:'single-no-group-spoof',item_id:'item',quantity:1,batch_id:result.data.batch_id});const singleId=(await single.json()).data.id;expect((await db('inv_department_requests').where({id:singleId}).first()).batch_id).toBeNull();});
+ it('rejects incompatible new grants, excludes foreign legacy grants and permits revocation',async()=>{
+  const rejected=await post('/access?tenantId=2','admin',{employeeid:7,department:'imaging',can_consume:true,can_issue:false});
+  expect(rejected.status).toBe(400);
+  await db('inv_department_access').insert({employeeid:7,branchid:1,department:'imaging',can_request:true,can_receive:true,can_consume:true,can_issue:true});
+  for(const [role,department] of [['scientist','imaging'],['sonographer','laboratory']]){
+   expect((await post('/requisitions?tenantId=2',role,{department,client_key:'blocked-'+role,items:[{item_id:'item',quantity:1}]})).status).toBe(403);
+   const access=await fetch(origin+'/my-access?tenantId=2',{headers:{'x-role':role}}).then(r=>r.json());
+   expect(access.data.map(row=>row.department)).not.toContain(department);
+  }
+  expect((await post('/access?tenantId=2','admin',{employeeid:7,department:'imaging',can_consume:false,can_issue:false,can_request:false,can_receive:false})).status).toBe(200);
+ });
 
 });

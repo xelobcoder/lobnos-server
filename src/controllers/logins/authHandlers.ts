@@ -1,7 +1,8 @@
 import { consultationDb } from '../../models/consultation/ConsultationSchema';
 import { Request, Response } from "express";
 import User from '../../LobnosAuth/user'
-import { roleAllowed } from '../../middleware/roles';
+import { normalizeRole, roleAllowed } from '../../middleware/roles';
+import { getAuthUser } from '../../middleware/authority';
 import logger from "../../hooks/logger";
 import { getAllLogins, getAUser, createNewAccount, deleteAccount, updateUserBasicInfo, activateAUser, getPermissions, updateUserPermission, UserRequest, NewAccountRequest } from "../../LobnosAuth/createAccount";
 import { customError, handleOverLoad, promisifyQuery, responseError } from "../../hooks/helper";
@@ -128,11 +129,20 @@ export const deleteAccountHandler = handleOverLoad(deleteAccount);
 
 export const updateBasicInfo = async (req: Request, res: Response) => {
 	try {
-		const isUser = req.query.isUser == "1" || req.query.isUser === 'true';
-		const body = req.body as UserRequest['body'];
+		const actor = getAuthUser(req);
+		if (!actor) return customError('Authentication required', 401, res);
 		const tenantId = parseInt(req.query.tenantId as string);
-		const response = await updateUserBasicInfo(body, tenantId, isUser);
-		console.log(response, 'RR')
+		if (tenantId !== actor.tenantId) return customError('Authenticated facility context required', 403, res);
+		const body = req.body as UserRequest['body'];
+		const owner = roleAllowed(actor.role, ['admin']);
+		if (!owner && (
+			Number(body.employeeid) !== actor.employeeid
+			|| (body.role !== undefined && normalizeRole(body.role) !== normalizeRole(actor.role))
+			|| (body.branch !== undefined && Number(body.branch) !== Number(actor.branch))
+		)) return customError('Only an administrator may change staff roles, locations or other accounts', 403, res);
+		const isUser = !owner || req.query.isUser == "1" || req.query.isUser === 'true';
+		const update = owner ? body : { ...body, employeeid: actor.employeeid, role: actor.role, branch: actor.branch };
+		const response = await updateUserBasicInfo(update, actor.tenantId, isUser);
 		res.send({ status: response > 0 ? "success" : "fail", message: response > 0 ? "User information updated successfully" : "No changes made" });
 	} catch (error: any) {
 		logger.error(error?.message);

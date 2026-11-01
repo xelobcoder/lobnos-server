@@ -21,6 +21,7 @@ export interface IEmployee {
 	middlename?: string | null;
 	lastname?: string | null;
 	staff_designation?: string | null;
+	permissions?: unknown;
 }
 import KnexConnection from "../../../database/KnexConnections";
 import { roleAllowed } from "../../../middleware/roles";

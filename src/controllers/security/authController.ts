@@ -10,6 +10,7 @@ import AuthenticationRepository from "../../models/settings/users/Authentication
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import RolesRepository from "../../models/settings/users/RolesRepository";
 import { getAuthUser } from "../../middleware/authority";
+import { hasTestPanelPermission } from "../../middleware/testPanelAuthority";
 import { FinancialPinVerificationService } from "../../accountingModule/services/FinancialPinVerificationService";
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
@@ -196,7 +197,7 @@ export class AuthController {
 					branchid: branch,
 					tenantId
 				},
-				settings
+				settings: { ...settings, testPanelsManagement: hasTestPanelPermission(role, user.permissions) }
 			});
 		} catch (err: any) {
 			res.status(400).json({ message: err.message });

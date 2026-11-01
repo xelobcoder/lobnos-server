@@ -10,10 +10,12 @@ import {DepartmentStock} from './DepartmentStock';
 import {InventoryTransactionModel} from './InventoryTransaction';
 const owner:any={employeeid:1,branch:1,tenantId:1,role:'admin'};
 const lab:any={...owner,employeeid:2,role:'scientist'};
-const imaging:any={...owner,employeeid:4,role:'radiologist'};
+const imaging:any={...owner,employeeid:4,role:'sonographer'};
 const open:any[]=[];afterEach(async()=>{while(open.length)await open.pop().destroy();});
 async function setup(){const {db,native}=accountingSqlDatabase();open.push(db);
  await db.schema.createTable('roles',t=>{t.integer('employeeid');t.string('username');});
+ await db.schema.createTable('incidents',t=>{t.string('id');t.string('type');t.string('title');t.text('description');t.string('severity');t.string('status');t.integer('reported_by');t.timestamp('reported_at');t.text('affected_parties');t.string('location');t.text('immediate_actions');t.boolean('regulatory_reporting');t.timestamp('created_at');t.timestamp('updated_at');});
+ await db.schema.createTable('incident_audit_trail',t=>{t.string('id');t.string('incident_id');t.timestamp('timestamp');t.string('action');t.integer('employeeId');t.text('oldValue');t.text('newValue');t.text('details');t.timestamp('created_at');});
  await db.schema.createTable('inv_units',t=>{t.string('id');t.string('name');});await db('inv_units').insert({id:'unit',name:'Unit'});
  await db.schema.createTable('inv_inventory_items',t=>{t.string('id');t.string('name');t.boolean('is_active');t.decimal('current_stock');t.decimal('department_reserved_qty');t.string('inventory_domain');t.string('consumption_unit');t.decimal('cost_price');t.decimal('min_stock');t.string('status');t.string('last_updated');t.string('updated_at');});
  await db.schema.createTable('inv_consumption_history',t=>{for(const key of ['id','item_id','consumed_by','consumption_date','batch_number','consumption_reason','department','patientid','prescription_id','notes','approved_by'])t.string(key);for(const key of ['quantity_consumed','unit_cost','total_cost'])t.decimal(key);});
@@ -25,6 +27,32 @@ async function setup(){const {db,native}=accountingSqlDatabase();open.push(db);
  return {db,store:{rows:(table:string)=>native.prepare('SELECT * FROM '+table).all()},service:new DepartmentStock(1,db)};
 }
 describe('departmental custody',()=>{
+ it('rejects cross-department grants for scientists and sonographers on list and actions',async()=>{
+  const {db,service}=await setup();
+  const sonographer={...imaging,role:'sonographer'};
+  await db('inv_department_access').insert([
+   {employeeid:lab.employeeid,branchid:1,department:'imaging',can_request:true,can_receive:true,can_consume:true,can_issue:true},
+   {employeeid:sonographer.employeeid,branchid:1,department:'laboratory',can_request:true,can_receive:true,can_consume:true,can_issue:true}
+  ]);
+  for(const [actor,other] of [[lab,'imaging'],[sonographer,'laboratory']] as const){
+   await expect(service.capabilities(actor,other)).rejects.toThrow('own department');
+   await expect(service.list(actor,other)).rejects.toThrow('own department');
+   await expect(service.request(actor,{department:other,item_id:'item',quantity:1})).rejects.toThrow('own department');
+  }
+  expect(await service.capabilities(lab,'laboratory')).toMatchObject({can_request:true});
+  expect(await service.capabilities(sonographer,'imaging')).toMatchObject({can_request:true});
+  await expect(service.capabilities({...lab,tenantId:2},'laboratory')).rejects.toThrow('branch context');
+  await expect(service.capabilities({...lab,branch:2},'laboratory')).rejects.toThrow('permission');
+  const request=await service.request(sonographer,{department:'imaging',item_id:'item',quantity:1});
+  await service.act(owner,request,'approve');await service.act(owner,request,'issue');
+  await expect(service.act(lab,request,'receive',1)).rejects.toThrow('own department');
+  await expect(service.capabilities({...lab,role:'sonographer'},'laboratory')).rejects.toThrow('own department');
+  for(const role of ['nurse','cashier','storekeeper']){
+   const staff={...lab,employeeid:20,role};
+   if(role==='nurse')await db('inv_department_access').insert({employeeid:20,branchid:1,department:'laboratory',can_request:true,can_receive:true,can_consume:true});
+   await expect(service.request(staff,{department:'laboratory',item_id:'item',quantity:1})).rejects.toThrow('permission');
+  }
+ });
  it('keeps issue separate from expense and reconciles laboratory use, wastage and returns independently of imaging',async()=>{
   const {db,store,service}=await setup();vi.mocked(enqueueStockMovement).mockClear();
   const a=await service.request(lab,{department:'laboratory',item_id:'item',quantity:6,reason:'Tests'});
@@ -91,9 +119,19 @@ describe('departmental custody',()=>{
   await service.act(consumer,id,'consume',2,'End of day usage');await service.act(consumer,id,'loss',1,'Confirmed missing vial');await service.act(consumer,id,'wastage',1,'Damaged vial');await service.act(consumer,id,'return',1,'Unused vial');
   await expect(service.act(consumer,id,'transit_loss',1,'Missing')).rejects.toThrow('permission');
   await service.act(keeper,id,'return_unreceived',1,'Located in stores');await service.act(keeper,id,'transit_loss',2,'Confirmed loss during delivery');
+  const incident=store.rows('incidents')[0],receipt=store.rows('inv_department_events').find(r=>r.action==='receive');
+  expect(incident).toMatchObject({type:'compliance',severity:'medium',status:'reported',reported_by:receiver.employeeid});
+  expect(receipt.incident_id).toBe(incident.id);
   expect(store.rows('inv_inventory_items')[0]).toMatchObject({current_stock:4,department_reserved_qty:0});
   const listed=await service.list(consumer,'laboratory');expect(listed.analytics[0]).toMatchObject({issued:8,received:5,consumed:2,wastage:1,loss:3,returned:2,in_transit:0,remaining:0});
   await expect(service.list(consumer,'imaging')).rejects.toThrow('permission');
+ });
+ it('allows consumption without a reason but still requires explanations for exceptional movements',async()=>{
+  const {service,store}=await setup();const id=await service.request(lab,{department:'laboratory',item_id:'item',quantity:3});await service.act(owner,id,'approve');await service.act(owner,id,'issue');await service.act(lab,id,'receive',3);
+  await service.act(lab,id,'consume',1);
+  await expect(service.act(lab,id,'wastage',1)).rejects.toThrow('reason');
+  await expect(service.act(lab,id,'loss',1)).rejects.toThrow('reason');
+  expect(store.rows('inv_department_events').find(r=>r.action==='consume')).toMatchObject({reason:''});
  });
  it('holds unreceived stock until further receipt or explicit shortage resolution',async()=>{
   const {service,store}=await setup();const id=await service.request(lab,{department:'laboratory',item_id:'item',quantity:4});await service.act(owner,id,'approve');await service.act(owner,id,'issue');

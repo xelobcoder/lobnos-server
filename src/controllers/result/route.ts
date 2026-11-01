@@ -3,6 +3,7 @@ import { ResultPrintingTrackingController } from "./ResultPrintingTrackingContro
 
 import express from "express"
 import { requireLaboratoryWorkflowRole, requireResultDeliveryRole } from "../../middleware/laboratoryWorkflowAuthority";
+import { requireTestPanelManagement } from "../../middleware/testPanelAuthority";
 import {
        resultEntry,
        getPreviousResultEntryRecordsIfAny,
@@ -71,7 +72,7 @@ router.get("/api/v1/result/analysis/test/field/aggregates", handleOverLoad(getRe
 
 
 // test modifications, creation rule
-router.put("/api/v1/testpanel/list/customtestrule", testCreationRuleUpdateHandler);
+router.put("/api/v1/testpanel/list/customtestrule", requireTestPanelManagement, handleOverLoad(testCreationRuleUpdateHandler));
 router.get("/api/v1/result/criticalvalues/unseen", criticalValuesUnseenHandler)
 
 

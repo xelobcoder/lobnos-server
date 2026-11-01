@@ -1,4 +1,5 @@
 import { getAuthUser } from '../../middleware/authority';
+import { requireTestPanelManagement } from '../../middleware/testPanelAuthority';
 import labWorkbenchRoutes from './labWorkbenchRoutes';
 import collectionSupplyRoutes from './collectionSupplyRoutes';
 import express from "express"
@@ -149,30 +150,30 @@ router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...oper
 
 // TEST MULTI CONDITIONS CREATION
 
-router.post(`/api/v1/multi/definition`, ...operationsStaffMiddleware, validateDtoMiddleware(CreateTestConditionDefinitionDto, 'body'), createTestConditionDefinition)
+router.post(`/api/v1/multi/definition`, ...operationsStaffMiddleware, requireTestPanelManagement, validateDtoMiddleware(CreateTestConditionDefinitionDto, 'body'), createTestConditionDefinition)
 router.get(`/api/v1/multi/definition/test/:testid`, ...operationsStaffMiddleware, getTestDefinitionsTestId)
 router.get(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, getTestConditionDefinition)
-router.put(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, updateTestConditionDefinition)
-router.delete(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, deleteTestConditionDefinition)
-router.post(`/api/v1/multi/condition`, ...operationsStaffMiddleware, createTestCondition)
+router.put(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, requireTestPanelManagement, updateTestConditionDefinition)
+router.delete(`/api/v1/multi/definition/:id`, ...operationsStaffMiddleware, requireTestPanelManagement, deleteTestConditionDefinition)
+router.post(`/api/v1/multi/condition`, ...operationsStaffMiddleware, requireTestPanelManagement, createTestCondition)
 router.get(`/api/v1/multi/definition/conditions/:conditionId`, ...operationsStaffMiddleware, getTestDefinitionConditionsHandler)
 router.get(`/api/v1/multi/condition/:id`, ...operationsStaffMiddleware, getTestCondition)
-router.put(`/api/v1/multi/condition/update/:id`, ...operationsStaffMiddleware, updateTestCondition)
-router.delete(`/api/v1/multi/condition/delete/:id`, ...operationsStaffMiddleware, deleteTestCondition)
+router.put(`/api/v1/multi/condition/update/:id`, ...operationsStaffMiddleware, requireTestPanelManagement, updateTestCondition)
+router.delete(`/api/v1/multi/condition/delete/:id`, ...operationsStaffMiddleware, requireTestPanelManagement, deleteTestCondition)
 
 
 
 // TEST FIELDS CATEGORY CREATION
 
 
-router.post("/api/v1/test/fields/category", ...operationsStaffMiddleware, validateDtoMiddleware(CreateTestFieldsCategoryDto,'body'), TestDetailCategoryController.create);
+router.post("/api/v1/test/fields/category", ...operationsStaffMiddleware, requireTestPanelManagement, validateDtoMiddleware(CreateTestFieldsCategoryDto,'body'), TestDetailCategoryController.create);
 router.get("/api/v1/test/fields/category", ...operationsStaffMiddleware, TestDetailCategoryController.getAll);
 router.get("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.getById);
 router.get("/api/v1/test/fields/category/test/:testid", ...operationsStaffMiddleware, TestDetailCategoryController.getByTestId);
-router.put("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.update);
-router.patch("/api/v1/test/fields/category/soft-delete/:id", ...operationsStaffMiddleware, TestDetailCategoryController.softDelete);
-router.patch("/api/v1/test/fields/category/restore/:id", ...operationsStaffMiddleware, TestDetailCategoryController.restore);
-router.delete("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, TestDetailCategoryController.delete);
+router.put("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, requireTestPanelManagement, TestDetailCategoryController.update);
+router.patch("/api/v1/test/fields/category/soft-delete/:id", ...operationsStaffMiddleware, requireTestPanelManagement, TestDetailCategoryController.softDelete);
+router.patch("/api/v1/test/fields/category/restore/:id", ...operationsStaffMiddleware, requireTestPanelManagement, TestDetailCategoryController.restore);
+router.delete("/api/v1/test/fields/category/:id", ...operationsStaffMiddleware, requireTestPanelManagement, TestDetailCategoryController.delete);
 
 
 

@@ -5,6 +5,13 @@ import {roleAllowed,normalizeRole} from '../../middleware/roles';
 export class DepartmentStockAccessError extends Error {readonly statusCode=403;}
 import {InventoryTransactionModel} from './InventoryTransaction';
 
+export function departmentForClinicalRole(role:unknown):'laboratory'|'imaging'|null{
+ const key=normalizeRole(role);
+ if(['scientist','labscientist','headoflaboratory'].includes(key))return 'laboratory';
+ if(['sonographer','headofimaging'].includes(key))return 'imaging';
+ return null;
+}
+
 export async function ensureDepartmentStockSchema(db:Knex){
  if(await db.schema.hasTable('inv_inventory_items')&&!await db.schema.hasColumn('inv_inventory_items','department_reserved_qty'))await db.schema.alterTable('inv_inventory_items',t=>{t.decimal('department_reserved_qty',16,4).notNullable().defaultTo(0);});
  if(!await db.schema.hasTable('inv_department_access'))await db.schema.createTable('inv_department_access',t=>{
@@ -35,8 +42,9 @@ export async function ensureDepartmentStockSchema(db:Knex){
  }
  if(!await db.schema.hasColumn('inv_department_requests','unit'))await db.schema.alterTable('inv_department_requests',t=>{t.string('unit',100);});
  if(!await db.schema.hasTable('inv_department_events'))await db.schema.createTable('inv_department_events',t=>{
-  t.string('id',60).primary();t.string('client_key',120).nullable().unique();t.string('request_id',60).notNullable();t.string('action',20);t.decimal('quantity',16,4);t.integer('performed_by');t.text('reason');t.timestamp('created_at').defaultTo(db.fn.now());
+  t.string('id',60).primary();t.string('client_key',120).nullable().unique();t.string('request_id',60).notNullable();t.string('action',20);t.decimal('quantity',16,4);t.integer('performed_by');t.text('reason');t.string('incident_id',50).nullable().index();t.timestamp('created_at').defaultTo(db.fn.now());
  });
+ if(!await db.schema.hasColumn('inv_department_events','incident_id'))await db.schema.alterTable('inv_department_events',t=>{t.string('incident_id',50).nullable().index();});
  if(!await db.schema.hasTable('inv_department_batches'))await db.schema.createTable('inv_department_batches',t=>{t.string('id',60).primary();t.string('client_key',80).notNullable().unique();t.string('payload_hash',64).notNullable();t.integer('requested_by').notNullable();t.integer('branchid').notNullable();t.string('department',20).notNullable();t.timestamp('created_at').defaultTo(db.fn.now());});
  if(!await db.schema.hasColumn('inv_department_requests','batch_id'))await db.schema.alterTable('inv_department_requests',t=>{t.string('batch_id',60).nullable().index();});
  // Match existing inventory IDs so joins work on tenants upgraded across MySQL versions.
@@ -57,9 +65,10 @@ export class DepartmentStock {
   if(!['laboratory','imaging'].includes(department))throw new Error('Choose laboratory or imaging');
   if(roleAllowed(actor.role,['admin']))return {can_request:true,can_receive:true,can_issue:true,can_consume:true};
   const role=normalizeRole(actor.role),head=role==='headoflaboratory'?'laboratory':role==='headofimaging'?'imaging':null;
-  if(head&&head!==department)throw new DepartmentStockAccessError('Your head role is limited to its own department');
+  const clinicalDepartment=departmentForClinicalRole(actor.role);
+  if(clinicalDepartment&&clinicalDepartment!==department)throw new DepartmentStockAccessError('Your role only has permission for its own department');
   const grant=await db('inv_department_access').where({employeeid:actor.employeeid,branchid:actor.branch,department}).forUpdate().first();
-  const caps={can_request:!!head||!!grant?.can_request,can_receive:!!head||!!grant?.can_receive,can_issue:role==='storekeeper'||!!grant?.can_issue,can_consume:!!head||!!grant?.can_consume};
+  const caps={can_request:!!head||!!clinicalDepartment&&!!grant?.can_request,can_receive:!!head||!!clinicalDepartment&&!!grant?.can_receive,can_issue:role==='storekeeper'||!!grant?.can_issue,can_consume:!!head||!!clinicalDepartment&&!!grant?.can_consume};
   if(!caps.can_request&&!caps.can_receive&&!caps.can_issue&&!caps.can_consume)throw new DepartmentStockAccessError('You do not have permission for this department action. Ask an administrator to grant access for your branch.');
   return caps;
  }
@@ -112,7 +121,7 @@ export class DepartmentStock {
    await this.access(actor,row.department,['approve','issue','reject','transit_loss','return_unreceived'].includes(action)?'issue':action==='receive'?'receive':'consume',trx);
    if(clientKey){const prior=await trx('inv_department_events').where({client_key:clientKey}).first();if(prior){if(prior.request_id!==id||prior.action!==action||prior.performed_by!==actor.employeeid||(['consume','wastage','return','approve','receive','loss','transit_loss','return_unreceived'].includes(action)&&quantity!=null&&Number(prior.quantity)!==Number(quantity))||prior.reason!==String(reason).slice(0,1000))throw new Error('Stock action retry differs from the original action');return {id,replayed:true};}}
    const item=await trx('inv_inventory_items').where({id:row.item_id,is_active:true}).forUpdate().first();if(!item)throw new Error('Inventory item unavailable');
-   const patch:any={};let amount=0;
+   const patch:any={};let amount=0,incidentId:string|null=null;
    if(action==='approve'||action==='reject'){
     if(row.status!=='requested')throw new Error('Only a requested item can be approved or rejected');
     if(row.requested_by===actor.employeeid&&!roleAllowed(actor.role,['admin']))throw new Error('Another authorized person must review your request');
@@ -133,6 +142,12 @@ export class DepartmentStock {
     if(amount<Number(row.unreceived_quantity)&&!String(reason).trim())throw new Error('Explain the receipt shortage');
     if(amount===0&&row.status==='received')throw new Error('Enter a positive received quantity');
     patch.status='received';patch.received_by=actor.employeeid;patch.received_quantity=Number(row.received_quantity||0)+amount;patch.remaining=Number(row.remaining||0)+amount;patch.unreceived_quantity=Number(row.unreceived_quantity)-amount;
+    if(amount<Number(row.unreceived_quantity)){
+     incidentId=`INC-${Date.now()}-${randomUUID().slice(0,8)}`;
+     const shortage=Number(row.unreceived_quantity)-amount,now=new Date(),title=`Stock receipt discrepancy: ${item.name||row.item_id}`;
+     await trx('incidents').insert({id:incidentId,type:'compliance',title,description:`Department stock request ${id} was issued with ${Number(row.unreceived_quantity)} ${row.unit} outstanding, but ${amount} ${row.unit} was physically received. Difference: ${shortage} ${row.unit}. Receiver's note: ${String(reason).trim()}`,severity:'medium',status:'reported',reported_by:actor.employeeid,reported_at:now,affected_parties:row.department,location:`Branch ${row.branchid} - ${row.department}`,immediate_actions:'Unreceived quantity remains in transit pending stores reconciliation.',regulatory_reporting:false,created_at:now,updated_at:now});
+     await trx('incident_audit_trail').insert({id:`AUDIT-${Date.now()}-${randomUUID().slice(0,8)}`,incident_id:incidentId,timestamp:now,action:'CREATE',employeeId:actor.employeeid,oldValue:null,newValue:JSON.stringify({source:'department-stock',requestId:id,issuedQuantity:Number(row.issued_quantity),receivedQuantity:amount,shortage}),details:`Incident created automatically from department stock receipt discrepancy for request ${id}`,created_at:now});
+    }
    }else if(action==='transit_loss'||action==='return_unreceived'){
     if(row.status!=='received')throw new Error('Record the department receipt before resolving a shortage');
     amount=Number(quantity);if(!Number.isSafeInteger(amount)||amount<=0||amount>Number(row.unreceived_quantity))throw new Error('Quantity exceeds the unreceived stock');
@@ -141,7 +156,7 @@ export class DepartmentStock {
    }else{
     if(row.status!=='received')throw new Error('Acknowledge receipt before using or returning stock');
     amount=Number(quantity);if(!Number.isSafeInteger(amount)||amount<=0||amount>Number(row.remaining))throw new Error('Quantity exceeds the remaining departmental stock');
-    if(!String(reason).trim())throw new Error('Enter the usage, wastage or return reason');
+    if(action!=='consume'&&!String(reason).trim())throw new Error('Enter the wastage, loss or return reason');
     patch.remaining=Math.round((Number(row.remaining)-amount)*10000)/10000;
    }
    if(action==='issue'||['consume','wastage','return','loss','transit_loss','return_unreceived'].includes(action)){
@@ -151,8 +166,8 @@ export class DepartmentStock {
    }
    await trx('inv_department_requests').where({id}).update(patch);
    if(['consume','wastage','loss','transit_loss'].includes(action))await new InventoryTransactionModel(this.tenantId).createBulk([{item_id:row.item_id,transaction_type:action==='consume'?'consumption':'wastage',quantity:amount,unit_type:'consumption',performed_by:actor.employeeid,reference_id:id,reason:action.includes('loss')?`Stock loss: ${reason}`:reason,notes:`Department: ${row.department}; action: ${action}`}],trx);
-   await trx('inv_department_events').insert({id:randomUUID(),client_key:clientKey||null,request_id:id,action,quantity:amount,performed_by:actor.employeeid,reason:String(reason).slice(0,1000)});
-   return {id,...patch};
+   await trx('inv_department_events').insert({id:randomUUID(),client_key:clientKey||null,request_id:id,action,quantity:amount,performed_by:actor.employeeid,reason:String(reason).slice(0,1000),incident_id:incidentId});
+   return {id,...patch,incident_id:incidentId};
   },{isolationLevel:'read committed'});
  }
 }
