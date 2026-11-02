@@ -4,6 +4,8 @@ import { ensurePharmacyOperationsSchema } from './PharmacyOperationsSchema';
 import { ensurePharmacyIntegritySchema } from './PharmacyIntegritySchema';
 import KnexConnection from '../../database/KnexConnections';
 import {ensurePharmacyEnterpriseSchema} from './PharmacyEnterpriseSchema';
+import { ensurePharmacyAccountingSchema } from './accounting/PharmacyAccountingSchema';
+import { ensurePharmacyTaxSchema } from './PharmacyTax';
 
 export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
@@ -111,5 +113,7 @@ export async function bootstrapPharmacyTables(tenantId = 1): Promise<void> {
      await ensurePharmacyOperationsSchema(connection);
      await ensurePharmacyEnterpriseSchema(connection);
      await ensurePharmacyCounterSchema(connection);
+     await ensurePharmacyAccountingSchema(connection);
+     await ensurePharmacyTaxSchema(connection);
      if(await connection.schema.hasTable('prescriptions')&&!await connection.schema.hasColumn('prescriptions','prescriber_type'))await connection.schema.alterTable('prescriptions',t=>t.string('prescriber_type',20).notNullable().defaultTo('legacy'));
 }

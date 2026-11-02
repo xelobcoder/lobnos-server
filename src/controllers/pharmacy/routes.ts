@@ -7,8 +7,11 @@ import { PharmacySaleController } from './PharmacySaleController';
 import { pharmacyAccess, pharmacyReversalAccess, pharmacySalesAccess, pharmacyStockAccess, pharmacyFinanceAccess, pharmacyShiftAccess, pharmacyCatalogueAccess } from './pharmacyAccess.middleware';
 import { pharmacyOperation as op } from './PharmacyManagementController';
 import { PharmacyOperationsController } from './PharmacyOperationsController';
-import { PharmacyAnalyticsController, pharmacyAnalyticsAccess } from './PharmacyAnalyticsController';
+import { PharmacyAnalyticsController, pharmacyAccountingAccess, pharmacyAnalyticsAccess } from './PharmacyAnalyticsController';
 import {enterprise,enterpriseSetup,pharmacyClinicalAccess} from './PharmacyEnterpriseController';
+import { pharmacyAccountingRouter } from './PharmacyAccountingController';
+import { pharmacyAccountingLedgerRouter } from './PharmacyAccountingLedgerController';
+import { pharmacyTaxRouter } from './PharmacyTaxController';
 
 const router = Router();
 
@@ -19,6 +22,9 @@ router.use(checkTokenExists);
 // remain restricted to pharmacy roles below.
 router.get('/catalogue', pharmacyCatalogueAccess, PharmacyCatalogueController.getCatalogue);
 router.use(pharmacyAccess);
+router.use('/accounting', pharmacyAccountingLedgerRouter);
+router.use('/accounting', pharmacyTaxRouter);
+router.use('/accounting', pharmacyAccountingRouter);
 router.get('/enterprise/setup', pharmacyStockAccess, enterpriseSetup);
 router.get('/enterprise/branches/:id/items',pharmacyReversalAccess,enterprise((s,r)=>s.management.branchItems(Number(r.params.id))));
 router.get('/enterprise/workflows', pharmacyStockAccess, enterprise((s,r)=>s.stock.list(String(r.query.kind||'stock_count'))));
@@ -68,6 +74,7 @@ router.get('/nhis/claims/:id',pharmacyFinanceAccess,enterprise((s,r)=>s.stock.de
 router.post('/nhis/claims',pharmacyFinanceAccess,enterprise((s,r)=>s.claims.create(r.body)));
 router.post('/nhis/claims/:id/action',pharmacyFinanceAccess,enterprise((s,r)=>s.claims.action(String(r.params.id),r.body)));
 router.get('/analytics', pharmacyAnalyticsAccess, PharmacyAnalyticsController.report);
+router.get('/accounting/reports', pharmacyAccountingAccess, PharmacyAnalyticsController.accountingReport);
 router.get('/counter/settings',counterReadAccess,counter(s=>s.settings()));
 router.post('/counter/settings',pharmacyReversalAccess,counter((s,r)=>s.saveSettings(r.body)));
 router.get('/counter/lookup/:code',counterReadAccess,counter((s,r)=>s.find(r.params.code)));

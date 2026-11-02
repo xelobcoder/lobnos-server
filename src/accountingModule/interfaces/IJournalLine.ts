@@ -11,5 +11,9 @@ export interface IJournalLine {
      expense_id?: number | null;
      invoice_id?: number | null;
      employeeid?: number | null;
+     party_type?: string;
+     party_ref?: string;
+     party_name?: string;
+     document_ref?: string;
      created_at?: Date;
 }

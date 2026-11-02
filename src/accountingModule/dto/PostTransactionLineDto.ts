@@ -9,4 +9,8 @@ export interface PostTransactionLineDto {
      expenseId?: number | null;
      invoiceId?: number | null;
      employeeid?: number | null;
+     partyType?: string;
+     partyRef?: string;
+     partyName?: string;
+     documentRef?: string;
 }

@@ -1,5 +1,6 @@
 import {applyPharmacyHistoryFilters} from '../PharmacyHistoryFilters';
-import { allocateBatches, quantity } from '../PharmacyRules';
+import { allocateBatches, quantity, money } from '../PharmacyRules';
+import Decimal from 'decimal.js';
 import { pharmacyAvailability } from '../PharmacyAvailability';
 import {assertNoStockCount,assertBatchNotRecalled} from '../PharmacyEnterpriseCore';
 import { collectPharmacyPayment, refundPharmacyPayment } from '../PharmacyPayments';
@@ -209,6 +210,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
 
      async collectPayment(sale: PharmacySaleRow, unitOfWork: PharmacyUnitOfWork): Promise<void> {
           await collectPharmacyPayment(this.scope(unitOfWork),this.tenantId,sale);
+          const tax = await this.scope(unitOfWork)('pharmacy_tax_events').where({ sale_id: sale.id, branchid: sale.branchid, event_type: 'sale' }).sum('tax_amount as amount').first();
+          sale.grossProfit = money(new Decimal(sale.grossProfit).minus(Number(tax?.amount || 0)));
      }
      async reversePayment(sale: PharmacySaleRow, actor: number, reason: string, disposition: string, unitOfWork: PharmacyUnitOfWork): Promise<void> {
           const db=this.scope(unitOfWork);

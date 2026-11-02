@@ -10,6 +10,7 @@ import { ReverseTransactionDto } from '../dto/ReverseTransactionDto';
 import { NormalBalance } from '../enums/normal-balance.enum';
 import { JournalStatus } from '../enums/journal-status.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
+import { SourceModule } from '../enums/source-module.enum';
 import {
      AccountNotFoundError,
      PeriodClosedError,
@@ -99,12 +100,13 @@ export class AccountingService implements IAccountingService {
                          expense_id: line.expenseId ?? null,
                          invoice_id: line.invoiceId ?? null,
                          employeeid: line.employeeid ?? null,
+                         ...(line.partyType ? { party_type: line.partyType, party_ref: line.partyRef, party_name: line.partyName, document_ref: line.documentRef } : {}),
                     })),
                     trx
                );
 
                // dual-write into the legacy single-entry ledger so existing finance_ledger consumers keep working
-               for (const { line } of resolvedLines) {
+               for (const [index, { line }] of resolvedLines.entries()) {
                     await FinanceLedgerService.recordEntry({
                          tenantId: input.tenantId,
                          trx,
@@ -115,7 +117,7 @@ export class AccountingService implements IAccountingService {
                          sourceModule: input.sourceModule,
                          sourceTable: input.sourceTable,
                          sourcePk: input.sourcePk,
-                         sourceRef: input.sourceRef || '',
+                         sourceRef: input.sourceModule === SourceModule.PHARMACY ? `${input.sourceRef}:line:${index}` : input.sourceRef || '',
                          billingid: line.billingid ?? null,
                          expenseId: line.expenseId ?? null,
                          invoiceId: line.invoiceId ?? null,
@@ -143,6 +145,7 @@ export class AccountingService implements IAccountingService {
           if (!original) {
                throw new JournalEntryNotFoundError(input.journalEntryId);
           }
+          if (original.source_module === SourceModule.PHARMACY) throw new AccountingError('Reverse the original pharmacy source document through Pharmacy Accounting so both ledgers and allocations remain consistent', 'PHARMACY_SOURCE_REVERSAL_REQUIRED', 409);
 
           if (original.transaction_type === TransactionType.REVERSAL) throw new AccountingError('Create a correcting journal instead of reversing a reversal', 'INVALID_REVERSAL', 409);
           const originalLines = await this.repository.findLinesByJournalEntryId(original.id, input.trx);
@@ -158,6 +161,10 @@ export class AccountingService implements IAccountingService {
                expenseId: line.expense_id,
                invoiceId: line.invoice_id,
                employeeid: line.employeeid,
+               partyType: line.party_type,
+               partyRef: line.party_ref,
+               partyName: line.party_name,
+               documentRef: line.document_ref,
           }));
 
           const reversal = await this.postTransaction({

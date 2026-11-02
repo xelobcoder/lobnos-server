@@ -12,6 +12,15 @@ function fixture() {
 }
 const receipt = (key = 'receipt-key-123') => ({ idempotencyKey: key, quantity: 5, unit_price: 2, supplier_id: 'supplier', batch_number: 'BATCH', expiry_date: '2099-12-31' });
 describe('pharmacy procurement and migration', () => {
+     it('does not allow legacy direct journal or expense posting to bypass enabled accounting approvals', async () => {
+          const f = fixture();
+          await f.db.transaction(async (trx: any) => { await trx('pharmacy_accounting_settings').insert({ branchid: 2, enabled: true }); });
+          await expect(f.service.manualJournal({ idempotencyKey: 'journal-bypass-123', confirmed: true, description: 'Unapproved correction', lines: [{ account: 'inventory', debit: 10 }, { account: 'opening_equity', credit: 10 }] })).rejects.toThrow('draft, approval and posting workflow');
+          await expect(f.service.disburse('expense', { idempotencyKey: 'expense-bypass-123', description: 'Unapproved expense', amount: 10, method: 'cash' })).rejects.toThrow('Create and approve');
+          await expect(f.service.disburse('supplier_payment', { idempotencyKey: 'supplier-bypass-123', description: 'Unapproved settlement', supplierId: 'supplier', amount: 10, method: 'cash' })).rejects.toThrow('bill-allocated supplier settlement');
+          expect(f.rows('pharmacy_documents')).toHaveLength(0);
+          expect(f.rows('pharmacy_journals')).toHaveLength(0);
+     });
      it('generates and preserves a batch on receipt retries', async () => {
           const f = fixture(); const input = {...receipt(), batch_number: '   '};
           const first = await f.service.receive('drug', input);

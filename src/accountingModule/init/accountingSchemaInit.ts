@@ -2,6 +2,7 @@ import { ensureAccountingPlanningSchema } from './AccountingPlanningSchema';
 import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
 import { ensureIndexes } from '../../database/ensureIndexes';
+import { ensurePharmacyAttributionColumns, ensurePharmacySourceModule } from './pharmacyAttributionSchema';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      if (ensuredAccountingTenants.has(tenantId)) return;
@@ -86,7 +87,7 @@ async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> 
           await knex.schema.createTable('acc_journal_entries', (table) => {
                table.increments('id').primary().unsigned();
                table.enum('transaction_type', ['payment', 'refund', 'adjustment', 'accrual', 'reversal']).notNullable();
-               table.enum('source_module', ['billing', 'expense', 'inventory', 'commission', 'supplier', 'payroll']).notNullable();
+               table.enum('source_module', ['billing', 'expense', 'inventory', 'commission', 'supplier', 'payroll', 'manual', 'pharmacy']).notNullable();
                table.string('source_table', 60).notNullable();
                table.integer('source_pk').unsigned().notNullable();
                table.string('description', 255).nullable();
@@ -116,6 +117,7 @@ async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> 
                table.index('account_id', 'idx_acc_journal_lines_account');
           });
      }
+     await ensurePharmacyAttributionColumns(knex);
 
      // outbox: producer modules enqueue here inside their own DB transaction; posting to the
      // ledger itself happens out-of-band so a ledger failure never blocks/rolls back the producer
@@ -445,13 +447,7 @@ async function ensureManualJournalTables(tenantId: number): Promise<void> {
           });
      }
 
-     // the source_module enum predates manual journals
-     try {
-          await knex.raw(
-               "ALTER TABLE acc_journal_entries MODIFY COLUMN source_module ENUM('billing','expense','inventory','commission','supplier','payroll','manual') NOT NULL"
-          );
-     } catch {
-     }
+     await ensurePharmacySourceModule(knex);
 }
 
 async function ensurePeriodTable(tenantId: number): Promise<void> {

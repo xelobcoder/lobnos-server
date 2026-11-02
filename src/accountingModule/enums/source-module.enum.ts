@@ -6,4 +6,5 @@ export enum SourceModule {
      SUPPLIER = 'supplier',
      PAYROLL = 'payroll',
      MANUAL = 'manual',
+     PHARMACY = 'pharmacy',
 }

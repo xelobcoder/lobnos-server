@@ -106,6 +106,7 @@ export class AccountingRepository implements IAccountingRepository {
                expense_id: line.expense_id ?? null,
                invoice_id: line.invoice_id ?? null,
                employeeid: line.employeeid ?? null,
+               ...(line.party_type ? { party_type: line.party_type, party_ref: line.party_ref, party_name: line.party_name, document_ref: line.document_ref } : {}),
                created_at: new Date(),
           }));
 

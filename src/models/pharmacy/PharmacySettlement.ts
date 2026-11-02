@@ -1,7 +1,7 @@
 import {randomUUID} from 'crypto';
 import {money} from './PharmacyRules';
 import {PharmacyEnterpriseCore,requiredText,requireManager,json} from './PharmacyEnterpriseCore';
-import {assertPharmacyDayOpen,postPharmacyJournal,resolvePharmacyDestination} from './PharmacyLedger';
+import {assertPharmacyDayOpen,assertPharmacySaleRefundable,postPharmacyJournal,resolvePharmacyDestination} from './PharmacyLedger';
 export function pharmacySettlement(total:number,input:any){
      const tenders=input.paymentMethod==='credit'?[]:input.tenders;
      if(!Array.isArray(tenders)||tenders.length>3||new Set(tenders.map((leg:any)=>leg.method)).size!==tenders.length)throw new Error('Enter up to three different payment methods');
@@ -21,6 +21,7 @@ export async function collectCompositeSale(db:any,sale:any){
      sale.shiftId=shift.id;sale.paymentAccountId=firstAccount;await db('pharmacy_sales').where({id:sale.id}).update({shift_id:shift.id,payment_account_id:firstAccount,paid_amount:settlement.paidAmount,outstanding_amount:settlement.outstandingAmount});await db('pharmacy_payments').insert({sale_id:sale.id,payment_account_id:firstAccount,branchid:sale.branchid,amount:settlement.paidAmount,method:sale.paymentMethod,reference:null,status:settlement.outstandingAmount>0?'partially_collected':'collected',recorded_by:sale.cashierId,collected_at:new Date()});
 }
 export async function refundCompositeSale(db:any,sale:any,actor:number,reason:string,restock:boolean){
+     await assertPharmacySaleRefundable(db,sale.branchid,sale.id);
      const shift=await currentShift(db,sale.branchid,actor);if(sale.customerAccountId)await db('pharmacy_customer_accounts').where({id:sale.customerAccountId,branchid:sale.branchid}).forUpdate().first();
      const events=await db('pharmacy_cash_events').where({sale_id:sale.id,event_type:'collection'}).forUpdate(),lines:any[]=[{account:'sales',debit:sale.totalAmount}];
      for(const event of events){const account=await db('pharmacy_collection_accounts').where({id:event.account_id,branchid:sale.branchid,is_active:true}).first();if(!account)throw new Error('An original refund destination is unavailable');if(await db('pharmacy_cash_events').where({reversal_of:event.id}).first())throw new Error('This collection has already been refunded');await db('pharmacy_cash_events').insert({id:randomUUID(),sale_id:sale.id,branchid:sale.branchid,shift_id:shift.id,actor_id:actor,account_id:account.id,method:event.method,event_type:'refund',amount:event.amount,received:event.amount,change_amount:0,reference:reason.slice(0,128),reversal_of:event.id,occurred_at:new Date()});lines.push({account:'collection:'+account.id,credit:Number(event.amount)});}

@@ -36,6 +36,26 @@ const INVENTORY_ACCOUNT = 'acc-1003';
 const INVESTING_CODES = ['acc-1006', 'acc-1007'];
 const FINANCING_CODES = ['acc-2001', 'acc-3000', 'acc-3001'];
 
+interface ControlEvent {
+     id: number;
+     reference: string;
+     partyId: string | number | null;
+     partyType: string;
+     partyName: string | null;
+     patientIdentifier: string | null;
+     documentDate: string;
+     amount: number;
+     source_table: string;
+     source_ref: string;
+     branchId: number;
+}
+
+interface PharmacySupplierUse {
+     source_id: string; bill_id: string; branchid: number; amount: string | number;
+     journal_id: string; supplier_id: string; source_branch: number; source_amount: string | number;
+     bill_branch: number; bill_supplier: string; bill_ref: string; bill_date: string | Date;
+}
+
 export class AccountingReportService implements IAccountingReportService {
      constructor(private tenantId: number, private trx?: any) { }
 
@@ -289,22 +309,71 @@ export class AccountingReportService implements IAccountingReportService {
           const supplierPaymentRefs = movements.filter((row: any) => row.source_table === 'inv_supplier_payments').map((row: any) => row.source_ref || String(row.source_pk));
           const supplierPayments = supplierPaymentRefs.length ? await db('inv_supplier_payments').whereIn('id', supplierPaymentRefs).select('id', 'supplier_id') : [];
           const supplierBySource = new Map([...receipts.map((row: any) => [`inv_purchase_order_receipts:${row.id}`, row.supplier_id]), ...supplierPayments.map((row: any) => [`inv_supplier_payments:${row.id}`, row.supplier_id])]);
-          const events: any[] = [];
+          const events: ControlEvent[] = [];
           for (const movement of movements) {
                const ref = movement.source_ref || String(movement.source_pk);
                const meta: any = sources.get(`${movement.source_table}:${ref}`);
                const expense: any = expenseById.get(Number(movement.expense_id));
-               const partyId = ledger === 'AR' ? patients.get(Number(movement.billingid)) ?? meta?.party_id ?? null : supplierBySource.get(`${movement.source_table}:${ref}`) ?? meta?.party_id ?? expense?.merchantid ?? expense?.merchant ?? null;
-               const partyType = ledger === 'AR' ? 'patient' : supplierBySource.has(`${movement.source_table}:${ref}`) ? 'supplier' : meta?.party_type || (expense ? 'merchant' : 'unassigned');
+               const partyId = movement.party_ref ?? (ledger === 'AR' ? patients.get(Number(movement.billingid)) ?? meta?.party_id ?? null : supplierBySource.get(`${movement.source_table}:${ref}`) ?? meta?.party_id ?? expense?.merchantid ?? expense?.merchant ?? null);
+               const partyType = movement.party_type || (ledger === 'AR' ? 'patient' : supplierBySource.has(`${movement.source_table}:${ref}`) ? 'supplier' : meta?.party_type || (expense ? 'merchant' : 'unassigned'));
                const patient: any = patientById.get(Number(partyId));
-               const partyName = ledger === 'AR' ? [patient?.firstname, patient?.middlename, patient?.lastname].filter(Boolean).join(' ') : meta?.party_name || null;
-               const reference = movement.billingid ? `BILL-${movement.billingid}` : movement.expense_id ? `EXP-${movement.expense_id}` : meta?.document_ref || `${movement.source_table}:${ref}`;
+               const partyName = movement.party_name || (ledger === 'AR' ? [patient?.firstname, patient?.middlename, patient?.lastname].filter(Boolean).join(' ') : meta?.party_name || null);
+               const reference = movement.document_ref || (movement.billingid ? `BILL-${movement.billingid}` : movement.expense_id ? `EXP-${movement.expense_id}` : meta?.document_ref || `${movement.source_table}:${ref}`);
                events.push({ id: movement.id, reference, partyId, partyType, partyName, patientIdentifier: patient?.fullpatientid || null,
                     documentDate: new Date(movement.occurred_at).toISOString().slice(0,10),
                     amount: minorUnits(movement.amount) * (movement.direction === (ledger === 'AR' ? 'debit' : 'credit') ? 1 : -1),
-                    source_table: movement.source_table, source_ref: ref });
+                    source_table: movement.source_table, source_ref: ref, branchId: Number(movement.branchid) });
           }
           return events;
+     }
+
+     private async pharmacyPayableAttribution(movements: ControlEvent[], cutoff: string, branchId?: number): Promise<ControlEvent[]> {
+          if (!movements.some(row => row.partyType === 'pharmacy_supplier' && row.source_table === 'pharmacy_journals')) return movements;
+          const db = await this.connection();
+          const tables = await Promise.all(['pharmacy_accounting_supplier_sources', 'pharmacy_accounting_supplier_uses'].map(table => db.schema.hasTable(table)));
+          if (tables.every(exists => !exists)) return movements;
+          if (!tables.every(Boolean) || !await db.schema.hasTable('pharmacy_accounting_bills')) {
+               throw new AccountingError('Pharmacy supplier allocation schema is incomplete', 'PHARMACY_ALLOCATION_SCHEMA_INCOMPLETE', 409);
+          }
+          const uses: PharmacySupplierUse[] = await db('pharmacy_accounting_supplier_uses as u')
+               .join('pharmacy_accounting_supplier_sources as s', 's.id', 'u.source_id')
+               .join('pharmacy_accounting_bills as b', 'b.id', 'u.bill_id')
+               .where('u.financial_date', '<=', cutoff)
+               .modify((query: any) => { if (branchId) query.where('u.branchid', branchId); })
+               .select('u.source_id', 'u.bill_id', 'u.branchid', 'u.amount', 's.journal_id', 's.supplier_id',
+                    's.branchid as source_branch', 's.amount as source_amount', 'b.branchid as bill_branch',
+                    'b.supplier_id as bill_supplier', 'b.source_ref as bill_ref', 'b.document_date as bill_date');
+          const projected = movements.map(row => ({ ...row }));
+          const sources = new Map<string, ControlEvent[]>();
+          for (const row of projected.filter(row => row.partyType === 'pharmacy_supplier' && row.source_table === 'pharmacy_journals')) {
+               const key = `${row.branchId}:${row.source_ref}:${row.partyId}`;
+               sources.set(key, [...(sources.get(key) || []), row]);
+          }
+          const groups = new Map<string, { source: ControlEvent; reference: string; date: string; amount: number }>();
+          for (const use of uses) {
+               const matches = sources.get(`${use.source_branch}:${use.journal_id}:${use.supplier_id}`);
+               if (!matches) continue; // Independently posted local sources are not consolidated GL evidence.
+               if (matches.length !== 1 || Number(use.branchid) !== Number(use.source_branch) ||
+                    Number(use.branchid) !== Number(use.bill_branch) || use.supplier_id !== use.bill_supplier ||
+                    matches[0].amount !== -minorUnits(use.source_amount) || !use.bill_ref ||
+                    new Date(use.bill_date).toISOString().slice(0, 10) > cutoff) {
+                    throw new AccountingError('Supplier allocation does not match shared payable evidence', 'PHARMACY_ALLOCATION_INCONSISTENT', 409);
+               }
+               const key = `${use.source_id}:${use.bill_id}`, previous = groups.get(key);
+               groups.set(key, { source: matches[0], reference: use.bill_ref, date: new Date(use.bill_date).toISOString().slice(0, 10), amount: (previous?.amount || 0) + minorUnits(use.amount) });
+          }
+          const allocated = new Map<ControlEvent, number>();
+          for (const group of groups.values()) {
+               if (group.amount < 0) throw new AccountingError('Supplier release exceeds its reviewed allocation', 'PHARMACY_ALLOCATION_INCONSISTENT', 409);
+               if (!group.amount) continue;
+               allocated.set(group.source, (allocated.get(group.source) || 0) + group.amount);
+               projected.push({ ...group.source, reference: group.reference, documentDate: group.date, amount: -group.amount });
+          }
+          for (const [source, applied] of allocated) {
+               if (applied > -source.amount) throw new AccountingError('Supplier allocations exceed the posted source', 'PHARMACY_ALLOCATION_INCONSISTENT', 409);
+               source.amount += applied;
+          }
+          return projected.filter(row => row.amount !== 0);
      }
 
      /** Posted movements are authoritative, so historical aging always ties to its GL control. */
@@ -312,8 +381,9 @@ export class AccountingReportService implements IAccountingReportService {
           if (!this.trx) { const db = await this.connection(); return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).controlAccountAging(ledger, asOf, branchId), { isolationLevel: 'repeatable read' }); }
           const cutoff = asOf || new Date().toISOString().slice(0, 10);
           const movements = await this.controlEvents(ledger, cutoff, branchId);
+          const attributed = ledger === 'AP' ? await this.pharmacyPayableAttribution(movements, cutoff, branchId) : movements;
           const documents = new Map<string, any>();
-          for (const movement of movements) {
+          for (const movement of attributed) {
                const { reference, partyId, partyType, partyName } = movement;
                const key = `${partyType}:${partyId ?? 'unassigned'}:${reference}`;
                const previous = documents.get(key);
@@ -324,6 +394,13 @@ export class AccountingReportService implements IAccountingReportService {
           for (const doc of documents.values()) { if (!groups.has(doc.key)) groups.set(doc.key, []); groups.get(doc.key)!.push(doc); }
           const items: Array<any> = [];
           for (const docs of groups.values()) {
+               if (docs[0].partyType === 'pharmacy_supplier') {
+                    for (const doc of docs) {
+                         if (doc.amount) items.push({ ...doc, reference: doc.amount < 0 ? `Unapplied credit: ${doc.reference}` : doc.reference,
+                              amount: doc.amount / 100, age: doc.amount < 0 ? 0 : daysBetween(doc.date, cutoff) });
+                    }
+                    continue;
+               }
                const charges = docs.filter(doc => doc.amount > 0).sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
                let credit = -docs.filter(doc => doc.amount < 0).reduce((sum, doc) => sum + doc.amount, 0);
                for (const doc of charges) {
