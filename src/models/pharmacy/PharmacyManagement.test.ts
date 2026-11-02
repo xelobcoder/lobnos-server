@@ -12,6 +12,13 @@ function fixture() {
 }
 const receipt = (key = 'receipt-key-123') => ({ idempotencyKey: key, quantity: 5, unit_price: 2, supplier_id: 'supplier', batch_number: 'BATCH', expiry_date: '2099-12-31' });
 describe('pharmacy procurement and migration', () => {
+     it('requires pricing authority and records legacy receipt price changes', async () => {
+          const f = fixture(), input = { ...receipt(), change_pricing: true, new_sale_price: 10, new_wholesale_price: 8 };
+          await expect(f.service.receive('drug', input)).rejects.toThrow('manager authority');
+          await new PharmacyManagement(f.db, 2, 3, 'admin').receive('drug', input);
+          expect(f.rows('pharmacy_inventory_items')[0].sale_price).toBe(10);
+          expect(f.rows('pharmacy_item_profile_audit')).toHaveLength(1);
+     });
      it('does not allow legacy direct journal or expense posting to bypass enabled accounting approvals', async () => {
           const f = fixture();
           await f.db.transaction(async (trx: any) => { await trx('pharmacy_accounting_settings').insert({ branchid: 2, enabled: true }); });

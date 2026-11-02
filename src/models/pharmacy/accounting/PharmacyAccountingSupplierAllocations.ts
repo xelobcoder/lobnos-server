@@ -167,8 +167,8 @@ export class PharmacyAccountingSupplierAllocations extends PharmacyAccountingCor
                if (date < accountingDate(bill.document_date)) fail('Allocation cannot predate bill recognition', 'BACKDATED_ALLOCATION', 409);
                // Revalidate the immutable original liability rather than trusting a client or stale bill.
                let sourceAmount: any;
-               if (bill.source_kind === 'receipt') {
-                    const receipt = await trx('pharmacy_documents').where({ id: bill.source_ref, branchid: this.context.branch, supplier_id: source.supplier_id, kind: 'receipt' }).forUpdate().first();
+               if (['receipt', 'supplier_invoice'].includes(bill.source_kind)) {
+                    const receipt = await trx('pharmacy_documents').where({ id: bill.source_ref, branchid: this.context.branch, supplier_id: source.supplier_id, kind: bill.source_kind }).forUpdate().first();
                     sourceAmount = receipt?.amount;
                } else if (bill.source_kind === 'expense') {
                     const expense = await this.document(trx, bill.source_ref, 'expense');

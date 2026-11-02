@@ -348,6 +348,10 @@ export class PharmacyManagement {
           });
      }
      async receive(itemId: string, input: any) {
+          if (input.change_pricing !== undefined && typeof input.change_pricing !== "boolean")
+               throw new Error("Choose whether selling prices should change");
+          if (input.change_pricing && !roleAllowed(this.actorRole, ["admin", "pharmacy_manager"]))
+               throw new Error("Pharmacy manager authority is required to change selling prices");
           const count = input.quantity;
           if (typeof count !== "number" || !Number.isFinite(count) || count <= 0 || quantity(count) !== count)
                throw new Error("Enter a positive quantity with at most three decimal places");
@@ -457,6 +461,13 @@ export class PharmacyManagement {
                          updated_at: new Date(),
                          ...prices,
                     });
+               if (input.change_pricing) await trx("pharmacy_item_profile_audit").insert({
+                    item_id: itemId,
+                    previous_values: JSON.stringify({ sale_price: item.sale_price, wholesale_price: item.wholesale_price }),
+                    new_values: JSON.stringify(prices),
+                    changed_by: this.actor,
+                    changed_at: new Date(),
+               });
                await trx("pharmacy_stock_movements").insert({
                     id,
                     item_id: itemId,

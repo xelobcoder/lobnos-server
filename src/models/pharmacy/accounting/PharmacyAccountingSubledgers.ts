@@ -52,7 +52,7 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
           for (const line of [...allocations].sort((a, b) => String(a.billId).localeCompare(String(b.billId)))) {
                const bill = await trx('pharmacy_accounting_bills').where({ id: line.billId, branchid: this.context.branch }).forUpdate().first();
                if (!bill) fail('Bill not found in this branch', 'NOT_FOUND', 404);
-               if (bill.source_kind !== 'receipt') fail('Expense bills must use the approved expense payment workflow', 'EXPENSE_PAYMENT_REQUIRED', 409);
+               if (!['receipt', 'supplier_invoice'].includes(bill.source_kind)) fail('Expense bills must use the approved expense payment workflow', 'EXPENSE_PAYMENT_REQUIRED', 409);
                if (date < accountingDate(bill.document_date)) fail('Settlement cannot predate bill recognition');
                const value = amount(line.amount), used = await trx('pharmacy_accounting_allocations').where({ branchid: this.context.branch, bill_id: bill.id }).sum('amount as amount').first();
                const latest = await trx('pharmacy_accounting_allocations').where({ branchid: this.context.branch, bill_id: bill.id }).orderBy('financial_date', 'desc').first();

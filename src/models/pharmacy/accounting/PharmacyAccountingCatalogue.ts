@@ -7,13 +7,15 @@ export const MAPPING_TYPES: Record<string, string> = {
      opening_equity: 'equity', payable: 'liability', receivable: 'asset', cash: 'asset', bank: 'asset',
      mobile_money: 'asset', inventory_adjustments: 'expense', quarantine_inventory: 'asset',
      stock_in_transit: 'asset', inventory_in_transit: 'asset', supplier_returns_pending: 'asset',
-     interbranch_receivable: 'asset', interbranch_payable: 'liability',
+     interbranch_receivable: 'asset', interbranch_payable: 'liability', 'liability:grni': 'liability',
 };
 export const accountFields = ['id', 'account_code', 'name', 'type', 'normal_balance', 'parent_account_id', 'is_active'];
 export const CANONICAL_CONTROLS: Record<string, string> = { receivable: 'acc-1002', payable: 'acc-2000', supplier_payable: 'acc-2000', inventory: 'acc-1003', cost_of_sales: 'acc-5000', cash: 'acc-1000', bank: 'acc-1001', mobile_money: 'acc-1001' };
 /** Shared specialized reports currently depend on these controls; never silently misclassify them. */
 export async function assertCanonicalControls(db: Knex | Knex.Transaction, branch: number, mappings: Record<string, string>): Promise<void> {
      for (const [local, code] of Object.entries(mappings)) {
+          if (local === 'liability:grni' && (code === CANONICAL_CONTROLS.payable || code === mappings.payable || code === mappings.supplier_payable))
+               fail('Goods received not invoiced requires its own liability control account, separate from supplier payables', 'GRNI_CONTROL_REQUIRED', 422);
           let category = local.startsWith('receivable:') ? 'receivable' : local.startsWith('payable:') ? 'payable' : local;
           if (local.startsWith('collection:')) {
                const collection = await db('pharmacy_collection_accounts').where({ id: positiveId(local.slice(11)), branchid: branch }).forUpdate().first();

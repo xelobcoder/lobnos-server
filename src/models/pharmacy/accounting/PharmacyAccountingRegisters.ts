@@ -42,18 +42,20 @@ export class PharmacyAccountingRegisters extends PharmacyAccountingCore {
                return { supplier_id: s.id, name: s.name, is_active: Boolean(s.is_active), outstanding_amount: new Decimal(b?.credit || 0).minus(b?.debit || 0).toFixed(2), due_date: null };
           });
           const [receipts, expenses, bills, allocations] = await Promise.all([
-               this.db('pharmacy_documents').where({ branchid: this.context.branch, kind: 'receipt' }).orderBy('created_at', 'desc').limit(page.limit).offset(page.offset),
+               this.db('pharmacy_documents').where({ branchid: this.context.branch }).whereIn('kind', ['receipt', 'supplier_invoice']).orderBy('created_at', 'desc').limit(page.limit).offset(page.offset),
                this.db('pharmacy_accounting_documents').where({ branchid: this.context.branch, kind: 'expense' }).whereIn('status', ['approved', 'partially_paid']).orderBy('created_at', 'desc').limit(page.limit),
                this.db('pharmacy_accounting_bills').where({ branchid: this.context.branch }),
                this.db('pharmacy_accounting_allocations').where({ branchid: this.context.branch }),
           ]);
           return { items: all.slice(page.offset, page.offset + page.limit), ...page, totals: { count: all.length, outstanding: sum(all, 'outstanding_amount') },
                receipts: receipts.map(r => {
-                    const bill = bills.find(b => b.source_kind === 'receipt' && b.source_ref === r.id);
-                    return { ...r, details: json(r.details), bill_id: bill?.id || null, allocation_status: bill ? 'registered' : 'unregistered', outstanding_amount: bill ? new Decimal(bill.amount).minus(allocations.filter(a => a.bill_id === bill.id).reduce((s, a) => s.plus(a.amount), new Decimal(0))).toFixed(2) : null, due_date: bill?.due_date || null };
+                    const bill = bills.find(b => b.source_kind === r.kind && b.source_ref === r.id);
+                    return { ...r, details: json(r.details), bill_id: bill?.id || null, source_kind: r.kind, source_ref: r.id,
+                         ...(r.kind === 'supplier_invoice' ? { invoice_id: r.id, invoice_reference: bill?.reference || json(r.details).reference, invoice_date: bill?.document_date || json(r.details).invoiceDate } : {}),
+                         allocation_status: bill ? 'registered' : 'unregistered', outstanding_amount: bill ? new Decimal(bill.amount).minus(allocations.filter(a => a.bill_id === bill.id).reduce((s, a) => s.plus(a.amount), new Decimal(0))).toFixed(2) : null, due_date: bill?.due_date || null };
                }),
                unpaidExpenses: expenses.map(r => ({ ...r, details: json(r.details) })),
-               capabilities: { supplierBalances: true, partialSupplierPayments: true, receiptLevelPaymentAllocations: true, receiptDueDates: true, legacyUnallocatedPaymentsRequireReview: true },
+               capabilities: { supplierBalances: true, partialSupplierPayments: true, receiptLevelPaymentAllocations: true, supplierInvoiceAllocations: true, receiptDueDates: true, legacyUnallocatedPaymentsRequireReview: true },
                note: 'Registered bills support approved partial allocations. Existing aggregate supplier payments/credits are not silently assigned to receipts; consult aging reconciliation for unallocated differences.' };
      }
      async statement(id: string, party: 'supplier' | 'customer', query: any = {}): Promise<any> {

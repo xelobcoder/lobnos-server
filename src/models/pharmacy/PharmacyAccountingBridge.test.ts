@@ -214,6 +214,23 @@ describe('pharmacy shared GL posting', () => {
           expect(await fixture.db('acc_journal_entries')).toHaveLength(1);
           expect(await fixture.db('pharmacy_accounting_posting_links')).toHaveLength(1);
      });
+     it('bridges accepted goods through a mapped GRNI liability and recognizes supplier AP only on invoice', async () => {
+          await fixture.db('acc_accounts').insert({ account_code: 'grni', name: 'Goods received not invoiced', type: 'liability', normal_balance: 'credit', is_active: 1 });
+          await enable({ mappings: JSON.stringify({ ...mappings, 'liability:grni': 'grni' }) });
+          await fixture.db.transaction(trx => postPharmacyJournal(trx, 2, 'acceptance-grni', 'goods_acceptance', 'Accepted delivery evidence', 3,
+               [{ account: 'inventory', debit: 100 }, { account: 'liability:grni', credit: 100 }], '2026-10-02'));
+          expect(await fixture.db('acc_subledger_entries').where({ ledger: 'AP' })).toHaveLength(0);
+          await fixture.db.transaction(trx => postPharmacyJournal(trx, 2, 'vendor-invoice', 'supplier_invoice', 'Matched supplier invoice', 3,
+               [{ account: 'liability:grni', debit: 40 }, { account: 'payable:vendor', credit: 40, documentRef: 'vendor-invoice' }], '2026-10-02'));
+          const ap = await fixture.db('acc_subledger_entries').where({ ledger: 'AP' });
+          expect(ap).toHaveLength(1);
+          expect(ap[0]).toMatchObject({ amount: 40, document_ref: 'vendor-invoice', party_type: 'pharmacy_supplier' });
+          const party = await fixture.db('acc_journal_lines').where({ party_ref: 'vendor' }).first();
+          expect(party).toMatchObject({ document_ref: 'vendor-invoice', amount: 40, direction: 'credit' });
+          const grni = await fixture.db('pharmacy_journal_lines').where({ account_code: 'liability:grni' }).sum('debit as debit').sum('credit as credit').first();
+          expect(grni).toMatchObject({ debit: 40, credit: 100 });
+          expect(await pharmacyConsolidationReconciliation(fixture.db, 2, { to: '2026-10-02' })).toMatchObject({ balanced: true, journalCount: 2 });
+     });
      it('recognizes credit AR, a partial receipt, stock AP and partial supplier settlement separately', async () => {
           await enable();
           await post('credit-sale', [{ account: 'receivable:7', debit: 100 }, { account: 'sales', credit: 100 }]);

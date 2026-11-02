@@ -8,6 +8,9 @@ describe('pharmacy financial statements',()=>{
  expect(pharmacyCashFlowSection(['collection:1','opening_equity'])).toBe('Financing activities');
  expect(pharmacyCashFlowSection(['collection:1','asset:equipment','opening_equity'])).toBe('Classification required');
  expect(pharmacyCashFlowSection(['collection:1','unknown'])).toBe('Classification required');
+ expect(pharmacyCashFlowSection(['collection:1','liability:grni'])).toBe('Operating activities');
+ expect(pharmacyCashFlowSection(['collection:1','liability:loan'])).toBe('Classification required');
+ expect(accountGroup('liability:grni')).toBe('Liabilities');
  });
  it('shows net debit and credit balances rather than lifetime movements in the trial balance',()=>{
  const rows=statementRows([balance('collection:1',100,40),balance('sales',0,100),balance('operating_expenses',40,0)],'trial_balance');

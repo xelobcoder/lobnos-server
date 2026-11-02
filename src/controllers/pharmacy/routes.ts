@@ -12,6 +12,7 @@ import {enterprise,enterpriseSetup,pharmacyClinicalAccess} from './PharmacyEnter
 import { pharmacyAccountingRouter } from './PharmacyAccountingController';
 import { pharmacyAccountingLedgerRouter } from './PharmacyAccountingLedgerController';
 import { pharmacyTaxRouter } from './PharmacyTaxController';
+import { pharmacyReceivingRouter } from './PharmacyReceivingController';
 
 const router = Router();
 
@@ -22,6 +23,7 @@ router.use(checkTokenExists);
 // remain restricted to pharmacy roles below.
 router.get('/catalogue', pharmacyCatalogueAccess, PharmacyCatalogueController.getCatalogue);
 router.use(pharmacyAccess);
+router.use('/receiving', pharmacyReceivingRouter);
 router.use('/accounting', pharmacyAccountingLedgerRouter);
 router.use('/accounting', pharmacyTaxRouter);
 router.use('/accounting', pharmacyAccountingRouter);
@@ -50,6 +52,7 @@ router.post('/enterprise/invoice-match',pharmacyReversalAccess,enterprise((s,r)=
 router.post('/enterprise/purchase-requests',pharmacyStockAccess,enterprise((s,r)=>s.procurement.request(r.body)));
 router.post('/enterprise/purchase-requests/:id/quote',pharmacyStockAccess,enterprise((s,r)=>s.procurement.quote(String(r.params.id),r.body)));
 router.post('/enterprise/purchase-requests/:id/decision',pharmacyReversalAccess,enterprise((s,r)=>s.procurement.decide(String(r.params.id),r.body)));
+router.post('/enterprise/purchase-requests/:id/convert',pharmacyReversalAccess,enterprise((s,r)=>s.procurement.convert(String(r.params.id),r.body)));
 router.post('/enterprise/temperature',pharmacyStockAccess,enterprise((s,r)=>s.management.coldReading(r.body)));
 router.post('/enterprise/temperature/:id/resolve',pharmacyReversalAccess,enterprise((s,r)=>s.management.resolveCold(String(r.params.id),r.body)));
 router.get('/clinical/queue',pharmacyClinicalAccess,enterprise(s=>s.clinical.queue()));

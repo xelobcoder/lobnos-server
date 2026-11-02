@@ -25,7 +25,7 @@ export function pharmacyCashFlowSection(accounts:string[],operatingLiabilities:s
  const groups=new Set(accounts.filter(code=>!code.startsWith('collection:')).map(code=>{
  if(code==='opening_equity'||code.startsWith('equity:'))return 'Financing activities';
  if(code.startsWith('asset:'))return 'Investing activities';
- if(['Revenue','Expenses'].includes(accountGroup(code))||code.startsWith('receivable:')||code.startsWith('payable:')||operatingLiabilities.includes(code)||['inventory','quarantine_inventory','inventory_in_transit','stock_in_transit','supplier_returns_pending'].includes(code))return 'Operating activities';
+ if(['Revenue','Expenses'].includes(accountGroup(code))||code.startsWith('receivable:')||code.startsWith('payable:')||code==='liability:grni'||operatingLiabilities.includes(code)||['inventory','quarantine_inventory','inventory_in_transit','stock_in_transit','supplier_returns_pending'].includes(code))return 'Operating activities';
  return 'Classification required';
  }));
  return groups.size===1?[...groups][0]:'Classification required';

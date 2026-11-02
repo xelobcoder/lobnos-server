@@ -54,6 +54,8 @@ export async function mappedPharmacyAccount(
      if (category === 'receivable' && !await db('pharmacy_customer_accounts').where({ id: Number(code.slice(11)), branchid: branch }).first()) throw new Error('Customer receivable does not belong to this pharmacy branch');
      const mapped = mappings[code] || mappings[category];
      if (!mapped) throw new Error(`Map pharmacy account ${code} to an active GL account before posting`);
+     if (code === 'liability:grni' && (mapped === 'acc-2000' || mapped === mappings.payable || mapped === mappings.supplier_payable))
+          throw new Error('Goods received not invoiced requires its own liability control account, separate from supplier payables');
      const shared = await db('acc_accounts').where({ account_code: mapped }).first();
      const expectedType = { Assets: 'asset', Liabilities: 'liability', Equity: 'equity', Revenue: 'revenue', Expenses: 'expense' }[accountGroup(code)];
      if (!expectedType || !shared || !Number(shared.is_active) || shared.type !== expectedType) throw new Error(`Pharmacy account ${code} requires an active ${expectedType || 'classified'} GL account`);
