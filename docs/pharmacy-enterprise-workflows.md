@@ -5,9 +5,52 @@ inventory. Configured pharmacy accounting can post those source journals into th
 shared organization GL, attributed to the pharmacy source module and branch.
 All pharmacy operations and reports use the authenticated branch and employee.
 
+## Find the right pharmacy task
+
+The pharmacy navigation groups existing pages into **Sell & serve customers**,
+**Buy & manage stock**, **Cash & day closing**, **Pharmacy Accounting**,
+reports and setup. Existing routes and role restrictions remain in place.
+**How to use pharmacy** (`/pharmacy/guide`) provides searchable task walkthroughs,
+an explanation of each static pharmacy page and a plain-language accounting
+glossary. Links are limited to pages the reader's role can access.
+
+Accounting starts with everyday tasks: record a running expense, pay a supplier,
+collect a customer balance, check profit, compare a bank statement and close
+the trading day. Technical checks remain available in the navigation and a
+collapsed investigation section. Every accounting page includes optional
+**What do I do on this page?** help. The cash/day-closing page links to accounting
+instead of offering unavailable immediate-payment/journal tabs when linked
+accounting is active. Legacy mode keeps its existing operational controls.
+
+## Request, approve and receive a purchase
+
+1. In **Buy & manage stock → Inventory & purchasing**, choose
+   **Submit purchase request**. Select the supplier, medicines, quantities in
+   base units, quoted unit costs and the reason.
+2. Open **Purchase requests** (`/pharmacy/inventory/purchase-requests`).
+   A manager other than the requester reviews the supplier quotation.
+   Storekeepers can inspect requests and add alternative supplier quotations,
+   but cannot make the manager's approval decision.
+3. Approval creates one purchase order; rejection creates none. The review
+   sends the current `expectedVersion`, selected `quoteIndex`, decision reason
+   and the shared document helper's retry/idempotency key. A pending operation
+   must be confirmed before a new review is started.
+4. Choose **Open approved order & receive delivery** to open that exact order in
+   Inventory & purchasing. Receive only the delivered quantity against its
+   original order line, with batch/expiry evidence where required.
+5. Review the supplier bill/evidence and any payment in Pharmacy Accounting.
+   Requesting or approving a purchase does not add stock or pay the supplier.
+   Do not record the same delivery again as a running expense.
+
+The request list explicitly shows the latest 200 branch requests, matching the
+existing API bound. It is not presented as an unlimited historical register.
+Unverified supplier names or failed/malformed retrievals do not permit a new
+approval. The existing independent-manager, branch, version and retry rules
+remain authoritative on the backend.
+
 ## Reopen a mistaken close
 
-In **Pharmacy → Cash & Financial Days**, a pharmacy manager or administrator can select **Reopen a closed day**, choose today's or a previous closed date, and enter a reason of at least ten characters. Reopening preserves the previous closer, close time and financial-day events. Each subsequent close records a journal-balance snapshot. Existing closed shifts, handovers, receipts and payments are retained.
+In **Pharmacy → Cash & day closing → Cash & Financial Days**, a pharmacy manager or administrator can select **Reopen a closed day**, choose today's or a previous closed date, and enter a reason of at least ten characters. Reopening preserves the previous closer, close time and financial-day events. Each subsequent close records a journal-balance snapshot. Existing closed shifts, handovers, receipts and payments are retained.
 
 Reopening today's day permits normal operations after opening a new cashier shift. Reopening an older day permits correction journals explicitly dated to that day. It does not backdate new sales or reopen old cashier shifts. Choose the historical financial date in **Journals**, post the reviewed balanced correction, and close that date again. Later days remain intact. Future dates are rejected; reopening retries do not duplicate audit events.
 
@@ -96,7 +139,7 @@ are not visible ledger columns. Searching accepts the displayed reference or the
 full journal/original document ID. Stored identities and CSV/Excel/PDF audit
 identifiers are never shortened.
 
-Accounting follows the established Billing-inspired PLS presentation: compact
+Accounting follows the established Payroll / Lab Accounting PLS presentation: compact
 filter/action toolbars, shared currency formatting, standard summary metrics,
 PrimeTable registers and progressive document review. Forms remain in unboxed
 page sections, never inside cards or table panels. Supplier statements use a
@@ -163,5 +206,19 @@ retire its allocation source before correction and reject unreleased allocations
 or pending reviews; the retirement helper alone is not a correction workflow.
 
 ## Deployment
+
+### Accounting presentation
+
+Accounting uses the existing pharmacy feature sidebar, not a second 19-link
+navigation bar. Its overview groups tasks by transactions, reports and controls.
+Page headers and primary actions follow the Payroll task hierarchy; compact
+filter placement follows laboratory worklists. Financial summaries reuse the
+shared Billing summary component. Exports are secondary actions outside filter
+forms; underlying source identifiers and financial workflows are unchanged.
+Forms remain in unboxed sections, and statuses remain readable text.
+
+The isolated browser harness in the sibling frontend verifies the real components
+with synthetic transport. Passing those checks is not full authenticated
+deployment certification or subjective owner approval.
 
 Apply `20261024_pharmacy_price_types` or run the normal backend startup bootstrap before serving the updated POS. This adds `price_type` to sale and held-sale lines; existing lines default to retail. No historical financial day is reopened automatically.

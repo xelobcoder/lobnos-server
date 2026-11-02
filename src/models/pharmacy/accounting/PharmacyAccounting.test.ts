@@ -2030,7 +2030,7 @@ describe("Scoped operational registers and statements", () => {
                const refund = await approvedRefund(id, payment.paymentId, "20.00");
                await e.refundAction(refund, "receive", { idempotencyKey: "cash-refund-receive-1", expectedVersion: 3 });
                const docs = await db("pharmacy_documents").where({ kind: "supplier_payment" });
-               expect(docs.reduce((s, d) => s + Number(d.amount), 0)).toBeCloseTo(80.01, 2);
+               expect(docs.reduce((s: number, d: { amount: any; }) => s + Number(d.amount), 0)).toBeCloseTo(80.01, 2);
                const received = docs.find((d) => Number(d.amount) < 0);
                expect(JSON.parse(received.details)).toMatchObject({
                     direction: "refund_received",

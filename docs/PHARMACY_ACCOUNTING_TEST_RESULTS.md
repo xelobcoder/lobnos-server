@@ -10,8 +10,9 @@ frontend UI/UX issue has been resolved. Current implementation and evidence boun
 | Reversal lifecycle | Implemented explicit replacement of the latest voided AP/AR reversal intent, immutable predecessor/original links, fresh independent approval, version/retry checks and generated database uniqueness for active/posted reversals. Included in the passing integrated backend selection. |
 | Large cutover ranges | Implemented full-range keyset inspection with bounded 100-source review batches, exact global mismatch/orphan counts and server-side preflight. Isolated SQL verifies 15,100 same-date lines, differences beyond displayed samples, 10,001 orphans, empty shared sources and malformed source precision. Included in the passing integrated backend selection; fixtures use the production shared-line and source-journal lookup indexes, without raising the test timeout. |
 | Legacy AP allocation | Implemented reviewed partial attribution of original supplier payments/credits and signed releases, cumulative limits, source evidence, independent approval and dated local/consolidated aging. Actual workflow-to-shared-report SQL tests verify selection of the newer bill rather than guessed FIFO and unchanged shared journal lines. |
-| Billing-inspired UI | Alignment is implemented and passes the focused 62-test/TypeScript checks described below. This closes the identified card-ancestry, summary-card, formatter and supplier-selector issues in mocked component coverage, not all browser-level acceptance. |
-| Visual/accessibility acceptance | Authenticated mobile/desktop, light/dark, keyboard and print acceptance across all accounting destinations has not been certified. |
+| Payroll / Lab Accounting alignment | Owner feedback rejected the earlier dashboard-only approach. The corrective pass uses the actual Lab Accounting ReportShell/AccountingTable styles, neutral Payroll summaries, themed controls, form/review/save layouts and separate AR/AP workflow views. Financial-statement summaries reuse the overview's label/value/description component, including operating expenses. The subsequent guidance/purchasing selection passed 121 tests and frontend TypeScript. |
+| Visual/accessibility acceptance | The expanded UI passed 116 isolated real-Chrome cases covering 19 accounting destinations, seven additional AR/AP views and three guidance/purchasing pages on desktop/mobile and light/dark. Assertions include computed table frames, configured font, theme actions, preserved drafts, exact IDs, readable purchasing tables, heading hierarchy and four print-to-PDF checks. This is synthetic component-browser evidence, not authenticated deployment or subjective owner approval. |
+| Guidance and purchasing | Searchable pharmacy instructions, task-based navigation, contextual accounting help and request -> independent approval -> exact order -> delivery navigation are implemented. The targeted backend selection passed 17 tests using the transactional test adapter; this is not live MySQL certification. |
 | Production accounting acceptance | Live MySQL concurrency, tenant migration/cutover, actual opening balances and facility policy/configuration remain unexecuted or unapproved. |
 
 ## Implementation verification
@@ -102,7 +103,109 @@ inputs. A subsequent two-test reference/ledger-only selection also passed.
 This is rendered-component/build evidence, not a live authenticated-browser run.
 Earlier selections overlap and must not be added together.
 
+### Pharmacy guidance and purchasing verification
+
+The latest usability pass adds the searchable **How to use pharmacy** page,
+task-based sidebar groups, optional accounting explanations and everyday money
+tasks. Accounting investigation tools remain available behind a disclosure.
+Repeated Expenses/Liabilities headings and the redundant on-screen Section
+column are removed without changing export data.
+
+Purchase requests now have a dedicated review page with supplier quotations,
+independent approval/rejection, version-aware retry and navigation to the exact
+approved order. Submitting or approving a request does not itself receive stock
+or record payment. Cash/day closing is explained separately from accounting,
+and linked-mode finance hides unavailable legacy-only tabs.
+
+Latest focused frontend result: **121/121 tests passed**, and **TypeScript
+passed**, from the sibling frontend:
+
+```powershell
+pnpm exec tsc --noEmit
+node --test tests\pharmacy-guidance.test.cjs tests\pharmacy-accounting-workflows.test.cjs tests\pharmacy-operations-ui.test.cjs tests\role-link-consistency.test.cjs
+```
+
+The expanded isolated real-Chrome harness passed **116 cases with no detected
+issues or runtime exceptions**. It additionally exercises guide search,
+single statement headings, own-request approval denial, independent approval,
+the exact version/quotation/idempotency payload, request submission and the
+approved order's receiving form. Mobile quotation/request tables have explicit
+scroll hints, focusable regions and readable action widths. Review headings
+are checked against the page title size and visually inspected.
+
+The targeted backend procurement/management selection passed **17/17 tests**
+and **backend TypeScript passed**:
+
+```powershell
+pnpm exec vitest run src\models\pharmacy\PharmacyProcurement.test.ts src\models\pharmacy\PharmacyManagement.test.ts
+pnpm exec tsc --noEmit
+```
+
+Procurement tests use the existing transactional adapter to exercise independent
+approval, alternate quotations, stale versions, rejection, role/branch denial,
+partial/full receipt and idempotent retry. These are service/adapter tests,
+not actual MySQL concurrency or SQL-engine certification. Browser mutations
+use in-memory fixtures, not tenant data. This pass changes no financial
+calculations or backend production rules. No production build or live tenant
+operations were performed. Owner usability acceptance remains outstanding;
+the passing tests do not establish that every pharmacy gap is resolved.
+
 ### Billing-inspired frontend alignment
+
+#### Corrective Payroll / Lab Accounting composition
+
+The earlier checks did not establish that the presentation matched the owner's
+strategy. The earlier comparison to Lab filtering/worklists did not address Lab
+Accounting. The corrective comparison covers Payroll dashboard, screen styles,
+period creation and summary strips, plus Lab Accounting report shells, tables
+and journal/ledger pages. It replaces the prior Billing summary composition.
+Accounting now:
+
+- Reuses feature-sidebar navigation rather than repeating 19 links on every page.
+- Uses one concise page heading, contextual subtitle and relevant task actions.
+- Reuses Lab Accounting ReportShell and AccountingTable CSS modules rather than
+  introducing another generic table and heading style.
+- Uses neutral Payroll-style summary strips, themed buttons and consistent fields.
+- Gives journal/expense editors a main form, review aside and save bar.
+- Keeps editable journal/bank tables readable on mobile using minimum control
+  widths, a labelled keyboard-focusable scroll region and an explicit scroll hint.
+- Separates AR/AP invoices/bills, adjustments/settlements, existing credits,
+  reversals and aging. Unvisited views do not mount; visited forms remain mounted
+  so switching views does not discard unfinished edits.
+- Keeps filters, print and full-filtered exports separate. Registers without
+  supported filters do not show a meaningless Apply button.
+- Preserves exact identifiers, financial handlers, independent approvals and exports.
+
+Financial-statement summaries no longer render as generic facts. They reuse the
+same label/value/supporting-description component as the overview's Receivables
+and Payables, grouped into Sales, Stock, and Ledger & expenses. Refunds, tax
+(including zero) and expenses use shared currency formatting; counts remain
+numbers. Stock descriptions identify current snapshots. Operating expenses have
+a separate metric and review link; the server's profit is not recalculated.
+Missing values are not invented as zeros.
+
+The preceding summary-card pass had **74/74 tests passed**, with **TypeScript passed**.
+Its real-Chrome matrix passed **104 cases with no detected issues or runtime
+exceptions**, including real PrimeTable, date controls, supplier keyboard
+selection, original API-handler payloads and shared currency/select helpers.
+Statement checks verify all 14 metrics, expense navigation and million-scale
+currency values fitting without line breaks in both viewports and themes.
+Unknown synthetic endpoints fail explicitly instead of returning empty success.
+Four in-memory PDF checks cover ledger, statements, inventory and tax.
+The harness includes the real Pharmacy feature-layout CSS and explicitly selects
+the application's Segoe UI font option. Earlier isolated screenshots did not
+reproduce the application font variables. Next-generated Google fonts and the
+authenticated application shell remain outside this harness.
+
+Reproduce from the sibling frontend using the
+[isolated browser harness](../../lobnos/tests/browser/accounting-harness/README.md).
+The harness replaces transport, identity, server authentication and Next links;
+it does not certify the full application shell/router, live authentication,
+persisted mutations, exhaustive accessibility or owner design acceptance.
+The owned server/browser and exact generated bundle/profile were cleaned up.
+No production application build or live tenant operations were performed.
+
+The following paragraphs retain the earlier verification history.
 
 The accounting destinations now use unboxed semantic sections for forms,
 prescribed summary metric cards, shared currency formatting, PrimeTable,
