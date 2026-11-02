@@ -4,6 +4,7 @@ import { assertPharmacyDayOpen, postPharmacyJournal, resolvePharmacyDestination 
 import { money, quantity, validatePharmacyReceipt, pharmacyReceivingUnits } from './PharmacyRules';
 import { resolveStockStatus } from './entities/PharmacyStock';
 import {assertNoStockCount} from './PharmacyEnterpriseCore';
+import { roleAllowed } from '../../middleware/roles';
 
 const text = (value: unknown, label: string, max = 255): string => {
      if (typeof value !== 'string' || !value.trim() || value.trim().length > max) throw new Error(`Enter a valid ${label}`);
@@ -14,7 +15,7 @@ export function validAmount(value: unknown, label: string, allowZero = false): n
      return value;
 }
 export class PharmacyManagement {
-     constructor(private readonly db: any, private readonly branch: number, private readonly actor: number) {
+     constructor(private readonly db: any, private readonly branch: number, private readonly actor: number, private readonly actorRole: string = '') {
           if (!Number.isInteger(branch) || branch <= 0) throw new Error('Select an operating branch');
           if (!Number.isInteger(actor) || actor <= 0) throw new Error('An authenticated employee is required');
      }
@@ -385,7 +386,16 @@ export class PharmacyManagement {
                await assertPharmacyDayOpen(trx,this.branch,this.shiftDate(snapshot));
                const shift=await trx('pharmacy_shifts').where({id,branchid:this.branch}).forUpdate().first();
                if(shift.reviewed_by)return {reviewed:true};
-               if(Number(shift.cashier_id)===this.actor)throw new Error('Another pharmacy manager must review your shift');
+               if(Number(shift.cashier_id)===this.actor) {
+                    if(!roleAllowed(this.actorRole,['admin']))throw new Error('Another pharmacy manager must review your shift');
+                    if(input.adminSelfReview!==true)throw new Error('Confirm the administrator self-review acknowledgement.');
+                    if(note.length<10)throw new Error('Enter an administrator self-review reason of at least 10 characters.');
+                    await trx('pharmacy_financial_day_events').insert({
+                         id:randomUUID(),branchid:this.branch,financial_date:this.shiftDate(shift),event_type:'admin_self_review',
+                         reason:note,performed_by:this.actor,created_at:new Date(),
+                         details:JSON.stringify({shiftId:id,cashierId:shift.cashier_id,countedCash:shift.counted_cash,expectedCash:shift.expected_cash,variance:shift.variance,role:this.actorRole}),
+                    });
+               }
                await trx('pharmacy_shifts').where({id}).update({reviewed_by:this.actor,reviewed_at:new Date(),review_note:note});
                return {reviewed:true};
           });

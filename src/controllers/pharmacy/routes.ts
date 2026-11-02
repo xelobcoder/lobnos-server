@@ -71,6 +71,7 @@ router.get('/analytics', pharmacyAnalyticsAccess, PharmacyAnalyticsController.re
 router.get('/counter/settings',counterReadAccess,counter(s=>s.settings()));
 router.post('/counter/settings',pharmacyReversalAccess,counter((s,r)=>s.saveSettings(r.body)));
 router.get('/counter/lookup/:code',counterReadAccess,counter((s,r)=>s.find(r.params.code)));
+router.get('/counter/invoices/uncollected',counterReadAccess,counter((s,r)=>s.uncollected(r.query)));
 router.post('/counter/invoices',counterDispensingAccess,counter((s,r)=>s.create(r.body)));
 router.post('/counter/invoices/:id/pay',counterPaymentAccess,counter((s,r)=>s.pay(String(r.params.id),r.body)));
 router.post('/counter/invoices/:id/collect',counterDispensingAccess,counter((s,r)=>s.collect(String(r.params.id),r.body)));

@@ -2,6 +2,38 @@
 
 **High Performance Laboratory Information Management System**
 
+## Pharmacy medication collection queue
+
+`GET /api/v1/pharmacy/counter/invoices/uncollected` returns branch-scoped
+`{invoices, total, page, count}` for counter readers. `status` accepts `paid`
+(default), `unpaid`, or `all`; collected/cancelled invoices are excluded.
+`page` starts at 1 and `count` defaults to 25 (maximum 100). `search` matches
+invoice number, code or customer with bound SQL parameters. Results are oldest
+first and include linked sale status/outstanding amount so reversed or incomplete
+sales remain visibly blocked. Sale details are fetched once per page.
+
+`GET /api/v1/pharmacy/counter/lookup/:code` accepts either a four-character code
+or an exact `INV-XXXX-number` reference; the suffix is never discarded.
+Existing payment and collection endpoints retain authenticated role/branch checks,
+atomic idempotency and paid-sale validation. Collection records medication handover
+without repeating payment or stock deductions. No new schema is required.
+
+## Pharmacy administrator handover review
+
+`POST /api/v1/pharmacy/management/shifts/:shiftId/review` permits administrator
+self-review when the authenticated employee is the cashier, the authenticated
+role is an organisation admin (including super-admin aliases), the body includes
+`adminSelfReview: true`, and `note` contains a reason of at least 10 characters.
+Body-supplied roles do not grant authority. Non-admin managers still require a
+different reviewer.
+
+The review and an `admin_self_review` event in `pharmacy_financial_day_events`
+are committed together. The audit preserves branch, date, cashier, reviewer,
+reason and recorded cash count/variance. Retries do not duplicate the event.
+Cash figures and ledger balances are unchanged. All applicable shifts must
+still be closed and reviewed before closing a day and opening the next one.
+Deploy the frontend and compiled backend together; no new migration is required.
+
 ## Department boundaries and delegated panel editing
 
 Scientists and laboratory heads cannot access imaging stock, and sonographers

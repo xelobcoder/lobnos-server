@@ -9,6 +9,12 @@ const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export function counterCode() { return Array.from({ length: 4 }, () => alphabet[randomInt(alphabet.length)]).join(''); }
 export function normalizeCounterCode(value: unknown) { const code = String(value || '').trim().toUpperCase(); if (!/^[A-Z0-9]{4}$/.test(code))
     throw new Error('Enter the four-character counter code'); return code; }
+export function counterInvoiceReference(value: unknown) {
+    const reference = String(value || '').trim().toUpperCase();
+    if (/^[A-Z0-9]{4}$/.test(reference)) return {code: reference};
+    if (/^INV-[A-Z0-9]{4}-\d+$/.test(reference) && reference.length <= 80) return {invoice_number: reference};
+    throw new Error('Enter the four-character counter code or full invoice number');
+}
 export const counterDispensingRoles = ['admin', 'pharmacy_manager', 'pharmacist', 'pharmacy_dispensary_officer'];
 export const counterCashierRoles = ['admin', 'pharmacy_manager', 'pharmacy_cashier', 'pharmacy_accountant'];
 export async function pharmacyCheckoutMode(db: any, branch: number) { return (await db('pharmacy_checkout_settings').where({ branchid: branch }).first())?.mode || 'direct'; }
@@ -21,8 +27,41 @@ export class PharmacyCounterWorkflow extends PharmacyEnterpriseCore {
     async saveSettings(input: any) { requireManager(this.user); if (!['direct', 'separate_cashier'].includes(input.mode))
         throw new Error('Choose a pharmacy checkout workflow'); return this.atomic(input, 'counter-settings', async (trx) => { await this.lockSettings(trx); await trx('pharmacy_checkout_settings').where({ branchid: this.branch }).update({ mode: input.mode, updated_by: this.actor, updated_at: new Date() }); await this.event(trx, 'checkout-mode-changed', { mode: input.mode }); return { mode: input.mode }; }); }
     private publicRow(row: any) { return { ...row, details: json(row.details), total: Number(row.total) }; }
-    async find(code: unknown) { this.authorize([...counterCashierRoles, ...counterDispensingRoles]); return this.db.transaction(async (trx: any) => { const row = await trx('pharmacy_counter_invoices').where({ branchid: this.branch, code: normalizeCounterCode(code) }).first(); if (!row)
-        throw new Error('No invoice with this code in the current branch'); const sale = row.sale_id ? await trx('pharmacy_sales').where({ id: row.sale_id, branchid: this.branch }).first() : null; const company = await trx('companyprofile').select('name', 'address', 'street', 'phonenumber', 'alternativenumber', 'email', 'website').first(); const details = json(row.details); const patient = details.patientId ? await trx('new_patients').where({ patientid: details.patientId }).first() : null; return { ...this.publicRow(row), company: company || {}, patientName: patient ? [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' ') : undefined, saleStatus: sale?.status || null }; }); }
+    async find(code: unknown) { this.authorize([...counterCashierRoles, ...counterDispensingRoles]); return this.db.transaction(async (trx: any) => { const row = await trx('pharmacy_counter_invoices').where({ branchid: this.branch, ...counterInvoiceReference(code) }).first(); if (!row)
+        throw new Error('No invoice with this code or number in the current branch'); const sale = row.sale_id ? await trx('pharmacy_sales').where({ id: row.sale_id, branchid: this.branch }).first() : null; const company = await trx('companyprofile').select('name', 'address', 'street', 'phonenumber', 'alternativenumber', 'email', 'website').first(); const details = json(row.details); const patient = details.patientId ? await trx('new_patients').where({ patientid: details.patientId }).first() : null; return { ...this.publicRow(row), company: company || {}, patientName: patient ? [patient.firstname, patient.middlename, patient.lastname].filter(Boolean).join(' ') : undefined, saleStatus: sale?.status || null, outstandingAmount: sale ? Number(sale.outstanding_amount || 0) : null }; }); }
+    async uncollected(input: {status?: unknown; search?: unknown; page?: unknown; count?: unknown}) {
+        this.authorize([...counterCashierRoles, ...counterDispensingRoles]);
+        const status = input.status ?? 'paid', search = String(input.search ?? '').trim();
+        const page = Number(input.page ?? 1), count = Number(input.count ?? 25);
+        if (!['paid', 'unpaid', 'all'].includes(String(status))) throw new Error('Choose paid, unpaid or all uncollected invoices');
+        if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(count) || count < 1 || count > 100 || !Number.isSafeInteger((page - 1) * count)) throw new Error('Invalid invoice pagination');
+        if (search.length > 80) throw new Error('Invoice search must be at most 80 characters');
+        return this.db.transaction(async (trx: any) => {
+            const query = trx('pharmacy_counter_invoices').where({branchid: this.branch}).whereIn('status', status === 'all' ? ['paid', 'unpaid'] : [status]);
+            if (search) {
+                const pattern = `%${search}%`;
+                query.whereRaw('(invoice_number LIKE ? OR code LIKE ? OR JSON_UNQUOTE(JSON_EXTRACT(details, ?)) LIKE ?)', [pattern, pattern, '$.customerName', pattern]);
+            }
+            const aggregate = await query.clone().count('* as total').first();
+            const total = Number(aggregate.total), currentPage = Math.min(page, Math.max(1, Math.ceil(total / count)));
+            const rows = await query.orderBy('created_at', 'asc').orderBy('sequence', 'asc').limit(count).offset((currentPage - 1) * count);
+            const ids = rows.map((row: any) => row.sale_id).filter(Boolean);
+            const sales = ids.length ? await trx('pharmacy_sales').where({branchid: this.branch}).whereIn('id', ids).select('id', 'status', 'outstanding_amount') : [];
+            return {
+                total, page: currentPage, count,
+                invoices: rows.map((row: any) => {
+                    const sale = sales.find((entry: any) => entry.id === row.sale_id);
+                    const details = json(row.details);
+                    return {
+                        id: row.id, code: row.code, invoice_number: row.invoice_number, status: row.status, total: Number(row.total),
+                        customerName: details.customerName, itemCount: details.lines?.length || 0, attendant_name: row.attendant_name,
+                        created_at: row.created_at, paid_at: row.paid_at, saleStatus: sale?.status || null,
+                        outstandingAmount: sale ? Number(sale.outstanding_amount || 0) : null,
+                    };
+                }),
+            };
+        });
+    }
     async create(input: any) {
         this.authorize(counterDispensingRoles);
         return this.atomic(input, 'counter-create', async (trx) => {

@@ -74,6 +74,42 @@ describe('explicit pharmacy financial days',()=>{
      });
 });
 describe('operational shift safeguards',()=>{
+     it.each(['admin','Admin','super-admin','super_admin'])('allows %s to self-review with acknowledgement and a recorded audit reason',async role=>{
+          const f=fixture(true),shift=await f.service.openShift({openingFloat:0});
+          await f.service.closeShift({shiftId:shift.id,countedCash:15});
+          const admin=new PharmacyManagement(f.db,2,3,role);
+          await expect(admin.reviewShift(shift.id,{note:'Verified cash to allow today to open'})).rejects.toThrow('acknowledgement');
+          await expect(admin.reviewShift(shift.id,{adminSelfReview:true,note:'Too short'})).rejects.toThrow('at least 10');
+          expect(f.rows('pharmacy_shifts')[0].reviewed_by).toBeFalsy();
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(0);
+          await admin.reviewShift(shift.id,{adminSelfReview:true,note:'Verified the cash count and recorded variance'});
+          expect(f.rows('pharmacy_shifts')[0]).toMatchObject({reviewed_by:3,counted_cash:15,variance:15});
+          const event=f.rows('pharmacy_financial_day_events')[0];
+          expect(event).toMatchObject({event_type:'admin_self_review',performed_by:3,branchid:2,financial_date:today(),reason:'Verified the cash count and recorded variance'});
+          expect(JSON.parse(event.details)).toMatchObject({shiftId:shift.id,cashierId:3,variance:15});
+          await admin.reviewShift(shift.id,{adminSelfReview:true,note:'Retry the administrator handover review'});
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(1);
+          await admin.closeDay({date:today()});
+          expect(f.rows('pharmacy_financial_days')[0].status).toBe('closed');
+          vi.useFakeTimers();vi.setSystemTime(new Date(Date.now()+86400000));
+          await admin.openDay({date:today()});await admin.openShift({openingFloat:0});
+          expect(f.rows('pharmacy_shifts')).toHaveLength(2);
+     });
+     it('does not trust administrator identity or acknowledgement supplied in the body',async()=>{
+          const f=fixture(true),shift=await f.service.openShift({openingFloat:0});
+          await f.service.closeShift({shiftId:shift.id,countedCash:0});
+          await expect(new PharmacyManagement(f.db,2,3,'pharmacy_manager').reviewShift(shift.id,{adminSelfReview:true,role:'admin',note:'Trying to approve my own cashier shift'})).rejects.toThrow('Another pharmacy manager');
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(0);
+          expect(f.rows('pharmacy_shifts')[0].reviewed_by).toBeFalsy();
+     });
+     it('keeps administrator review branch-scoped and requires a closed shift',async()=>{
+          const f=fixture(true),shift=await f.service.openShift({openingFloat:0});
+          const input={adminSelfReview:true,note:'Verified cash and responsibility for the handover'};
+          await expect(new PharmacyManagement(f.db,2,3,'admin').reviewShift(shift.id,input)).rejects.toThrow('closed pharmacy shift');
+          await f.service.closeShift({shiftId:shift.id,countedCash:0});
+          await expect(new PharmacyManagement(f.db,5,3,'admin').reviewShift(shift.id,input)).rejects.toThrow('closed pharmacy shift');
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(0);
+     });
      it('does not let a cashier approve their own handover even when they also act as a manager',async()=>{
           const f=fixture(true),shift=await f.service.openShift({openingFloat:0});await f.service.closeShift({shiftId:shift.id,countedCash:0});
           await expect(new PharmacyManagement(f.db,2,3).reviewShift(shift.id,{note:'I also have a manager role'})).rejects.toThrow('Another pharmacy manager');

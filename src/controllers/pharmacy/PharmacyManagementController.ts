@@ -1,12 +1,12 @@
 import { Request, Response } from 'express';
 import KnexConnection from '../../database/KnexConnections';
 import { PharmacyManagement } from '../../models/pharmacy/PharmacyManagement';
-import { actorOf, branchOf, tenantOf } from './pharmacyContext';
+import { actorOf, branchOf, tenantOf, roleOf } from './pharmacyContext';
 
 type Operation = (service: PharmacyManagement, req: Request) => Promise<any>;
 export const pharmacyOperation = (operation: Operation) => async (req: Request, res: Response) => {
      try {
-          const service = new PharmacyManagement(await KnexConnection(tenantOf(req)), branchOf(req)!, actorOf(req));
+          const service = new PharmacyManagement(await KnexConnection(tenantOf(req)), branchOf(req)!, actorOf(req), roleOf(req));
           res.json({ success: true, data: await operation(service, req) });
      } catch (error: any) {
           const uncertain = typeof error.code === 'string';
