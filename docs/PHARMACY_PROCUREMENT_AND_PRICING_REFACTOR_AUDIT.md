@@ -4,7 +4,7 @@
 
 This audit compares Pharmacy with **Main Inventory (laboratory/general inventory)**. It covers internal requests, supplier orders, deliveries, costs, selling prices, supplier invoices, valuation and payment integration in both backend and frontend repositories.
 
-This is the pre-implementation report requested for the procurement refactor. The proposed contracts, tables and policies below are **not implemented or deployed**. Earlier purchase-entry UI improvements and the audited administrator self-review exception already exist and must be preserved.
+This preserves the requested **pre-implementation audit**. Its findings below describe the source baseline, not the current implementation. Versioned requisitions, controlled physical delivery/acceptance, price history and GRNI-to-invoice AP have since been implemented, followed by a supplier-first guided order workspace. See the [workflow audit](PHARMACY_PROCUREMENT_WORKFLOW_AUDIT.md), [UX redesign](PHARMACY_PURCHASE_ORDER_UX_REDESIGN.md) and [verification report](PHARMACY_PROCUREMENT_TEST_REPORT.md) for the implementation follow-up. No live deployment or migration is claimed.
 
 Evidence comes from source inspection and the focused tests identified in section 10. Tests use isolated fixtures, mocks and in-memory storage; they do not prove live MySQL migration correctness or authenticated end-to-end operation. No live tenant data was changed, no migration was executed, and no existing financial records were reconciled.
 

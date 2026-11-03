@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "crypto";
+import Decimal from "decimal.js";
 import { AuthUser } from "../../middleware/authority";
 import { roleAllowed } from "../../middleware/roles";
 import { money, quantity } from "./PharmacyRules";
@@ -183,7 +184,7 @@ export class PharmacyEnterpriseCore {
                previous_stock: before,
                new_stock: after,
                unit_cost: cost,
-               total_cost: money(Math.abs(delta) * cost),
+               total_cost: money(new Decimal(Math.abs(delta)).mul(cost)),
                reason,
                reference_id: reference,
                performed_by: this.actor,

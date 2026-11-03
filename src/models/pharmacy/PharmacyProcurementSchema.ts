@@ -1,6 +1,18 @@
 import { Knex } from 'knex';
 
 export async function ensurePharmacyProcurementSchema(db: Knex): Promise<void> {
+     for (const [table, column] of [['pharmacy_purchase_orders', 'total_amount'], ['pharmacy_purchase_order_lines', 'unit_cost']]) {
+          if (await db.schema.hasTable(table)) {
+               const info = await db(table).columnInfo(column);
+               if (info.nullable === false) await db.schema.alterTable(table, t => { t.decimal(column, 14, 2).nullable().alter(); });
+          }
+     }
+     if (!await db.schema.hasTable('pharmacy_order_sequences')) await db.schema.createTable('pharmacy_order_sequences', t => {
+          t.integer('branchid').unsigned().notNullable();
+          t.integer('year').unsigned().notNullable();
+          t.integer('last_number').unsigned().notNullable().defaultTo(0);
+          t.primary(['branchid', 'year']);
+     });
      if (!await db.schema.hasTable('pharmacy_procurement_settings')) await db.schema.createTable('pharmacy_procurement_settings', t => {
           t.integer('branchid').unsigned().primary();
           t.string('mode', 20).notNullable().defaultTo('approval');

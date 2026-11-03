@@ -19,6 +19,16 @@ Page access does not imply permission to perform every action. For example, an a
 
 ## Operational pages
 
+Supplier-first purchasing now starts at `/inventory/orders`. It supports a
+multi-medicine draft with one generated PO reference, submission, independent
+approval and a workspace linking accepted stock, invoices and controlled
+settlements. Receiving opens on its own full-width `/inventory/receive` page
+with the sidebar hidden, optional per-item price changes and one Save stock.
+Internal `/inventory/purchase-requests` remains optional.
+Stock staff see operational evidence; finance roles see invoice and payment
+evidence. Administrator self-review remains explicitly acknowledged and audited.
+See [workflow redesign](PHARMACY_PURCHASE_ORDER_UX_REDESIGN.md).
+
 | Page / actual route | Parent menu; roles | Purpose, main controls and important fields | Backend operations | Related pages; existing help gap at audit |
 |---|---|---|---|---|
 | Overview `/` | Overview; All | Refresh, Start sale, Manage stock, View low stock, View sales history; financial date/day status; today's collections | `pharmacy/dashboard`, `pharmacy/checkout-setup`, day controls | Cashier, stock, sales history; introductory text lacked control instructions |
@@ -35,6 +45,7 @@ Page access does not imply permission to perform every action. For example, an a
 | Catalogue `/catalogue` | Buy & manage stock; All | Search medicines, Low stock only, Previous/Next, View / manage; physical/dispensable, pack and retail/wholesale; Stock roles additionally see maintenance actions | stock, batches; permitted inventory mutations | Stock, inventory; shared component must not imply all readers can edit |
 | Stock Levels `/stock` | Buy & manage stock; All | Same shared medicine table/search/low-stock filter; compare base units/packs, Physical/Dispensable | stock, batches | Inventory, analytics; needs dedicated read/filter instructions |
 | Inventory & purchasing `/inventory` | Buy & manage stock; Stock | Medicines & stock, Received deliveries, Purchase orders, Suppliers; Add medicine, View / manage, Receive stock, Add supplier, Submit purchase request, Receive against order, Cancel order | items, suppliers, receipts, orders, procurement requests | Purchase requests, stock control, payables; multi-action guide required |
+| Receive stock `/inventory/receive` | Linked from inventory, orders and deliveries; Stock | Dedicated full-width page without sidebar, mobile toggle or ribbon; order/medicine preselection, optional generated batch/reference, actual cost/expiry, optional Change selling price, Save stock, Back to purchase order/deliveries and payment continuation | receiving setup, single delivery read, price preview, atomic receive, held-goods acceptance/return | Existing receipts load by authenticated branch-scoped id even outside the latest 200; loading errors expose retry, not stale actions |
 | Purchase requests `/inventory/purchase-requests` | Buy & manage stock; Stock | New purchase request; neutral latest-200 status summaries; Find a request and Status filters; Refresh requests, Review request/View details/Close review, quotation comparison/addition, Decision/Quotation to approve/Reason for decision, Confirm decision, approved-order receiving link; administrators may self-review with an explicit acknowledgement and reason of at least 10 characters, recorded transactionally in the audit history | procurement requests list/quote/review, suppliers | Inventory opens a wide request modal directly; inline medicine, quantity, unit cost and Add item; medicine input stays mounted and regains focus after adding. Non-admin managers still cannot self-review. |
 | Stock safety & checks `/stock-control` | Buy & manage stock; Stock | Blind stock counts, Quarantine, Branch transfers, Batch recalls, Supplier returns, Invoice matching, Cold-chain log, Medicine profiles; Create record/View / manage; fields depend on tab | enterprise setup/workflows/counts/quarantine/transfers/recalls/returns/invoice-match/temperature/profiles | Inventory, payables; all eight tabs need separate procedures; manager-only tabs/actions remain restricted |
 | Cashier & Shift `/cashier` | Cash & day closing; Selling + accountant | Financial-day controls, Opening cash float > Open cashier shift; Cash counted in the till > Close shift & record count; expected cash, receipts, Refresh/Open POS | checkout setup, cashier, shifts open/close | Finance; no dedicated shift article before audit |

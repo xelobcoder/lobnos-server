@@ -66,7 +66,9 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                .where('item.branchid', this.branchId ?? -1)
                .orderBy('item.id')
                .forUpdate();
-          for(const row of rows){await assertNoStockCount(this.scope(unitOfWork),row.id);const incidents=await this.scope(unitOfWork)('pharmacy_workflows').where({branchid:this.branchId,kind:'cold_chain',status:'requires_quarantine'});if(incidents.some((incident:any)=>JSON.parse(incident.details).itemId===row.id))throw new Error('A cold-chain excursion for this medicine requires investigation before dispensing');}
+          const coldChainIncidents=rows.length?await this.scope(unitOfWork)('pharmacy_workflows').where({branchid:this.branchId,kind:'cold_chain',status:'requires_quarantine'}):[];
+          const quarantinedItemIds=new Set(coldChainIncidents.map((incident:any)=>JSON.parse(incident.details).itemId));
+          for(const row of rows){await assertNoStockCount(this.scope(unitOfWork),row.id);if(quarantinedItemIds.has(row.id))throw new Error('A cold-chain excursion for this medicine requires investigation before dispensing');}
           return rows.map((row: any) => this.toItemRow(row));
      }
 
@@ -255,7 +257,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           if(movement.direction==='issue') {
                const item=await db('pharmacy_inventory_items').where({id:movement.itemId}).first();
                const rows=await db('pharmacy_stock_movements').select('batch_number').min('expiry_date as expiry_date')
-                    .select(db.raw('SUM(new_stock - previous_stock) as available')).where({item_id:movement.itemId}).whereNotNull('batch_number').groupBy('batch_number');
+                    .select(db.raw('SUM(new_stock - previous_stock) as available')).where({item_id:movement.itemId,branchid:this.branchId}).whereNotNull('batch_number').groupBy('batch_number');
                const recalls=await db('pharmacy_batch_recalls').where({branchid:this.branchId,item_id:movement.itemId,status:'active'});
                allocations=allocateBatches(rows.map((row:any)=>({batchNumber:row.batch_number,available:Number(row.available),blocked:recalls.some((recall:any)=>recall.batch_number===row.batch_number),expiryDate:row.expiry_date?new Date(row.expiry_date).toISOString().slice(0,10):null})),movement.quantity,movement.previousStock,Boolean(item.pharmacy_batch_tracking),new Date().toISOString().slice(0,10));
           } else {
@@ -267,7 +269,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           for(const allocation of allocations) {
                await assertBatchNotRecalled(db,this.branchId!,movement.itemId,allocation.batchNumber);
                const next=quantity(previous+(movement.direction==='issue'?-allocation.quantity:allocation.quantity));
-               await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:movement.unitCost*allocation.quantity,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
+               await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:money(new Decimal(movement.unitCost).mul(allocation.quantity)),reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
                previous=next;
           }
      }

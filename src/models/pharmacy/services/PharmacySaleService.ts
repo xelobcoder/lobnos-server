@@ -60,15 +60,15 @@ export class PharmacySaleService implements IPharmacySaleService {
                const itemsById = new Map(items.map((item) => [item.id, item]));
                const now = new Date();
                const heldSaleId = original?.id||randomUUID();
-               let total = 0;
+               let total = new Decimal(0);
                const lines: PharmacySaleLineRow[] = input.lines.map((requested) => {
                     const item = itemsById.get(requested.inventoryItemId)!;
                     if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
                     const unitPrice=pharmacyUnitPrice(item,selectedType);
                     const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
                     const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
-                    total += lineTotal;
-                    return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice, priceType:selectedType, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: lineTotal - lineCost };
+                    total = total.plus(lineTotal);
+                    return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice, priceType:selectedType, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: money(new Decimal(lineTotal).minus(lineCost)) };
                });
                const sale = {
                     id: heldSaleId,
@@ -154,8 +154,8 @@ export class PharmacySaleService implements IPharmacySaleService {
           const now = new Date();
           const saleId = randomUUID();
           const lines: PharmacySaleLineRow[] = [];
-          let total = 0;
-          let totalCost = 0;
+          let total = new Decimal(0);
+          let totalCost = new Decimal(0);
 
           for (const requested of input.lines) {
                const item = itemsById.get(requested.inventoryItemId)!;
@@ -166,8 +166,8 @@ export class PharmacySaleService implements IPharmacySaleService {
 
                const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
                const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
-               total += lineTotal;
-               totalCost += lineCost;
+               total = total.plus(lineTotal);
+               totalCost = totalCost.plus(lineCost);
                lines.push({
                     id: randomUUID(),
                     saleId,
@@ -179,7 +179,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                     lineTotal,
                     unitCost: item.costPrice,
                     lineCost,
-                    grossProfit: lineTotal - lineCost
+                    grossProfit: money(new Decimal(lineTotal).minus(lineCost))
                });
           }
 
@@ -197,7 +197,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                paymentReference: input.paymentReference?.trim() || null,
                totalAmount: money(total),
                totalCost: money(totalCost),
-               grossProfit: money(new Decimal(total).minus(totalCost)),
+               grossProfit: money(total.minus(totalCost)),
                cashierId,
                status: PHARMACY_SALE_STATUS_COMPLETED,
                completedAt: now,

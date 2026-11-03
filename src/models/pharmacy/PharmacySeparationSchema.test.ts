@@ -7,7 +7,7 @@ import { ensurePharmacyProcurementSchema } from './PharmacyProcurementSchema';
 describe('pharmacy separation schema', () => {
      it('creates independent storage and guarded additions without changing lab balances', async () => {
           const compiler = knex({ client: 'mysql2' }); const statements: string[] = []; const tables = new Set<string>(), columns = new Set<string>();
-          const db: any = { fn: compiler.fn, schema: {
+          const db: any = Object.assign(() => ({ columnInfo: async () => ({ nullable: true }) }), { fn: compiler.fn, schema: {
                hasTable: async (table: string) => tables.has(table),
                hasColumn: async (table: string, column: string) => columns.has(`${table}.${column}`),
                createTable: async (table: string, callback: any) => { statements.push(...compiler.schema.createTable(table, callback).toSQL().map(s => s.sql)); tables.add(table); },
@@ -15,7 +15,7 @@ describe('pharmacy separation schema', () => {
                     const sql = compiler.schema.alterTable(table, callback).toSQL().map(s => s.sql); statements.push(...sql);
                     for (const statement of sql) for (const match of statement.matchAll(/add `([^`]+)`/g)) columns.add(`${table}.${match[1]}`);
                },
-          } };
+          } });
           await ensurePharmacySeparationSchema(db); await ensurePharmacyOperationsSchema(db); await ensurePharmacyProcurementSchema(db); const count = statements.length;
           await ensurePharmacySeparationSchema(db); await ensurePharmacyOperationsSchema(db); await ensurePharmacyProcurementSchema(db); expect(statements).toHaveLength(count);
           expect(tables.has('pharmacy_inventory_items')).toBe(true); expect(tables.has('pharmacy_journal_lines')).toBe(true); expect(tables.has('pharmacy_purchase_orders')).toBe(true);

@@ -94,6 +94,20 @@ describe('pharmacy procurement and migration', () => {
           await f.service.receive('drug', { ...receipt('remainder-key-123'), orderLineId: line.id, quantity: 3 });
           expect(f.rows('pharmacy_purchase_orders')[0].status).toBe('received'); expect(f.rows('pharmacy_inventory_items')[0].current_stock).toBe(8);
      });
+     it('records actual receiving cost when the linked purchase order is unpriced', async () => {
+          const f = fixture();
+          const order = { id: 'unpriced-order-123' };
+          await f.db.transaction(async (trx: any) => {
+               await trx('pharmacy_purchase_orders').insert({ id: order.id, branchid: 2, supplier_id: 'supplier', status: 'ordered', created_by: 3, created_at: new Date() });
+               await trx('pharmacy_purchase_order_lines').insert({ id: 'unpriced-line-123', order_id: order.id, item_id: 'drug', quantity_ordered: 5, quantity_received: 0, unit_cost: null });
+          });
+          const line = f.rows('pharmacy_purchase_order_lines')[0];
+          expect(line.unit_cost).toBeNull();
+          await f.service.receive('drug', { ...receipt('unpriced-receive-123'), orderLineId: line.id, unit_price: 3 });
+          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 5, cost_price: 3 });
+          expect(f.rows('pharmacy_purchase_orders')[0]).toMatchObject({ id: order.id, status: 'received' });
+          expect(f.rows('pharmacy_journal_lines').find(row => row.account_code === 'payable:supplier').credit).toBe(15);
+     });
      it('imports reviewed opening stock once without replaying legacy sales', async () => {
           const f = transactionalDatabase({ inv_inventory_items: [{ id: 'old', inventory_domain: 'pharmacy', name: 'Legacy', sku: 'OLD', current_stock: 4, cost_price: 3, is_active: true, pharmacy_batch_tracking: false }], inv_inventory_transactions: [], pharmacy_inventory_items: [], pharmacy_documents: [], pharmacy_financial_days: [{id:1,branchid:2,financial_date:new Date().toISOString().slice(0,10),status:'open',opened_by:3,opened_at:new Date()}], pharmacy_journals: [], pharmacy_journal_lines: [] });
           const service = new PharmacyManagement(f.db, 2, 3), input = { idempotencyKey: 'opening-key-123', itemIds: ['old'], confirmOpeningBalances: true };

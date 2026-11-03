@@ -5,6 +5,7 @@ import { PharmacyEnterpriseCore, assertBatchNotRecalled, assertNoStockCount, dat
 import { assertPharmacyDayOpen, postPharmacyJournal } from './PharmacyLedger';
 import { money, pharmacyReceivingUnits, quantity, validatePharmacyReceipt } from './PharmacyRules';
 import { PharmacyPriceChoice, calculatePharmacyPrice, priceIncrement, procurementAmount } from './PharmacyPricing';
+import { PharmacySupplierInvoices } from './PharmacySupplierInvoices';
 
 type PolicyMode = 'approval' | 'tolerance' | 'prohibit';
 export interface ReceivingPolicy { mode: PolicyMode; tolerancePercent: number; roundingIncrement: number; version: number }
@@ -13,6 +14,7 @@ export interface DeliveryLine {
      quantityDelivered: number; purchaseQuantity: number; conversionFactor: number;
      unitCost: number | null; purchaseUnitCost: number | null; totalValue: number | null;
      acceptedQuantity: number; acceptedValue: number; returnedQuantity: number;
+     invoiceQuantity?: number; invoiceAmount?: string;
      batchNumber: string; expiryDate: string | null; condition: 'good' | 'damaged' | 'expired';
      suggestedAcceptance: number; discountAmount: number; nonRecoverableTaxAmount: number; allocatedAdditionalCost: number;
 }
@@ -23,7 +25,7 @@ interface DeliveryInputLine {
      discountAmount?: number; nonRecoverableTaxAmount?: number;
 }
 interface RecordInput {
-     idempotencyKey: string; supplierId: string; orderId?: string; reference: string; reason?: string;
+     idempotencyKey: string; supplierId: string; orderId?: string; reference?: string; reason?: string;
      lines: DeliveryInputLine[]; additionalCost?: number;
 }
 interface AcceptanceInput {
@@ -45,30 +47,92 @@ function disposition(lines: DeliveryLine[]): string {
 
 export class PharmacyReceiving extends PharmacyEnterpriseCore {
      declare readonly db: Knex;
+     async receive(input: RecordInput & Pick<AcceptanceInput, 'pricing'> & { invoice?: { reference: string; invoiceDate: string; dueDate?: string } }) {
+          return this.atomic(input, 'stock_receive', async trx => {
+               const service = new PharmacyReceiving(trx, this.user);
+               const { pricing, invoice, ...receipt } = input;
+               const row = await service.record({ ...receipt, idempotencyKey: `receive-record:${fingerprint(input.idempotencyKey)}` });
+               if (row.details.lines.some((line: DeliveryLine) => line.condition === 'good' && line.unitCost === null))
+                    throw new Error('Enter the actual purchase cost, or save the physical delivery only until the cost is known');
+               const lines = row.details.lines.filter((line: DeliveryLine) => line.suggestedAcceptance > 0)
+                    .map((line: DeliveryLine) => ({ lineId: line.id, quantity: line.suggestedAcceptance }));
+               if (!lines.length) throw new Error('No goods are eligible for stock. Save the physical delivery only to review held goods');
+               const saved = await service.finish(row.id, { idempotencyKey: `receive-finish:${fingerprint(input.idempotencyKey)}`,
+                    expectedVersion: row.version, reason: input.reason, lines, pricing, ...(invoice !== undefined ? { invoice } : {}) });
+               const received: DeliveryLine[] = saved.details.lines;
+               return { ...saved, created_at: saved.created_at instanceof Date ? saved.created_at.toISOString() : saved.created_at,
+                    updated_at: saved.updated_at instanceof Date ? saved.updated_at.toISOString() : saved.updated_at,
+                    acceptedQuantity: quantity(received.reduce((sum, line) => sum + line.acceptedQuantity, 0)),
+                    heldQuantity: quantity(received.reduce((sum, line) => sum + line.quantityDelivered - line.acceptedQuantity - line.returnedQuantity, 0)) };
+          });
+     }
+     async previewReceivePrice(input: { receipt: Omit<RecordInput, 'idempotencyKey'>; itemId: string; method: PharmacyPriceChoice['method']; value?: number; wholesale?: boolean }) {
+          return this.db.transaction(async trx => {
+               const { lines, policy } = await this.prepareDelivery(trx, input.receipt);
+               const selected = lines.filter(line => line.itemId === input.itemId && line.suggestedAcceptance > 0);
+               if (!selected.length) throw new Error('Enter eligible quantities and actual costs for this medicine before changing its price');
+               const total = selected.reduce((sum, line) => sum.plus(money(new Decimal(line.totalValue!).mul(line.suggestedAcceptance).div(line.quantityDelivered))), new Decimal(0));
+               const count = selected.reduce((sum, line) => sum.plus(line.suggestedAcceptance), new Decimal(0));
+               const item = await this.item(trx, input.itemId);
+               return calculatePharmacyPrice(total.div(count).toNumber(), input, policy.roundingIncrement, Number(input.wholesale ? item.wholesale_price : item.sale_price));
+          });
+     }
+     async finish(id: string, input: AcceptanceInput & { invoice?: { reference: string; invoiceDate: string; dueDate?: string } }) {
+          if (!input || typeof input !== 'object') throw new Error('Enter receiving details');
+          if (input.invoice !== undefined && (!input.invoice || typeof input.invoice !== 'object' || Array.isArray(input.invoice) ||
+               Object.keys(input.invoice).some(key => !['reference', 'invoiceDate', 'dueDate'].includes(key))))
+               throw new Error('Use valid supplier invoice details; additional tax or adjustments require the detailed invoice form');
+          if (input.invoice) requireManager(this.user);
+          return this.atomic(input, `delivery:finish:${id}`, async trx => {
+               const { invoice, ...acceptance } = input;
+               await new PharmacyReceiving(trx, this.user).accept(id, { ...acceptance, idempotencyKey: `finish-accept:${fingerprint(input.idempotencyKey)}` });
+               let bill = null;
+               if (invoice) {
+                    const row = await this.workflow(trx, id, 'goods_delivery');
+                    const lines: DeliveryLine[] = row.details.lines;
+                    const outstanding = lines.filter(line => line.acceptedQuantity > Number(line.invoiceQuantity || 0));
+                    bill = await new PharmacySupplierInvoices(trx, this.user).record({
+                         idempotencyKey: `finish-invoice:${fingerprint(input.idempotencyKey)}`, supplierId: row.details.supplierId,
+                         reference: invoice.reference, invoiceDate: invoice.invoiceDate, dueDate: invoice.dueDate,
+                         lines: outstanding.map(line => {
+                              return { deliveryId: id, lineId: line.id, quantity: quantity(line.acceptedQuantity - Number(line.invoiceQuantity || 0)),
+                                   amount: new Decimal(line.acceptedValue).minus(line.invoiceAmount || 0).toFixed(2) };
+                         }),
+                    });
+               }
+               return { ...await this.workflow(trx, id, 'goods_delivery'), invoice: bill };
+          });
+     }
      private async policy(trx: Knex.Transaction): Promise<ReceivingPolicy> {
           const row = await trx('pharmacy_procurement_settings').where({ branchid: this.branch }).forUpdate().first();
           return row ? { mode: row.mode, tolerancePercent: Number(row.tolerance_percent), roundingIncrement: Number(row.rounding_increment), version: Number(row.version) } : { ...defaultPolicy };
      }
-     async setup() {
+     async setup(orderId?: string) {
           return this.db.transaction(async trx => {
                const [items, suppliers, orders, policy] = await Promise.all([
                     trx('pharmacy_inventory_items').where({ branchid: this.branch, is_active: true }).orderBy('name'),
                     trx('pharmacy_suppliers').where({ branchid: this.branch, is_active: true }).orderBy('name'),
-                    trx('pharmacy_purchase_orders').where({ branchid: this.branch }).whereNotIn('status', ['cancelled']).orderBy('created_at', 'desc').limit(200),
+                    trx('pharmacy_purchase_orders').where({ branchid: this.branch }).whereNotIn('status', ['cancelled']).orderBy('created_at', 'desc')
+                         .modify(query => { if (orderId) query.where({ id: orderId }); else query.limit(200); }),
                     this.policy(trx),
                ]);
                const lines = orders.length ? await trx('pharmacy_purchase_order_lines').whereIn('order_id', orders.map(order => order.id)) : [];
+               const identities = orders.length ? await trx('pharmacy_workflows').where({ branchid: this.branch, kind: 'supplier_purchase_order' }).whereIn('id', orders.map(order => order.id)) : [];
                const orderIds = new Set(orders.map(order => order.id));
-               return { items, suppliers, orders: orders.map(order => ({ ...order, lines: lines.filter(line => orderIds.has(line.order_id) && line.order_id === order.id).map(line => ({ ...line, name: items.find(item => item.id === line.item_id)?.name })) })), policy };
+               return { items, suppliers, orders: orders.map(order => ({ ...order, reference: json(identities.find(row => row.id === order.id)?.details).reference || `PO-${order.id.slice(0, 8).toUpperCase()}`,
+                    lines: lines.filter(line => orderIds.has(line.order_id) && line.order_id === order.id).map(line => ({ ...line, name: items.find(item => item.id === line.item_id)?.name })) })), policy };
           });
      }
      async deliveries() {
           return this.db.transaction(async trx => (await trx('pharmacy_workflows').where({ branchid: this.branch, kind: 'goods_delivery' }).orderBy('created_at', 'desc').limit(200)).map(row => ({ ...row, details: json(row.details) })));
      }
+     async delivery(id: string) {
+          return this.db.transaction(trx => this.workflow(trx, id, 'goods_delivery'));
+     }
      async invoices() {
           return this.db.transaction(async trx => (await trx('pharmacy_documents').where({ branchid: this.branch, kind: 'supplier_invoice' }).orderBy('created_at', 'desc').limit(200)).map(row => ({ ...row, details: json(row.details) })));
      }
-     async previewPrice(input: { deliveryId: string; itemId: string; lines: AcceptanceInput['lines']; method: PharmacyPriceChoice['method']; value?: number }) {
+     async previewPrice(input: { deliveryId: string; itemId: string; lines: AcceptanceInput['lines']; method: PharmacyPriceChoice['method']; value?: number; wholesale?: boolean }) {
           distinctLines(input.lines);
           return this.db.transaction(async trx => {
                const row = await this.workflow(trx, input.deliveryId, 'goods_delivery');
@@ -84,7 +148,8 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                     const target = money(new Decimal(value).mul(quantity(line.acceptedQuantity + amount)).div(line.quantityDelivered));
                     total = total.plus(target).minus(line.acceptedValue); count = count.plus(amount);
                }
-               return calculatePharmacyPrice(total.div(count).toNumber(), input, row.details.policy.roundingIncrement);
+               const item = await this.item(trx, input.itemId);
+               return calculatePharmacyPrice(total.div(count).toNumber(), input, row.details.policy.roundingIncrement, Number(input.wholesale ? item.wholesale_price : item.sale_price));
           });
      }
      async savePolicy(input: { idempotencyKey: string; mode: PolicyMode; tolerancePercent: number; roundingIncrement: number; reason: string }) {
@@ -104,68 +169,75 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                return { mode: input.mode, tolerancePercent: input.tolerancePercent, roundingIncrement: increment, version: row.version };
           });
      }
-     async record(input: RecordInput) {
-          if (!Array.isArray(input.lines) || !input.lines.length || input.lines.length > maxLines)
+     private async prepareDelivery(trx: Knex.Transaction, input: Omit<RecordInput, 'idempotencyKey'>) {
+          if (!input || !Array.isArray(input.lines) || !input.lines.length || input.lines.length > maxLines)
                throw new Error('Record 1 to 100 delivered batch lines');
-          const reference = requiredText(input.reference, 'delivery reference', 120);
           if (typeof input.supplierId !== 'string' || !input.supplierId || input.supplierId.length > 64 ||
                (input.orderId !== undefined && (typeof input.orderId !== 'string' || !input.orderId || input.orderId.length > 64)))
                throw new Error('Choose a valid supplier and optional purchase order');
+          const supplier = await trx('pharmacy_suppliers').where({ id: input.supplierId, branchid: this.branch, is_active: true }).forUpdate().first();
+          if (!supplier) throw new Error('Select an active pharmacy supplier in this branch');
+          const order = input.orderId ? await trx('pharmacy_purchase_orders').where({ id: input.orderId, branchid: this.branch, supplier_id: supplier.id }).forUpdate().first() : null;
+          if (input.orderId && (!order || order.status === 'cancelled')) throw new Error('Select an available order for this supplier and branch');
+          const policy = await this.policy(trx), lines: DeliveryLine[] = [];
+          const pending = new Map<string, number>();
+          for (const raw of [...input.lines].sort((a, b) => String(a?.itemId).localeCompare(String(b?.itemId)))) {
+               if (!raw || typeof raw.itemId !== 'string') throw new Error('Choose a delivered medicine');
+               const item = await this.item(trx, raw.itemId);
+               if (!item.is_active) throw new Error('An inactive medicine cannot be received');
+               const count = stockQuantity(raw.quantity);
+               const cost = raw.unitCost === undefined ? null : procurementAmount(raw.unitCost, 'actual purchase cost');
+               const conversion = pharmacyReceivingUnits(item, { quantity: count, unit_price: cost ?? 0, unit_type: raw.unitType, units_per_purchase_unit: raw.unitsPerPurchaseUnit });
+               if (raw.batchNumber !== undefined && (typeof raw.batchNumber !== 'string' || raw.batchNumber.trim().length > 100)) throw new Error('Enter a valid batch number');
+               const batch = raw.batchNumber?.trim() || 'AUTO-' + randomUUID().toUpperCase();
+               const expiry = raw.expiryDate ? dateOnly(raw.expiryDate) : null;
+               if (raw.condition !== undefined && !['good', 'damaged', 'expired'].includes(raw.condition)) throw new Error('Choose a valid delivery condition');
+               const condition = expiry && expiry < new Date().toISOString().slice(0, 10) ? 'expired' : raw.condition || 'good';
+               const discount = procurementAmount(raw.discountAmount ?? 0, 'line discount');
+               const tax = procurementAmount(raw.nonRecoverableTaxAmount ?? 0, 'nonrecoverable tax');
+               const total = cost === null ? null : money(new Decimal(conversion.total).minus(discount).plus(tax));
+               if (total !== null && total < 0) throw new Error('A discount cannot exceed the delivered goods value');
+               if (total !== null) procurementAmount(total, 'delivery line value');
+               if (cost === null && (discount || tax)) throw new Error('Confirm purchase cost before recording discount or tax');
+               if ((input.orderId && !raw.orderLineId) || (!input.orderId && raw.orderLineId)) throw new Error('Each ordered delivery line must belong to the selected order and medicine');
+               const orderLine = raw.orderLineId ? await trx('pharmacy_purchase_order_lines').where({ id: raw.orderLineId, order_id: input.orderId, item_id: item.id }).forUpdate().first() : null;
+               if ((input.orderId && !orderLine) || (!input.orderId && raw.orderLineId)) throw new Error('Each ordered delivery line must belong to the selected order and medicine');
+               const eligible = condition === 'good' && cost !== null;
+               let suggested = conversion.baseQuantity;
+               if (orderLine) {
+                    const limit = new Decimal(orderLine.quantity_ordered).mul(new Decimal(1).plus(policy.mode === 'tolerance' ? policy.tolerancePercent / 100 : 0));
+                    suggested = quantity(Math.max(0, Math.min(conversion.baseQuantity, limit.minus(orderLine.quantity_received).minus(pending.get(orderLine.id) || 0).toNumber())));
+                    if (eligible) pending.set(orderLine.id, quantity((pending.get(orderLine.id) || 0) + suggested));
+               }
+               lines.push({ id: randomUUID(), itemId: item.id, name: item.name, sku: item.sku, orderLineId: orderLine?.id,
+                    quantityDelivered: conversion.baseQuantity, purchaseQuantity: count, conversionFactor: conversion.factor,
+                    unitCost: total === null ? null : new Decimal(total).div(conversion.baseQuantity).toDecimalPlaces(6).toNumber(),
+                    purchaseUnitCost: cost, totalValue: total, acceptedQuantity: 0, acceptedValue: 0, returnedQuantity: 0,
+                    batchNumber: batch, expiryDate: expiry, condition, suggestedAcceptance: eligible ? suggested : 0,
+                    discountAmount: discount, nonRecoverableTaxAmount: tax, allocatedAdditionalCost: 0 });
+          }
+          const additional = procurementAmount(input.additionalCost ?? 0, 'additional landed cost');
+          if (additional && lines.some(line => line.totalValue === null)) throw new Error('Confirm all costs before allocating additional charges');
+          const totalWeight = lines.reduce((sum, line) => sum.plus(line.totalValue ?? 0), new Decimal(0));
+          let allocated = new Decimal(0);
+          for (const [index, line] of lines.entries()) {
+               if (!additional) break;
+               const share = index === lines.length - 1 ? money(new Decimal(additional).minus(allocated)) : (totalWeight.gt(0) ? new Decimal(additional).mul(line.totalValue!).div(totalWeight) : new Decimal(additional).div(lines.length)).toDecimalPlaces(2, Decimal.ROUND_DOWN).toNumber();
+               allocated = allocated.plus(share); line.allocatedAdditionalCost = share;
+               line.totalValue = money(new Decimal(line.totalValue!).plus(share));
+               procurementAmount(line.totalValue, 'landed line value');
+               line.unitCost = new Decimal(line.totalValue).div(line.quantityDelivered).toDecimalPlaces(6).toNumber();
+          }
+          return { supplier, order, policy, lines };
+     }
+     async record(input: RecordInput) {
+          if (input.reference !== undefined && (typeof input.reference !== 'string' || input.reference.trim().length > 120))
+               throw new Error('Enter a valid optional delivery reference (up to 120 characters)');
           return this.atomic(input, 'goods_delivery', async trx => {
-               const supplier = await trx('pharmacy_suppliers').where({ id: input.supplierId, branchid: this.branch, is_active: true }).forUpdate().first();
-               if (!supplier) throw new Error('Select an active pharmacy supplier in this branch');
+               const { supplier, order, policy, lines } = await this.prepareDelivery(trx, input);
+               const id = randomUUID(), reference = input.reference?.trim() || `DEL-${id.toUpperCase()}`;
                const documentKey = 'delivery:' + fingerprint({ branch: this.branch, supplier: supplier.id, reference: reference.toLocaleLowerCase() });
                if (await trx('pharmacy_documents').where({ request_key: documentKey }).first()) throw new Error('This supplier delivery reference is already recorded');
-               const order = input.orderId ? await trx('pharmacy_purchase_orders').where({ id: input.orderId, branchid: this.branch, supplier_id: supplier.id }).forUpdate().first() : null;
-               if (input.orderId && (!order || order.status === 'cancelled')) throw new Error('Select an available order for this supplier and branch');
-               const policy = await this.policy(trx), id = randomUUID(), lines: DeliveryLine[] = [];
-               const pending = new Map<string, number>();
-               for (const raw of [...input.lines].sort((a, b) => String(a?.itemId).localeCompare(String(b?.itemId)))) {
-                    if (!raw || typeof raw.itemId !== 'string') throw new Error('Choose a delivered medicine');
-                    const item = await this.item(trx, raw.itemId);
-                    if (!item.is_active) throw new Error('An inactive medicine cannot be received');
-                    const count = stockQuantity(raw.quantity);
-                    const cost = raw.unitCost === undefined ? null : procurementAmount(raw.unitCost, 'actual purchase cost');
-                    const conversion = pharmacyReceivingUnits(item, { quantity: count, unit_price: cost ?? 0, unit_type: raw.unitType, units_per_purchase_unit: raw.unitsPerPurchaseUnit });
-                    if (raw.batchNumber !== undefined && (typeof raw.batchNumber !== 'string' || raw.batchNumber.trim().length > 100)) throw new Error('Enter a valid batch number');
-                    const batch = raw.batchNumber?.trim() || 'AUTO-' + randomUUID().toUpperCase();
-                    const expiry = raw.expiryDate ? dateOnly(raw.expiryDate) : null;
-                    if (raw.condition !== undefined && !['good', 'damaged', 'expired'].includes(raw.condition)) throw new Error('Choose a valid delivery condition');
-                    const condition = expiry && expiry < new Date().toISOString().slice(0, 10) ? 'expired' : raw.condition || 'good';
-                    const discount = procurementAmount(raw.discountAmount ?? 0, 'line discount');
-                    const tax = procurementAmount(raw.nonRecoverableTaxAmount ?? 0, 'nonrecoverable tax');
-                    const total = cost === null ? null : money(new Decimal(conversion.total).minus(discount).plus(tax));
-                    if (total !== null && total < 0) throw new Error('A discount cannot exceed the delivered goods value');
-                    if (total !== null) procurementAmount(total, 'delivery line value');
-                    if (cost === null && (discount || tax)) throw new Error('Confirm purchase cost before recording discount or tax');
-                    if ((input.orderId && !raw.orderLineId) || (!input.orderId && raw.orderLineId)) throw new Error('Each ordered delivery line must belong to the selected order and medicine');
-                    const orderLine = raw.orderLineId ? await trx('pharmacy_purchase_order_lines').where({ id: raw.orderLineId, order_id: order.id, item_id: item.id }).forUpdate().first() : null;
-                    if ((input.orderId && !orderLine) || (!input.orderId && raw.orderLineId)) throw new Error('Each ordered delivery line must belong to the selected order and medicine');
-                    let suggested = conversion.baseQuantity;
-                    if (orderLine) {
-                         const limit = new Decimal(orderLine.quantity_ordered).mul(new Decimal(1).plus(policy.mode === 'tolerance' ? policy.tolerancePercent / 100 : 0));
-                         suggested = quantity(Math.max(0, Math.min(conversion.baseQuantity, limit.minus(orderLine.quantity_received).minus(pending.get(orderLine.id) || 0).toNumber())));
-                         pending.set(orderLine.id, quantity((pending.get(orderLine.id) || 0) + suggested));
-                    }
-                    lines.push({ id: randomUUID(), itemId: item.id, name: item.name, sku: item.sku, orderLineId: orderLine?.id,
-                         quantityDelivered: conversion.baseQuantity, purchaseQuantity: count, conversionFactor: conversion.factor,
-                         unitCost: total === null ? null : new Decimal(total).div(conversion.baseQuantity).toDecimalPlaces(6).toNumber(),
-                         purchaseUnitCost: cost, totalValue: total, acceptedQuantity: 0, acceptedValue: 0, returnedQuantity: 0,
-                         batchNumber: batch, expiryDate: expiry, condition, suggestedAcceptance: condition === 'good' && cost !== null ? suggested : 0,
-                         discountAmount: discount, nonRecoverableTaxAmount: tax, allocatedAdditionalCost: 0 });
-               }
-               const additional = procurementAmount(input.additionalCost ?? 0, 'additional landed cost');
-               if (additional && lines.some(line => line.totalValue === null)) throw new Error('Confirm all costs before allocating additional charges');
-               const totalWeight = lines.reduce((sum, line) => sum.plus(line.totalValue ?? 0), new Decimal(0));
-               let allocated = 0;
-               for (const [index, line] of lines.entries()) {
-                    if (!additional) break;
-                    const share = index === lines.length - 1 ? money(additional - allocated) : (totalWeight.gt(0) ? new Decimal(additional).mul(line.totalValue!).div(totalWeight) : new Decimal(additional).div(lines.length)).toDecimalPlaces(2, Decimal.ROUND_DOWN).toNumber();
-                    allocated = money(allocated + share); line.allocatedAdditionalCost = share;
-                    line.totalValue = money(new Decimal(line.totalValue!).plus(share));
-                    procurementAmount(line.totalValue, 'landed line value');
-                    line.unitCost = new Decimal(line.totalValue).div(line.quantityDelivered).toDecimalPlaces(6).toNumber();
-               }
                const details = { schemaVersion: 2, recognition: 'grni', supplierId: supplier.id, orderId: order?.id, reference, policy, lines };
                const row = { id, branchid: this.branch, kind: 'goods_delivery', status: 'recorded', version: 1, created_by: this.actor,
                     reason: input.reason ? requiredText(input.reason, 'delivery note') : 'Supplier delivery ' + reference, details: JSON.stringify(details), created_at: new Date(), updated_at: new Date() };
@@ -185,9 +257,10 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                await assertPharmacyDayOpen(trx, this.branch);
                const order = row.details.orderId ? await trx('pharmacy_purchase_orders').where({ id: row.details.orderId, branchid: this.branch }).forUpdate().first() : null;
                if (row.details.orderId && (!order || order.status === 'cancelled')) throw new Error('This delivery order is no longer available');
-               const orderLines: Array<{ id: string; item_id: string; quantity_received: number; quantity_ordered: number; unit_cost: number }> = order ? await trx('pharmacy_purchase_order_lines').where({ order_id: order.id }).orderBy('id').forUpdate() : [];
+               const orderLines: Array<{ id: string; item_id: string; quantity_received: number; quantity_ordered: number; unit_cost: number | null }> = order ? await trx('pharmacy_purchase_order_lines').where({ order_id: order.id }).orderBy('id').forUpdate() : [];
                const source = randomUUID(), accepted = new Map<string, { quantity: Decimal; value: Decimal; item: Awaited<ReturnType<PharmacyEnterpriseCore['item']>> }>();
                let value = new Decimal(0);
+               const costDifferences: Array<{ lineId: string; orderedUnitCost: number; actualUnitCost: number }> = [];
                for (const selected of [...input.lines].sort((a, b) => {
                     const left = lines.find(line => line.id === a.lineId), right = lines.find(line => line.id === b.lineId);
                     return String(left?.itemId).localeCompare(String(right?.itemId)) || a.lineId.localeCompare(b.lineId);
@@ -214,7 +287,8 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                               if (input.excessApproved !== true) throw new Error('Explicit manager approval is required for excess acceptance');
                               requiredText(input.reason, 'excess acceptance reason');
                          }
-                         if (Number(orderLine.unit_cost) !== line.unitCost) requiredText(input.reason, 'ordered versus actual cost difference');
+                         if (orderLine.unit_cost != null && Number(orderLine.unit_cost) !== line.unitCost)
+                              costDifferences.push({ lineId: line.id, orderedUnitCost: Number(orderLine.unit_cost), actualUnitCost: line.unitCost });
                          orderLine.quantity_received = quantity(next.toNumber());
                     }
                     const item = await this.item(trx, line.itemId);
@@ -245,8 +319,8 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                          const summary = accepted.get(choice.itemId);
                          if (!summary) throw new Error('Prices can only change for medicines accepted in this operation');
                          const cost = summary.value.div(summary.quantity).toNumber();
-                         const retail = calculatePharmacyPrice(cost, choice, policy.roundingIncrement);
-                         const wholesale = calculatePharmacyPrice(cost, choice.wholesale || { method: 'keep' }, policy.roundingIncrement);
+                         const retail = calculatePharmacyPrice(cost, choice, policy.roundingIncrement, Number(summary.item.sale_price));
+                         const wholesale = calculatePharmacyPrice(cost, choice.wholesale || { method: 'keep' }, policy.roundingIncrement, Number(summary.item.wholesale_price));
                          if (retail.price === null && wholesale.price === null) continue;
                          requireManager(this.user);
                          if ((retail.price !== null && choice.expectedPrice !== retail.price) ||
@@ -268,7 +342,7 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
                     await trx('pharmacy_purchase_orders').where({ id: order.id }).update({ status: orderLines.every(line => Number(line.quantity_received) >= Number(line.quantity_ordered)) ? 'received' : 'partially_received' });
                }
                const status = await this.status(trx, row, disposition(lines), { ...row.details, lines });
-               await this.event(trx, 'delivery_accepted', { source, value: money(value), lines: input.lines, excessApproved: input.excessApproved === true, reason: input.reason || null }, id);
+               await this.event(trx, 'delivery_accepted', { source, value: money(value), lines: input.lines, costDifferences, excessApproved: input.excessApproved === true, reason: input.reason || null }, id);
                return { ...status, details: { ...row.details, lines }, acceptanceId: source, amount: money(value) };
           });
      }

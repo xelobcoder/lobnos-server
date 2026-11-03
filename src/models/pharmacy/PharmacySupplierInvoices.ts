@@ -12,7 +12,7 @@ export interface PharmacySupplierInvoiceInput {
      reference: string;
      invoiceDate: string;
      dueDate?: string;
-     reason: string;
+     reason?: string;
      lines: Array<{ deliveryId: string; lineId: string; quantity: number; amount: number | string }>;
      recoverableTax?: { account: 'asset:input_tax'; amount: number | string };
 }
@@ -29,7 +29,7 @@ export class PharmacySupplierInvoices extends PharmacyEnterpriseCore {
                if (Object.keys(input).some(key => !['idempotencyKey', 'supplierId', 'reference', 'invoiceDate', 'dueDate', 'reason', 'lines', 'recoverableTax'].includes(key)))
                     throw new Error('Invoice tax, charges and adjustments require an explicit configured purchase-tax or variance workflow');
                const reference = requiredText(input.reference, 'supplier invoice reference', 128);
-               const reason = requiredText(input.reason, 'invoice evidence', 500);
+               const reason = requiredText(input.reason || 'Accepted delivery supplier invoice', 'invoice evidence', 500);
                const invoiceDate = dateOnly(input.invoiceDate), dueDate = input.dueDate == null ? null : dateOnly(input.dueDate);
                if (invoiceDate > new Date().toISOString().slice(0, 10)) throw new Error('Supplier invoice date cannot be in the future');
                if (dueDate && dueDate < invoiceDate) throw new Error('Invoice due date cannot precede its invoice date');
@@ -109,7 +109,7 @@ export class PharmacySupplierInvoices extends PharmacyEnterpriseCore {
                await trx('pharmacy_accounting_bills').insert({ id: billId, branchid: this.branch, supplier_id: supplier.id,
                     source_kind: 'supplier_invoice', source_ref: id, reference, document_date: invoiceDate, due_date: dueDate, amount: value, created_by: this.actor });
                for (const row of deliveries.values()) await this.status(trx, row, row.status, row.details);
-               await this.event(trx, 'supplier_invoice_posted', result);
+               await this.event(trx, 'supplier_invoice_posted', result, id);
                return result;
           }).catch(async error => {
                // Concurrent absent-key retries can meet the reference constraint after the first commit.

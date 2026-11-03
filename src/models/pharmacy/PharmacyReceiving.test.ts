@@ -14,6 +14,12 @@ function fixture(role = 'pharmacy_manager') {
           pharmacy_workflows: [], pharmacy_enterprise_requests: [], pharmacy_documents: [], pharmacy_stock_movements: [],
           pharmacy_journals: [], pharmacy_journal_lines: [], pharmacy_procurement_settings: [], pharmacy_price_history: [],
      });
+     const transaction = f.db.transaction;
+     // Nested steps join the unit-test transaction; real SQL tests cover savepoint rollback.
+     f.db.transaction = (work: (trx: typeof f.db) => Promise<unknown>) => transaction((trx: typeof f.db) => {
+          trx.transaction = (nested: typeof work) => nested(trx);
+          return work(trx);
+     });
      const actor: AuthUser = { employeeid: 3, branch: 2, tenantId: 1, role, email: 'manager@example.invalid' };
      return { ...f, actor, service: new PharmacyReceiving(f.db, actor) };
 }
@@ -25,6 +31,27 @@ const accept = (row: Awaited<ReturnType<PharmacyReceiving['record']>>, count: nu
      idempotencyKey: key, expectedVersion: row.version, lines: [{ lineId: row.details.lines[0].id, quantity: count }],
 });
 describe('physical pharmacy deliveries and controlled stock acceptance', () => {
+     it('loads one delivery by id scoped to branch and document kind', async () => {
+          const f = fixture(), row = await f.service.record(delivery());
+          expect(await f.service.delivery(row.id)).toMatchObject({ id: row.id, details: row.details });
+          const otherBranch = new PharmacyReceiving(f.db, { ...f.actor, branch: 3 });
+          await expect(otherBranch.delivery(row.id)).rejects.toThrow();
+          await f.db.transaction(async (trx: typeof f.db) => {
+               await trx('pharmacy_workflows').where({ id: row.id }).forUpdate().first();
+               await trx('pharmacy_workflows').where({ id: row.id }).update({ kind: 'purchase_request' });
+          });
+          await expect(f.service.delivery(row.id)).rejects.toThrow();
+          await expect(f.service.delivery('missing')).rejects.toThrow();
+     });
+     it('previews current retail and wholesale adjustments separately and persists only confirmed manager prices', async () => {
+          const f = fixture(), row = await f.service.record(delivery());
+          const selected = accept(row, 100).lines;
+          expect((await f.service.previewPrice({ deliveryId: row.id, itemId: 'drug', lines: selected, method: 'increase_fixed', value: 5 })).price).toBe(35);
+          expect((await f.service.previewPrice({ deliveryId: row.id, itemId: 'drug', lines: selected, method: 'increase_fixed', value: 5, wholesale: true })).price).toBe(30);
+          await f.service.accept(row.id, { ...accept(row, 100), pricing: [{ itemId: 'drug', method: 'increase_fixed', value: 5, expectedPrice: 35, wholesale: { method: 'increase_fixed', value: 5, expectedPrice: 30 } }] });
+          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ sale_price: 35, wholesale_price: 30 });
+          expect(f.rows('pharmacy_price_history')).toHaveLength(1);
+     });
      it('records physical excess without changing stock, accounting or ordered commitments', async () => {
           const f = fixture(), row = await f.service.record(delivery(120));
           expect(row.details.lines[0]).toMatchObject({ quantityDelivered: 120, acceptedQuantity: 0, suggestedAcceptance: 100 });
@@ -147,6 +174,101 @@ describe('cost-based pharmacy selling prices', () => {
           expect(await f.service.previewPrice(input)).toMatchObject({ price: 25.05, cost: 20, increment: .05 });
           await expect(f.service.previewPrice({ ...input, itemId: 'foreign-item' })).rejects.toThrow('this medicine');
           await expect(new PharmacyReceiving(f.db, { ...f.actor, branch: 9 }).previewPrice(input)).rejects.toThrow('branch');
+     });
+     describe('one-step pharmacy receiving', () => {
+          it('generates blank batch/reference values, keeps selling prices and posts stock exactly once', async () => {
+               const f = fixture(), input = { ...delivery(), reference: undefined, lines: [{ ...delivery().lines[0], batchNumber: '' }] };
+               const saved = await f.service.receive(input);
+               expect(saved).toMatchObject({ acceptedQuantity: 100, heldQuantity: 0, invoice: null, status: 'accepted' });
+               expect(saved.details.reference).toMatch(/^DEL-/);
+               expect(saved.details.lines[0].batchNumber).toMatch(/^AUTO-/);
+               expect(await f.service.receive(input)).toEqual(saved);
+               expect(f.rows('pharmacy_stock_movements')).toHaveLength(1);
+               expect(f.rows('pharmacy_workflows')).toHaveLength(1);
+               expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 100, sale_price: 30, wholesale_price: 25 });
+               expect(f.rows('pharmacy_price_history')).toHaveLength(0);
+          });
+          it.each([
+               ['manual', 37, 37], ['increase_fixed', 2, 32], ['decrease_fixed', 2, 28],
+               ['increase_percentage', 10, 33], ['decrease_percentage', 10, 27],
+               ['fixed', 5, 25], ['percentage', 25, 25], ['margin', 20, 25],
+          ] as const)('previews and saves %s alongside receiving, without a separate acceptance', async (method, value, expected) => {
+               const f = fixture(), receipt = { ...delivery(), reference: '', lines: [{ ...delivery().lines[0], batchNumber: '' }] };
+               const preview = await f.service.previewReceivePrice({ receipt, itemId: 'drug', method, value });
+               expect(preview.price).toBe(expected);
+               expect(f.rows('pharmacy_workflows')).toHaveLength(0);
+               expect(f.rows('pharmacy_stock_movements')).toHaveLength(0);
+               await f.service.receive({ ...receipt, pricing: [{ itemId: 'drug', method, value, expectedPrice: preview.price! }] });
+               expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 100, sale_price: expected, wholesale_price: 25 });
+               expect(f.rows('pharmacy_price_history')).toHaveLength(1);
+          });
+          it('uses the same pack, discount, tax, landed-cost and rounding basis for preview and save', async () => {
+               const f = fixture();
+               await f.service.savePolicy({ idempotencyKey: 'simple-rounding-policy', mode: 'approval', tolerancePercent: 0, roundingIncrement: .05, reason: 'Cash selling increments' });
+               const receipt = { ...delivery(), additionalCost: 10, lines: [
+                    { ...delivery().lines[0], quantity: 5, unitCost: 200, unitType: 'purchase' as const, unitsPerPurchaseUnit: 10, discountAmount: 20, nonRecoverableTaxAmount: 10 },
+                    { ...delivery().lines[0], quantity: 50, unitCost: 22, batchNumber: 'SECOND' },
+               ] };
+               const retail = await f.service.previewReceivePrice({ receipt, itemId: 'drug', method: 'percentage', value: 25 });
+               const trade = await f.service.previewReceivePrice({ receipt, itemId: 'drug', method: 'decrease_fixed', value: 1, wholesale: true });
+               expect(retail).toMatchObject({ cost: 21, price: 26.25, increment: .05 });
+               expect(trade.price).toBe(24);
+               await f.service.receive({ ...receipt, pricing: [{ itemId: 'drug', method: 'percentage', value: 25, expectedPrice: 26.25,
+                    wholesale: { method: 'decrease_fixed', value: 1, expectedPrice: 24 } }] });
+               expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 100, cost_price: 21, sale_price: 26.25, wholesale_price: 24 });
+          });
+          it('audits actual versus ordered cost automatically without requiring a routine reason', async () => {
+               const f = fixture();
+               await f.service.receive({ ...delivery(), lines: [{ ...delivery().lines[0], unitCost: 22 }] });
+               expect(f.rows('pharmacy_inventory_items')[0].cost_price).toBe(22);
+               const event = f.rows('pharmacy_enterprise_events').find(row => row.action === 'delivery_accepted');
+               expect(JSON.parse(event.details)).toMatchObject({ reason: null, costDifferences: [{ orderedUnitCost: 20, actualUnitCost: 22 }] });
+          });
+          it('keeps excess goods held instead of silently exceeding the order', async () => {
+               const f = fixture(), saved = await f.service.receive(delivery(120));
+               expect(saved).toMatchObject({ acceptedQuantity: 100, heldQuantity: 20, status: 'partially_accepted' });
+               expect(f.rows('pharmacy_inventory_items')[0].current_stock).toBe(100);
+          });
+          it('holds damaged batches without consuming the remaining ordered capacity for good batches', async () => {
+               const f = fixture(), input = delivery(100);
+               const saved = await f.service.receive({ ...input, lines: [
+                    { ...input.lines[0], condition: 'damaged', batchNumber: 'DAMAGED' },
+                    { ...input.lines[0], batchNumber: 'GOOD' },
+               ] });
+               expect(saved).toMatchObject({ acceptedQuantity: 100, heldQuantity: 100 });
+               expect(f.rows('pharmacy_stock_movements')).toHaveLength(1);
+               expect(f.rows('pharmacy_stock_movements')[0].batch_number).toBe('GOOD');
+          });
+          it('rolls back the entire receipt for a stale price or unauthorized price change', async () => {
+               for (const role of ['pharmacy_manager', 'pharmacy_storekeeper']) {
+                    const f = fixture(role);
+                    await expect(f.service.receive({ ...delivery(), pricing: [{ itemId: 'drug', method: 'manual', value: 35, expectedPrice: role === 'pharmacy_manager' ? 34 : 35 }] }))
+                         .rejects.toThrow(role === 'pharmacy_manager' ? 'Preview' : 'manager authority');
+                    expect(f.rows('pharmacy_workflows')).toHaveLength(0);
+                    expect(f.rows('pharmacy_documents')).toHaveLength(0);
+                    expect(f.rows('pharmacy_stock_movements')).toHaveLength(0);
+                    expect(f.rows('pharmacy_journals')).toHaveLength(0);
+                    expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 0, sale_price: 30 });
+               }
+          });
+          it('retains cost, expiry and financial-day safeguards without partially saving a receipt', async () => {
+               for (const kind of ['cost', 'expiry', 'closed'] as const) {
+                    const f = fixture(), input = delivery();
+                    if (kind === 'cost') delete input.lines[0].unitCost;
+                    if (kind === 'expiry') delete input.lines[0].expiryDate;
+                    if (kind === 'closed') await f.db.transaction(async trx => { await trx('pharmacy_financial_days').forUpdate().first(); await trx('pharmacy_financial_days').update({ status: 'closed' }); });
+                    await expect(f.service.receive(input)).rejects.toThrow(kind === 'cost' ? 'actual purchase cost' : kind === 'expiry' ? 'expiry' : 'closed');
+                    expect(f.rows('pharmacy_workflows')).toHaveLength(0);
+                    expect(f.rows('pharmacy_documents')).toHaveLength(0);
+                    expect(f.rows('pharmacy_stock_movements')).toHaveLength(0);
+               }
+          });
+          it('does not make untracked supplies require an expiry and permits storekeepers to retain prices', async () => {
+               const f = fixture('pharmacy_storekeeper');
+               await f.db.transaction(async trx => { await trx('pharmacy_inventory_items').forUpdate().first(); await trx('pharmacy_inventory_items').update({ pharmacy_batch_tracking: false }); });
+               await f.service.receive({ ...delivery(), lines: [{ itemId: 'drug', orderLineId: 'order-line', quantity: 10, unitCost: 20 }] });
+               expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 10, sale_price: 30 });
+          });
      });
      it('rolls back acceptance and price changes when a preview is stale', async () => {
           const f = fixture(), row = await f.service.record(delivery());

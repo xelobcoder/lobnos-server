@@ -61,13 +61,13 @@ export async function ensurePharmacySeparationSchema(db: Knex): Promise<void> {
      });
      if (!await db.schema.hasTable('pharmacy_purchase_orders')) await db.schema.createTable('pharmacy_purchase_orders', t => {
           t.string('id', 64).primary(); t.integer('branchid').unsigned().notNullable(); t.string('supplier_id', 64).notNullable();
-          t.string('status', 32).notNullable().defaultTo('ordered'); t.decimal('total_amount', 14, 2).notNullable();
+          t.string('status', 32).notNullable().defaultTo('ordered'); t.decimal('total_amount', 14, 2).nullable();
           t.integer('created_by').unsigned().notNullable(); t.timestamp('created_at').defaultTo(db.fn.now()); t.string('notes', 500).nullable();
           t.foreign('supplier_id').references('id').inTable('pharmacy_suppliers'); t.index(['branchid', 'status']);
      });
      if (!await db.schema.hasTable('pharmacy_purchase_order_lines')) await db.schema.createTable('pharmacy_purchase_order_lines', t => {
           t.string('id', 64).primary(); t.string('order_id', 64).notNullable(); t.string('item_id', 64).notNullable();
-          t.decimal('quantity_ordered', 14, 3).notNullable(); t.decimal('quantity_received', 14, 3).notNullable().defaultTo(0); t.decimal('unit_cost', 14, 2).notNullable();
+          t.decimal('quantity_ordered', 14, 3).notNullable(); t.decimal('quantity_received', 14, 3).notNullable().defaultTo(0); t.decimal('unit_cost', 14, 2).nullable();
           t.foreign('order_id').references('id').inTable('pharmacy_purchase_orders'); t.foreign('item_id').references('id').inTable('pharmacy_inventory_items'); t.unique(['order_id', 'item_id']);
      });
      if (!await db.schema.hasTable('pharmacy_shifts')) await db.schema.createTable('pharmacy_shifts', t => {

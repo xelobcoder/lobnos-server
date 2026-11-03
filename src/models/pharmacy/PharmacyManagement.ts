@@ -381,7 +381,7 @@ export class PharmacyManagement {
                          !orderLine ||
                          order.status === "cancelled" ||
                          order.supplier_id !== input.supplier_id ||
-                         Number(orderLine.unit_cost) !== cost ||
+                         (orderLine.unit_cost != null && Number(orderLine.unit_cost) !== cost) ||
                          quantity(Number(orderLine.quantity_received) + count) > Number(orderLine.quantity_ordered)
                     )
                          throw new Error("Receipt does not match an outstanding pharmacy order line");

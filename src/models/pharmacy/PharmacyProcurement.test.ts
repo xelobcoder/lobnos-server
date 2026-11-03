@@ -19,7 +19,7 @@ function fixture() {
      return { ...database, requester: new PharmacyProcurement(database.db, user(3)), reviewer: new PharmacyProcurement(database.db, user(4)) };
 }
 const request = () => ({
-     idempotencyKey: 'purchase-request-123', supplierId: 'supplier', notes: 'Replenish medicine stock',
+     schemaVersion: 1, idempotencyKey: 'purchase-request-123', supplierId: 'supplier', notes: 'Replenish medicine stock',
      lines: [{ itemId: 'medicine', quantity: 20, unitCost: 5 }],
 });
 const requisition = () => ({
@@ -28,6 +28,20 @@ const requisition = () => ({
 });
 
 describe('version 2 internal requisitions', () => {
+     it('defaults new requests to the quantity-only requisition format', async () => {
+          const f = fixture();
+          const created = await f.requester.request({
+               idempotencyKey: 'quantity-default-123', notes: 'Restock the dispensary',
+               lines: [{ itemId: 'medicine', quantity: 20 }],
+          });
+          expect(JSON.parse(f.rows('pharmacy_workflows')[0].details)).toMatchObject({
+               schemaVersion: 2, estimatedValue: null, quotes: [], orders: [],
+               lines: [{ itemId: 'medicine', quantity: 20, unitCost: null }],
+          });
+          expect(created.schemaVersion).toBe(2);
+          expect(f.rows('pharmacy_purchase_orders')).toHaveLength(0);
+     });
+
      it('keeps unknown estimates distinct from zero and requires neither supplier nor quotation', async () => {
           const f = fixture(), created = await f.requester.request(requisition());
           expect(await f.requester.request(requisition())).toEqual(created);
@@ -90,16 +104,18 @@ describe('version 2 internal requisitions', () => {
           const second = await f.reviewer.convert(created.id, { ...order, idempotencyKey: 'second-order-key-123', expectedVersion: 3, supplierId: 'alternative', lines: [{ itemId: 'medicine', quantity: 7, unitCost: 3 }] });
           expect(second.orderId).not.toBe(first.orderId);
           expect(f.rows('pharmacy_purchase_orders')).toHaveLength(2);
-          expect(f.rows('pharmacy_purchase_orders').map(row => row.total_amount)).toEqual([32, 21]);
+          expect(f.rows('pharmacy_purchase_orders').map(row => row.total_amount)).toEqual([null, null]);
+          expect(f.rows('pharmacy_purchase_order_lines').map(row => row.unit_cost)).toEqual([null, null]);
           const details = JSON.parse(f.rows('pharmacy_workflows')[0].details);
           expect(details.lines[0]).toMatchObject({ quantity: 20, requestedQuantity: 20, approvedQuantity: 15 });
           expect(details.orders).toHaveLength(2);
-          expect(JSON.parse(f.rows('pharmacy_documents')[0].details)).toMatchObject({ schemaVersion: 2, requisitionId: created.id, requestId: created.id, orderId: first.orderId });
+          expect(details.orders[0]).toMatchObject({ orderId: first.orderId, total: null, lines: [{ quantity: 8, unitCost: null }] });
+          expect(f.rows('pharmacy_documents')).toHaveLength(0);
           await expect(f.reviewer.convert(created.id, { ...order, idempotencyKey: 'full-order-key-123', expectedVersion: 4, lines: [{ itemId: 'medicine', quantity: 1, unitCost: 3 }] })).rejects.toThrow('remaining approved');
           expect(f.rows('pharmacy_stock_movements')).toHaveLength(0);
           expect(f.rows('pharmacy_journals')).toHaveLength(0);
      });
-     it('guards supplier, branch, medicine, cost and ordering authority', async () => {
+     it('guards supplier, branch, medicine, quotation and ordering authority', async () => {
           const f = fixture(), created = await f.requester.request(requisition());
           await f.reviewer.decide(created.id, { idempotencyKey: 'approve-internal-123', expectedVersion: 1, decision: 'approve', reason: 'Stock requirement accepted' });
           const order = { idempotencyKey: 'guard-order-key-123', expectedVersion: 2, supplierId: 'supplier', reference: 'Supplier agreement', lines: [{ itemId: 'medicine', quantity: 1, unitCost: 4 }] };
@@ -107,8 +123,17 @@ describe('version 2 internal requisitions', () => {
           await expect(new PharmacyProcurement(f.db, user(6, 'pharmacy_manager', 3)).convert(created.id, order)).rejects.toThrow('not found');
           await expect(f.reviewer.convert(created.id, { ...order, supplierId: 'missing' })).rejects.toThrow('active pharmacy supplier');
           await expect(f.reviewer.convert(created.id, { ...order, lines: [{ itemId: 'missing', quantity: 1, unitCost: 4 }] })).rejects.toThrow('Only approved');
-          await expect(f.reviewer.convert(created.id, { ...order, lines: [{ itemId: 'medicine', quantity: 1, unitCost: -1 }] })).rejects.toThrow('agreed unit costs');
+          await expect(f.reviewer.convert(created.id, { ...order, quoteIndex: 99 })).rejects.toThrow('quotation from this supplier');
           expect(f.rows('pharmacy_purchase_orders')).toHaveLength(0);
+     });
+     it('creates a quantity-only supplier order when no cost is known yet', async () => {
+          const f = fixture(), created = await f.requester.request(requisition());
+          await f.reviewer.decide(created.id, { idempotencyKey: 'approve-qty-only-123', expectedVersion: 1, decision: 'approve', reason: 'Stock requirement accepted' });
+          await f.reviewer.convert(created.id, { idempotencyKey: 'qty-only-order-123', expectedVersion: 2, supplierId: 'supplier', reference: 'Phone order', lines: [{ itemId: 'medicine', quantity: 20 }] });
+          expect(f.rows('pharmacy_purchase_orders')[0]).toMatchObject({ status: 'ordered', total_amount: null });
+          expect(f.rows('pharmacy_purchase_order_lines')[0]).toMatchObject({ quantity_ordered: 20, unit_cost: null });
+          expect(f.rows('pharmacy_stock_movements')).toHaveLength(0);
+          expect(f.rows('pharmacy_journals')).toHaveLength(0);
      });
      it('validates version, duplicate lines, inactive medicines and approval amendments', async () => {
           const f = fixture();
@@ -137,18 +162,20 @@ describe('version 2 internal requisitions', () => {
           expect(f.rows('pharmacy_purchase_orders')).toHaveLength(1);
           expect(f.rows('pharmacy_purchase_order_lines')[0].quantity_ordered).toBe(20);
      });
-     it('retains the selected quotation evidence and rejects supplier or price mismatches', async () => {
+     it('keeps a selected quotation as evidence only and never prices the supplier order from it', async () => {
           const f = fixture(), created = await f.requester.request(requisition());
           await f.requester.quote(created.id, { idempotencyKey: 'new-evidence-123', expectedVersion: 1, supplierId: 'supplier', reference: 'Written quotation', lines: [{ itemId: 'medicine', unitCost: 2 }] });
           await f.reviewer.decide(created.id, { idempotencyKey: 'approve-evidence-123', expectedVersion: 2, decision: 'approve', reason: 'Stock requirement accepted' });
           const order = { idempotencyKey: 'evidence-order-123', expectedVersion: 3, supplierId: 'supplier', reference: 'Agreed written quotation', quoteIndex: 0, lines: [{ itemId: 'medicine', quantity: 5, unitCost: 2 }] };
           await expect(f.reviewer.convert(created.id, { ...order, supplierId: 'alternative' })).rejects.toThrow('quotation from this supplier');
-          await expect(f.reviewer.convert(created.id, { ...order, lines: [{ itemId: 'medicine', quantity: 5, unitCost: 3 }] })).rejects.toThrow('does not match');
           await f.reviewer.convert(created.id, order);
+          expect(f.rows('pharmacy_purchase_orders')[0]).toMatchObject({ status: 'ordered', total_amount: null });
+          expect(f.rows('pharmacy_purchase_order_lines')[0]).toMatchObject({ quantity_ordered: 5, unit_cost: null });
+          expect(f.rows('pharmacy_documents')).toHaveLength(0);
           const details = JSON.parse(f.rows('pharmacy_workflows')[0].details);
           expect(details.quotes).toHaveLength(1);
           expect(details.quotes[0]).toMatchObject({ reference: 'Written quotation', lines: [{ quantity: 20, unitCost: 2 }] });
-          expect(details.orders[0]).toMatchObject({ quoteIndex: 0, lines: [{ quantity: 5, requestedQuantity: 20, approvedQuantity: 20 }] });
+          expect(details.orders[0]).toMatchObject({ quoteIndex: 0, total: null, lines: [{ quantity: 5, requestedQuantity: 20, approvedQuantity: 20, unitCost: null }] });
      });
 });
 

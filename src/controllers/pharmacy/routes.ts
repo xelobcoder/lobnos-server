@@ -13,6 +13,7 @@ import { pharmacyAccountingRouter } from './PharmacyAccountingController';
 import { pharmacyAccountingLedgerRouter } from './PharmacyAccountingLedgerController';
 import { pharmacyTaxRouter } from './PharmacyTaxController';
 import { pharmacyReceivingRouter } from './PharmacyReceivingController';
+import { pharmacyPurchaseOrderRouter } from './PharmacyPurchaseOrderController';
 
 const router = Router();
 
@@ -24,6 +25,7 @@ router.use(checkTokenExists);
 router.get('/catalogue', pharmacyCatalogueAccess, PharmacyCatalogueController.getCatalogue);
 router.use(pharmacyAccess);
 router.use('/receiving', pharmacyReceivingRouter);
+router.use('/purchasing', pharmacyPurchaseOrderRouter);
 router.use('/accounting', pharmacyAccountingLedgerRouter);
 router.use('/accounting', pharmacyTaxRouter);
 router.use('/accounting', pharmacyAccountingRouter);
