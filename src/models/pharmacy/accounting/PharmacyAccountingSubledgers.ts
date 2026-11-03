@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
 import { Knex } from 'knex';
 import { PharmacyAccountingCore, accountingDate, amount, assertTransition, assertVersion, fail, stableHash, text } from './PharmacyAccountingCore';
-import { mappedAccount } from './PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './PharmacyAccountingCatalogue';
 import { postPharmacyJournal, resolvePharmacyDestination } from '../PharmacyLedger';
 import { json } from '../PharmacyEnterpriseCore';
 import { PharmacyAccountingTaxCredits, TAX_CREDIT_POLICY } from './PharmacyAccountingTaxCredits';
@@ -66,38 +66,62 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
      async createSettlement(input: any): Promise<any> {
           return this.atomic(input, 'ap:settlement:create', async (trx, settings) => {
                const date = accountingDate(input.date), checked = await this.allocationLines(trx, input.allocations, date);
-               await mappedAccount(trx, this.context.branch, settings.mappings, 'payable:' + checked.supplierId);
+               await pharmacyAccount(trx, this.context.branch, settings, 'payable:' + checked.supplierId);
                const id = randomUUID(), row = { id, branchid: this.context.branch, kind: 'ap_settlement', status: 'draft', version: 1, financial_date: date, amount: checked.total, description: text(input.description, 'settlement description'), created_by: this.context.actor, details: JSON.stringify({ supplierId: checked.supplierId, allocations: checked.items }) };
                await trx('pharmacy_accounting_documents').insert(row); await this.audit(trx, 'ap:settlement:create', id, null, row);
                return { id, status: 'draft', version: 1, amount: checked.total };
+          });
+     }
+     /** One-step supplier payment: records and posts the payment immediately, like the facility bill payment workflow. */
+     async recordSupplierPayment(input: any): Promise<any> {
+          return this.atomic(input, 'ap:payment:record', async (trx, settings) => {
+               const date = accountingDate(input.date), checked = await this.allocationLines(trx, input.allocations, date);
+               const supplier = await trx('pharmacy_suppliers').where({ id: checked.supplierId, branchid: this.context.branch }).first();
+               const description = input.description == null || input.description === '' ? `Payment to ${supplier?.name || 'supplier'}` : text(input.description, 'payment note');
+               const id = randomUUID(), actor = this.context.actor;
+               const row: any = { id, branchid: this.context.branch, kind: 'ap_settlement', status: 'paid', version: 1, financial_date: date, amount: checked.total, description, created_by: actor, submitted_by: actor, approved_by: actor, details: { supplierId: checked.supplierId, allocations: checked.items, recordedDirectly: true } };
+               await trx('pharmacy_accounting_documents').insert({ ...row, details: JSON.stringify(row.details) });
+               await this.postSettlementPayment(trx, settings, row, input);
+               await trx('pharmacy_accounting_documents').where({ id, branchid: this.context.branch }).update({ details: JSON.stringify(row.details) });
+               await this.audit(trx, 'ap:payment:record', id, null, row);
+               return { id, status: 'paid', version: 1, amount: checked.total, supplierId: checked.supplierId, payment: row.details.payment };
           });
      }
      async settlementAction(id: string, action: string, input: any): Promise<any> {
           return this.atomic(input, `ap:settlement:${id}:${action}`, async (trx, settings) => {
                const row = await this.document(trx, id, 'ap_settlement'); assertVersion(row, input);
                const before = { ...row, details: { ...row.details } };
-               if (!['submit', 'approve', 'pay', 'void'].includes(action)) fail('Unsupported settlement action', 'UNSUPPORTED', 422);
+               if (!['submit', 'approve', 'pay', 'void', 'record_payment'].includes(action)) fail('Unsupported settlement action', 'UNSUPPORTED', 422);
                if (['amount', 'allocations', 'date', 'supplierId', 'accountId'].some(k => Object.prototype.hasOwnProperty.call(input, k))) fail('Settlement date, supplier and allocations are immutable after draft creation');
+               if (action === 'record_payment') {
+                    // Completes a pending payment request directly under the recording user's finance authority.
+                    if (!['draft', 'submitted', 'approved'].includes(row.status)) fail(`Cannot record payment for a ${row.status} payment request`, 'INVALID_STATE', 409);
+                    await this.postSettlementPayment(trx, settings, row, input);
+                    return this.transition(trx, row, action, 'paid', input, before);
+               }
                let status = assertTransition(row, action, this.context.actor);
                if (action === 'pay') {
                     if (row.status !== 'approved') fail('Settlement must be independently approved', 'INVALID_STATE', 409);
-                    const date = accountingDate(row.financial_date), checked = await this.allocationLines(trx, row.details.allocations, date);
-                    if (checked.supplierId !== row.details.supplierId || !decimal(checked.total).eq(row.amount)) fail('Settlement allocation identity changed', 'SOURCE_MISMATCH', 409);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, 'payable:' + checked.supplierId);
-                    const balance = await trx('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id').where({ 'j.branchid': this.context.branch, 'l.account_code': 'payable:' + checked.supplierId }).sum('l.debit as debit').sum('l.credit as credit').first();
-                    if (decimal(balance?.credit).minus(balance?.debit || 0).lt(checked.total)) fail('Supplier control balance is insufficient; resolve unallocated payments/credits', 'PAYABLE_RECONCILIATION_REQUIRED', 409);
-                    const destination = await this.destination(trx, input.method, date);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, 'collection:' + destination.account.id);
-                    const reference = await this.paymentReference(trx, destination.account.id, input.reference, input.method);
-                    await this.postingAllowed(trx, date);
-                    await postPharmacyJournal(trx, this.context.branch, id, 'supplier_settlement', row.description, this.context.actor, [...checked.items.map(a => ({ account: 'payable:' + checked.supplierId, debit: Number(a.amount), documentRef: a.documentRef })), { account: 'collection:' + destination.account.id, credit: Number(checked.total) }], date);
-                    for (const allocation of checked.items) await trx('pharmacy_accounting_allocations').insert({ id: randomUUID(), branchid: this.context.branch, bill_id: allocation.billId, document_id: id, kind: 'supplier_settlement', financial_date: date, amount: allocation.amount, created_by: this.context.actor });
-                    await trx('pharmacy_documents').insert({ id, branchid: this.context.branch, kind: 'supplier_payment', request_key: 'accounting:settlement:' + id, request_hash: stableHash(input), supplier_id: checked.supplierId, amount: checked.total, created_by: this.context.actor, details: JSON.stringify({ description: row.description, method: input.method, reference, accountId: destination.account.id, shiftId: destination.shift?.id || null, settlementId: id }) });
-                    row.details.payment = { accountId: destination.account.id, method: input.method, reference };
+                    await this.postSettlementPayment(trx, settings, row, input);
                     status = 'paid';
                }
                return this.transition(trx, row, action, status, input, before);
           });
+     }
+     private async postSettlementPayment(trx: Knex.Transaction, settings: any, row: any, input: any): Promise<void> {
+          const id = row.id, date = accountingDate(row.financial_date), checked = await this.allocationLines(trx, row.details.allocations, date);
+          if (checked.supplierId !== row.details.supplierId || !decimal(checked.total).eq(row.amount)) fail('Settlement allocation identity changed', 'SOURCE_MISMATCH', 409);
+          await pharmacyAccount(trx, this.context.branch, settings, 'payable:' + checked.supplierId);
+          const balance = await trx('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id').where({ 'j.branchid': this.context.branch, 'l.account_code': 'payable:' + checked.supplierId }).sum('l.debit as debit').sum('l.credit as credit').first();
+          if (decimal(balance?.credit).minus(balance?.debit || 0).lt(checked.total)) fail('Supplier control balance is insufficient; resolve unallocated payments/credits', 'PAYABLE_RECONCILIATION_REQUIRED', 409);
+          const destination = await this.destination(trx, input.method, date);
+          await pharmacyAccount(trx, this.context.branch, settings, 'collection:' + destination.account.id);
+          const reference = await this.paymentReference(trx, destination.account.id, input.reference, input.method);
+          await this.postingAllowed(trx, date);
+          await postPharmacyJournal(trx, this.context.branch, id, 'supplier_settlement', row.description, this.context.actor, [...checked.items.map(a => ({ account: 'payable:' + checked.supplierId, debit: Number(a.amount), documentRef: a.documentRef })), { account: 'collection:' + destination.account.id, credit: Number(checked.total) }], date);
+          for (const allocation of checked.items) await trx('pharmacy_accounting_allocations').insert({ id: randomUUID(), branchid: this.context.branch, bill_id: allocation.billId, document_id: id, kind: 'supplier_settlement', financial_date: date, amount: allocation.amount, created_by: this.context.actor });
+          await trx('pharmacy_documents').insert({ id, branchid: this.context.branch, kind: 'supplier_payment', request_key: 'accounting:settlement:' + id, request_hash: stableHash(input), supplier_id: checked.supplierId, amount: checked.total, created_by: this.context.actor, details: JSON.stringify({ description: row.description, method: input.method, reference, accountId: destination.account.id, shiftId: destination.shift?.id || null, settlementId: id }) });
+          row.details.payment = { accountId: destination.account.id, method: input.method, reference };
      }
      async invoiceDueDate(saleId: string, input: any): Promise<any> {
           return this.atomic(input, `ar:terms:${saleId}`, async trx => {
@@ -125,9 +149,9 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
                     if ((snapshot.taxed || input.taxPolicy !== undefined) && input.taxPolicy !== TAX_CREDIT_POLICY) fail('Taxed credits require explicit taxPolicy original_gross_proportional_v1 based on frozen sale snapshots', 'TAX_CREDIT_POLICY_REQUIRED', 422);
                } else if (input.taxPolicy !== undefined) fail('Writeoffs do not reverse VAT or accept a tax-relief policy', 'UNSUPPORTED_TAX_RELIEF', 422);
                if (date < accountingDate(sale.completed_at) || decimal(value).gt(sale.outstanding_amount)) fail('Adjustment must follow invoice date and be within its outstanding balance');
-               const counterpart = await mappedAccount(trx, this.context.branch, settings.mappings, input.account);
+               const counterpart = await pharmacyAccount(trx, this.context.branch, settings, input.account);
                if (counterpart.type !== (input.kind === 'credit' ? 'revenue' : 'expense')) fail('Credit requires a revenue contra-account; writeoff requires an expense account');
-               await mappedAccount(trx, this.context.branch, settings.mappings, 'receivable:' + sale.customer_account_id);
+               await pharmacyAccount(trx, this.context.branch, settings, 'receivable:' + sale.customer_account_id);
                const id = randomUUID(), reason = text(input.reason, 'adjustment evidence');
                const details = { saleId: sale.id, customerAccountId: sale.customer_account_id, adjustmentKind: input.kind, account: input.account, reason, ...(snapshot ? { taxPolicy: TAX_CREDIT_POLICY, taxSnapshotHash: snapshot.hash } : {}) };
                await trx('pharmacy_accounting_documents').insert({ id, branchid: this.context.branch, kind: 'ar_adjustment', status: 'draft', version: 1, financial_date: date, description: reason, amount: value, created_by: this.context.actor, details: JSON.stringify(details) });
@@ -144,14 +168,14 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
                if (action === 'post') {
                     const sale = await this.sale(trx, row.details.saleId);
                     if (Number(sale.customer_account_id) !== Number(row.details.customerAccountId) || decimal(row.amount).gt(sale.outstanding_amount)) fail('Invoice changed; adjustment exceeds the remaining balance', 'OVERADJUSTMENT', 409);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, row.details.account);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, 'receivable:' + sale.customer_account_id);
+                    await pharmacyAccount(trx, this.context.branch, settings, row.details.account);
+                    await pharmacyAccount(trx, this.context.branch, settings, 'receivable:' + sale.customer_account_id);
                     const date = accountingDate(row.financial_date);
                     const corrections = await trx('pharmacy_accounting_documents').where({ branchid: this.context.branch }).whereIn('kind', ['ar_adjustment', 'ar_reversal']).whereIn('status', ['posted', 'reversed']).select('financial_date', 'details');
                     if (corrections.some(c => json(c.details).saleId === sale.id && accountingDate(c.financial_date) > date)) fail('Correction cannot predate a later posted invoice correction or reversal', 'BACKDATED_ADJUSTMENT', 409);
                     await this.postingAllowed(trx, date);
                     const debit = row.details.adjustmentKind === 'credit'
-                         ? await new PharmacyAccountingTaxCredits(this.db, this.context).credit(trx, sale, row, settings.mappings)
+                         ? await new PharmacyAccountingTaxCredits(this.db, this.context).credit(trx, sale, row, settings)
                          : { lines: [{ account: row.details.account, debit: Number(row.amount), documentRef: sale.id }], net: String(row.amount), tax: '0.00' };
                     row.details.postedTax = { net: debit.net, tax: debit.tax };
                     await postPharmacyJournal(trx, this.context.branch, id, 'receivable_adjustment', row.description, this.context.actor, [...debit.lines, { account: 'receivable:' + sale.customer_account_id, credit: Number(row.amount), documentRef: sale.id }], date);
@@ -166,6 +190,7 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
           const next: any = { status, version: Number(row.version) + 1, details: JSON.stringify(row.details), updated_at: new Date() };
           if (action === 'submit') next.submitted_by = this.context.actor;
           if (action === 'approve') next.approved_by = this.context.actor;
+          if (action === 'record_payment') { next.submitted_by = row.submitted_by ?? this.context.actor; next.approved_by = row.approved_by ?? this.context.actor; }
           await trx('pharmacy_accounting_documents').where({ id: row.id, branchid: this.context.branch }).update(next);
           const result = { id: row.id, status, version: next.version };
           await this.audit(trx, row.kind + ':' + action, row.id, before, { ...result, reason: input.reason || null }); return result;
@@ -189,15 +214,17 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
      async bills(query: any = {}): Promise<any> { return this.payableAging({ ...query, asOf: query.asOf || today() }); }
      async payableAging(query: any): Promise<any> {
           const asOf = accountingDate(query.asOf || today());
-          const [bills, allocations, control] = await Promise.all([
+          const [bills, allocations, control, suppliers] = await Promise.all([
                this.db('pharmacy_accounting_bills').where({ branchid: this.context.branch }).where('document_date', '<=', asOf).orderBy('document_date'),
                this.db('pharmacy_accounting_allocations').where({ branchid: this.context.branch }).where('financial_date', '<=', asOf),
                this.control('payable:', asOf),
+               this.db('pharmacy_suppliers').where({ branchid: this.context.branch }).select('id', 'name'),
           ]);
+          const supplierNames = new Map<string, string>((suppliers || []).map((s: any) => [String(s.id), s.name]));
           const items = bills.map(b => {
                const paid = allocations.filter(a => a.bill_id === b.id).reduce((s, a) => s.plus(a.amount), decimal(0));
                const due = b.due_date == null ? null : accountingDate(b.due_date);
-               return { ...b, due_date: due, allocated_amount: paid.toFixed(2), outstanding_amount: decimal(b.amount).minus(paid).toFixed(2), bucket: agingBucket(due, asOf) };
+               return { ...b, supplier_name: supplierNames.get(String(b.supplier_id)) ?? null, due_date: due, allocated_amount: paid.toFixed(2), outstanding_amount: decimal(b.amount).minus(paid).toFixed(2), bucket: agingBucket(due, asOf) };
           });
           return this.agingResult(items, control, asOf, 'payable:');
      }

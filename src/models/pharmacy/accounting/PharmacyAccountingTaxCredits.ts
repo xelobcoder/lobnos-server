@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
 import { allocateMinor, minorUnits } from '../../../accountingModule/utils/money';
 import { PharmacyAccountingCore, accountingDate, fail, stableHash } from './PharmacyAccountingCore';
-import { mappedAccount } from './PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './PharmacyAccountingCatalogue';
 import { json } from '../PharmacyEnterpriseCore';
 import { PharmacyJournalLine } from '../PharmacyLedger';
 
@@ -65,7 +65,7 @@ export class PharmacyAccountingTaxCredits extends PharmacyAccountingCore {
           if (total > frozenGross) components.push({ ref: 'untaxed', eventId: null, lineId: null, gross: total - frozenGross, net: total - frozenGross, tax: 0, rate: null, account: null });
           return { components, taxed: components.some(c => c.tax > 0), hash: stableHash({ total, components }) };
      }
-     async credit(trx: Knex.Transaction, sale: any, document: any, mappings: any): Promise<{ lines: PharmacyJournalLine[]; net: string; tax: string }> {
+     async credit(trx: Knex.Transaction, sale: any, document: any, settings: { enabled: boolean; mappings: Record<string, string> }): Promise<{ lines: PharmacyJournalLine[]; net: string; tax: string }> {
           const snapshot = await this.snapshots(trx, sale);
           if (snapshot.taxed && (document.details.taxPolicy !== TAX_CREDIT_POLICY || document.details.taxSnapshotHash !== snapshot.hash)) fail('Credit policy or frozen tax snapshot changed; submit a newly reviewed credit', 'TAX_POLICY_CHANGED', 409);
           if (document.details.taxSnapshotHash && document.details.taxSnapshotHash !== snapshot.hash) fail('Frozen invoice snapshot changed after credit approval', 'TAX_POLICY_CHANGED', 409);
@@ -88,8 +88,8 @@ export class PharmacyAccountingTaxCredits extends PharmacyAccountingCore {
                const c = components[i], assigned = shares[i]; if (!assigned) continue;
                const tax = taxCreditMinor(c.gross, c.tax, c.usedGross, c.usedTax, assigned), net = assigned - tax;
                if (tax > 0) {
-                    const account = await mappedAccount(trx, this.context.branch, mappings, c.account);
-                    if (account.type !== 'liability') fail('Original tax account must remain a mapped liability account', 'TAX_ACCOUNT_REQUIRED', 409);
+                    const account = await pharmacyAccount(trx, this.context.branch, settings, c.account, true);
+                    if (account.type !== 'liability') fail('Original tax account must remain an active liability account', 'TAX_ACCOUNT_REQUIRED', 409);
                     taxLines.push({ account: c.account, debit: Number(currency(tax)), documentRef: sale.id });
                }
                totalTax += tax;

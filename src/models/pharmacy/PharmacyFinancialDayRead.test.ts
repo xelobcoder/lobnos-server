@@ -1,5 +1,7 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PharmacyManagement } from "./PharmacyManagement";
+
+afterEach(() => vi.useRealTimers());
 
 // Read adapter applies ordering and limits so historical visibility is exercised.
 function database(tables: Record<string, any[]>) {
@@ -31,6 +33,13 @@ function database(tables: Record<string, any[]>) {
                },
                whereNotNull(key: string) {
                     rows = rows.filter((row) => row[key] != null);
+                    return q;
+               },
+               whereIn(key: string, values: string[]) {
+                    rows = rows.filter((row) => {
+                         const value = row[key] instanceof Date ? row[key].toISOString().slice(0, 10) : String(row[key]).slice(0, 10);
+                         return values.includes(value);
+                    });
                     return q;
                },
                orderBy(key: string, direction = "asc") {
@@ -120,5 +129,50 @@ describe("financial-day recovery reads", () => {
           expect(result.shifts).toContainEqual(oldShift);
           expect(result.shifts.some((shift: any) => shift.id === "other")).toBe(false);
           expect(new Set(result.shifts.map((shift: any) => shift.id)).size).toBe(result.shifts.length);
+     });
+     it("includes the closed financial day of an unresolved old handover beyond recent history", async () => {
+          const oldDay = { id: 1, branchid: 2, status: "closed", financial_date: "2020-01-01" };
+          const db = database({
+               pharmacy_financial_days: [
+                    oldDay,
+                    { id: 2, branchid: 3, status: "closed", financial_date: "2020-01-01" },
+                    ...Array.from({ length: 40 }, (_, n) => ({
+                         id: n + 3, branchid: 2, status: "closed", financial_date: new Date(Date.UTC(2025, 0, n + 1)).toISOString().slice(0, 10),
+                    })),
+               ],
+               pharmacy_shifts: [
+                    { id: "old", branchid: 2, financial_date: "2020-01-01", opened_at: "2020-01-01", reviewed_by: null },
+               ],
+          });
+          const result = await new PharmacyManagement(db, 2, 1).reports();
+          expect(result.days).toContainEqual(oldDay);
+          expect(result.days.some((day: any) => day.branchid !== 2)).toBe(false);
+          expect(result.days.filter((day: any) => day.id === oldDay.id)).toHaveLength(1);
+     });
+     it("identifies a reopened legacy day even when its audit event is outside recent history", async () => {
+          vi.useFakeTimers();
+          vi.setSystemTime(new Date("2026-11-03T10:00:00Z"));
+          const legacy = { id: 1, branchid: 2, status: "open", financial_date: "2020-01-01", opened_at: null };
+          const reopened = { id: 2, branchid: 2, status: "open", financial_date: "2020-01-02", opened_at: null };
+          const db = database({
+               pharmacy_financial_days: [
+                    legacy,
+                    reopened,
+                    { id: 3, branchid: 2, status: "open", financial_date: "2020-01-03", opened_at: "2020-01-03" },
+               ],
+               pharmacy_financial_day_events: [
+                    { id: "other-branch", branchid: 3, event_type: "reopened", financial_date: legacy.financial_date, created_at: "2020-01-04" },
+                    { id: "reopen", branchid: 2, event_type: "reopened", financial_date: reopened.financial_date, created_at: "2020-01-04" },
+                    ...Array.from({ length: 110 }, (_, n) => ({
+                         id: `recent-${n}`, branchid: 2, event_type: "closed", financial_date: "2025-01-01", created_at: `2025-${String(n).padStart(3, "0")}`,
+                    })),
+               ],
+          });
+          const service = new PharmacyManagement(db, 2, 1);
+          expect((await service.setup()).previousDay).toMatchObject({ id: reopened.id });
+          const result = await service.reports();
+          expect(result.days.find((day: any) => day.id === reopened.id)).toMatchObject({ explicitly_reopened: true });
+          expect(result.days.find((day: any) => day.id === legacy.id).explicitly_reopened).not.toBe(true);
+          expect(result.events.some((event: any) => event.id === "reopen")).toBe(false);
      });
 });

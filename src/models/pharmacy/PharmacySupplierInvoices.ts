@@ -3,7 +3,7 @@ import Decimal from 'decimal.js';
 import { PharmacyEnterpriseCore, dateOnly, fingerprint, json, requiredText, requireManager, stockQuantity } from './PharmacyEnterpriseCore';
 import { amount } from './accounting/PharmacyAccountingCore';
 import { PharmacyAccountingCore } from './accounting/PharmacyAccountingCore';
-import { mappedAccount } from './accounting/PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './accounting/PharmacyAccountingCatalogue';
 import { PharmacyJournalLine, postPharmacyJournal } from './PharmacyLedger';
 
 export interface PharmacySupplierInvoiceInput {
@@ -81,7 +81,7 @@ export class PharmacySupplierInvoices extends PharmacyEnterpriseCore {
                     line.invoiceAllocations = [...(line.invoiceAllocations || []), { invoiceId: id, quantity: count.toNumber(), amount: value.toFixed(2) }];
                }
                const inventoryAmount = amount(total.toFixed(2));
-               let recoverableTax: { account: string; amount: string; sharedAccount: string } | null = null;
+               let recoverableTax: { account: string; amount: string; sharedAccount: string | null } | null = null;
                if (input.recoverableTax !== undefined) {
                     if (!input.recoverableTax || typeof input.recoverableTax !== 'object' ||
                          Object.keys(input.recoverableTax).some(key => !['account', 'amount'].includes(key)) ||
@@ -89,9 +89,10 @@ export class PharmacySupplierInvoices extends PharmacyEnterpriseCore {
                          throw new Error('Recoverable purchase tax requires the explicitly configured asset:input_tax account and documented amount');
                     const taxAmount = amount(input.recoverableTax.amount);
                     const settings = await trx('pharmacy_accounting_settings').where({ branchid: this.branch }).forUpdate().first();
-                    if (!settings || Number(settings.tenant_id) !== this.user.tenantId) throw new Error('Purchase tax accounting configuration does not belong to this tenant');
-                    const account = await mappedAccount(trx, this.branch, json(settings.mappings), 'asset:input_tax');
-                    recoverableTax = { account: 'asset:input_tax', amount: taxAmount, sharedAccount: account.account_code };
+                    if (settings && Number(settings.tenant_id) !== this.user.tenantId) throw new Error('Purchase tax accounting configuration does not belong to this tenant');
+                    const linked = Boolean(settings?.enabled);
+                    const account = await pharmacyAccount(trx, this.branch, { enabled: linked, mappings: json(settings?.mappings) }, 'asset:input_tax');
+                    recoverableTax = { account: 'asset:input_tax', amount: taxAmount, sharedAccount: linked ? account.account_code : null };
                }
                const gross = total.plus(recoverableTax?.amount || 0), value = amount(gross.toFixed(2));
                const finance = new PharmacyAccountingCore(trx, { tenantId: this.user.tenantId, branch: this.branch, actor: this.actor, role: this.user.role });

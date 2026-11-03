@@ -27,6 +27,16 @@ export async function ensurePharmacyAccountingSchema(db: Knex): Promise<void> {
           t.integer('account_id').unsigned().primary(); t.integer('branchid').unsigned().notNullable();
           t.integer('created_by').unsigned().notNullable(); t.timestamp('created_at').notNullable().defaultTo(db.fn.now());
      });
+     if (!await db.schema.hasTable('pharmacy_local_accounts')) await db.schema.createTable('pharmacy_local_accounts', t => {
+          t.increments('id'); t.integer('branchid').unsigned().notNullable();
+          t.string('account_code', 20).notNullable(); t.string('local_code', 100).notNullable();
+          t.string('name', 120).notNullable(); t.string('type', 20).notNullable(); t.string('normal_balance', 6).notNullable();
+          t.string('parent_code', 100).nullable(); t.boolean('is_active').notNullable().defaultTo(true);
+          t.integer('created_by').unsigned().notNullable(); t.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+          t.timestamp('updated_at').notNullable().defaultTo(db.fn.now());
+          t.unique(['branchid', 'account_code'], 'uq_pharm_local_account_code');
+          t.unique(['branchid', 'local_code'], 'uq_pharm_local_posting_code');
+     });
      if (!await db.schema.hasTable('pharmacy_accounting_documents')) await db.schema.createTable('pharmacy_accounting_documents', t => {
           t.string('id', 36).primary(); t.integer('branchid').unsigned().notNullable(); t.string('kind', 20).notNullable();
           t.string('status', 24).notNullable(); t.integer('version').unsigned().notNullable().defaultTo(1);

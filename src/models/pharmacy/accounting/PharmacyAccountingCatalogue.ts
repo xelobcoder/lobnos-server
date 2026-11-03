@@ -1,6 +1,7 @@
 import { Knex } from 'knex';
 import { PharmacyAccountingCore, accountingDate, fail, positiveId, text } from './PharmacyAccountingCore';
 import { json } from '../PharmacyEnterpriseCore';
+import { DEFAULT_PHARMACY_ACCOUNTS, PHARMACY_CONTROL_ACCOUNTS } from './PharmacyLocalChart';
 
 export const MAPPING_TYPES: Record<string, string> = {
      sales: 'revenue', inventory: 'asset', cost_of_sales: 'expense', operating_expenses: 'expense',
@@ -55,6 +56,42 @@ export async function mappedAccount(db: Knex | Knex.Transaction, branch: number,
      if (!account || (expectedMappingType(local) && account.type !== expectedMappingType(local))) fail(`The active account mapping for ${local} has an invalid type`);
      return account;
 }
+export async function pharmacyAccount(db: Knex | Knex.Transaction, branch: number, settings: { enabled: boolean; mappings: Record<string, string> }, local: string, allowInactive = false): Promise<any> {
+     if (typeof local !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9:_-]{0,99}$/.test(local)) fail('Supply a valid classified local account code');
+     const type = expectedMappingType(local);
+     if (!type) fail('Use a classified pharmacy account code');
+     if (settings.enabled) {
+          if (/^(expense|revenue|asset|liability|equity):/.test(local) && !DEFAULT_PHARMACY_ACCOUNTS.some(account => account.account_code === local)) {
+               const account = await db('pharmacy_local_accounts').where({ branchid: branch, local_code: local }).forUpdate().first();
+               if (account && account.local_code !== local) fail('Use the exact local posting code shown in the pharmacy chart');
+               if (account && !account.is_active && !allowInactive) fail(`Select an active pharmacy account for ${local}`, 'LOCAL_ACCOUNT_REQUIRED', 409);
+          }
+          return mappedAccount(db, branch, settings.mappings, local);
+     }
+     if (local.startsWith('collection:')) {
+          const account = await db('pharmacy_collection_accounts').where({ id: positiveId(local.slice(11)), branchid: branch, is_active: true, currency: 'GHS' }).forUpdate().first();
+          if (!account || !['cash', 'bank', 'mobile_money'].includes(account.account_type)) fail('Collection account is unavailable in this branch');
+          return { type, account_code: local };
+     }
+     if (local.startsWith('payable:')) {
+          if (!await db('pharmacy_suppliers').where({ id: local.slice(8), branchid: branch }).forUpdate().first()) fail('Supplier account is not in this branch');
+          return { type, account_code: local };
+     }
+     if (local.startsWith('receivable:')) {
+          if (!await db('pharmacy_customer_accounts').where({ id: positiveId(local.slice(11)), branchid: branch }).forUpdate().first()) fail('Customer account is not in this branch');
+          return { type, account_code: local };
+     }
+     const standard = DEFAULT_PHARMACY_ACCOUNTS.find(account => account.account_code === local);
+     if (standard) return standard;
+     const account = await db('pharmacy_local_accounts').where({ branchid: branch, local_code: local }).forUpdate().first();
+     if (account) {
+          if (account.local_code !== local) fail('Use the exact local posting code shown in the pharmacy chart');
+          if (!account.is_active && !allowInactive) fail(`Select an active pharmacy account for ${local}`, 'LOCAL_ACCOUNT_REQUIRED', 409);
+          return account;
+     }
+     if (Object.prototype.hasOwnProperty.call(settings.mappings, local)) return { type, account_code: local };
+     return fail(`Select an active pharmacy account for ${local}`, 'LOCAL_ACCOUNT_REQUIRED', 409);
+}
 export class PharmacyAccountingCatalogue extends PharmacyAccountingCore {
      async settings(): Promise<any> {
           const row = await this.db('pharmacy_accounting_settings').where({ branchid: this.context.branch }).first();
@@ -71,10 +108,11 @@ export class PharmacyAccountingCatalogue extends PharmacyAccountingCore {
                for (const [local, code] of Object.entries(input.mappings)) {
                     if (!/^[A-Za-z0-9][A-Za-z0-9:_-]{0,99}$/.test(local) || ['constructor', 'prototype', '__proto__'].includes(local) || typeof code !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9:_-]{0,19}$/.test(code)) fail('Invalid mapping code');
                     if (!expectedMappingType(local)) fail(`Unclassified local mapping ${local}; use a supported category or typed local code`);
-                    const account = await trx('acc_accounts').where({ account_code: code, is_active: true }).forUpdate().first();
-                    if (!account || (expectedMappingType(local) && account.type !== expectedMappingType(local))) fail(`Mapping ${local} requires an active ${expectedMappingType(local) || 'shared'} account`);
-                    // Validate branch ownership even when an exact override is supplied.
-                    await mappedAccount(trx, this.context.branch, { [local]: code }, local);
+                    if (input.enabled || previous.mappings[local] !== code) {
+                         const account = await trx('acc_accounts').where({ account_code: code, is_active: true }).forUpdate().first();
+                         if (!account || (expectedMappingType(local) && account.type !== expectedMappingType(local))) fail(`Mapping ${local} requires an active ${expectedMappingType(local) || 'shared'} account`);
+                         await mappedAccount(trx, this.context.branch, { [local]: code }, local);
+                    }
                     mappings[local] = String(code);
                }
                const effectiveDate = input.effective_date == null ? null : accountingDate(input.effective_date);
@@ -82,7 +120,11 @@ export class PharmacyAccountingCatalogue extends PharmacyAccountingCore {
                if (input.enabled) for (const category of Object.keys(MAPPING_TYPES)) {
                     if (!mappings[category]) fail(`Enabling accounting requires an explicit ${category} mapping`);
                }
-               if (input.enabled) await assertCanonicalControls(trx, this.context.branch, mappings);
+               if (input.enabled) {
+                    await assertCanonicalControls(trx, this.context.branch, mappings);
+                    const rules = await trx('pharmacy_tax_rules').where({ branchid: this.context.branch, is_active: true }).distinct('local_account');
+                    for (const rule of rules) await pharmacyAccount(trx, this.context.branch, { enabled: true, mappings }, rule.local_account);
+               }
                const linked = await trx('pharmacy_accounting_posting_links').where({ branchid: this.context.branch }).first();
                if (linked) {
                     const oldDate = previous.effective_date == null ? null : accountingDate(previous.effective_date);
@@ -100,12 +142,23 @@ export class PharmacyAccountingCatalogue extends PharmacyAccountingCore {
           });
      }
      async accounts(): Promise<any> {
-          const [settings, sharedAccounts, owned] = await Promise.all([
-               this.settings(), this.db('acc_accounts').select(accountFields).orderBy('account_code'),
+          const [settings, local, owned, facilityAvailable, collections] = await Promise.all([
+               this.settings(), this.db('pharmacy_local_accounts').where({ branchid: this.context.branch }).orderBy('account_code'),
                this.db('pharmacy_accounting_owned_accounts').where({ branchid: this.context.branch }),
+               this.db.schema.hasTable('acc_accounts'),
+               this.db('pharmacy_collection_accounts').where({ branchid: this.context.branch, is_active: true, currency: 'GHS' }).whereIn('account_type', ['cash', 'bank', 'mobile_money']),
           ]);
-          const rows = sharedAccounts.map(a => ({ ...a, is_active: Boolean(a.is_active), local_codes: Object.keys(settings.mappings).filter(k => settings.mappings[k] === a.account_code) }));
-          return { items: rows.filter(a => a.local_codes.length || owned.some(o => Number(o.account_id) === Number(a.id))), sharedAccounts: rows };
+          if (settings.enabled && !facilityAvailable) fail('The enabled facility ledger is unavailable', 'SHARED_LEDGER_UNAVAILABLE', 503);
+          const sharedAccounts = facilityAvailable ? await this.db('acc_accounts').select(accountFields).orderBy('account_code') : [];
+          const defaults = DEFAULT_PHARMACY_ACCOUNTS.map(a => ({ ...a, id: `system:${a.account_code}`, parent_account_id: null, is_active: true, local_codes: [a.account_code], origin: 'system' }));
+          const custom = local.map(a => ({ ...a, id: `local:${a.id}`, parent_account_id: a.parent_code, is_active: Boolean(a.is_active), local_codes: [a.local_code], origin: 'local' }));
+          const destinations = collections.map(a => ({ id: `collection:${a.id}`, account_code: `collection:${a.id}`, account_number: (PHARMACY_CONTROL_ACCOUNTS[`collection:${a.account_type}`] || PHARMACY_CONTROL_ACCOUNTS['collection:cash']).account_number, name: a.name, type: 'asset', normal_balance: 'debit', parent_account_id: null, is_active: true, local_codes: [`collection:${a.id}`], origin: 'collection' }));
+          const localCodes = new Set([...defaults.flatMap(a => a.local_codes), ...custom.flatMap(a => a.local_codes), ...destinations.flatMap(a => a.local_codes)]);
+          const rows = sharedAccounts.map(a => ({ ...a, is_active: Boolean(a.is_active), local_codes: Object.keys(settings.mappings).filter(k => settings.mappings[k] === a.account_code), origin: 'shared' }));
+          const legacy = rows.map(a => ({ ...a, local_codes: a.local_codes.filter(code => !localCodes.has(code)),
+               origin: owned.some(o => Number(o.account_id) === Number(a.id)) ? 'owned_shared' : 'mapped_shared' }))
+               .filter(a => a.local_codes.length || a.origin === 'owned_shared');
+          return { items: [...defaults, ...custom, ...destinations, ...legacy], sharedAccounts: rows, facilityAvailable };
      }
      private async parent(trx: Knex.Transaction, parentId: any, type: string, self?: number): Promise<number | null> {
           if (parentId == null) return null;
@@ -139,6 +192,18 @@ export class PharmacyAccountingCatalogue extends PharmacyAccountingCore {
                }
                const result = { id, ...values, local_codes: input.localCode ? [input.localCode] : [] };
                await this.audit(trx, 'accounts:create', String(id), null, result); return result;
+          });
+     }
+     async removeOwnedAccount(id: number, input: any): Promise<any> {
+          return this.atomic(input, `accounts:remove-ownership:${id}`, async (trx, settings) => {
+               const owned = await trx('pharmacy_accounting_owned_accounts').where({ account_id: id, branchid: this.context.branch }).forUpdate().first();
+               if (!owned) fail('This facility account is not owned by this pharmacy branch', 'NOT_FOUND', 404);
+               const account = await trx('acc_accounts').where({ id }).forUpdate().first();
+               if (!account) fail('The facility account is unavailable', 'NOT_FOUND', 404);
+               if (Object.values(settings.mappings).some(code => String(code).toLowerCase() === String(account.account_code).toLowerCase())) fail('Remove the pharmacy mapping before removing this account from the chart', 'ACCOUNT_IN_USE', 409);
+               await trx('pharmacy_accounting_owned_accounts').where({ account_id: id, branchid: this.context.branch }).delete();
+               await this.audit(trx, 'accounts:remove-ownership', String(id), { account, owned }, { removedFromPharmacy: true, facilityAccountRetained: true });
+               return { id, removedFromPharmacy: true, facilityAccountRetained: true };
           });
      }
      async updateAccount(id: number, input: any): Promise<any> {

@@ -133,6 +133,75 @@ describe('operational shift safeguards',()=>{
           expect(f.rows('pharmacy_shifts')[0]).toMatchObject({closed_by:4,reviewed_by:4});
           await manager.openDay({date:today()});expect(f.rows('pharmacy_financial_days')).toHaveLength(2);
      });
+     it('requires both previous-day shifts to be counted and reviewed before closing the day',async()=>{
+          vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-02T18:00:00Z'));
+          const f=fixture(true),first=await f.service.openShift({openingFloat:0});
+          const second=await new PharmacyManagement(f.db,2,4).openShift({openingFloat:0});
+          vi.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+          const manager=new PharmacyManagement(f.db,2,5,'pharmacy_manager');
+          await expect(manager.closeDay({date:'2026-11-02'})).rejects.toThrow('Close the cashier shifts');
+          await manager.closeShift({shiftId:first.id,countedCash:0},3);
+          await manager.reviewShift(first.id,{note:'First cash count verified'});
+          await expect(manager.closeDay({date:'2026-11-02'})).rejects.toThrow('Close the cashier shifts');
+          await manager.closeShift({shiftId:second.id,countedCash:5},4);
+          await expect(manager.closeDay({date:'2026-11-02'})).rejects.toThrow('Review the closed cashier shifts');
+          await manager.reviewShift(second.id,{note:'Second cash count verified'});
+          await manager.closeDay({date:'2026-11-02'});await manager.openDay({date:'2026-11-03'});
+          expect(f.rows('pharmacy_shifts')).toEqual(expect.arrayContaining([
+               expect.objectContaining({id:first.id,counted_cash:0,variance:0,reviewed_by:5}),
+               expect.objectContaining({id:second.id,counted_cash:5,variance:5,reviewed_by:5}),
+          ]));
+          expect(f.rows('pharmacy_financial_days')).toEqual(expect.arrayContaining([
+               expect.objectContaining({financial_date:'2026-11-02',status:'closed'}),
+               expect.objectContaining({financial_date:'2026-11-03',status:'open'}),
+          ]));
+     });
+     it('recovers unfinished shifts on a previously closed day without changing their cash evidence',async()=>{
+          vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+          const closedAt=new Date('2026-11-01T22:00:00Z');
+          const f=transactionalDatabase({
+               pharmacy_financial_days:[
+                    {id:1,branchid:2,financial_date:'2026-11-01',status:'closed',opened_at:new Date('2026-11-01T08:00:00Z'),closed_by:9,closed_at:closedAt},
+                    {id:2,branchid:2,financial_date:'2026-11-02',status:'open',opened_at:new Date('2026-11-02T08:00:00Z')},
+               ],
+               pharmacy_financial_day_events:[],
+               pharmacy_shifts:[
+                    {id:'unfinished',branchid:2,cashier_id:3,active_key:'2:3',financial_date:'2026-11-01',opening_float:10,opened_at:new Date('2026-11-01T09:00:00Z')},
+                    {id:'unreviewed',branchid:2,cashier_id:4,active_key:null,financial_date:'2026-11-01',opening_float:0,opened_at:new Date('2026-11-01T10:00:00Z'),closed_at:new Date('2026-11-01T20:00:00Z'),counted_cash:7,expected_cash:5,variance:2,reviewed_by:null},
+               ],
+          });
+          const manager=new PharmacyManagement(f.db,2,5,'pharmacy_manager');
+          await expect(manager.closeDay({date:'2026-11-02'})).rejects.toThrow('Close the cashier shifts');
+          await expect(manager.closeShift({shiftId:'unfinished',countedCash:12},3)).rejects.toThrow('financial day is closed');
+          await expect(manager.reviewShift('unreviewed',{note:'Verified the recorded cash count'})).rejects.toThrow('financial day is closed');
+          await expect(manager.reopenDay({date:'2026-11-01',expectedClosedAt:'2000-01-01T00:00:00Z',reason:'Resolve the unfinished historical cash handovers'})).rejects.toThrow('Reload');
+          expect(f.rows('pharmacy_financial_day_events')).toHaveLength(0);
+          await manager.reopenDay({date:'2026-11-01',expectedClosedAt:closedAt.toISOString(),reason:'Resolve the unfinished historical cash handovers'});
+          expect(f.rows('pharmacy_shifts').find(row=>row.id==='unfinished')).toMatchObject({active_key:'2:3',opening_float:10});
+          expect(f.rows('pharmacy_shifts').find(row=>row.id==='unreviewed')).toMatchObject({counted_cash:7,expected_cash:5,variance:2,reviewed_by:null});
+          await manager.closeShift({shiftId:'unfinished',countedCash:12},3);
+          await manager.reviewShift('unfinished',{note:'Physical count verified'});
+          await manager.reviewShift('unreviewed',{note:'Recorded variance verified'});
+          await manager.closeDay({date:'2026-11-01'});await manager.closeDay({date:'2026-11-02'});
+          expect(f.rows('pharmacy_shifts').find(row=>row.id==='unfinished')).toMatchObject({active_key:null,counted_cash:12,expected_cash:10,variance:2,reviewed_by:5});
+          expect(f.rows('pharmacy_shifts').find(row=>row.id==='unreviewed')).toMatchObject({counted_cash:7,expected_cash:5,variance:2,reviewed_by:5});
+          expect(f.rows('pharmacy_financial_day_events').map(row=>row.event_type)).toEqual(['reopened','closed','closed']);
+     });
+     it('requires a reopened legacy day to be closed before opening the current day',async()=>{
+          vi.useFakeTimers();vi.setSystemTime(new Date('2026-11-03T10:00:00Z'));
+          const f=transactionalDatabase({
+               pharmacy_financial_days:[{id:1,branchid:2,financial_date:'2026-11-01',status:'closed',opened_at:null,closed_at:new Date('2026-11-01T22:00:00Z')}],
+               pharmacy_financial_day_events:[],pharmacy_shifts:[],
+          });
+          const manager=new PharmacyManagement(f.db,2,5,'pharmacy_manager');
+          await manager.reopenDay({date:'2026-11-01',reason:'Resolve the historical handover records'});
+          await expect(manager.openDay({date:'2026-11-03'})).rejects.toThrow('previous pharmacy financial day');
+          await manager.closeDay({date:'2026-11-01'});await manager.openDay({date:'2026-11-03'});
+          expect(f.rows('pharmacy_financial_days')).toEqual(expect.arrayContaining([
+               expect.objectContaining({financial_date:'2026-11-01',status:'closed',opened_at:null}),
+               expect.objectContaining({financial_date:'2026-11-03',status:'open'}),
+          ]));
+     });
      it('rejects cash disbursements attached to a previous-day shift',async()=>{
           const f=fixture(true);
           await f.db.transaction(async(trx:any)=>{

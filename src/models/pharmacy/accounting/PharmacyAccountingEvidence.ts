@@ -1,7 +1,7 @@
 import { createHash, randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
 import { PharmacyAccountingCore, accountingDate, amount, assertTransition, assertVersion, fail, stableHash, text } from './PharmacyAccountingCore';
-import { mappedAccount } from './PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './PharmacyAccountingCatalogue';
 import { postPharmacyJournal } from '../PharmacyLedger';
 import { json } from '../PharmacyEnterpriseCore';
 import { PharmacyAccountingSubledgers } from './PharmacyAccountingSubledgers';
@@ -102,8 +102,8 @@ export class PharmacyAccountingEvidence extends PharmacyAccountingCore {
                     if (payment.method === 'cash' && !shift) fail('An open cash shift is required to receive a cash refund');
                     const subledgers = new PharmacyAccountingSubledgers(this.db, this.context);
                     const reference = await subledgers.paymentReference(trx, account.id, input.reference, payment.method);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, 'collection:' + account.id);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, row.details.expenseAccount);
+                    await pharmacyAccount(trx, this.context.branch, settings, 'collection:' + account.id);
+                    await pharmacyAccount(trx, this.context.branch, settings, row.details.expenseAccount, true);
                     await this.postingAllowed(trx, date);
                     await postPharmacyJournal(trx, this.context.branch, id, 'expense_refund', row.description, this.context.actor, [{ account: 'collection:' + account.id, debit: Number(row.amount) }, { account: row.details.expenseAccount, credit: Number(row.amount), documentRef: expense.id }], date);
                     // Negative immutable settlement-reversal evidence makes existing shift handovers add

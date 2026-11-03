@@ -33,9 +33,34 @@ export class PharmacyManagement {
           if (!Number.isInteger(actor) || actor <= 0) throw new Error("An authenticated employee is required");
      }
 
+     private async reopenedLegacyDates(db: any, days: any[]): Promise<Set<string>> {
+          const dates = [...new Set<string>(days.filter((day: any) => !day.opened_at).map((day: any) => this.shiftDate(day)))];
+          if (!dates.length) return new Set();
+          const events = await db("pharmacy_financial_day_events")
+               .where({ branchid: this.branch, event_type: "reopened" })
+               .whereIn("financial_date", dates)
+               .select("financial_date");
+          return new Set<string>(events.map((event: any) => this.shiftDate(event)));
+     }
+
+     private async previousReopenedLegacyDay(db: any, today: string) {
+          const events = await db("pharmacy_financial_day_events")
+               .where({ branchid: this.branch, event_type: "reopened" })
+               .where("financial_date", "<", today)
+               .select("financial_date");
+          const dates = [...new Set<string>(events.map((event: any) => this.shiftDate(event)))];
+          if (!dates.length) return null;
+          return db("pharmacy_financial_days")
+               .where({ branchid: this.branch, status: "open" })
+               .whereNull("opened_at")
+               .whereIn("financial_date", dates)
+               .orderBy("financial_date", "asc")
+               .first();
+     }
+
      async setup() {
           const today = new Date().toISOString().slice(0, 10);
-          const [accounts, routes, shift, day, days, previousDay, previousShift] = await Promise.all([
+          const [accounts, routes, shift, day, days, previousDay, previousShift, reopenedPreviousDay] = await Promise.all([
                this.db("pharmacy_collection_accounts")
                     .where({ branchid: this.branch, is_active: true })
                     .orderBy("name"),
@@ -61,14 +86,18 @@ export class PharmacyManagement {
                     .whereRaw("COALESCE(financial_date, DATE(opened_at)) < ?", [today])
                     .orderBy("opened_at", "asc")
                     .first(),
+               this.previousReopenedLegacyDay(this.db, today),
           ]);
+          const oldestPreviousDay = [previousDay, reopenedPreviousDay]
+               .filter(Boolean)
+               .sort((a: any, b: any) => this.shiftDate(a).localeCompare(this.shiftDate(b)))[0];
           return {
                accounts,
                routes,
                shift: shift || null,
                day: day || null,
                days,
-               previousDay: previousDay || null,
+               previousDay: oldestPreviousDay || null,
                previousShift: previousShift
                     ? { financial_date: previousShift.financial_date || previousShift.opened_at }
                     : null,
@@ -758,8 +787,18 @@ export class PharmacyManagement {
                     .whereNull("reviewed_by")
                     .orderBy("opened_at", "asc"),
           ]);
-          // Unresolved historical handovers must remain reachable beyond recent-history limits.
-          const days = [...new Map([...pendingDays, ...recentDays].map((row: any) => [row.id, row])).values()];
+          // Unresolved historical handovers and their days must remain reachable beyond recent-history limits.
+          const handoverDates = [...new Set<string>(pendingShifts.map((shift: any) => this.shiftDate(shift)))];
+          const handoverDays = handoverDates.length
+               ? await this.db("pharmacy_financial_days")
+                      .where({ branchid: this.branch })
+                      .whereIn("financial_date", handoverDates)
+               : [];
+          const reopened = await this.reopenedLegacyDates(this.db, pendingDays);
+          const days = [...new Map([...pendingDays, ...handoverDays, ...recentDays].map((row: any) => [row.id, row])).values()]
+               .map((row: any) => row.status === "open" && !row.opened_at && reopened.has(this.shiftDate(row))
+                    ? { ...row, explicitly_reopened: true }
+                    : row);
           const shifts = [...new Map([...pendingShifts, ...recentShifts].map((row: any) => [row.id, row])).values()];
           const value = (code: string) => {
                const row = balances.find((r: any) => r.account_code === code);
@@ -793,6 +832,8 @@ export class PharmacyManagement {
                     .forUpdate()
                     .first();
                if (previous) throw new Error("Close the previous pharmacy financial day before opening today.");
+               if (await this.previousReopenedLegacyDay(trx, today))
+                    throw new Error("Close the previous pharmacy financial day before opening today.");
                const oldShift = await trx("pharmacy_shifts")
                     .where({ branchid: this.branch })
                     .whereNotNull("active_key")
@@ -1052,15 +1093,7 @@ export class PharmacyManagement {
                     new Date(input.expectedClosedAt).getTime() !== new Date(day.closed_at).getTime()
                )
                     throw new Error("The day was closed again by another user. Reload its history before reopening");
-               if (
-                    await trx("pharmacy_shifts")
-                         .where({ branchid: this.branch, financial_date: date })
-                         .whereNotNull("active_key")
-                         .first()
-               )
-                    throw new Error(
-                         "This day still has an active shift; close or resolve that shift before reopening.",
-                    );
+               // An unfinished historical shift cannot be closed until its financial day is reopened.
                await trx("pharmacy_financial_day_events").insert({
                     id: randomUUID(),
                     branchid: this.branch,

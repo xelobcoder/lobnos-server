@@ -2,7 +2,7 @@ import { randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
 import { Knex } from 'knex';
 import { PharmacyAccountingCore, accountingDate, amount, assertTransition, assertVersion, fail, positiveId, stableHash, text } from './PharmacyAccountingCore';
-import { mappedAccount } from './PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './PharmacyAccountingCatalogue';
 import { postPharmacyJournal } from '../PharmacyLedger';
 import { PharmacyAccountingSubledgers } from './PharmacyAccountingSubledgers';
 import { PharmacyAccountingTaxCredits } from './PharmacyAccountingTaxCredits';
@@ -86,7 +86,7 @@ export class PharmacyAccountingReversals extends PharmacyAccountingCore {
                     const date = accountingDate(row.financial_date);
                     if (date < accountingDate(original.financial_date)) fail('Reversal cannot predate the original');
                     const reversed = journal.lines.map(l => ({ account: l.account, debit: Number(l.credit), credit: Number(l.debit), ...(l.documentRef ? { documentRef: l.documentRef } : {}) }));
-                    for (const line of reversed) await mappedAccount(trx, this.context.branch, settings.mappings, line.account);
+                    for (const line of reversed) await pharmacyAccount(trx, this.context.branch, settings, line.account, true);
                     await this.postingAllowed(trx, date);
                     if (kind === 'ap_reversal') {
                          const allocations = await this.allocations(trx, original);

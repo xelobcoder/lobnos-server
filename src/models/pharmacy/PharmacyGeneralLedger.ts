@@ -67,7 +67,7 @@ export async function pharmacyGeneralLedger(db: Knex | Knex.Transaction, branch:
      const normalBalance = (code: string) => display.get(code)?.normalBalance || (['Revenue', 'Liabilities', 'Equity'].includes(accountGroup(code)) ? 'credit' : 'debit');
      const normal = (code: string, debit: unknown, credit: unknown) => money((Number(debit) - Number(credit)) * (normalBalance(code) === 'credit' ? -1 : 1));
      const rows = rawRows.map(row => ({
-          ...row, account_name: display.get(row.account)?.name, normal_balance: normalBalance(row.account),
+          ...row, account_number: display.get(row.account)?.number ?? null, account_name: display.get(row.account)?.name, normal_balance: normalBalance(row.account),
           business_unit: 'pharmacy', debit: Number(row.debit), credit: Number(row.credit),
           running_balance: normal(row.account, row.signed_running_balance, 0),
      }));

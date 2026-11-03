@@ -13,6 +13,7 @@ import { PharmacyAccountingRegisters } from "./PharmacyAccountingRegisters";
 import { PharmacyAccountingSubledgers, agingBucket } from "./PharmacyAccountingSubledgers";
 import { PharmacyAccountingEvidence } from "./PharmacyAccountingEvidence";
 import { PharmacyAccountingReversals } from "./PharmacyAccountingReversals";
+import { PharmacyLocalAccounts } from "./PharmacyLocalAccounts";
 import {
      cappedTaxCreditMinor,
      PharmacyAccountingTaxCredits,
@@ -64,6 +65,7 @@ beforeEach(async () => {
        CREATE TABLE pharmacy_customer_accounts(id INTEGER PRIMARY KEY,branchid INTEGER,patient_id INTEGER,is_active INTEGER);
        CREATE TABLE pharmacy_cash_events(id TEXT PRIMARY KEY,branchid INTEGER,sale_id TEXT);
        CREATE TABLE pharmacy_tax_events(id TEXT PRIMARY KEY,branchid INTEGER,sale_id TEXT,sale_line_id TEXT,rule_id TEXT,event_type TEXT,gross_amount NUMERIC,net_amount NUMERIC,tax_amount NUMERIC,rate NUMERIC,local_account TEXT,financial_date TEXT);
+       CREATE TABLE pharmacy_tax_rules(id TEXT PRIMARY KEY,branchid INTEGER,local_account TEXT,is_active INTEGER);
        CREATE TABLE pharmacy_documents(id TEXT PRIMARY KEY,branchid INTEGER,kind TEXT,request_key TEXT UNIQUE,request_hash TEXT,supplier_id TEXT,amount NUMERIC,created_by INTEGER,details TEXT,created_at TEXT DEFAULT CURRENT_TIMESTAMP);
        CREATE TABLE pharmacy_sales(id TEXT PRIMARY KEY,branchid INTEGER,customer_account_id INTEGER,patient_id INTEGER,customer_name TEXT,receipt_number TEXT,total_amount NUMERIC,paid_amount NUMERIC,outstanding_amount NUMERIC,status TEXT,completed_at TEXT,accounting_version INTEGER);
        CREATE TABLE pharmacy_inventory_items(id TEXT PRIMARY KEY,branchid INTEGER,name TEXT,sku TEXT,current_stock NUMERIC,cost_price NUMERIC,is_active INTEGER,status TEXT);
@@ -376,6 +378,11 @@ describe("Journal lifecycle, retry identity and immutability", () => {
      });
 });
 describe("Approved non-inventory expenses", () => {
+     it("allows a standalone expense and supplier payable without facility mappings", async () => {
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ mappings: JSON.stringify({}) });
+          const expense = await workflows.createExpense({ ...expenseInput("standalone-expense"), expenseAccount: "operating_expenses" });
+          expect(expense.status).toBe("draft");
+     });
      it("cannot self-approve or pay a draft expense", async () => {
           const { id } = await workflows.createExpense(expenseInput());
           await expect(
@@ -541,6 +548,111 @@ describe("Approved non-inventory expenses", () => {
           ).rejects.toThrow("refund workflow");
      });
 });
+describe("Standalone pharmacy chart", () => {
+     const create = (key = "local-account-create") => ({
+          idempotencyKey: key, accountCode: "LOCAL_RENT", name: "Premises rent", type: "expense", normalBalance: "debit",
+     });
+     it("provides standard and collection accounts without shared accounts or mappings", async () => {
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ mappings: "{}" });
+          await db.schema.dropTable("acc_accounts");
+          const chart = await catalogue.accounts();
+          expect(chart.facilityAvailable).toBe(false);
+          expect(chart.items.map((row: any) => row.account_code)).toEqual(expect.arrayContaining(["operating_expenses", "asset:input_tax", "liability:output_tax", "collection:10"]));
+          expect(chart.sharedAccounts).toEqual([]);
+          expect(JSON.parse((await db("pharmacy_accounting_settings").where({ branchid: 2 }).first()).mappings)).toEqual({});
+     });
+     it("creates and validates local accounts without creating a facility account", async () => {
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ mappings: "{}" });
+          const local = new PharmacyLocalAccounts(db, context), before = await db("acc_accounts").count("* as count").first();
+          const account = await local.create(create());
+          expect(account.local_code).toBe("expense:LOCAL_RENT");
+          expect(await local.create(create())).toEqual(account);
+          expect((await db("acc_accounts").count("* as count").first()).count).toBe(before.count);
+          expect((await catalogue.accounts()).items).toEqual(expect.arrayContaining([expect.objectContaining({ id: `local:${account.id}`, local_codes: ["expense:LOCAL_RENT"] })]));
+          await workflows.createJournal({ ...journalInput("local-journal-create"), lines: [{ account: "expense:LOCAL_RENT", debit: "20" }, { account: "collection:10", credit: "20" }] });
+          await expect(local.remove(account.id, { idempotencyKey: "remove-used-local" })).rejects.toThrow("history");
+          await expect(workflows.createExpense({ ...expenseInput("missing-local-account"), expenseAccount: "expense:not_created" })).rejects.toThrow("active pharmacy account");
+          await expect(workflows.createExpense({ ...expenseInput("foreign-supplier"), expenseAccount: "expense:LOCAL_RENT", supplierId: "s9" })).rejects.toThrow("supplier in this branch");
+          await expect(new PharmacyLocalAccounts(db, { ...context, branch: 9 }).remove(account.id, { idempotencyKey: "other-branch-remove" })).rejects.toThrow("not found");
+     });
+     it("deletes only unused local accounts and audits the deletion", async () => {
+          const local = new PharmacyLocalAccounts(db, context), account = await local.create(create("local-delete-create"));
+          const request = { idempotencyKey: "local-delete-request" };
+          expect(await local.remove(account.id, request)).toEqual({ id: account.id, deleted: true });
+          expect(await local.remove(account.id, request)).toEqual({ id: account.id, deleted: true });
+          expect(await db("pharmacy_local_accounts").where({ id: account.id })).toHaveLength(0);
+          expect(await db("pharmacy_accounting_audit").where({ action: "local-accounts:remove", entity_id: String(account.id) })).toHaveLength(1);
+     });
+     it("does not allow case variants to shadow standard, legacy or custom posting codes", async () => {
+          const local = new PharmacyLocalAccounts(db, context);
+          await expect(local.create({ ...create("reserved-input-tax"), accountCode: "INPUT_TAX", type: "asset" })).rejects.toThrow("already exists");
+          await expect(local.create({ ...create("legacy-rent-duplicate"), accountCode: "RENT" })).rejects.toThrow("already exists");
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ mappings: "{}" });
+          await local.create(create("case-original"));
+          await expect(local.create({ ...create("case-duplicate"), accountCode: "local_rent" })).rejects.toThrow("already exists");
+     });
+     it("enforces compatible, branch-scoped parents and protects child accounts", async () => {
+          const local = new PharmacyLocalAccounts(db, context);
+          const parent = await local.create({ ...create("parent-create"), accountCode: "PREMISES", parentAccountId: "operating_expenses" });
+          const child = await local.create({ ...create("child-create"), accountCode: "REPAIRS", parentAccountId: parent.local_code });
+          await expect(local.update(parent.id, { idempotencyKey: "parent-cycle-check", parentAccountId: child.local_code })).rejects.toThrow("cycle");
+          await expect(local.update(child.id, { idempotencyKey: "parent-type-check", parentAccountId: "liability:grni" })).rejects.toThrow("same type");
+          await expect(local.remove(parent.id, { idempotencyKey: "parent-delete-check" })).rejects.toThrow("child accounts");
+          await expect(new PharmacyLocalAccounts(db, { ...context, branch: 9 }).create({ ...create("foreign-parent-check"), parentAccountId: parent.local_code })).rejects.toThrow("same type");
+     });
+     it("retains used accounts, mappings and tax rules instead of deleting history", async () => {
+          const local = new PharmacyLocalAccounts(db, context), account = await local.create(create("local-tax-create"));
+          await db("pharmacy_tax_rules").insert({ id: "rule", branchid: 2, local_account: account.local_code, is_active: true });
+          await expect(local.remove(account.id, { idempotencyKey: "local-tax-remove" })).rejects.toThrow("history");
+          await expect(local.update(account.id, { idempotencyKey: "local-tax-deactivate", isActive: false })).rejects.toThrow("active tax rule");
+          await db("pharmacy_tax_rules").where({ id: "rule" }).update({ is_active: false });
+          expect((await local.update(account.id, { idempotencyKey: "local-safe-deactivate", isActive: false })).is_active).toBe(false);
+     });
+     it("allows an archived account's original journal to be reversed but not used for a new journal", async () => {
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ mappings: "{}" });
+          const local = new PharmacyLocalAccounts(db, context), account = await local.create(create("archive-create"));
+          const draft = await workflows.createJournal({ ...journalInput("archive-journal"), lines: [{ account: account.local_code, debit: "20" }, { account: "collection:10", credit: "20" }] });
+          await workflows.journalAction(draft.id, "submit", { idempotencyKey: "archive-submit", expectedVersion: 1 });
+          await new PharmacyAccountingWorkflows(db, other).journalAction(draft.id, "approve", { idempotencyKey: "archive-approve", expectedVersion: 2 });
+          await workflows.journalAction(draft.id, "post", { idempotencyKey: "archive-post", expectedVersion: 3 });
+          await local.update(account.id, { idempotencyKey: "archive-deactivate", isActive: false });
+          await expect(workflows.createJournal({ ...journalInput("archive-new-journal"), lines: [{ account: account.local_code, debit: "20" }, { account: "collection:10", credit: "20" }] })).rejects.toThrow("active pharmacy account");
+          const reversal = await workflows.journalAction(draft.id, "reverse", { idempotencyKey: "archive-reverse", expectedVersion: 4, date, reason: "Correct original journal" });
+          expect(reversal.status).toBe("reversed");
+          expect(await db("pharmacy_journal_lines").where({ account_code: account.local_code })).toHaveLength(2);
+     });
+     it("removes a legacy Pharmacy assignment without deleting its facility account or history", async () => {
+          const account = await catalogue.createAccount({ idempotencyKey: "legacy-account-create", accountCode: "LEGACY", name: "Old account", type: "asset", normalBalance: "debit" });
+          await db("acc_journal_lines").insert({ account_id: account.id });
+          await catalogue.removeOwnedAccount(account.id, { idempotencyKey: "legacy-account-remove" });
+          expect(await db("acc_accounts").where({ id: account.id }).first()).toBeTruthy();
+          expect(await db("acc_journal_lines").where({ account_id: account.id })).toHaveLength(1);
+          expect((await catalogue.accounts()).items.some((row: any) => row.id === account.id)).toBe(false);
+     });
+     it("still requires explicit mappings when shared posting is enabled", async () => {
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ enabled: true, mappings: "{}" });
+          await expect(workflows.createExpense({ ...expenseInput("linked-requires-mapping"), expenseAccount: "operating_expenses" })).rejects.toThrow("explicit shared account mapping");
+     });
+     it("does not reactivate an archived local account merely because it has a shared mapping", async () => {
+          const local = new PharmacyLocalAccounts(db, context), account = await local.create(create("linked-archive-create"));
+          await local.update(account.id, { idempotencyKey: "linked-archive-disable", isActive: false });
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ enabled: true, mappings: JSON.stringify({ ...mappings, [account.local_code]: "gl-rent" }) });
+          await expect(workflows.createExpense({ ...expenseInput("linked-archive-expense"), expenseAccount: account.local_code })).rejects.toThrow("active pharmacy account");
+     });
+     it("allows removing a stale disabled mapping without revalidating unrelated stale mappings", async () => {
+          const stale = { "expense:old": "deleted-one", "expense:other": "deleted-two" };
+          await db("pharmacy_accounting_settings").where({ branchid: 2 }).update({ enabled: false, mappings: JSON.stringify(stale) });
+          const result = await catalogue.saveSettings({ idempotencyKey: "remove-stale-mapping", enabled: false, effective_date: null, mappings: { "expense:other": "deleted-two" } });
+          expect(result.mappings).toEqual({ "expense:other": "deleted-two" });
+     });
+     it("requires mappings for existing tax rules before enabling shared posting", async () => {
+          await db("pharmacy_tax_rules").insert({ id: "local-output-tax", branchid: 2, local_account: "liability:output_tax", is_active: true });
+          const input = { idempotencyKey: "enable-with-local-tax", enabled: true, effective_date: date, mappings };
+          await expect(catalogue.saveSettings(input)).rejects.toThrow("explicit shared account mapping is required for liability:output_tax");
+          expect(await catalogue.saveSettings({ ...input, idempotencyKey: "enable-with-mapped-tax", mappings: { ...mappings, "liability:output_tax": "gl-liability" } })).toMatchObject({ enabled: true });
+     });
+});
+
 describe("Shared catalogue assignments and cutover controls", () => {
      it("enabling requires explicit complete, active, typed mappings and date", async () => {
           const input = { idempotencyKey: "settings-enable-1", enabled: true, effective_date: date, mappings };

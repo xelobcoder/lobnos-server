@@ -1,7 +1,7 @@
 import { randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
 import { PharmacyAccountingCore, accountingDate, amount, assertTransition, assertVersion, fail, journalLines, journalNumbers, stableHash, text } from './PharmacyAccountingCore';
-import { mappedAccount } from './PharmacyAccountingCatalogue';
+import { pharmacyAccount } from './PharmacyAccountingCatalogue';
 import { postPharmacyJournal, resolvePharmacyDestination } from '../PharmacyLedger';
 import { json } from '../PharmacyEnterpriseCore';
 
@@ -35,7 +35,7 @@ export class PharmacyAccountingWorkflows extends PharmacyAccountingCore {
      async createJournal(input: any): Promise<any> {
           return this.atomic(input, 'journals:create', async (trx, settings) => {
                const lines = journalLines(input.lines);
-               for (const line of lines) await mappedAccount(trx, this.context.branch, settings.mappings, line.account);
+               for (const line of lines) await pharmacyAccount(trx, this.context.branch, settings, line.account);
                const id = randomUUID(), date = accountingDate(input.date), description = text(input.description, 'journal description');
                const total = lines.reduce((s, l) => s.plus(l.debit), new Decimal(0)).toFixed(2);
                amount(total); // aggregate must fit the money column too
@@ -55,7 +55,7 @@ export class PharmacyAccountingWorkflows extends PharmacyAccountingCore {
                const lines = journalLines(row.details.lines);
                let reversalId: string | undefined;
                if (action === 'post' || action === 'reverse') {
-                    for (const line of lines) await mappedAccount(trx, this.context.branch, settings.mappings, line.account);
+                    for (const line of lines) await pharmacyAccount(trx, this.context.branch, settings, line.account, action === 'reverse');
                     const date = action === 'reverse' ? accountingDate(input.date) : accountingDate(row.financial_date);
                     await this.postingAllowed(trx, date);
                     if (action === 'post') {
@@ -83,11 +83,11 @@ export class PharmacyAccountingWorkflows extends PharmacyAccountingCore {
           return this.atomic(input, 'expenses:create', async (trx, settings) => {
                const value = amount(input.amount), date = accountingDate(input.date), dueDate = input.dueDate == null ? null : accountingDate(input.dueDate);
                if (dueDate && dueDate < date) fail('dueDate cannot precede expense date');
-               if (typeof input.expenseAccount !== 'string' || (input.expenseAccount !== 'operating_expenses' && !/^expense:[A-Za-z0-9_-]{1,92}$/.test(input.expenseAccount))) fail('Choose operating_expenses or an explicitly mapped expense: code; stock purchases belong to receiving');
-               const account = await mappedAccount(trx, this.context.branch, settings.mappings, input.expenseAccount);
+               if (typeof input.expenseAccount !== 'string' || (input.expenseAccount !== 'operating_expenses' && !/^expense:[A-Za-z0-9_-]{1,92}$/.test(input.expenseAccount))) fail('Choose an active pharmacy expense account; stock purchases belong to receiving');
+               const account = await pharmacyAccount(trx, this.context.branch, settings, input.expenseAccount);
                if (account.type !== 'expense') fail('Expense account must be an expense, never inventory or an asset');
                if (typeof input.supplierId !== 'string' || !await trx('pharmacy_suppliers').where({ id: input.supplierId, branchid: this.context.branch, is_active: true }).forUpdate().first()) fail('Select an active supplier in this branch');
-               await mappedAccount(trx, this.context.branch, settings.mappings, 'payable:' + input.supplierId);
+               await pharmacyAccount(trx, this.context.branch, settings, 'payable:' + input.supplierId);
                const description = text(input.description, 'expense description'), id = randomUUID();
                if (['inventoryItemId', 'purchaseOrderId', 'receiptId', 'tax', 'taxRate', 'attachments', 'attachmentIds'].some(k => Object.prototype.hasOwnProperty.call(input, k))) fail('Inventory purchases, tax calculations and attachments are not supported by this non-inventory expense workflow', 'UNSUPPORTED', 422);
                const details = { expenseAccount: input.expenseAccount, supplierId: input.supplierId, dueDate, paidAmount: '0.00', outstandingAmount: value };
@@ -104,8 +104,8 @@ export class PharmacyAccountingWorkflows extends PharmacyAccountingCore {
                const details = { ...row.details };
                let paymentId: string | undefined, reversalId: string | undefined;
                if (['approve', 'pay', 'reverse'].includes(action)) {
-                    await mappedAccount(trx, this.context.branch, settings.mappings, details.expenseAccount);
-                    await mappedAccount(trx, this.context.branch, settings.mappings, 'payable:' + details.supplierId);
+                    await pharmacyAccount(trx, this.context.branch, settings, details.expenseAccount);
+                    await pharmacyAccount(trx, this.context.branch, settings, 'payable:' + details.supplierId);
                     const date = accountingDate(action === 'approve' ? row.financial_date : input.date);
                     await this.postingAllowed(trx, date);
                     if (action !== 'approve') {
@@ -131,7 +131,7 @@ export class PharmacyAccountingWorkflows extends PharmacyAccountingCore {
                          const reference = input.reference == null ? null : text(input.reference, 'payment reference', 128);
                          if (input.method !== 'cash' && !reference) fail('Non-cash payment requires a reference');
                          const account = await resolvePharmacyDestination(trx, this.context.branch, input.method);
-                         await mappedAccount(trx, this.context.branch, settings.mappings, 'collection:' + account.id);
+                         await pharmacyAccount(trx, this.context.branch, settings, 'collection:' + account.id);
                          let shift: any;
                          if (input.method === 'cash') {
                               shift = await trx('pharmacy_shifts').where({ active_key: `${this.context.branch}:${this.context.actor}`, financial_date: date }).forUpdate().first();

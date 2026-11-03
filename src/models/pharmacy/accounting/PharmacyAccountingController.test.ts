@@ -135,11 +135,12 @@ describe('Pharmacy accounting HTTP boundary', () => {
           expect(generic.match('/expenses/expense-id/approve')).toBe(true);
      });
      it('does not shadow reviewed reversal creation with original document actions', () => {
-          const ap: any = pharmacyAccountingRouter.stack.find((layer: any) => layer.route?.path === '/payables/settlements/:id/:action(submit|approve|pay|void)');
+          const ap: any = pharmacyAccountingRouter.stack.find((layer: any) => layer.route?.path === '/payables/settlements/:id/:action(submit|approve|pay|void|record_payment)');
           const ar: any = pharmacyAccountingRouter.stack.find((layer: any) => layer.route?.path === '/receivables/adjustments/:id/:action(submit|approve|post|void)');
           expect(ap.match('/payables/settlements/original-id/reversals')).toBe(false);
           expect(ar.match('/receivables/adjustments/original-id/reversals')).toBe(false);
           expect(ap.match('/payables/settlements/original-id/pay')).toBe(true);
+          expect(ap.match('/payables/settlements/original-id/record_payment')).toBe(true);
           expect(ar.match('/receivables/adjustments/original-id/post')).toBe(true);
      });
 });

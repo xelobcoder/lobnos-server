@@ -14,13 +14,14 @@ beforeEach(async () => {
      await ensurePharmacyTaxSchema(fixture.db);
      fixture.native.exec(`
        CREATE TABLE pharmacy_inventory_items(id TEXT PRIMARY KEY,branchid INTEGER);
-       CREATE TABLE pharmacy_accounting_settings(branchid INTEGER PRIMARY KEY,mappings TEXT);
+       CREATE TABLE pharmacy_accounting_settings(branchid INTEGER PRIMARY KEY,tenant_id INTEGER,enabled INTEGER,mappings TEXT);
+       CREATE TABLE pharmacy_local_accounts(id INTEGER PRIMARY KEY,branchid INTEGER,local_code TEXT,type TEXT,is_active INTEGER);
        CREATE TABLE acc_accounts(id INTEGER PRIMARY KEY,account_code TEXT,type TEXT,is_active INTEGER);
        CREATE TABLE pharmacy_enterprise_requests(request_key TEXT PRIMARY KEY,request_hash TEXT,branchid INTEGER,actor_id INTEGER,response TEXT,created_at TEXT);
        CREATE TABLE pharmacy_enterprise_events(id INTEGER PRIMARY KEY,workflow_id TEXT,branchid INTEGER,actor_id INTEGER,action TEXT,details TEXT,created_at TEXT);
      `);
      await fixture.db('pharmacy_inventory_items').insert([{ id: 'medicine', branchid: 2 }, { id: 'foreign', branchid: 9 }]);
-     await fixture.db('pharmacy_accounting_settings').insert({ branchid: 2, mappings: JSON.stringify({ 'liability:output_tax': 'output-tax' }) });
+     await fixture.db('pharmacy_accounting_settings').insert({ branchid: 2, tenant_id: 17, enabled: true, mappings: JSON.stringify({ 'liability:output_tax': 'output-tax' }) });
      await fixture.db('acc_accounts').insert({ account_code: 'output-tax', type: 'liability', is_active: true });
      vi.mocked(KnexConnection).mockResolvedValue(fixture.db);
      const app = express(); app.use(express.json());
@@ -58,8 +59,18 @@ describe('pharmacy tax policy API', () => {
           expect((await fetch(`${url}/tax`, { headers: { 'x-test-role': 'pharmacy_accountant' } })).status).toBe(200);
           expect((await save(input(), 'pharmacy_accountant')).status).toBe(403);
      });
+     it('allows the standard local tax liability without a shared mapping when linkage is off', async () => {
+          await fixture.db('pharmacy_accounting_settings').where({ branchid: 2 }).update({ enabled: false, mappings: '{}' });
+          expect((await save(input())).status).toBe(200);
+          expect(await fixture.db('pharmacy_tax_rules')).toMatchObject([{ branchid: 2, local_account: 'liability:output_tax' }]);
+     });
+     it('does not use the goods-received liability as an output-tax account', async () => {
+          await fixture.db('pharmacy_accounting_settings').where({ branchid: 2 }).update({ enabled: false, mappings: '{}' });
+          expect((await save({ ...input(), localAccount: 'liability:grni' })).status).toBe(400);
+     });
      it('rejects foreign medicines, missing mapping, backdating and invalid rates without recording success', async () => {
-          for (const body of [{ ...input(), itemId: 'foreign' }, { ...input(), localAccount: 'liability:unmapped' }, { ...input(), effectiveDate: '2000-01-01' }, { ...input(), rate: '20' }, { ...input(), rate: 100.01 }]) {
+          expect((await save({ ...input(), localAccount: 'liability:unmapped' })).status).toBe(409);
+          for (const body of [{ ...input(), itemId: 'foreign' }, { ...input(), effectiveDate: '2000-01-01' }, { ...input(), rate: '20' }, { ...input(), rate: 100.01 }]) {
                expect((await save(body)).status).toBe(400);
           }
           expect(await fixture.db('pharmacy_tax_rules')).toHaveLength(0);

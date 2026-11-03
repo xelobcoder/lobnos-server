@@ -9,6 +9,8 @@ import { randomUUID } from 'crypto';
 import { branchOf, tenantOf } from './pharmacyContext';
 import { pharmacyAccountingLedgerFailure } from './PharmacyAccountingLedgerController';
 import { pharmacyAccountingContext, pharmacyAccountingFailure } from './PharmacyAccountingController';
+import { pharmacyAccount } from '../../models/pharmacy/accounting/PharmacyAccountingCatalogue';
+import { PharmacyAccountingError } from '../../models/pharmacy/accounting/PharmacyAccountingCore';
 
 export const pharmacyTaxRouter = Router();
 pharmacyTaxRouter.use(pharmacyFinanceAccess);
@@ -46,17 +48,21 @@ pharmacyTaxRouter.post('/tax/rules', pharmacyReversalAccess, async (req, res) =>
                const effectiveDate = pharmacyAccountingDate(req.body.effectiveDate, 'tax effective date');
                if (effectiveDate < new Date().toISOString().slice(0, 10)) throw new Error('Tax policy changes cannot be backdated; reverse or adjust historical tax through approved journals');
                const localAccount = requiredText(req.body.localAccount, 'tax liability account', 100);
-               if (!localAccount.startsWith('liability:')) throw new Error('Select an assigned liability account for output tax');
+               if (!localAccount.startsWith('liability:') || localAccount === 'liability:grni') throw new Error('Select an output-tax liability account, not the goods-received liability');
                const item = await trx('pharmacy_inventory_items').where({ id: itemId, branchid: branch }).forUpdate().first();
                if (!item) throw new Error('Medicine does not belong to this pharmacy branch');
                const settings = await trx('pharmacy_accounting_settings').where({ branchid: branch }).forUpdate().first();
-               const mapped = json(settings?.mappings)[localAccount];
-               if (typeof mapped !== 'string' || !await trx('acc_accounts').where({ account_code: mapped, type: 'liability', is_active: true }).first()) throw new Error('Map the tax liability to an active shared liability account in accounting settings first');
+               if (settings && Number(settings.tenant_id) !== tenantOf(req)) throw new Error('Tax accounting configuration does not belong to this tenant');
+               const account = await pharmacyAccount(trx, branch, { enabled: Boolean(settings?.enabled), mappings: json(settings?.mappings) }, localAccount);
+               if (account.type !== 'liability') throw new Error('Select an active liability account for output tax');
                const id = randomUUID();
                await trx('pharmacy_tax_rules').insert({ id, branchid: branch, item_id: itemId, rate: req.body.rate, local_account: localAccount, effective_date: effectiveDate, reason, created_by: user.employeeid, is_active: true });
                await core.event(trx, 'tax_policy_created', { id, itemId, rate: req.body.rate, localAccount, effectiveDate, reason });
                return { id };
           });
           res.json({ success: true, data });
-     } catch (error) { pharmacyAccountingLedgerFailure(res, error); }
+     } catch (error) {
+          if (error instanceof PharmacyAccountingError) return pharmacyAccountingFailure(res, error);
+          pharmacyAccountingLedgerFailure(res, error);
+     }
 });

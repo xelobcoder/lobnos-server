@@ -5,6 +5,7 @@ import { PharmacySupplierInvoices } from './PharmacySupplierInvoices';
 import { allocationFixture, ctx, firstDate } from './accounting/testSupport/fixture';
 import { PharmacyAccountingSubledgers } from './accounting/PharmacyAccountingSubledgers';
 import { PharmacyAccountingRegisters } from './accounting/PharmacyAccountingRegisters';
+import { PharmacyAccountingWorkflows } from './accounting/PharmacyAccountingWorkflows';
 import { json } from './PharmacyEnterpriseCore';
 
 const user: AuthUser = { tenantId: 1, branch: 2, employeeid: 3, role: 'pharmacy_manager', email: 'manager@example.invalid' };
@@ -35,6 +36,43 @@ async function fixture(acceptedQuantity = 3, acceptedValue = '10.00') {
 }
 
 describe('GRNI supplier invoices and existing AP allocations', () => {
+     it('approves and pays a standalone expense locally without creating shared entries', async () => {
+          const f = await fixture();
+          await f.db('pharmacy_accounting_settings').where({ branchid: 2 }).update({ enabled: false, mappings: '{}' });
+          await f.db.schema.dropTable('acc_accounts');
+          const workflows = new PharmacyAccountingWorkflows(f.db, ctx);
+          const expense = await workflows.createExpense({ idempotencyKey: 'standalone-expense-create', date: firstDate, description: 'Standalone rent expense', amount: '15.00', expenseAccount: 'operating_expenses', supplierId: 's1' });
+          await workflows.expenseAction(expense.id, 'submit', { idempotencyKey: 'standalone-expense-submit', expectedVersion: 1 });
+          await new PharmacyAccountingWorkflows(f.db, { ...ctx, actor: 4 }).expenseAction(expense.id, 'approve', { idempotencyKey: 'standalone-expense-approve', expectedVersion: 2 });
+          const payment = await workflows.expenseAction(expense.id, 'pay', { idempotencyKey: 'standalone-expense-pay', expectedVersion: 3, date: firstDate, amount: '15.00', method: 'card', reference: 'BANK-STANDALONE' });
+          expect(payment.status).toBe('paid');
+          expect(await f.db('pharmacy_journal_lines').where({ account_code: 'operating_expenses', debit: 15 })).toHaveLength(1);
+          expect(await f.db('pharmacy_accounting_posting_links')).toHaveLength(0);
+     });
+     it('records recoverable purchase tax locally without facility mappings', async () => {
+          const f = await fixture();
+          await f.db('pharmacy_accounting_settings').where({ branchid: 2 }).update({ enabled: false, mappings: '{}' });
+          const invoice = await f.service.record({ ...f.input(), recoverableTax: { account: 'asset:input_tax', amount: '2.00' } });
+          const lines = await f.db('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id')
+               .where({ 'j.source_ref': invoice.id, 'l.account_code': 'asset:input_tax' });
+          expect(lines).toHaveLength(1);
+          expect(Number(lines[0].debit)).toBe(2);
+          expect(await f.db('pharmacy_accounting_posting_links')).toHaveLength(0);
+     });
+     it('records purchase tax when no shared-posting settings have ever been saved', async () => {
+          const f = await fixture();
+          await f.db('pharmacy_accounting_settings').where({ branchid: 2 }).delete();
+          await f.db.schema.dropTable('acc_accounts');
+          await f.service.record({ ...f.input(), recoverableTax: { account: 'asset:input_tax', amount: '2.00' } });
+          expect(await f.db('pharmacy_accounting_posting_links')).toHaveLength(0);
+          expect(await f.db('pharmacy_journal_lines').where({ account_code: 'asset:input_tax', debit: 2 })).toHaveLength(1);
+     });
+     it('requires an explicitly mapped input tax account when shared posting is enabled', async () => {
+          const f = await fixture();
+          await f.db('pharmacy_accounting_settings').where({ branchid: 2 }).update({ enabled: true, effective_date: firstDate, mappings: '{}' });
+          await expect(f.service.record({ ...f.input(), recoverableTax: { account: 'asset:input_tax', amount: '2.00' } })).rejects.toThrow('explicit shared account mapping is required for asset:input_tax');
+          expect(await f.db('pharmacy_documents')).toHaveLength(0);
+     });
      it('allocates partial quantities with a last-cent residual and recognizes AP exactly once', async () => {
           const f = await fixture();
           const one = await f.service.record(f.input(1, '3.33'));

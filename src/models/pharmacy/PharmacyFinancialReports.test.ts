@@ -1,5 +1,5 @@
 ﻿import {describe,it,expect} from 'vitest';
-import {accountGroup,statementRows,pharmacyCashFlowSection} from './PharmacyFinancialReports';
+import {accountGroup,statementRows,pharmacyCashFlowSection,presentStatementRows,journalTypeLabel} from './PharmacyFinancialReports';
 const balance=(account:string,debit:number,credit:number)=>({account,debit,credit});
 describe('pharmacy financial statements',()=>{
  it('classifies supported cash flows without guessing a compound or unknown allocation',()=>{
@@ -38,5 +38,17 @@ describe('pharmacy financial statements',()=>{
  for(const code of ['stock_in_transit','interbranch_receivable:2','quarantine_inventory','receivable:3','supplier_returns_pending'])expect(accountGroup(code)).toBe('Assets');
  expect(accountGroup('interbranch_payable:7')).toBe('Liabilities');
  expect(accountGroup('unknown')).toBe('Unclassified');
+ });
+ it('presents profit and loss in conventional order with account numbers instead of posting keys',()=>{
+ const named=(rows:any[])=>rows.map(r=>({...r,account_number:({sales:'4000',cost_of_sales:'5000',operating_expenses:'6000',inventory_adjustments:'5100','revenue:other':'4900'} as any)[r.account]}));
+ const rows=presentStatementRows(named(statementRows([balance('cost_of_sales',40,0),balance('operating_expenses',10,0),balance('inventory_adjustments',5,0),balance('revenue:other',0,3),balance('sales',0,100)],'profit_loss')),'profit_loss');
+ expect(rows.map(r=>[r.section,r.account_number])).toEqual([['Revenue','4000'],['Cost of sales','5000'],['Operating expenses','5100'],['Operating expenses','6000'],['Other income','4900']]);
+ const sheet=presentStatementRows(statementRows([balance('payable:x',0,50),balance('inventory',50,0)],'balance_sheet'),'balance_sheet');
+ expect(sheet.map(r=>r.section)).toEqual(['Assets','Liabilities']);
+ });
+ it('labels journal types in accounting language',()=>{
+ expect(journalTypeLabel('goods_acceptance')).toBe('Goods received note');
+ expect(journalTypeLabel('receipt')).toBe('Stock purchase');
+ expect(journalTypeLabel('supplier_credit_note')).toBe('Supplier credit note');
  });
 });

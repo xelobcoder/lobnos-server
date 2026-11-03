@@ -46,7 +46,7 @@ pharmacyAccountingLedgerRouter.get('/posted-journals/:id', async (req: Request, 
                const names = await pharmacyAccountDisplay(trx, branch, lines.map(line => String(line.account_code)));
                const link = await trx('pharmacy_accounting_posting_links').where({ journal_id: journal.id, branchid: branch }).first();
                return { ...journal, status: 'posted', business_unit: 'pharmacy', sharedEntryId: link?.shared_entry_id || null,
-                    lines: lines.map(line => ({ ...line, account: line.account_code, account_name: names.get(line.account_code)?.name, debit: Number(line.debit), credit: Number(line.credit), source_document: line.document_ref || journal.source_ref })),
+                    lines: lines.map(line => ({ ...line, account: line.account_code, account_number: names.get(line.account_code)?.number ?? null, account_name: names.get(line.account_code)?.name, debit: Number(line.debit), credit: Number(line.credit), source_document: line.document_ref || journal.source_ref })),
                     immutable: true };
           }, { isolationLevel: 'repeatable read' });
           res.json({ success: true, data });

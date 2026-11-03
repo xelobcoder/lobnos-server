@@ -14,6 +14,7 @@ import { PharmacyAccountingEvidence } from '../../models/pharmacy/accounting/Pha
 import { PharmacyAccountingReversals } from '../../models/pharmacy/accounting/PharmacyAccountingReversals';
 import { PharmacyAccountingTaxCredits } from '../../models/pharmacy/accounting/PharmacyAccountingTaxCredits';
 import { PharmacyAccountingSupplierAllocations } from '../../models/pharmacy/accounting/PharmacyAccountingSupplierAllocations';
+import { PharmacyLocalAccounts } from '../../models/pharmacy/accounting/PharmacyLocalAccounts';
 
 /**
  * Mounted under /pharmacy/accounting AFTER pharmacyAccess. Tenant/branch/user inputs
@@ -33,9 +34,9 @@ export function pharmacyAccountingFailure(res: Response, error: any): any {
      // Never return SQL, connection strings or provider messages.
      return res.status(500).json({ success: false, error: { code: 'ACCOUNTING_OPERATION_FAILED', message: 'Accounting operation could not be completed; no changes were committed' } });
 }
-type Services = { catalogue: PharmacyAccountingCatalogue; workflows: PharmacyAccountingWorkflows; registers: PharmacyAccountingRegisters; reconciliation: PharmacyAccountingReconciliation; subledgers: PharmacyAccountingSubledgers; evidence: PharmacyAccountingEvidence; reversals: PharmacyAccountingReversals; taxCredits: PharmacyAccountingTaxCredits; supplierAllocations: PharmacyAccountingSupplierAllocations };
+type Services = { catalogue: PharmacyAccountingCatalogue; localAccounts: PharmacyLocalAccounts; workflows: PharmacyAccountingWorkflows; registers: PharmacyAccountingRegisters; reconciliation: PharmacyAccountingReconciliation; subledgers: PharmacyAccountingSubledgers; evidence: PharmacyAccountingEvidence; reversals: PharmacyAccountingReversals; taxCredits: PharmacyAccountingTaxCredits; supplierAllocations: PharmacyAccountingSupplierAllocations };
 const services = (db: Knex, context: AccountingContext): Services => ({
-     catalogue: new PharmacyAccountingCatalogue(db, context), workflows: new PharmacyAccountingWorkflows(db, context),
+     catalogue: new PharmacyAccountingCatalogue(db, context), localAccounts: new PharmacyLocalAccounts(db, context), workflows: new PharmacyAccountingWorkflows(db, context),
      registers: new PharmacyAccountingRegisters(db, context), reconciliation: new PharmacyAccountingReconciliation(db, context),
      subledgers: new PharmacyAccountingSubledgers(db, context), evidence: new PharmacyAccountingEvidence(db, context),
      reversals: new PharmacyAccountingReversals(db, context), taxCredits: new PharmacyAccountingTaxCredits(db, context),
@@ -51,7 +52,11 @@ const endpoint = (work: (s: Services, req: Request) => Promise<any>, created = f
 };
 pharmacyAccountingRouter.get('/overview', endpoint(s => s.registers.overview()));
 pharmacyAccountingRouter.get('/accounts', endpoint(s => s.catalogue.accounts()));
+pharmacyAccountingRouter.post('/local-accounts', endpoint((s, r) => s.localAccounts.create(r.body), true));
+pharmacyAccountingRouter.put('/local-accounts/:id', endpoint((s, r) => s.localAccounts.update(positiveId(r.params.id), r.body)));
+pharmacyAccountingRouter.post('/local-accounts/:id/remove', endpoint((s, r) => s.localAccounts.remove(positiveId(r.params.id), r.body)));
 pharmacyAccountingRouter.post('/accounts', endpoint((s, r) => s.catalogue.createAccount(r.body), true));
+pharmacyAccountingRouter.post('/accounts/:id/remove', endpoint((s, r) => s.catalogue.removeOwnedAccount(positiveId(r.params.id), r.body)));
 pharmacyAccountingRouter.put('/accounts/:id', endpoint((s, r) => s.catalogue.updateAccount(positiveId(r.params.id), r.body)));
 pharmacyAccountingRouter.get('/settings', endpoint(s => s.catalogue.settings()));
 pharmacyAccountingRouter.put('/settings', endpoint((s, r) => s.catalogue.saveSettings(r.body)));
@@ -77,7 +82,8 @@ pharmacyAccountingRouter.get('/payables/aging', endpoint((s, r) => s.subledgers.
 pharmacyAccountingRouter.get('/payables/settlements', endpoint((s, r) => s.workflows.list('ap_settlement', r.query)));
 pharmacyAccountingRouter.get('/payables/settlements/:id', endpoint((s, r) => s.workflows.detail(String(r.params.id), 'ap_settlement')));
 pharmacyAccountingRouter.post('/payables/settlements', endpoint((s, r) => s.subledgers.createSettlement(r.body), true));
-pharmacyAccountingRouter.post('/payables/settlements/:id/:action(submit|approve|pay|void)', endpoint((s, r) => s.subledgers.settlementAction(String(r.params.id), String(r.params.action), r.body)));
+pharmacyAccountingRouter.post('/payables/payments', endpoint((s, r) => s.subledgers.recordSupplierPayment(r.body), true));
+pharmacyAccountingRouter.post('/payables/settlements/:id/:action(submit|approve|pay|void|record_payment)', endpoint((s, r) => s.subledgers.settlementAction(String(r.params.id), String(r.params.action), r.body)));
 pharmacyAccountingRouter.post('/payables/settlements/:id/reversals', endpoint((s, r) => s.reversals.create(String(r.params.id), 'ap_reversal', r.body), true));
 pharmacyAccountingRouter.get('/payables/settlement-reversals', endpoint((s, r) => s.workflows.list('ap_reversal', r.query)));
 pharmacyAccountingRouter.get('/payables/settlement-reversals/:id', endpoint((s, r) => s.workflows.detail(String(r.params.id), 'ap_reversal')));

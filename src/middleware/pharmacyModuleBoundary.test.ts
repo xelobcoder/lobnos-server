@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { pharmacyModuleBoundary, pharmacyRouteAllowed } from './pharmacyModuleBoundary';
-import { pharmacyAccess, pharmacyReversalAccess, pharmacySalesAccess, pharmacyStockAccess, pharmacyCatalogueAccess, pharmacyFinanceAccess, pharmacyAdministratorAccess } from '../controllers/pharmacy/pharmacyAccess.middleware';
+import { pharmacyAccess, pharmacyReversalAccess, pharmacySalesAccess, pharmacyStockAccess, pharmacyCatalogueAccess, pharmacyFinanceAccess, pharmacyAdministratorAccess, pharmacyShiftAccess } from '../controllers/pharmacy/pharmacyAccess.middleware';
 
 describe('pharmacy access boundaries', () => {
      it.each(['/api/v1/inventory/items', '/api/v1/accounting/reports/trial-balance', '/api/v1/billing/transactions', '/api/v1/application/filtering/table/roles', '/api/v1/settings/users'])('denies pharmacy access to %s', path => { expect(pharmacyRouteAllowed('GET', path)).toBe(false); });
@@ -26,6 +26,13 @@ describe('pharmacy access boundaries', () => {
           expect(invoke(pharmacyStockAccess, 'pharmacy_cashier').next).not.toHaveBeenCalled();
           expect(invoke(pharmacySalesAccess, 'pharmacy_storekeeper').next).not.toHaveBeenCalled();
           expect(invoke(pharmacySalesAccess, 'pharmacy_cashier').next).toHaveBeenCalledOnce();
+     });
+     it.each(['/api/v1/pharmacy/management/shifts/example/close', '/api/v1/pharmacy/management/shifts/example/review', '/api/v1/pharmacy/management/reopen-day'])('keeps %s restricted to pharmacy managers and administrators', path => {
+          expect(invoke(pharmacyReversalAccess, 'pharmacy_manager', path).next).toHaveBeenCalledOnce();
+          expect(invoke(pharmacyReversalAccess, 'admin', path).next).toHaveBeenCalledOnce();
+          expect(invoke(pharmacyReversalAccess, 'pharmacy_accountant', path).next).not.toHaveBeenCalled();
+          expect(invoke(pharmacyReversalAccess, 'pharmacy_cashier', path).next).not.toHaveBeenCalled();
+          expect(invoke(pharmacyShiftAccess, 'pharmacy_accountant', '/api/v1/pharmacy/shifts/close').next).toHaveBeenCalledOnce();
      });
      it.each(['admin', 'Admin', 'super-admin', 'super_admin'])('allows administrator role %s to manage the pharmacy financial day', role => {
           expect(invoke(pharmacyFinanceAccess, role, '/api/v1/pharmacy/management/open-day').next).toHaveBeenCalledOnce();
