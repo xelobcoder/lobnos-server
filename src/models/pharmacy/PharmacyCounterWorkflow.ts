@@ -5,6 +5,7 @@ import { PharmacySaleRepository } from './repositories/PharmacySaleRepository';
 import { PharmacySaleService } from './services/PharmacySaleService';
 import { pharmacyTransactionPriceType, pharmacyUnitPrice, money, quantity } from './PharmacyRules';
 import { roleAllowed } from '../../middleware/roles';
+import { pharmacyAvailability } from './PharmacyAvailability';
 const alphabet = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 export function counterCode() { return Array.from({ length: 4 }, () => alphabet[randomInt(alphabet.length)]).join(''); }
 export function normalizeCounterCode(value: unknown) { const code = String(value || '').trim().toUpperCase(); if (!/^[A-Z0-9]{4}$/.test(code))
@@ -65,6 +66,15 @@ export class PharmacyCounterWorkflow extends PharmacyEnterpriseCore {
     async create(input: any) {
         this.authorize(counterDispensingRoles);
         return this.atomic(input, 'counter-create', async (trx) => {
+            const source = input.recoverySourceId ? await this.invoice(trx, input.recoverySourceId) : null;
+            if (source) {
+                this.authorizeRecovery(source);
+                const original = json(source.details);
+                if (original.replacementId) return this.publicRow(await this.invoice(trx, original.replacementId));
+                if (source.status !== 'cancelled') throw new Error('Explicitly cancel and recover the original invoice before reissuing');
+                // Identity and transaction pricing belong to the source, not to the browser.
+                input = { ...input, customerName: original.customerName, patientId: original.patientId, priceType: original.priceType, heldSaleId: undefined };
+            }
             const settings = await this.lockSettings(trx);
             if (settings.mode !== 'separate_cashier')
                 throw new Error('Separate cashier workflow is not enabled for this branch');
@@ -95,11 +105,12 @@ export class PharmacyCounterWorkflow extends PharmacyEnterpriseCore {
             }
             if (!code)
                 throw new Error('Unable to allocate a short code. Retry creating this invoice');
-            const id = randomUUID(), now = new Date(), details = { customerName: String(input.customerName || 'Walk-in customer').trim().slice(0, 255), patientId: input.patientId || null, priceType, lines };
+            const id = randomUUID(), now = new Date(), details = { customerName: String(input.customerName || 'Walk-in customer').trim().slice(0, 255), patientId: input.patientId || null, priceType, lines, ...(source ? { recoverySourceId: source.id } : {}) };
             const staff = await trx('roles').where({ employeeid: this.actor }).first();
             const [sequence] = await trx('pharmacy_counter_invoices').insert({ id, branchid: this.branch, code, status: 'unpaid', details: JSON.stringify(details), total, attendant_id: this.actor, attendant_name: String(staff?.username || (this.user as any).username || 'Staff #' + this.actor).slice(0, 255), created_at: now, updated_at: now });
             const invoiceNumber = `INV-${code}-${String(sequence).padStart(5, '0')}`;
             await trx('pharmacy_counter_invoices').where({ id }).update({ invoice_number: invoiceNumber });
+            if (source) await trx('pharmacy_counter_invoices').where({ id: source.id }).update({ details: JSON.stringify({ ...json(source.details), replacementId: id }), updated_at: now });
             if (input.heldSaleId)
                 await repository.deleteHeldSale(input.heldSaleId, trx);
             await this.event(trx, 'counter-invoice-created', { code, total }, id);
@@ -108,6 +119,69 @@ export class PharmacyCounterWorkflow extends PharmacyEnterpriseCore {
     }
     private async invoice(trx: any, id: string) { const row = await trx('pharmacy_counter_invoices').where({ id, branchid: this.branch }).forUpdate().first(); if (!row)
         throw new Error('Invoice not found in this branch'); return row; }
+    private canRecover(row: any) {
+        return roleAllowed(this.user.role, counterDispensingRoles) &&
+            (Number(row.attendant_id) === this.actor || roleAllowed(this.user.role, ['admin', 'pharmacy_manager']));
+    }
+    private authorizeRecovery(row: any) {
+        if (!this.canRecover(row)) throw new Error('Return this invoice to its original attendant or a pharmacy manager for cancellation and reissue');
+    }
+    private async recoveryReview(trx: any, row: any) {
+        const details = json(row.details), repository = new PharmacySaleRepository(this.tenant, this.branch);
+        const ids: string[] = details.lines.map((line: any) => line.inventoryItemId), blocked = new Map<string, string>();
+        const reviewBlock = (error: any) => !error.code && /frozen for a stock count|cold-chain excursion/.test(error.message || '');
+        let items: Awaited<ReturnType<PharmacySaleRepository['lockSellableItems']>>;
+        try { items = await repository.lockSellableItems(ids, trx); }
+        catch (error) {
+            if (!reviewBlock(error)) throw error;
+            // A blocked medicine must remain visible for explicit removal, not strand the entire basket.
+            items = [];
+            for (const id of [...ids].sort()) {
+                try { items.push(...await repository.lockSellableItems([id], trx)); }
+                catch (error: any) { if (!reviewBlock(error)) throw error; blocked.set(id, error.message + '. Remove this line or resolve the stock restriction.'); }
+            }
+        }
+        const availability = await pharmacyAvailability(trx, items.map(item => ({ ...item, batchTracking: Boolean(item.batchTracking) })));
+        const lines = details.lines.map((line: any) => {
+            const item = items.find(item => item.id === line.inventoryItemId);
+            const stock = item ? availability.get(item.id) || 0 : 0;
+            let issue = blocked.get(line.inventoryItemId) || (!item ? 'Unavailable in this branch. Remove or replace this line.' :
+                item.requiresPrescription ? 'Requires a prescription. Remove and use the prescription queue.' :
+                stock < line.quantity ? 'Insufficient unexpired stock. Reduce quantity or remove this line.' : '');
+            let price = 0;
+            if (item) {
+                try { price = pharmacyUnitPrice(item, details.priceType); }
+                catch { issue = 'Current price unavailable. Configure a price or remove this line.'; }
+            }
+            return { ...line, name: item?.name || line.name, sku: item?.sku || line.sku,
+                salePrice: Number(item?.salePrice || 0), wholesalePrice: Number(item?.wholesalePrice || 0),
+                unitPrice: price, lineTotal: money(new Decimal(price).mul(line.quantity)),
+                availableStock: item?.currentStock || 0, dispensableStock: stock, requiresPrescription: item?.requiresPrescription || false,
+                unavailable: !item, issue };
+        });
+        const replacement = details.replacementId ? await trx('pharmacy_counter_invoices').where({ id: details.replacementId, branchid: this.branch }).first() : null;
+        return { invoice: this.publicRow(row), replacement: replacement ? { code: replacement.code, invoice_number: replacement.invoice_number } : null, canRecover: this.canRecover(row), lines,
+            refreshedTotal: money(lines.reduce((sum: number, line: any) => sum + line.lineTotal, 0)) };
+    }
+    async review(id: string) {
+        this.authorize([...counterCashierRoles, ...counterDispensingRoles]);
+        return this.db.transaction(async (trx: any) => this.recoveryReview(trx, await this.invoice(trx, id)));
+    }
+    async recover(id: string, input: any) {
+        this.authorize(counterDispensingRoles);
+        return this.atomic(input, 'counter-recover:' + id, async trx => {
+            const row = await this.invoice(trx, id);
+            this.authorizeRecovery(row);
+            if (!['unpaid', 'cancelled'].includes(row.status)) throw new Error('Only unpaid or cancelled invoices can be recovered. Do not collect another payment');
+            if (json(row.details).replacementId) throw new Error('This invoice has already been reissued. Open its replacement instead');
+            if (row.status === 'unpaid') {
+                if (typeof input.reason !== 'string' || input.reason.trim().length < 5) throw new Error('Enter a cancellation reason of at least five characters');
+                await trx('pharmacy_counter_invoices').where({ id }).update({ status: 'cancelled', updated_at: new Date() });
+                await this.event(trx, 'counter-cancelled', { reason: input.reason.trim(), basketRecovery: true }, id);
+            }
+            return this.recoveryReview(trx, { ...row, status: 'cancelled' });
+        });
+    }
     async pay(id: string, input: any) { this.authorize(counterCashierRoles); return this.atomic(input, 'counter-pay:' + id, async (trx) => { const row = await this.invoice(trx, id); if (row.status !== 'unpaid')
         throw new Error('This invoice is ' + row.status + '. Reload it; do not collect payment again'); if (!['cash', 'card', 'mobile_money'].includes(input.paymentMethod))
         throw new Error('A counter invoice requires full payment by cash, card or mobile money'); const details = json(row.details); const receipt = await this.saleService.completeSale({ idempotencyKey: 'counter:' + id, customerName: details.customerName, patientId: details.patientId, priceType: details.priceType, lines: details.lines.map((l: any) => ({ inventoryItemId: l.inventoryItemId, quantity: l.quantity, priceType: l.priceType })), expectedTotal: Number(row.total), paymentMethod: input.paymentMethod, amountTendered: input.amountTendered, paymentReference: input.paymentReference }, this.actor, trx); await trx('pharmacy_sales').where({ id: receipt.id }).update({ receipt_number: row.invoice_number }); await trx('pharmacy_counter_invoices').where({ id }).update({ status: 'paid', sale_id: receipt.id, cashier_id: this.actor, paid_at: new Date(), updated_at: new Date() }); await this.event(trx, 'counter-payment-recorded', { saleId: receipt.id }, id); return { ...receipt, receiptNumber: row.invoice_number, counterCode: row.code, invoiceNumber: row.invoice_number, attendantName: row.attendant_name, collectionStatus: 'paid' }; }); }

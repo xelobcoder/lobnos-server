@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import { PharmacyAccountingCore, accountingDate, fail, positiveId } from './PharmacyAccountingCore';
 import { json } from '../PharmacyEnterpriseCore';
+import { effectiveTerms, PharmacyAccountingSubledgers } from './PharmacyAccountingSubledgers';
 
 const sum = (rows: any[], field: string) => rows.reduce((s, r) => s.plus(r[field] || 0), new Decimal(0)).toFixed(2);
 const paging = (query: any) => ({ limit: Math.min(200, Math.max(1, Math.floor(Number(query.limit) || 100))), offset: Math.max(0, Math.floor(Number(query.offset) || 0)) });
@@ -22,14 +23,15 @@ export class PharmacyAccountingRegisters extends PharmacyAccountingCore {
           if (query.from) q.whereRaw('DATE(s.completed_at) >= ?', [accountingDate(query.from)]);
           if (query.to) q.whereRaw('DATE(s.completed_at) <= ?', [accountingDate(query.to)]);
           if (query.customerAccountId) q.where('a.id', positiveId(query.customerAccountId));
-          const [rows, totals, terms, adjustments] = await Promise.all([
+          const [rows, totals, terms, adjustments, amendments] = await Promise.all([
                q.clone().select('s.id', 's.receipt_number', 's.customer_name', 's.customer_account_id', 's.patient_id', 's.total_amount', 's.paid_amount', 's.outstanding_amount', 's.status', 's.completed_at')
                     .orderBy('s.completed_at', 'desc').orderBy('s.id').limit(page.limit).offset(page.offset),
                q.clone().sum('s.total_amount as total').sum('s.paid_amount as paid').sum('s.outstanding_amount as outstanding').count('* as count').first(),
                this.db('pharmacy_accounting_invoice_terms').where({ branchid: this.context.branch }),
                this.db('pharmacy_accounting_documents').where({ branchid: this.context.branch, kind: 'ar_adjustment', status: 'posted' }).select('amount', 'details'),
+               new PharmacyAccountingSubledgers(this.db, this.context).postedTerms('receivables'),
           ]);
-          return { items: rows.map(r => ({ ...r, adjusted_amount: adjustments.filter(a => json(a.details).saleId === r.id).reduce((s, a) => s.plus(a.amount), new Decimal(0)).toFixed(2), due_date: terms.find(t => t.sale_id === r.id)?.due_date || null })), ...page, totals: { count: Number(totals?.count || 0), total: new Decimal(totals?.total || 0).toFixed(2), paid: new Decimal(totals?.paid || 0).toFixed(2), outstanding: new Decimal(totals?.outstanding || 0).toFixed(2) }, capabilities: { dueDates: true, aging: true, credits: true, writeoffs: true, invoiceCollections: 'existing pharmacy customer-account collection workflow' } };
+          return { items: rows.map(r => ({ ...r, adjusted_amount: adjustments.filter(a => json(a.details).saleId === r.id).reduce((s, a) => s.plus(a.amount), new Decimal(0)).toFixed(2), due_date: effectiveTerms(r.id, terms.find(t => t.sale_id === r.id)?.due_date || null, amendments).dueDate })), ...page, totals: { count: Number(totals?.count || 0), total: new Decimal(totals?.total || 0).toFixed(2), paid: new Decimal(totals?.paid || 0).toFixed(2), outstanding: new Decimal(totals?.outstanding || 0).toFixed(2) }, capabilities: { dueDates: true, aging: true, credits: true, writeoffs: true, invoiceCollections: 'existing pharmacy customer-account collection workflow' } };
      }
      async payables(query: any = {}): Promise<any> {
           const page = paging(query);
@@ -41,18 +43,19 @@ export class PharmacyAccountingRegisters extends PharmacyAccountingCore {
                const b = balances.find(r => r.account_code === 'payable:' + s.id);
                return { supplier_id: s.id, name: s.name, is_active: Boolean(s.is_active), outstanding_amount: new Decimal(b?.credit || 0).minus(b?.debit || 0).toFixed(2), due_date: null };
           });
-          const [receipts, expenses, bills, allocations] = await Promise.all([
+          const [receipts, expenses, bills, allocations, amendments] = await Promise.all([
                this.db('pharmacy_documents').where({ branchid: this.context.branch }).whereIn('kind', ['receipt', 'supplier_invoice']).orderBy('created_at', 'desc').limit(page.limit).offset(page.offset),
                this.db('pharmacy_accounting_documents').where({ branchid: this.context.branch, kind: 'expense' }).whereIn('status', ['approved', 'partially_paid']).orderBy('created_at', 'desc').limit(page.limit),
                this.db('pharmacy_accounting_bills').where({ branchid: this.context.branch }),
                this.db('pharmacy_accounting_allocations').where({ branchid: this.context.branch }),
+               new PharmacyAccountingSubledgers(this.db, this.context).postedTerms('payables'),
           ]);
           return { items: all.slice(page.offset, page.offset + page.limit), ...page, totals: { count: all.length, outstanding: sum(all, 'outstanding_amount') },
                receipts: receipts.map(r => {
                     const bill = bills.find(b => b.source_kind === r.kind && b.source_ref === r.id);
                     return { ...r, details: json(r.details), bill_id: bill?.id || null, source_kind: r.kind, source_ref: r.id,
                          ...(r.kind === 'supplier_invoice' ? { invoice_id: r.id, invoice_reference: bill?.reference || json(r.details).reference, invoice_date: bill?.document_date || json(r.details).invoiceDate } : {}),
-                         allocation_status: bill ? 'registered' : 'unregistered', outstanding_amount: bill ? new Decimal(bill.amount).minus(allocations.filter(a => a.bill_id === bill.id).reduce((s, a) => s.plus(a.amount), new Decimal(0))).toFixed(2) : null, due_date: bill?.due_date || null };
+                         allocation_status: bill ? 'registered' : 'unregistered', outstanding_amount: bill ? new Decimal(bill.amount).minus(allocations.filter(a => a.bill_id === bill.id).reduce((s, a) => s.plus(a.amount), new Decimal(0))).toFixed(2) : null, due_date: bill ? effectiveTerms(bill.id, bill.due_date, amendments).dueDate : null };
                }),
                unpaidExpenses: expenses.map(r => ({ ...r, details: json(r.details) })),
                capabilities: { supplierBalances: true, partialSupplierPayments: true, receiptLevelPaymentAllocations: true, supplierInvoiceAllocations: true, receiptDueDates: true, legacyUnallocatedPaymentsRequireReview: true },

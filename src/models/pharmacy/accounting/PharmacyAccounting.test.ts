@@ -1221,6 +1221,64 @@ describe("Scoped operational registers and statements", () => {
                expect(agingBucket("2026-07-01", date)).toBe("days_91_plus");
           });
      });
+     describe("Reviewed due-date corrections and unpaid request recovery", () => {
+          it.each(["payables", "receivables"] as const)("preserves original %s terms and money while independently applying dated corrections", async party => {
+               const service = new PharmacyAccountingSubledgers(db, context);
+               const sourceId = party === "payables" ? (await receiptBill()).id : await creditInvoice();
+               if (party === "receivables") await service.invoiceDueDate(sourceId, { idempotencyKey: "terms-original", dueDate: "2026-10-15", reason: "Original agreed credit terms" });
+               const input = { idempotencyKey: "terms-correction-create", date, expectedDueDate: "2026-10-15", dueDate: "2026-12-01", reason: "Supplier or customer agreed revised terms" };
+               const before = await db("pharmacy_journal_lines").orderBy("id");
+               const correction = await service.createTermsAmendment(party, sourceId, input);
+               expect(await service.createTermsAmendment(party, sourceId, input)).toEqual(correction);
+               const aging = (asOf: string) => party === "payables" ? service.payableAging({ asOf }) : service.receivableAging({ asOf });
+               expect((await aging(date)).items[0].due_date).toBe("2026-10-15");
+               await service.termsAmendmentAction(party, correction.id, "submit", { idempotencyKey: "terms-correction-submit", expectedVersion: 1 });
+               await expect(service.termsAmendmentAction(party, correction.id, "approve", { idempotencyKey: "terms-correction-self", expectedVersion: 2 })).rejects.toThrow("own document");
+               await new PharmacyAccountingSubledgers(db, other).termsAmendmentAction(party, correction.id, "approve", { idempotencyKey: "terms-correction-approve", expectedVersion: 2 });
+               await expect(service.termsAmendmentAction(party, correction.id, "post", { idempotencyKey: "terms-correction-tamper", expectedVersion: 3, dueDate: "2027-01-01" })).rejects.toThrow("immutable");
+               const post = { idempotencyKey: "terms-correction-post", expectedVersion: 3 };
+               await service.termsAmendmentAction(party, correction.id, "post", post);
+               await service.termsAmendmentAction(party, correction.id, "post", post);
+               expect((await aging(date)).items[0].due_date).toBe("2026-12-01");
+               expect((await aging("2026-11-01")).items[0].due_date).toBe("2026-10-15");
+               const source = party === "payables" ? await db("pharmacy_accounting_bills").where({ id: sourceId }).first() : await db("pharmacy_accounting_invoice_terms").where({ sale_id: sourceId }).first();
+               expect(source.due_date).toBe("2026-10-15");
+               const current = party === "payables" ? await registers.payables() : await registers.receivables();
+               expect((party === "payables" ? current.receipts : current.items)[0].due_date).toBe("2026-12-01");
+               expect(await db("pharmacy_journal_lines").orderBy("id")).toEqual(before);
+          });
+          it("rejects cross-branch, stale and backdated terms and resolves same-day corrections by revision", async () => {
+               const service = new PharmacyAccountingSubledgers(db, context), bill = await receiptBill();
+               const input = { idempotencyKey: "terms-first-create", date, dueDate: "2026-12-01", expectedDueDate: "2026-10-15", reason: "Reviewed extension of supplier terms" };
+               await expect(new PharmacyAccountingSubledgers(db, { ...context, branch: 9 }).createTermsAmendment("payables", bill.id, input)).rejects.toThrow("not found");
+               const first = await service.createTermsAmendment("payables", bill.id, input);
+               const competing = await service.createTermsAmendment("payables", bill.id, { ...input, idempotencyKey: "terms-competing-create" });
+               const review = async (id: string) => {
+                    await service.termsAmendmentAction("payables", id, "submit", { idempotencyKey: "terms-submit:" + id, expectedVersion: 1 });
+                    await new PharmacyAccountingSubledgers(db, other).termsAmendmentAction("payables", id, "approve", { idempotencyKey: "terms-approve:" + id, expectedVersion: 2 });
+               };
+               await review(first.id); await review(competing.id);
+               await service.termsAmendmentAction("payables", first.id, "post", { idempotencyKey: "terms-post-first", expectedVersion: 3 });
+               await expect(service.termsAmendmentAction("payables", competing.id, "post", { idempotencyKey: "terms-post-competing", expectedVersion: 3 })).rejects.toThrow("changed");
+               await service.termsAmendmentAction("payables", competing.id, "void", { idempotencyKey: "terms-void-stale", expectedVersion: 3, reason: "Superseded by another reviewed amendment" });
+               await expect(service.createTermsAmendment("payables", bill.id, { ...input, idempotencyKey: "terms-stale-create" })).rejects.toThrow("changed");
+               await expect(service.createTermsAmendment("payables", bill.id, { ...input, idempotencyKey: "terms-backdated", expectedDueDate: "2026-12-01", dueDate: "2026-12-15", date: "2026-11-01" })).rejects.toThrow("latest correction");
+               const next = await service.createTermsAmendment("payables", bill.id, { ...input, idempotencyKey: "terms-next-create", expectedDueDate: "2026-12-01", dueDate: "2026-12-15" });
+               await review(next.id);
+               await service.termsAmendmentAction("payables", next.id, "post", { idempotencyKey: "terms-post-next", expectedVersion: 3 });
+               expect((await service.payableAging({ asOf: date })).items[0].due_date).toBe("2026-12-15");
+          });
+          it("cancels approved but unpaid settlements and links replacements without recording money", async () => {
+               const bill = await receiptBill(), id = await approvedSettlement(bill), service = new PharmacyAccountingSubledgers(db, context);
+               const before = await db("pharmacy_journal_lines").orderBy("id");
+               await expect(service.createSettlement({ idempotencyKey: "replacement-too-soon", date, description: "Correct payment request", replacesSettlementId: id, allocations: [{ billId: bill.id, amount: "20.00" }] })).rejects.toThrow("Cancel");
+               await service.settlementAction(id, "void", { idempotencyKey: "cancel-approved-unpaid", expectedVersion: 3, reason: "Wrong date on unpaid request" });
+               const replacement = await service.createSettlement({ idempotencyKey: "replacement-after-cancel", date, description: "Correct payment request", replacesSettlementId: id, allocations: [{ billId: bill.id, amount: "20.00" }] });
+               expect((await workflows.detail(replacement.id, "ap_settlement")).details.replacesSettlementId).toBe(id);
+               expect(await db("pharmacy_journal_lines").orderBy("id")).toEqual(before);
+               expect((await workflows.detail(id, "ap_settlement")).status).toBe("voided");
+          });
+     });
      describe("AR due dates, independently controlled corrections and historical aging", () => {
           it("records invoice terms and reconstructs historic partial payments and writeoffs from journals", async () => {
                const saleId = await creditInvoice(),

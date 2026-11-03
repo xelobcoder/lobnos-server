@@ -14,6 +14,21 @@ reports and setup. Existing routes and role restrictions remain in place.
 an explanation of each static pharmacy page and a plain-language accounting
 glossary. Links are limited to pages the reader's role can access.
 
+The overview's **What do you need to do?** launcher presents tasks for the active
+role: selling, counter payment, medication handover, receiving, purchase orders,
+supplier payment, customer collections and trading-day closing as authorized.
+Use **Check stock & prices** for daily availability checks; **Reference registers
+→ Catalogue** retains the catalogue without competing as a second stock task.
+Accounting registers remain available for investigation, not mandatory navigation
+for every routine task.
+
+Previous-day guidance separates cash counting/shift closure, independent handover
+review, previous-day closure and opening today. Finance shows the actual counts
+of shifts needing cash counts and closed handovers awaiting review, with the
+responsible roles. An accountant can coordinate and close a day, but cannot review
+handovers. Cashier and overview financial controls require fresh setup data;
+loading or failed refreshes cannot enable actions against a stale shift.
+
 Accounting starts with everyday tasks: record a running expense, pay a supplier,
 collect a customer balance, check profit, compare a bank statement and close
 the trading day. Technical checks remain available in the navigation and a
@@ -21,6 +36,52 @@ collapsed investigation section. Every accounting page includes optional
 **What do I do on this page?** help. The cash/day-closing page links to accounting
 instead of offering unavailable immediate-payment/journal tabs when linked
 accounting is active. Legacy mode keeps its existing operational controls.
+
+## Supplier payments and safe corrections
+
+**Money we owe suppliers → Record supplier payment** records an actual payment
+immediately under the current user's finance authority; there is no separate
+approval step. For approval before payment, use **Payment history → Prepare
+payment for independent approval**, submit the draft, obtain a different eligible
+reviewer's approval and then record the actual payment. Never use both workflows
+for the same payment. Neither action initiates an external bank transfer.
+
+An unpaid draft, submitted or approved supplier request can be cancelled with
+evidence through **Correct this unpaid request**. Reopen its cancelled entry in
+Payment history to prepare a linked replacement using the original allocations.
+Review the date and current bill balances; the replacement requires fresh
+independent approval. Paid requests require the existing reviewed reversal,
+not cancellation or editing.
+
+For incorrect recorded due dates, open customer **Aging** or supplier **Aged
+payables**, review the source and choose **Correct due date**. Enter the corrected
+due date, correction effective date and evidence, then prepare the request.
+In **Due-date corrections**, submit, obtain independent approval and post.
+Original bill/invoice terms remain immutable; dated reports use posted amendments
+from their effective dates. Amendments do not post money, alter balances or change
+earlier report dates. Stale requests must be cancelled and recreated from current
+terms. These workflows reuse the existing accounting document and audit tables.
+
+Accounting failures retain their error codes and show specific recovery links
+where available. Supplier control mismatches lead to existing credits/advances,
+cash-shift failures to Cashier & shift, and financial-day blockers to Finance.
+Do not force a balance by recording a duplicate payment or fictional liability.
+
+## Recover an unpaid counter invoice
+
+Counter invoices do not reserve medicine stock. The cashier must not collect
+money against an old total after prices change or release unavailable goods.
+Return the code to its attendant or a pharmacy manager for guided basket review.
+The recovery workflow shows current prices/stock and retains unavailable lines
+for an explicit quantity change or removal. It preserves the customer, linked
+patient and retail/wholesale basis.
+
+The original invoice stays unpaid until its authorized attendant/manager
+explicitly confirms cancellation and basket recovery. Review the recovered
+basket before issuing a new code. Cashier-only staff see handoff guidance rather
+than cancellation authority. Recovery retries retain their operation key;
+refreshing or losing a response must not create another replacement invoice or
+collect a second payment. Stock and prices are still checked when payment posts.
 
 ## Request, approve and receive a purchase
 
@@ -63,6 +124,18 @@ Held sales and receipts retain the selected price basis. Checkout retries must m
 ## Analytics
 
 **Pharmacy → Analytics & Reports** provides overview trends, sales and margins, stock/replenishment, batch expiry, purchase-order fulfilment, supplier performance, and stock movements. **Pharmacy → Accounting** provides account activity, profit and loss, balance sheet, cash flow, trial balance, and journal transactions. Accounting statements are no longer offered through the pharmacy analytics UI or operational analytics API. Both workspaces use date/search filters, pagination where supported, and CSV/PDF export. Reports run in a repeatable-read transaction, so their totals and rows share a database snapshot.
+
+Every authorized Pharmacy Accounting page displays **Financial reports** links for
+**Profit & loss (Income statement)**, **Cash flow**, **Balance sheet**, and **Trial balance**.
+The first three also appear individually in the accounting sidebar and open
+`/pharmacy/accounting/statements?report=profit_loss`, `?report=cash_flow`, or
+`?report=balance_sheet`. Journal transactions remain available on the statements page.
+The active link identifies the displayed report; changing reports retains applied date
+filters in the current statements workspace. Viewing a report never posts accounting entries.
+Statements use one continuous table for account lines, section headings, available
+server-supplied subtotals and final totals, matching the facility statement layout.
+Currency values are right-aligned; account numbers are not formatted as amounts.
+Balance sheet, cash flow and trial balance do not display the profit-and-stock summary.
 
 Sales and refunds use their respective event dates. Cost reversals apply only to goods restored to stock. Book profit includes correction journals; receipt-based net sales can therefore differ from book revenue. Stock valuation and expiry are current snapshots, independent of historical date filters. Reorder quantities and days of cover use dispensable stock, excluding expired or untraceable tracked stock. Supplier fill rate averages line fulfilment percentages, avoiding quantity weighting across different medicines.
 

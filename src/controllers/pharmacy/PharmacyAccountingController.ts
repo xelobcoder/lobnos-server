@@ -78,6 +78,11 @@ pharmacyAccountingRouter.get('/payables', endpoint((s, r) => s.registers.payable
 pharmacyAccountingRouter.get('/payables/bills', endpoint((s, r) => s.subledgers.bills(r.query)));
 pharmacyAccountingRouter.post('/payables/bills', endpoint((s, r) => s.subledgers.registerBill(r.body), true));
 pharmacyAccountingRouter.put('/payables/bills/:id/due-date', endpoint((s, r) => s.subledgers.billDueDate(String(r.params.id), r.body)));
+for (const party of ['payables', 'receivables'] as const) {
+     pharmacyAccountingRouter.get(`/${party}/terms-amendments`, endpoint((s, r) => s.workflows.list(party === 'payables' ? 'ap_terms' : 'ar_terms', r.query)));
+     pharmacyAccountingRouter.post(`/${party}${party === 'payables' ? '/bills' : ''}/:id/terms-amendments`, endpoint((s, r) => s.subledgers.createTermsAmendment(party, String(r.params.id), r.body), true));
+     pharmacyAccountingRouter.post(`/${party}/terms-amendments/:id/:action(submit|approve|post|void)`, endpoint((s, r) => s.subledgers.termsAmendmentAction(party, String(r.params.id), String(r.params.action), r.body)));
+}
 pharmacyAccountingRouter.get('/payables/aging', endpoint((s, r) => s.subledgers.payableAging(r.query)));
 pharmacyAccountingRouter.get('/payables/settlements', endpoint((s, r) => s.workflows.list('ap_settlement', r.query)));
 pharmacyAccountingRouter.get('/payables/settlements/:id', endpoint((s, r) => s.workflows.detail(String(r.params.id), 'ap_settlement')));

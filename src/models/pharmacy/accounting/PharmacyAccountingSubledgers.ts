@@ -15,8 +15,69 @@ export function agingBucket(due: string | null, asOf: string): string {
 }
 const decimal = (n: any) => new Decimal(n || 0);
 
+type TermsParty = 'payables' | 'receivables';
+interface TermsDetails { sourceId: string; previousDueDate: string; dueDate: string; previousRevision: number; revision?: number }
+interface TermsAmendment { financial_date: string | Date; details: string | TermsDetails }
+export function effectiveTerms(sourceId: string, original: string | Date | null, amendments: TermsAmendment[]): { dueDate: string | null; revision: number } {
+     const latest = amendments.map(row => json(row.details) as TermsDetails).filter(detail => detail.sourceId === sourceId)
+          .sort((a, b) => Number(b.revision) - Number(a.revision))[0];
+     return { dueDate: latest ? accountingDate(latest.dueDate) : original ? accountingDate(original) : null, revision: latest?.revision || 0 };
+}
+
 /** Approved source allocations. Recognition always remains in the existing immutable local journal. */
 export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
+     private termsKind(party: TermsParty): string { return party === 'payables' ? 'ap_terms' : 'ar_terms'; }
+     async postedTerms(party: TermsParty, asOf = today(), db: Knex | Knex.Transaction = this.db): Promise<TermsAmendment[]> {
+          return db('pharmacy_accounting_documents').where({ branchid: this.context.branch, kind: this.termsKind(party), status: 'posted' })
+               .where('financial_date', '<=', asOf).select('financial_date', 'details');
+     }
+     private async termsSource(trx: Knex.Transaction, party: TermsParty, id: string): Promise<{ date: string; dueDate: string | null }> {
+          if (party === 'payables') {
+               const bill = await trx('pharmacy_accounting_bills').where({ id, branchid: this.context.branch }).forUpdate().first();
+               if (!bill) fail('Bill not found in this branch', 'NOT_FOUND', 404);
+               return { date: accountingDate(bill.document_date), dueDate: bill.due_date ? accountingDate(bill.due_date) : null };
+          }
+          const sale = await this.sale(trx, id);
+          const terms = await trx('pharmacy_accounting_invoice_terms').where({ sale_id: id, branchid: this.context.branch }).forUpdate().first();
+          return { date: accountingDate(sale.completed_at), dueDate: terms ? accountingDate(terms.due_date) : null };
+     }
+     async createTermsAmendment(party: TermsParty, sourceId: string, input: any): Promise<any> {
+          return this.atomic(input, `${party}:terms:create:${sourceId}`, async trx => {
+               const source = await this.termsSource(trx, party, sourceId), date = accountingDate(input.date), dueDate = accountingDate(input.dueDate);
+               const amendments = await this.postedTerms(party, today(), trx), current = effectiveTerms(sourceId, source.dueDate, amendments);
+               if (!current.dueDate) fail('Record the original evidenced due date before requesting a correction', 'TERMS_UNKNOWN', 409);
+               if (input.expectedDueDate !== current.dueDate) fail('Due date changed; refresh the original bill or invoice before requesting a correction', 'TERMS_CONFLICT', 409);
+               if (dueDate === current.dueDate || dueDate < source.date) fail('Choose a different due date on or after the original bill or invoice date');
+               if (date < source.date || date > today() || amendments.some(a => json(a.details).sourceId === sourceId && accountingDate(a.financial_date) > date))
+                    fail('Correction date must follow the original document and latest correction, and cannot be in the future');
+               const id = randomUUID(), reason = text(input.reason, 'due-date correction evidence');
+               const details: TermsDetails = { sourceId, previousDueDate: current.dueDate, dueDate, previousRevision: current.revision };
+               const row = { id, branchid: this.context.branch, kind: this.termsKind(party), status: 'draft', version: 1, financial_date: date, amount: '0.00', description: reason, created_by: this.context.actor, details: JSON.stringify(details) };
+               await trx('pharmacy_accounting_documents').insert(row);
+               await this.audit(trx, `${party}:terms:create`, id, null, row);
+               return { id, status: 'draft', version: 1 };
+          });
+     }
+     async termsAmendmentAction(party: TermsParty, id: string, action: string, input: any): Promise<any> {
+          return this.atomic(input, `${party}:terms:${id}:${action}`, async trx => {
+               const row = await this.document(trx, id, this.termsKind(party)); assertVersion(row, input);
+               if (!['submit', 'approve', 'post', 'void'].includes(action)) fail('Unsupported due-date correction action', 'UNSUPPORTED', 422);
+               if (['date', 'dueDate', 'sourceId', 'previousDueDate', 'previousRevision'].some(key => Object.prototype.hasOwnProperty.call(input, key)))
+                    fail('Due-date correction evidence is immutable; cancel the unposted request and create a replacement', 'HISTORY_PROTECTED', 409);
+               const before = { ...row, details: { ...row.details } };
+               const status = action === 'void' && row.status === 'approved' ? 'voided' : assertTransition(row, action, this.context.actor);
+               if (action === 'post') {
+                    const source = await this.termsSource(trx, party, row.details.sourceId);
+                    const amendments = await this.postedTerms(party, today(), trx), current = effectiveTerms(row.details.sourceId, source.dueDate, amendments);
+                    if (current.dueDate !== row.details.previousDueDate || current.revision !== row.details.previousRevision)
+                         fail('Due date changed since this correction was prepared; create a new correction from the current terms', 'TERMS_CONFLICT', 409);
+                    if (amendments.some(a => json(a.details).sourceId === row.details.sourceId && accountingDate(a.financial_date) > accountingDate(row.financial_date)))
+                         fail('Correction cannot predate a later posted due-date correction', 'TERMS_CONFLICT', 409);
+                    row.details.revision = current.revision + 1;
+               }
+               return this.transition(trx, row, action, status, input, before);
+          });
+     }
      async registerBill(input: any): Promise<any> {
           return this.atomic(input, 'ap:bill:register', async trx => {
                if (typeof input.receiptId !== 'string' || !input.receiptId || input.receiptId.length > 64) fail('Supply the original receiptId');
@@ -39,7 +100,7 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
           return this.atomic(input, `ap:bill:terms:${id}`, async trx => {
                const row = await trx('pharmacy_accounting_bills').where({ id, branchid: this.context.branch }).forUpdate().first();
                if (!row) fail('Bill not found in this branch', 'NOT_FOUND', 404);
-               if (row.due_date) fail('Recorded due dates are immutable; a reviewed terms amendment is required', 'HISTORY_PROTECTED', 409);
+               if (row.due_date) fail('Recorded due dates are immutable. Use Correct due date on the original bill, then submit it for independent review', 'HISTORY_PROTECTED', 409);
                const due = accountingDate(input.dueDate), reason = text(input.reason, 'terms evidence');
                if (due < accountingDate(row.document_date)) fail('Bill dueDate cannot precede recognition date');
                await trx('pharmacy_accounting_bills').where({ id, branchid: this.context.branch }).update({ due_date: due });
@@ -66,8 +127,13 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
      async createSettlement(input: any): Promise<any> {
           return this.atomic(input, 'ap:settlement:create', async (trx, settings) => {
                const date = accountingDate(input.date), checked = await this.allocationLines(trx, input.allocations, date);
+               if (input.replacesSettlementId !== undefined) {
+                    if (typeof input.replacesSettlementId !== 'string' || !input.replacesSettlementId || input.replacesSettlementId.length > 36) fail('Select the original cancelled supplier payment request');
+                    const original = await this.document(trx, input.replacesSettlementId, 'ap_settlement');
+                    if (original.status !== 'voided') fail('Cancel the original unpaid request before preparing its replacement', 'INVALID_STATE', 409);
+               }
                await pharmacyAccount(trx, this.context.branch, settings, 'payable:' + checked.supplierId);
-               const id = randomUUID(), row = { id, branchid: this.context.branch, kind: 'ap_settlement', status: 'draft', version: 1, financial_date: date, amount: checked.total, description: text(input.description, 'settlement description'), created_by: this.context.actor, details: JSON.stringify({ supplierId: checked.supplierId, allocations: checked.items }) };
+               const id = randomUUID(), row = { id, branchid: this.context.branch, kind: 'ap_settlement', status: 'draft', version: 1, financial_date: date, amount: checked.total, description: text(input.description, 'settlement description'), created_by: this.context.actor, details: JSON.stringify({ supplierId: checked.supplierId, allocations: checked.items, ...(input.replacesSettlementId ? { replacesSettlementId: input.replacesSettlementId } : {}) }) };
                await trx('pharmacy_accounting_documents').insert(row); await this.audit(trx, 'ap:settlement:create', id, null, row);
                return { id, status: 'draft', version: 1, amount: checked.total };
           });
@@ -92,14 +158,14 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
                const row = await this.document(trx, id, 'ap_settlement'); assertVersion(row, input);
                const before = { ...row, details: { ...row.details } };
                if (!['submit', 'approve', 'pay', 'void', 'record_payment'].includes(action)) fail('Unsupported settlement action', 'UNSUPPORTED', 422);
-               if (['amount', 'allocations', 'date', 'supplierId', 'accountId'].some(k => Object.prototype.hasOwnProperty.call(input, k))) fail('Settlement date, supplier and allocations are immutable after draft creation');
+               if (['amount', 'allocations', 'date', 'supplierId', 'accountId'].some(k => Object.prototype.hasOwnProperty.call(input, k))) fail('Settlement date, supplier and allocations are immutable after draft creation. Cancel this unpaid request with a reason, then prepare a replacement', 'HISTORY_PROTECTED', 409);
                if (action === 'record_payment') {
                     // Completes a pending payment request directly under the recording user's finance authority.
                     if (!['draft', 'submitted', 'approved'].includes(row.status)) fail(`Cannot record payment for a ${row.status} payment request`, 'INVALID_STATE', 409);
                     await this.postSettlementPayment(trx, settings, row, input);
                     return this.transition(trx, row, action, 'paid', input, before);
                }
-               let status = assertTransition(row, action, this.context.actor);
+               let status = action === 'void' && row.status === 'approved' ? 'voided' : assertTransition(row, action, this.context.actor);
                if (action === 'pay') {
                     if (row.status !== 'approved') fail('Settlement must be independently approved', 'INVALID_STATE', 409);
                     await this.postSettlementPayment(trx, settings, row, input);
@@ -127,7 +193,7 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
           return this.atomic(input, `ar:terms:${saleId}`, async trx => {
                const sale = await this.sale(trx, saleId), due = accountingDate(input.dueDate), reason = text(input.reason, 'invoice terms evidence');
                if (due < accountingDate(sale.completed_at)) fail('Invoice dueDate cannot precede invoice date');
-               if (await trx('pharmacy_accounting_invoice_terms').where({ sale_id: sale.id }).forUpdate().first()) fail('Recorded invoice terms are immutable; reviewed amendment required', 'HISTORY_PROTECTED', 409);
+               if (await trx('pharmacy_accounting_invoice_terms').where({ sale_id: sale.id }).forUpdate().first()) fail('Recorded invoice terms are immutable. Use Correct due date in customer invoice aging, then submit it for independent review', 'HISTORY_PROTECTED', 409);
                const row = { sale_id: sale.id, branchid: this.context.branch, due_date: due, reason, created_by: this.context.actor };
                await trx('pharmacy_accounting_invoice_terms').insert(row); await this.audit(trx, 'ar:terms', sale.id, null, row); return row;
           });
@@ -199,12 +265,12 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
           if (!['cash', 'card', 'mobile_money'].includes(method)) fail('Select cash, card or mobile_money');
           const account = await resolvePharmacyDestination(trx, this.context.branch, method);
           const shift = method === 'cash' ? await trx('pharmacy_shifts').where({ active_key: `${this.context.branch}:${this.context.actor}`, financial_date: date }).forUpdate().first() : null;
-          if (method === 'cash' && !shift) fail('An open cash shift for the posting date is required');
+          if (method === 'cash' && !shift) fail('An open cash shift for the posting date is required. Open Cashier & shift; if this request has the wrong date, cancel it and prepare a replacement', 'CASH_SHIFT_REQUIRED', 409);
           return { account, shift };
      }
      async paymentReference(trx: Knex.Transaction, accountId: number, ref: any, method: string): Promise<string | null> {
           const reference = ref == null ? null : text(ref, 'external payment reference', 128);
-          if (method !== 'cash' && !reference) fail('Non-cash settlement requires an external reference');
+          if (method !== 'cash' && !reference) fail('Non-cash settlement requires an external reference from the actual bank, card or mobile money transaction', 'PAYMENT_REFERENCE_REQUIRED', 422);
           if (reference) {
                const documents = await trx('pharmacy_documents').where({ branchid: this.context.branch, kind: 'supplier_payment' }).select('details');
                if (documents.some(d => { const detail = json(d.details); return Number(detail.accountId) === Number(accountId) && detail.reference === reference; })) fail('External payment reference already recorded', 'DUPLICATE_REFERENCE', 409);
@@ -214,37 +280,39 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
      async bills(query: any = {}): Promise<any> { return this.payableAging({ ...query, asOf: query.asOf || today() }); }
      async payableAging(query: any): Promise<any> {
           const asOf = accountingDate(query.asOf || today());
-          const [bills, allocations, control, suppliers] = await Promise.all([
+          const [bills, allocations, control, suppliers, amendments] = await Promise.all([
                this.db('pharmacy_accounting_bills').where({ branchid: this.context.branch }).where('document_date', '<=', asOf).orderBy('document_date'),
                this.db('pharmacy_accounting_allocations').where({ branchid: this.context.branch }).where('financial_date', '<=', asOf),
                this.control('payable:', asOf),
                this.db('pharmacy_suppliers').where({ branchid: this.context.branch }).select('id', 'name'),
+               this.postedTerms('payables', asOf),
           ]);
           const supplierNames = new Map<string, string>((suppliers || []).map((s: any) => [String(s.id), s.name]));
           const items = bills.map(b => {
                const paid = allocations.filter(a => a.bill_id === b.id).reduce((s, a) => s.plus(a.amount), decimal(0));
-               const due = b.due_date == null ? null : accountingDate(b.due_date);
+               const due = effectiveTerms(b.id, b.due_date, amendments).dueDate;
                return { ...b, supplier_name: supplierNames.get(String(b.supplier_id)) ?? null, due_date: due, allocated_amount: paid.toFixed(2), outstanding_amount: decimal(b.amount).minus(paid).toFixed(2), bucket: agingBucket(due, asOf) };
           });
           return this.agingResult(items, control, asOf, 'payable:');
      }
      async receivableAging(query: any): Promise<any> {
           const asOf = accountingDate(query.asOf || today());
-          const [sales, terms, events, adjustments, lines, control] = await Promise.all([
+          const [sales, terms, events, adjustments, lines, control, amendments] = await Promise.all([
                this.db('pharmacy_sales').where({ branchid: this.context.branch, accounting_version: 3 }).whereNotNull('customer_account_id').whereRaw('DATE(completed_at) <= ?', [asOf]),
                this.db('pharmacy_accounting_invoice_terms').where({ branchid: this.context.branch }),
                this.db('pharmacy_cash_events').where({ branchid: this.context.branch }).select('id', 'sale_id'),
                this.db('pharmacy_accounting_documents').where({ branchid: this.context.branch }).whereIn('kind', ['ar_adjustment', 'ar_reversal']).whereIn('status', ['posted', 'reversed']).select('id', 'details'),
                this.db('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id').where('j.branchid', this.context.branch).where('l.account_code', 'like', 'receivable:%').where('j.financial_date', '<=', asOf).select('l.account_code', 'l.debit', 'l.credit', 'l.document_ref', 'j.source_ref'),
                this.control('receivable:', asOf),
+               this.postedTerms('receivables', asOf),
           ]);
           const sources = new Map<string, string>(sales.map(s => [s.id, s.id]));
           events.forEach(e => sources.set(e.id, e.sale_id)); adjustments.forEach(a => sources.set(a.id, json(a.details).saleId));
           const items = sales.map(s => {
                const invoiceLines = lines.filter(l => (l.document_ref || sources.get(l.source_ref)) === s.id && l.account_code === 'receivable:' + s.customer_account_id);
                const outstanding = invoiceLines.reduce((v, l) => v.plus(l.debit).minus(l.credit), decimal(0));
-               const due = terms.find(t => t.sale_id === s.id)?.due_date;
-               return { id: s.id, receipt_number: s.receipt_number, customer_account_id: s.customer_account_id, customer_name: s.customer_name, document_date: accountingDate(s.completed_at), due_date: due ? accountingDate(due) : null, outstanding_amount: outstanding.toFixed(2), bucket: agingBucket(due ? accountingDate(due) : null, asOf) };
+               const due = effectiveTerms(s.id, terms.find(t => t.sale_id === s.id)?.due_date || null, amendments).dueDate;
+               return { id: s.id, receipt_number: s.receipt_number, customer_account_id: s.customer_account_id, customer_name: s.customer_name, document_date: accountingDate(s.completed_at), due_date: due, outstanding_amount: outstanding.toFixed(2), bucket: agingBucket(due, asOf) };
           });
           return this.agingResult(items, control, asOf, 'receivable:');
      }

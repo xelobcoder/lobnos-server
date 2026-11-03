@@ -84,6 +84,76 @@ const invoice = (key = "invoice-request-001") => ({
 const payment = (key = "payment-request-001") => ({ idempotencyKey: key, paymentMethod: "cash", amountTendered: 50 });
 beforeEach(() => vi.clearAllMocks());
 describe("separate pharmacy counter workflow", () => {
+     it("reviews current prices and usable stock without changing the original invoice or reserving stock", async () => {
+          const f = fixture();
+          const ticket = await f.attendant.create({ ...invoice(), patientId: 99 });
+          await f.db.transaction(async (trx: any) => { await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first(); await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ sale_price: 47, current_stock: 0 }); });
+          const review = await f.cashier.review(ticket.id);
+          expect(review.invoice).toMatchObject({ status: "unpaid", total: 40, details: { customerName: "Customer Name", patientId: 99, priceType: "retail" } });
+          expect(review).toMatchObject({ canRecover: false, refreshedTotal: 47 });
+          expect(review.lines[0]).toMatchObject({ quantity: 1, salePrice: 47, dispensableStock: 0 });
+          expect(review.lines[0].issue).toContain("Insufficient");
+          expect(f.rows("pharmacy_counter_invoices")[0].status).toBe("unpaid");
+          expect(f.rows("pharmacy_stock_movements")).toHaveLength(1);
+          expect(f.rows("pharmacy_sales")).toHaveLength(0);
+          await f.db.transaction(async (trx: any) => { await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first(); await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ is_active: false }); });
+          const missing = await f.attendant.review(ticket.id);
+          expect(missing.lines).toHaveLength(1);
+          expect(missing.lines[0]).toMatchObject({ inventoryItemId: "drug", name: "Medicine", quantity: 1, unavailable: true });
+     });
+     it("authorizes recovery on the backend, scoped to branch and original attendant or manager", async () => {
+          const f = fixture(), ticket = await f.attendant.create(invoice());
+          const request = { idempotencyKey: "recover-original-001", reason: "Price changed" };
+          await expect(f.cashier.recover(ticket.id, request)).rejects.toThrow("authority");
+          const other = new PharmacyCounterWorkflow(f.db, user("pharmacist", 2, 8), 1);
+          expect((await other.review(ticket.id)).canRecover).toBe(false);
+          await expect(other.recover(ticket.id, request)).rejects.toThrow("original attendant");
+          await expect(other.create({ ...invoice("other-create-001"), recoverySourceId: ticket.id })).rejects.toThrow("original attendant");
+          const branch = new PharmacyCounterWorkflow(f.db, user("pharmacy_manager", 7, 8), 1);
+          await expect(branch.review(ticket.id)).rejects.toThrow("branch");
+          await expect(branch.recover(ticket.id, request)).rejects.toThrow("branch");
+          await expect(f.attendant.recover(ticket.id, { ...request, reason: "" })).rejects.toThrow("reason");
+          expect(f.rows("pharmacy_counter_invoices")[0].status).toBe("unpaid");
+          const manager = new PharmacyCounterWorkflow(f.db, user("pharmacy_manager", 2, 8), 1);
+          expect((await manager.recover(ticket.id, request)).invoice.status).toBe("cancelled");
+     });
+     it("recovers cancellation after a lost response and reissues at reviewed prices once, preserving both identities and wholesale mode", async () => {
+          const f = fixture();
+          const ticket = await f.attendant.create({ ...invoice(), priceType: "wholesale", expectedTotal: 30, patientId: 99 });
+          const request = { idempotencyKey: "recovery-lost-response", reason: "Review changed price" };
+          await f.db.transaction(async (trx: any) => { await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first(); await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ wholesale_price: 35 }); });
+          const recovered = await f.attendant.recover(ticket.id, request);
+          expect(await f.attendant.recover(ticket.id, request)).toEqual(JSON.parse(JSON.stringify(recovered)));
+          expect((await f.attendant.recover(ticket.id, { ...request, idempotencyKey: "recover-after-refresh" })).lines).toHaveLength(1);
+          const replacementInput = { ...invoice("replacement-lost-response"), recoverySourceId: ticket.id, customerName: "Tampered", patientId: 123, priceType: "retail", expectedTotal: 35 };
+          const replacement = await f.attendant.create(replacementInput);
+          expect(replacement.details).toMatchObject({ customerName: "Customer Name", patientId: 99, priceType: "wholesale", recoverySourceId: ticket.id });
+          expect(replacement.total).toBe(35);
+          expect(await f.attendant.create(replacementInput)).toEqual(replacement);
+          expect((await f.attendant.create({ ...replacementInput, idempotencyKey: "replacement-new-key" })).id).toBe(replacement.id);
+          expect(f.rows("pharmacy_counter_invoices")).toHaveLength(2);
+          expect((await f.attendant.review(ticket.id)).replacement?.code).toBe(replacement.code);
+          await expect(f.attendant.recover(ticket.id, { ...request, idempotencyKey: "recover-replaced-source" })).rejects.toThrow("already been reissued");
+          expect(f.rows("pharmacy_sales")).toHaveLength(0);
+          expect(f.rows("pharmacy_stock_movements")).toHaveLength(1);
+          const paid = await f.cashier.pay(replacement.id, payment());
+          expect(await f.cashier.pay(replacement.id, payment())).toEqual(JSON.parse(JSON.stringify(paid)));
+          expect(f.rows("pharmacy_sales")).toHaveLength(1);
+          expect(f.rows("pharmacy_payments")).toHaveLength(1);
+          await expect(f.attendant.recover(replacement.id, { ...request, idempotencyKey: "recover-paid-invoice" })).rejects.toThrow("Only unpaid");
+     });
+     it("requires explicit cancellation, rejects stale prices and leaves cancelled baskets recoverable after reissue rejection", async () => {
+          const f = fixture(), ticket = await f.attendant.create(invoice());
+          const replacement = { ...invoice("reissue-before-cancel"), recoverySourceId: ticket.id };
+          await expect(f.attendant.create(replacement)).rejects.toThrow("Explicitly cancel");
+          await f.attendant.cancel(ticket.id, { idempotencyKey: "legacy-cancel-invoice", reason: "Changed price" });
+          const recovered = await f.attendant.recover(ticket.id, { idempotencyKey: "legacy-source-recovery" });
+          expect(recovered.invoice.status).toBe("cancelled");
+          await f.db.transaction(async (trx: any) => { await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first(); await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ sale_price: 45 }); });
+          await expect(f.attendant.create(replacement)).rejects.toThrow("Prices changed");
+          expect((await f.attendant.review(ticket.id)).lines[0].salePrice).toBe(45);
+          expect(f.rows("pharmacy_counter_invoices")).toHaveLength(1);
+     });
      it("creates a four-character invoice without payment or stock movement, and retries return the same invoice", async () => {
           const f = fixture(() => "DC20");
           const ticket = await f.attendant.create(invoice());

@@ -46,6 +46,19 @@ describe('Pharmacy accounting HTTP boundary', () => {
                expect((await http('POST', `${root}/${id}/approve`, { idempotencyKey: 'http-self:' + id, expectedVersion: 2 })).status).toBe(403);
                expect((await http('POST', `${root}/${id}/approve`, { idempotencyKey: 'http-approve:' + id, expectedVersion: 2 }, 4)).status).toBe(200);
           };
+          it('routes due-date corrections through independent review without rewriting the original bill', async () => {
+               const bill = await fixture.bill();
+               const create = await http('POST', `/payables/bills/${bill.id}/terms-amendments`, { idempotencyKey: 'http-terms-create', date: allocationDate, expectedDueDate: bill.due_date, dueDate: '2026-12-01', reason: 'Supplier confirmed revised payment terms' });
+               expect(create).toMatchObject({ status: 201, body: { success: true, data: { status: 'draft', version: 1 } } });
+               const id = create.body.data.id;
+               expect((await http('GET', '/payables/terms-amendments')).body.data.items[0].id).toBe(id);
+               expect((await http('GET', '/payables/terms-amendments', undefined, 3, 9)).body.data.items).toEqual([]);
+               await reviewed('/payables/terms-amendments', id);
+               expect((await http('POST', `/payables/terms-amendments/${id}/post`, { idempotencyKey: 'http-terms-post', expectedVersion: 3 })).body.data.status).toBe('posted');
+               expect((await http('GET', '/payables/bills?asOf=' + allocationDate)).body.data.items[0].due_date).toBe('2026-12-01');
+               expect((await fixture.db('pharmacy_accounting_bills').where({ id: bill.id }).first()).due_date).toBe(bill.due_date);
+               expect((await http('POST', `/payables/bills/${bill.id}/terms-amendments`, { idempotencyKey: 'http-terms-denied', date: allocationDate, expectedDueDate: '2026-12-01', dueDate: '2026-12-10', reason: 'Unauthorized correction' }, 3, 2, 'pharmacy_cashier')).status).toBe(403);
+          });
           it('serves reviewed payment applications/releases with exact response shapes and no duplicate financial posting', async () => {
                const bill = await fixture.bill(); await fixture.payment();
                const before = await fixture.db('pharmacy_journal_lines').orderBy('id');
