@@ -16,6 +16,16 @@ interface BackupScheduleQuery {
      page?: string;
 }
 
+async function backupFileAvailable(backup: { is_successful: boolean; backup_path?: string }): Promise<boolean> {
+     if (!backup.is_successful || !backup.backup_path) return false;
+     try {
+          return (await fs.promises.stat(backup.backup_path)).isFile();
+     } catch (error) {
+          if (error instanceof Error && 'code' in error && (error.code === 'ENOENT' || error.code === 'ENOTDIR')) return false;
+          throw error;
+     }
+}
+
 export class BackupController {
      static async createDatabaseBackup(req: Request, res: Response) {
           try {
@@ -114,10 +124,14 @@ export class BackupController {
                filters.sortby = sortby;
 
                const backups = await BackupManager.findAll(tenantId, filters);
+               const data = await Promise.all(backups.map(async backup => ({
+                    ...backup,
+                    file_available: await backupFileAvailable(backup)
+               })));
 
                res.json({
                     status: true,
-                    data: backups
+                    data
                });
           } catch (error: any) {
                res.status(500).json({
@@ -182,24 +196,27 @@ export class BackupController {
                if (!backup) {
                     return res.status(404).json({
                          status: false,
+                         code: 'BACKUP_NOT_FOUND',
                          error: 'Backup not found'
                     });
                }
 
-               if (!backup.backup_path || !fs.existsSync(backup.backup_path)) {
+               const backupPath = backup.backup_path;
+               if (!backupPath || !await backupFileAvailable(backup)) {
                     return res.status(404).json({
                          status: false,
+                         code: 'BACKUP_FILE_NOT_FOUND',
                          error: 'Backup file not found'
                     });
                }
 
                const isEncrypted = !!backup.encryption_key_id;
-               let downloadPath = backup.backup_path;
-               let downloadName = path.basename(backup.backup_path);
+               let downloadPath = backupPath;
+               let downloadName = path.basename(backupPath);
 
                if (req.query.decrypt === 'true' && isEncrypted && backup.encryption_key_id) {
-                    const decryptedPath = `${backup.backup_path}.${randomUUID()}.decrypted`;
-                    const decryptResult = await EncryptionManager.decryptFile(tenantId, backup.backup_path, decryptedPath, backup.encryption_key_id);
+                    const decryptedPath = `${backupPath}.${randomUUID()}.decrypted`;
+                    const decryptResult = await EncryptionManager.decryptFile(tenantId, backupPath, decryptedPath, backup.encryption_key_id);
 
                     if (decryptResult.success) {
                          downloadPath = decryptedPath;

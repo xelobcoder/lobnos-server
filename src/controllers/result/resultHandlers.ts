@@ -29,7 +29,8 @@ import KnexConnection from "../../database/KnexConnections";
 import ResultDeliveryClass from "./resultDelivery";
 import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
-import { roleAllowed } from "../../middleware/roles";
+import { roleAllowed, normalizeRole } from "../../middleware/roles";
+import { assertLabTestAccess } from "../../models/operations/LabAccessPolicy";
 import { loadLaboratoryReportData } from "../../models/result/LaboratoryReportData";
 import logger from "../../hooks/logger";
 
@@ -259,16 +260,21 @@ export const getResultPrintoutHandler = async (request: Request<
 	try {
 
 		// check if access to view is allowed
-		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, employeeid, isBrowserPrintout } = request.query;
+		const { ascensionId, testid, csvid, ptid, target, isScan = false, tenantId, isBrowserPrintout } = request.query;
+          const actor = getAuthUser(request);
+          if (!actor) return customError("Authentication required", 401, response);
+          if (Number(tenantId) !== actor.tenantId) return customError("Organization scope does not match the session", 403, response);
+          const employeeid = String(actor.employeeid);
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 		let isWithinWindow = false;
 
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
+          if (normalizeRole(actor.role) === "scientist") await assertLabTestAccess(await KnexConnection(tenantIdP), actor, numAscensionId);
 		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
-		if (userRole && !roleAllowed(userRole.role, ['admin', 'manager', 'crm'])) {
+		if (!roleAllowed(actor.role, ['admin', 'manager', 'crm'])) {
 			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
 		} else {
 			isWithinWindow = true
@@ -279,7 +285,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		const resultApproved = await ResultSettings.isApprovalLimitReached(tenantIdP, null, numAscensionId as any, "minimum");
 		const releaseApproval = await (await KnexConnection(tenantIdP))('dbotestresultapproval').where({ ascensionid: numAscensionId }).first();
           if (Number(releaseApproval?.requires_revalidation) === 1) return response.status(409).send({ message: 'This result was amended and requires revalidation before release.' });
-		if (!resultApproved && !isScan) {
+		if (!resultApproved) {
 			return response.send({ message: OperationsFailures.minimumResultValidation })
 		}
 
@@ -316,7 +322,11 @@ export const getResultPrintoutHandler = async (request: Request<
 
 export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {}, { csvid: string, ptid: string, target: string, employeeid: number | string, isBrowserPrintout: number | string, isUltrasoundInclusive: boolean, tenantId: string }>, response: Response) => {
 	try {
-		const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout, employeeid } = request.query;
+		const { csvid, ptid, target, isUltrasoundInclusive = false, tenantId, isBrowserPrintout } = request.query;
+          const actor = getAuthUser(request);
+          if (!actor) return customError("Authentication required", 401, response);
+          if (Number(tenantId) !== actor.tenantId) return customError("Organization scope does not match the session", 403, response);
+          const employeeid = actor.employeeid;
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 		const pEmployeeId = parseInt(employeeid.toString());
@@ -329,6 +339,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 		if (patientid && billingid) {
 			const isvalidBillingid = await Billing.checkValidityOfBillingid(tenantIdP, billingid);
 			if (!isvalidBillingid) return response.send({ status: false, message: OperationsFailures.notFound });
+			const billingScope = await (await KnexConnection(tenantIdP))('billing').where({ billingid, patientid }).first('billingid');
+			if (!billingScope) return customError('The billing record does not belong to this patient', 403, response);
 			const billingAscensions = await TestAscension.findAllBillingAssociatedTestAscensions(tenantIdP, billingid, false) as PrimeLimsTabletest_ascension[];
 			const printableAscensionIds = new Set(await creator.getPrintableBillingAscensionIds(tenantIdP, billingid));
 			const printableBillingAscensions = billingAscensions.filter((item) => printableAscensionIds.has(Number(item.id)));
@@ -350,11 +362,12 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 
 			let accessPermissionTest = []
 			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId) as IEmployee;
-			const isPriviledgedUser = currentRole && roleAllowed(currentRole.role, ['admin', 'manager']);
+			const isPriviledgedUser = roleAllowed(actor.role, ['admin', 'manager']);
 
 			for (let i = 0; i < qualifiedForPrintOut.length; i++) {
 				const item = qualifiedForPrintOut[i];
 				if (!item) continue;
+                    if (normalizeRole(actor.role) === "scientist") await assertLabTestAccess(await KnexConnection(tenantIdP), actor, Number(item.ascensionid));
 				let isWithinWindow = false;
 				if (isPriviledgedUser) {
 					isWithinWindow = true;
@@ -452,7 +465,6 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 						tenantIdP,
 						billingid, testid);
 					dataset.comments = typeof comments === "string" ? comments : '';
-					await assertReportRevision(controlDb, ascensionid, reportRevision, 'print');
                     await assertReportRevision(controlDb, ascensionid, reportRevision, 'print');
                     return dataset
 				}))

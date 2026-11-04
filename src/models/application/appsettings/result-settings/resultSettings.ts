@@ -51,7 +51,7 @@ class ResultSettings extends ApplicationSettings {
 			throw new Error("Ascension or approval List Needed!!");
 		}
 		const currentLen = await ResultSettings.evaluateApprovalListLength(tenantId, approvalList, ascensionId);
-		if (typeof currentLen === "boolean") return currentLen;
+		const validatorCount = typeof currentLen === 'number' ? currentLen : 0;
 
 		const connection = await KnexConnection(tenantId);
 		const recordApproval = await connection('dbotestresultapproval')
@@ -64,9 +64,8 @@ class ResultSettings extends ApplicationSettings {
           }
 		const { maxvalidation, minvalidation } = recordApproval;
 
-		currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0;
-		if (type === 'maximum') return currentLen >= parseInt(maxvalidation.toString())
-		if (type === 'minimum') return currentLen >= parseInt(minvalidation.toString()) && currentLen > 0 && minvalidation > 0
+		if (type === 'maximum') return validatorCount >= parseInt(maxvalidation.toString())
+		if (type === 'minimum') return Number(recordApproval.isapproved) === 1 || validatorCount >= parseInt(minvalidation.toString()) && validatorCount > 0 && minvalidation > 0
 		return false;
 	}
 
@@ -90,8 +89,7 @@ class ResultSettings extends ApplicationSettings {
 			}
 		}
 
-		const currentLen = currentStaffApproved.length;
-		console.log(currentLen)
+		const currentLen = new Set(currentStaffApproved.filter(id => Number.isSafeInteger(id) && id > 0)).size;
 		return currentLen === 0 ? false : currentLen;
 	}
 

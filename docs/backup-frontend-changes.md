@@ -4,7 +4,9 @@ This is the exact payload and response contract for current backup/security endp
 
 ## Global Rule
 
-All requests must include tenantId in query params.
+Backend requests use tenantId from the authenticated session. Browser downloads
+use the same-origin API proxy, which supplies the session tenant; do not use a
+build-time public tenant ID to select another tenant.
 
 Example:
 
@@ -323,6 +325,11 @@ Success 200:
 
 ### GET /api/v1/security-features/backup/logs
 
+Each row includes `file_available`. It is true only for successful backups whose
+recorded path currently points to a file. A historically successful backup can
+have `file_available: false` after its file is moved or removed. Keep its history
+but disable Download and show "File unavailable".
+
 Query params:
 
 - is_successful optional true|false
@@ -405,6 +412,18 @@ Response:
 - Binary stream, not JSON
 - Header Content-Disposition contains filename
 - Header X-Filename contains sanitized filename
+
+Errors are JSON, not backup data:
+
+- `404 BACKUP_NOT_FOUND`: the selected log no longer exists; refresh the logs.
+- `404 BACKUP_FILE_NOT_FOUND`: the recorded file is unavailable. Restore the
+  original file to its recorded server location or create a new backup.
+
+Parse the error response and show its reason instead of a generic "404 Not Found".
+Never save a JSON error or an HTML login page as a successful backup download.
+Availability can change between listing and downloading; mark a row unavailable
+when the download reports `BACKUP_FILE_NOT_FOUND`. Missing backup bytes are never
+silently recreated or replaced by an empty file.
 
 ## 5) Encryption Keys and Decryption
 

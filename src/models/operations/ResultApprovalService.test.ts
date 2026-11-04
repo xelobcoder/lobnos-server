@@ -12,8 +12,10 @@ import { ResultApprovalService, invalidateResultApprovals, applyResultValidation
 
 function setup(overrides: any = {}) {
      const store = transactionalDatabase({
-          test_ascension: [{ id: 1, billingid: 2, testid: 3, resultEntryEnd: new Date(), ...overrides }],
+          test_ascension: [{ id: 1, billingid: 2, testid: 3, serviceid: 6, resultEntryEnd: new Date(), ...overrides }],
           billing: [{ billingid: 2, branchid: 4 }],
+          applicationsettings: [{ allowValidationUpaid: 0 }],
+          dboservices: [{ serviceid: 6, paymentstatus: 'paid' }],
           test_results: [{ ascensionid: 1, fieldid: 10, value: "100" }],
           dbotestresultapproval: [
                {

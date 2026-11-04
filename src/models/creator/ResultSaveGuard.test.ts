@@ -74,6 +74,7 @@ vi.mock("../operations/ascension", () => ({
 }));
 import KnexConnection from "../../database/KnexConnections";
 import Creator from "./creator";
+import ApplicationSettings from "../application/appsettings/appset";
 import { validateResultFields } from "./ResultSaveGuard";
 
 const field = (fieldid = 10, value = "7") => ({ fieldid, field: "Synthetic parameter", value, originalvalue: value });
@@ -130,6 +131,7 @@ function setup(extra: Record<string, any[]> = {}) {
      db.transaction = store.db.transaction;
      vi.mocked(KnexConnection).mockResolvedValue(db);
      vi.spyOn(Creator.prototype, "canPrintResult").mockResolvedValue(true);
+     vi.spyOn(Creator.prototype, "canEnterResult").mockResolvedValue(true);
      const save = async (data = request(), tenant = 1) => {
           const creator = new Creator(3);
           await creator.resultEntry(tenant, data as any);
@@ -148,6 +150,87 @@ beforeEach(() => {
 });
 
 describe("laboratory result save retry integrity (real Creator write path)", () => {
+     it("saves when result-entry permission allows it while printing permission independently denies printing", async () => {
+          const { store, save } = setup();
+          vi.mocked(Creator.prototype.canPrintResult).mockResolvedValue(false);
+          await expect(save()).resolves.toMatchObject({ changed: true, replayed: false });
+          expect(decrypt_value(store.rows("test_results")[0].value)).toBe("7");
+          expect(mocks.workflow).toHaveBeenCalledWith(1, 3, 2, 5);
+          expect(mocks.qc).toHaveBeenCalled();
+          expect(Creator.prototype.canPrintResult).not.toHaveBeenCalled();
+     });
+     it("rejects an unpaid save with a clear 403 when result-entry permission is disabled", async () => {
+          const { store, save } = setup();
+          vi.mocked(Creator.prototype.canEnterResult).mockResolvedValue(false);
+          await expect(save()).rejects.toMatchObject({ statusCode: 403, code: "UNPAID_RESULT_ENTRY_DISABLED" });
+          expect(store.rows("test_results")).toEqual([]);
+          expect(store.rows("save_count_events")).toEqual([]);
+          expect(store.rows("lab_result_save_requests")).toEqual([]);
+     });
+     it("rolls back when payment eligibility changes before the transaction writes", async () => {
+          const { store, save } = setup();
+          vi.mocked(Creator.prototype.canEnterResult).mockResolvedValueOnce(true).mockResolvedValueOnce(false);
+          await expect(save()).rejects.toMatchObject({ statusCode: 403, code: "UNPAID_RESULT_ENTRY_DISABLED" });
+          expect(store.rows("test_results")).toEqual([]);
+          expect(store.rows("save_count_events")).toEqual([]);
+          expect(store.rows("lab_result_save_requests")).toEqual([]);
+          expect(store.rows("dbotestresultapproval")[0].isapproved).toBe(1);
+     });
+     it.each([undefined, 0, "0", false])("requires payment when result entry is configured as %s regardless of printing permission", async flag => {
+          vi.spyOn(ApplicationSettings.prototype, "getAllAppSettings").mockResolvedValue({ allowResultEnteringUpaid: flag, allowPrintingUnpaid: 1, allowValidationUpaid: 1 } as any);
+          const query: any = { innerJoin: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(),
+               forShare: vi.fn().mockReturnThis(), forUpdate: vi.fn().mockReturnThis(), first: vi.fn().mockResolvedValue({ paymentstatus: "pending" }) };
+          const connection: any = () => query;
+          vi.mocked(KnexConnection).mockResolvedValue(connection);
+          const creator = new Creator(3);
+          expect(await creator.canEnterResult(1, 1)).toBe(false);
+          query.first.mockResolvedValue({ paymentstatus: "partial" });
+          expect(await creator.canEnterResult(1, 1, connection)).toBe(false);
+          expect(query.forUpdate).toHaveBeenCalledTimes(1);
+          query.first.mockResolvedValue({ paymentstatus: "paid" });
+          expect(await creator.canEnterResult(1, 1)).toBe(true);
+          query.first.mockResolvedValue(undefined);
+          expect(await creator.canEnterResult(1, 1)).toBe(false);
+     });
+     it.each([1, "1", true])("honors the explicit unpaid-result entry setting %s independently of printing", async flag => {
+          vi.spyOn(ApplicationSettings.prototype, "getAllAppSettings").mockResolvedValue({ allowResultEnteringUpaid: flag, allowPrintingUnpaid: 0 } as any);
+          expect(await new Creator(3).canEnterResult(1, 1)).toBe(true);
+          expect(KnexConnection).not.toHaveBeenCalled();
+     });
+     it("reads and locks current settings and payment using the existing save transaction", async () => {
+          const settings = vi.spyOn(ApplicationSettings.prototype, "getAllAppSettings").mockResolvedValue({ allowResultEnteringUpaid: 1 } as any);
+          const query: any = { innerJoin: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(),
+               forShare: vi.fn().mockReturnThis(), forUpdate: vi.fn().mockReturnThis(), first: vi.fn()
+                    .mockResolvedValueOnce({ allowResultEnteringUpaid: 0 }).mockResolvedValueOnce({ paymentstatus: "pending" }) };
+          const transaction: any = vi.fn(() => query);
+          expect(await new Creator(3).canEnterResult(1, 1, transaction)).toBe(false);
+          expect(transaction).toHaveBeenCalledWith("applicationsettings");
+          expect(query.forShare).toHaveBeenCalledTimes(1);
+          expect(query.forUpdate).toHaveBeenCalledTimes(1);
+          expect(settings).not.toHaveBeenCalled();
+          expect(KnexConnection).not.toHaveBeenCalled();
+     });
+     it("retains the specimen workflow restriction before saving results", async () => {
+          const { store, save } = setup();
+          mocks.workflow.mockRejectedValue(Object.assign(new Error("Sample processing is required"), { statusCode: 409 }));
+          await expect(save()).rejects.toMatchObject({ statusCode: 409 });
+          expect(store.rows("test_results")).toEqual([]);
+          expect(store.rows("save_count_events")).toEqual([]);
+     });
+     it("continues to deny unpaid printing until payment or explicit printing permission", async () => {
+          const settings = vi.spyOn(ApplicationSettings.prototype, "getAllAppSettings");
+          settings.mockResolvedValue({ allowPrintingUnpaid: 0 } as any);
+          const query: any = { innerJoin: vi.fn().mockReturnThis(), select: vi.fn().mockReturnThis(), where: vi.fn().mockReturnThis(),
+               first: vi.fn().mockResolvedValue({ paymentstatus: "pending" }) };
+          vi.mocked(KnexConnection).mockResolvedValue((() => query) as any);
+          const creator = new Creator(3);
+          expect(await creator.canPrintResult(1, 1)).toBe(false);
+          query.first.mockResolvedValue({ paymentstatus: "paid" });
+          expect(await creator.canPrintResult(1, 1)).toBe(true);
+          settings.mockResolvedValue({ allowPrintingUnpaid: 1 } as any);
+          query.first.mockResolvedValue({ paymentstatus: "pending" });
+          expect(await creator.canPrintResult(1, 1)).toBe(true);
+     });
      it("fails closed with an actionable schema error and no writes when retry storage is missing", async () => {
           const { save, store, db } = setup();
           db.transaction = (callback: (trx: any) => unknown) =>

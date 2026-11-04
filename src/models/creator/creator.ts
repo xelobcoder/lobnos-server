@@ -1,4 +1,5 @@
 import { evaluateCriticalActions } from '../operations/CriticalActionService';
+import { allowsUnpaidResultAction, isPaidResultService } from '../operations/ResultPaymentPolicy';
 import { invalidateResultApprovals } from '../operations/ResultApprovalService';
 import { testpanel } from "../../testpanel/testpanelList";
 import { LaboratoryWorkflowService } from "../operations/LaboratoryWorkflow";
@@ -314,16 +315,15 @@ export default class Creator {
 			throw Object.assign(new Error('Valid ordered test, patient, billing, test and actor identities are required'), { statusCode: 400 });
 
 		await new LaboratoryWorkflowService(tenantId).requireResultEntry(ascensionid, testid, billingid, patientid);
+		if (!await this.canEnterResult(tenantId, Number(ascensionid))) {
+			throw Object.assign(new Error('Result entry is disabled for unpaid services. Complete payment before saving results.'), {
+				statusCode: 403, code: 'UNPAID_RESULT_ENTRY_DISABLED',
+			});
+		}
 		const qcConnection = await KnexConnection(tenantId);
           const qcBill = await qcConnection('billing').where({ billingid }).first('branchid');
           const qcWork = await qcConnection('lab_work_assignments').where({ ascensionid }).first('device_id');
           await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: qcWork?.device_id || null });
-
-		const isPaymentStatusValid = await this.canPrintResult(tenantId, ascensionid);
-
-		if (!isPaymentStatusValid) {
-			throw new Error("Result entry not allowed for unpaid services");
-		}
 
 		const connection = await KnexConnection(tenantId);
 		const calculationService = new CalculationFormulaService();
@@ -392,6 +392,11 @@ export default class Creator {
 			await connection.transaction(async (trx) => {
                     const save = await beginResultSave(trx, context, requestBody);
                     if (save.replayed) { this.resultSaveReplayed = true; return; }
+                    if (!await this.canEnterResult(tenantId, Number(ascensionid), trx)) {
+                         throw Object.assign(new Error('Result entry is disabled for unpaid services. Complete payment before saving results.'), {
+                              statusCode: 403, code: 'UNPAID_RESULT_ENTRY_DISABLED',
+                         });
+                    }
                     await trx('test_panels').where({ id: testid }).forUpdate().first();
                     const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[], trx);
                     entryFields = calculatedEntry.fields;
@@ -478,9 +483,24 @@ export default class Creator {
 		}
 	}
 
+	async canEnterResult(tenantId: number, ascensionid: number, transaction?: any): Promise<boolean> {
+		const settings = transaction
+			? await transaction('applicationsettings').forShare().first('allowResultEnteringUpaid')
+			: await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (allowsUnpaidResultAction(settings, 'entry')) return true;
+		const connection = transaction || await KnexConnection(tenantId);
+		const query = connection('dboservices AS ds')
+			.innerJoin('test_ascension AS ta', 'ds.serviceid', 'ta.serviceid')
+			.select('ds.paymentstatus')
+			.where('ta.id', ascensionid);
+		if (transaction) query.forUpdate();
+		const service = await query.first();
+		return isPaidResultService(service?.paymentstatus);
+	}
+
 	async canPrintResult(tenantId: number, ascensionid: number): Promise<boolean> {
 		const appSettings = await new ApplicationSettings().getAllAppSettings(tenantId);
-		if (Number(appSettings?.allowPrintingUnpaid) === 1) return true;
+		if (allowsUnpaidResultAction(appSettings, 'print')) return true;
 
 		const connection = await KnexConnection(tenantId);
 		const serviceRecord = await connection('dboservices AS ds')
@@ -489,7 +509,7 @@ export default class Creator {
 			.where('ta.id', ascensionid)
 			.first();
 
-		return serviceRecord?.paymentstatus?.toLowerCase() === 'paid';
+		return isPaidResultService(serviceRecord?.paymentstatus);
 	}
 
 	async getPrintableBillingAscensionIds(tenantId: number, billingid: number): Promise<number[]> {
@@ -500,8 +520,8 @@ export default class Creator {
 			.where('ta.billingid', billingid)
 			.select('ta.id');
 
-		if (Number(appSettings?.allowPrintingUnpaid) !== 1) {
-			query.whereRaw("LOWER(COALESCE(ds.paymentstatus, '')) = 'paid'");
+		if (!allowsUnpaidResultAction(appSettings, 'print')) {
+			query.whereRaw("LOWER(TRIM(COALESCE(ds.paymentstatus, ''))) = 'paid'");
 		}
 
 		const rows = await query;

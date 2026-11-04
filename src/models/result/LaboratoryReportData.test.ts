@@ -3,9 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({
      view: vi.fn(), decrypt: vi.fn(), settings: vi.fn(), company: vi.fn(), patient: vi.fn(),
      comments: vi.fn(), literature: vi.fn(), entry: vi.fn(), drugs: vi.fn(), sampling: vi.fn(), referrer: vi.fn(),
-     capture: vi.fn(), revision: vi.fn(), critical: vi.fn(),
+     capture: vi.fn(), revision: vi.fn(), critical: vi.fn(), order: vi.fn(), bill: vi.fn(), payment: vi.fn(), policy: vi.fn(),
 }));
-vi.mock('../../database/KnexConnections', () => ({ default: vi.fn(async () => ({})) }));
+vi.mock('../../database/KnexConnections', () => ({ default: vi.fn(async () => (table: string) => {
+     const read = table === 'test_ascension' ? mocks.order : table === 'billing' ? mocks.bill : table === 'applicationsettings' ? mocks.policy : mocks.payment;
+     const query = { where: () => query, first: read };
+     return query;
+}) }));
 vi.mock('../operations/ResultReleaseGuard', () => ({ captureReportRevision: mocks.capture, assertReportRevision: mocks.revision }));
 vi.mock('../operations/CriticalActionService', () => ({ assertCriticalRelease: mocks.critical }));
 vi.mock('../creator/creator', () => ({ default: class { resultPresentationView = mocks.view; getCustomCommentsRecords = mocks.comments; } }));
@@ -21,6 +25,10 @@ import { loadLaboratoryReportData } from './LaboratoryReportData';
 describe('shared laboratory report data', () => {
      beforeEach(() => {
           vi.clearAllMocks();
+          mocks.order.mockResolvedValue({ billingid: 31, testid: 8, serviceid: 91 });
+          mocks.bill.mockResolvedValue({ patientid: 21 });
+          mocks.policy.mockResolvedValue({ allowPrintingUnpaid: 0 });
+          mocks.payment.mockResolvedValue({ paymentstatus: 'paid' });
           mocks.capture.mockResolvedValue({ version: 1 });
           mocks.revision.mockResolvedValue(undefined);
           mocks.critical.mockResolvedValue(undefined);

@@ -10,6 +10,7 @@ import Registration from '../registration/registration';
 import TestLiteratureSetup from '../../testpanel/literature';
 import { TestAscension } from '../operations/ascension';
 import { Services } from '../services/services';
+import { assertResultPaymentPolicy } from '../operations/ResultPaymentPolicy';
 
 /** Call only after the caller has authorized this patient, bill and ascension. */
 export async function loadLaboratoryReportData(
@@ -17,6 +18,12 @@ export async function loadLaboratoryReportData(
      decrypt: boolean, channel: 'print' | 'release' = 'print',
 ): Promise<resultPrintOutDataset> {
      const controlDb = await KnexConnection(tenantId);
+     const order = await controlDb('test_ascension').where({ id: ascensionId }).first('billingid', 'testid');
+     const bill = await controlDb('billing').where({ billingid }).first('patientid');
+     if (!order || Number(order.billingid) !== billingid || Number(order.testid) !== testid || Number(bill?.patientid) !== patientid) {
+          throw Object.assign(new Error('The result does not belong to this patient and billing request'), { statusCode: 403 });
+     }
+     if (channel === 'print') await assertResultPaymentPolicy(controlDb, ascensionId, 'print');
      const revision = await captureReportRevision(controlDb, ascensionId);
      await assertCriticalRelease(controlDb, ascensionId, channel);
      const creator = new Creator(testid);

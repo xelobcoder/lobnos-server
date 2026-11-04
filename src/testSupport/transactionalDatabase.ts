@@ -57,6 +57,7 @@ export function transactionalDatabase(initial: Record<string, any[]>) {
                     whereNotIn(key: string, values: any[]) { filters.push(row => !values.includes(row[key])); return query; },
                     orderBy() { return query; },
                     forUpdate() { locking = true; events.push('lock:' + table); return query; },
+                    forShare() { locking = true; events.push('share:' + table); return query; },
                     first() { first = true; return query; },
                     sum(expression: string) { const [field, alias] = expression.split(' as '); sums.push({ field: column(field), alias }); return query; },
                     min(expression: string) { const [field, alias] = expression.split(' as '); minima.push({ field: column(field), alias }); return query; },

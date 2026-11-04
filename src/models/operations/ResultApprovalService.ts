@@ -2,6 +2,7 @@ import KnexConnection from '../../database/KnexConnections';
 import ResultSettings from '../application/appsettings/result-settings/resultSettings';
 import { OperationsFailures } from './types';
 import ImagingResultAuditRepository from './imaging/ImagingResultAuditRepository';
+import { assertResultPaymentPolicy, canPerformResultAction } from './ResultPaymentPolicy';
 
 export async function invalidateResultApprovals(trx: any, ascensionid: number, employeeid: number) {
      const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
@@ -16,6 +17,7 @@ export async function invalidateResultApprovals(trx: any, ascensionid: number, e
 /** Initial-entry bypass must never release an amended result awaiting revalidation. */
 export async function applyResultValidationBypass(trx: any, ascensionid: number, employeeid: number, enabled: boolean) {
      if (!enabled) return;
+     if (!await canPerformResultAction(trx, ascensionid, 'validation', true)) return;
      await trx('dbotestresultapproval').where({ ascensionid }).where('requires_revalidation', 0)
           .update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() });
 }
@@ -34,6 +36,7 @@ export class ResultApprovalService {
                const bill = await trx('billing').where({ billingid: ascension.billingid }).first();
                if (branchid != null && Number(bill?.branchid) !== Number(branchid)) throw Object.assign(new Error('Ordered test belongs to another branch'), { statusCode: 403 });
                if (!ascension.resultEntryEnd) throw Object.assign(new Error('Save the test results before approval'), { statusCode: 409 });
+               await assertResultPaymentPolicy(trx, ascensionid, 'validation', true);
                const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
                if (!previous) throw Object.assign(new Error('Result approval configuration is missing'), { statusCode: 409 });
                if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) !== Number(previous.approval_revision || 0)) throw Object.assign(new Error('The result has changed. Reload and review the latest result before validating.'), { statusCode: 409 });
