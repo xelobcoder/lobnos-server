@@ -154,8 +154,8 @@ export const checkTokenExists = async (request: Request, response: Response, nex
                }
                if (role === 'clinician') {
                     const db = await KnexConnection(tenantId);
-                    const credentials = await db('clinicianscredentials').where({ clinicianid: Number(portalId) }).first('password');
-                    if (!credentials || !clinicianCredentialMatches(decoded?.cv, credentials.password)) {
+                    const credentials = await db('clinicianscredentials').where({ clinicianid: Number(portalId) }).first('password','session_version');
+                    if (!credentials || (!clinicianCredentialMatches(decoded?.cv, credentials.password) || Number(decoded?.sv || 0) !== Number(credentials.session_version || 0))) {
                          return customError('Session expired. Please sign in again.', 401, response);
                     }
                }

@@ -133,9 +133,9 @@ export class TestApprovalClass extends Operations {
      public static async getTransactionAscensionsApprovalStatus(tenantId: number, billingid: number): Promise<any[]> {
           const conn = await KnexConnection(tenantId);
           return await conn("test_ascension as ta")
-               .innerJoin("dbotestresultapproval as dta", "ta.id", "dta.ascensionid")
+               .leftJoin("dbotestresultapproval as dta", "ta.id", "dta.ascensionid")
                .innerJoin("test_panels as tp", "tp.id", "ta.testid")
-               .select("ta.*", "tp.*")
+               .select("tp.*", "ta.*", "ta.id as ascensionid", "dta.isapproved", "dta.requires_revalidation")
                .where("ta.billingid", billingid);
      }
 

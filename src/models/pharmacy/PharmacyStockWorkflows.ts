@@ -12,6 +12,17 @@ export class PharmacyStockWorkflows extends PharmacyEnterpriseCore{
           query.where((q:any)=>q.where('branchid',this.branch).orWhere('target_branchid',this.branch));
           return (await query.orderBy('created_at','desc').limit(200)).map((row:any)=>({...row,details:json(row.details)}));
      }
+     async purchaseRequests(input:any={}) {
+          const page=Math.max(1,Number(input.page)||1),count=Math.min(100,Math.max(1,Number(input.count)||25));
+          if(!Number.isSafeInteger(page)||!Number.isSafeInteger(count))throw new Error('Enter a valid page and count');
+          const query=this.db('pharmacy_workflows').where({kind:'purchase_requisition'}).where((row:any)=>row.where('branchid',this.branch).orWhere('target_branchid',this.branch));
+          if(input.status&&input.status!=='all')query.where('status',String(input.status));
+          const search=String(input.search||'').trim().slice(0,200);
+          if(search)query.where((row:any)=>row.where('id','like','%'+search+'%').orWhere('details','like','%'+search+'%'));
+          const total:any=await query.clone().count('* as count').first();
+          const items=await query.orderBy('created_at','desc').orderBy('id').limit(count).offset((page-1)*count);
+          return {items:items.map((row:any)=>({...row,details:json(row.details)})),total:Number(total?.count||0),page,count};
+     }
      async detail(id:string){
           const row=await this.db('pharmacy_workflows').where({id}).first();if(!row||![Number(row.branchid),Number(row.target_branchid)].includes(this.branch))throw new Error('Workflow not found');
           if(['nhis_claim','purchase_invoice'].includes(row.kind)&&!roleAllowed(this.user.role,['admin','pharmacy_manager','pharmacy_accountant']))throw new Error('Pharmacy finance authority is required');

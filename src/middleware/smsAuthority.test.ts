@@ -1,7 +1,26 @@
 import {expect,it,vi} from 'vitest';
 vi.mock('../models/application/sms/SmsCampaignService',()=>({SmsCampaignService:class{async find(){return null;}}}));
+vi.mock('../database/KnexConnections',()=>({default:vi.fn()}));
+import KnexConnection from '../database/KnexConnections';
 import {canUseSms,smsCapabilityFor,smsAuthority} from './smsAuthority';
 import {redactRequestUrl} from './requestLogger';
+it('allows sonographers only result-ready notifications, not campaigns, payments or settings',()=>{
+ expect(canUseSms('sonographer','result')).toBe(true);
+ for(const capability of ['read','send','manage','setup','transactional','sync'] as const)
+  expect(canUseSms('sonographer',capability)).toBe(false);
+ for(const path of ['/api/v1/prime/sms/transaction/result/ready/2','/api/v1/sms/events/trigger/send/result-ready',
+  '/api/v1/sms/events/get/result-ready/result-sent','/api/v1/sms/events/get/sent-result-ready-message'])
+  expect(smsCapabilityFor('GET',path)).toBe('result');
+});
+it.each([2,3])('keeps sonographer result notifications scoped to the operating branch %s',async branchid=>{
+ vi.mocked(KnexConnection).mockResolvedValue((()=>({where:()=>({first:async()=>({branchid})})})) as any);
+ const req:any={method:'GET',path:'/api/v1/sms/events/trigger/send/result-ready',query:{tenantId:1,billingid:'2'},body:{},
+  authUser:{employeeid:7,tenantId:1,role:'sonographer',branch:2}};
+ const res:any={status:vi.fn().mockReturnThis(),json:vi.fn()},next=vi.fn();
+ await smsAuthority(req,res,next);
+ if(branchid===2)expect(next).toHaveBeenCalledOnce();
+ else{expect(next).not.toHaveBeenCalled();expect(res.status).toHaveBeenCalledWith(404);}
+});
 it.each(['admin','super_admin','super-admin','manager','customer service representative','cashier','scientist','accountant','marketer','patient','clinician','pharmacist'])(
  'enforces operation-specific SMS authority for %s',role=>{
   const normalized=role.replace(/[_-]/g,'');const owner=['admin','superadmin'].includes(normalized);

@@ -3,7 +3,7 @@ vi.mock('./authority', () => ({ getAuthUser: (req: any) => req.authUser }));
 import { requireLaboratoryWorkflowRole, requireResultDeliveryRole } from './laboratoryWorkflowAuthority';
 
 describe('laboratory workflow authorization', () => {
-    it.each(['patient', 'clinician', 'organization', 'outsourced', 'phlebotomist'])('rejects %s from processing/results and complete-flow shortcuts', role => {
+    it.each(['patient', 'clinician', 'organization', 'outsourced', 'phlebotomist', 'sonographer'])('rejects %s from processing/results and complete-flow shortcuts', role => {
         const next = vi.fn();
         const res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
         requireLaboratoryWorkflowRole({ query: { tenantId: '9' }, authUser: { tenantId: 9, employeeid: 1, role } } as any, res, next);
@@ -35,13 +35,13 @@ describe('result delivery authorization', () => {
         expect(res.status).toHaveBeenCalledWith(403);
         expect(next).not.toHaveBeenCalled();
     });
-    it.each(['admin', 'manager', 'scientist', 'customer service representative'])('allows existing %s delivery access', role => {
+    it.each(['admin', 'manager', 'scientist', 'sonographer', 'customer service representative'])('allows %s delivery access', role => {
         const next = vi.fn();
         requireResultDeliveryRole({ authUser: { role, branch: 4 } } as any, {} as any, next);
         expect(next).toHaveBeenCalledOnce();
     });
     it('rejects missing authentication and unassigned delivery staff', () => {
-        for (const actor of [undefined, { role: 'scientist' }, { role: 'customer service representative' }]) {
+        for (const actor of [undefined, { role: 'scientist' }, { role: 'sonographer' }, { role: 'customer service representative' }]) {
             const next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
             requireResultDeliveryRole({ authUser: actor } as any, res, next);
             expect(res.status).toHaveBeenCalledWith(actor ? 403 : 401);

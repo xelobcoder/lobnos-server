@@ -246,6 +246,45 @@ Example response:
 
 This stores how the result was actually delivered to the patient.
 
+### Reviewing previous deliveries and recording multiple methods
+
+The single-test and bulk delivery dialogs read
+`GET /api/v1/result/delivery/chain/{billingid}?tenantId={tenantId}` on opening, once
+per distinct bill. Opening, selecting methods, and reviewing history never record
+a delivery. The fullscreen dialog separates delivery choices and selected tests on the left
+from an independently scrollable history column on the right. Choose a test using
+"History for" or its "View history" button to see its vertical timeline, ordered
+newest first, with successful previous methods,
+dated events, the recorded operator and notes, and unsuccessful attempts. Imaging
+report entry and completed imaging worklists use this same delivery workspace,
+including multiple methods, existing history, and partial retries.
+
+Imaging also links to the existing result-ready SMS workspace with the ordered
+test, patient, and bill identifiers. Sonographers may access result-ready SMS
+only; campaign, provider, payment-notification, and SMS-settings permissions remain
+unchanged. The notification covers the entire bill, including mixed imaging and
+laboratory orders. Both default and custom messages require every ordered result
+to have completed entry, finalized approval, and no pending revalidation or
+critical-release hold. Custom-test flags are not approval status. A queued SMS
+is not proof of recipient delivery and does not mark the report as delivered;
+use message history and record result delivery separately.
+
+A failed history check
+is displayed explicitly; it is not treated as "never delivered".
+
+Select one or more methods for all tests, then adjust individual tests as needed.
+For example, choose both Printed copy and WhatsApp for one ordered test. Each
+test/method pair is submitted to the existing record endpoint with its `ascensionid`.
+The backend appends a separate `result_delivery_attempts` event for every method;
+`result_delivery_log` remains the latest successful summary. Legacy summary logs
+are also displayed when they predate attempt history. A failed retry does not erase
+an earlier successful delivery.
+
+Selecting a previously recorded method intentionally adds another delivery event.
+This records a handoff that occurred; it does not automatically send results.
+Partial submissions keep the dialog open, show per-method failures, refresh history,
+and remove successfully saved pairs from the retry selection.
+
 ### 4.1 Record Delivery To Patient
 
 - Method: `POST`

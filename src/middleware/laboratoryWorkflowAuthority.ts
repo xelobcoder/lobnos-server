@@ -17,7 +17,7 @@ export function requireLaboratoryWorkflowRole(req: Request, res: Response, next:
 export function requireResultDeliveryRole(req: Request, res: Response, next: NextFunction) {
     const actor = getAuthUser(req);
     if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
-    if (!roleAllowed(actor.role, ['admin', 'manager', 'scientist', 'customer service representative'])) return res.status(403).json({ status: false, message: 'Result delivery access denied' });
+    if (!roleAllowed(actor.role, ['admin', 'manager', 'scientist', 'sonographer', 'customer service representative'])) return res.status(403).json({ status: false, message: 'Result delivery access denied' });
     if (actor.branch == null && !roleAllowed(actor.role, ['admin', 'manager'])) return res.status(403).json({ status: false, message: 'A branch must be assigned to delivery staff' });
     return next();
 }

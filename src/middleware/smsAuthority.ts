@@ -4,12 +4,13 @@ import { roleAllowed, normalizeRole } from './roles';
 import { SmsCampaignService } from '../models/application/sms/SmsCampaignService';
 import KnexConnection from '../database/KnexConnections';
 
-export type SmsCapability = 'read' | 'send' | 'manage' | 'setup' | 'transactional' | 'sync';
+export type SmsCapability = 'read' | 'send' | 'manage' | 'setup' | 'transactional' | 'result' | 'sync';
 export function canUseSms(role: unknown, capability: SmsCapability): boolean {
     const key = normalizeRole(role);
     if (['crm', 'receptionist', 'frontdesk', 'frontdeskofficer', 'customerrepresentative'].includes(key)) role = 'customer service representative';
     if (['billing', 'billingofficer'].includes(key)) role = 'cashier';
     const roles = capability === 'setup' ? ['admin'] : (capability === 'manage' || capability === 'sync') ? ['admin', 'manager'] :
+        capability === 'result' ? ['admin', 'manager', 'customer service representative', 'cashier', 'scientist', 'sonographer'] :
         capability === 'transactional' ? ['admin', 'manager', 'customer service representative', 'cashier', 'scientist'] :
         ['admin', 'manager', 'customer service representative'];
     return roleAllowed(role, roles);
@@ -21,6 +22,7 @@ export function smsCapabilityFor(method: string, path: string): SmsCapability | 
     if (!/^\/api\/v1\/(?:sms(?:\/|$)|prime\/sms(?:[-/]|$))/i.test(path)) return null;
     if (/\/sms-contact-groups(?:\/|$)/.test(path)) return 'sync';
     if (/\/sms-provider(?:\/|$)/.test(path)) return 'setup';
+    if (/\/transaction\/result\/ready\/|\/events\/trigger\/send\/result-ready$|\/events\/get\/(?:result-ready\/result-sent|sent-result-ready-message)$/.test(path)) return 'result';
     if (/\/events\/trigger\//.test(path)) return 'transactional';
     if (/\/transaction\/result\/ready\/|\/events\/get\//.test(path)) return 'transactional';
     if (/\/failed\/transaction\/retry\//.test(path)) return 'send';
@@ -66,7 +68,7 @@ export async function smsAuthority(req: Request, res: Response, next: NextFuncti
         const rawBill = req.query.billingid ?? path.match(/\/transaction\/result\/ready\/([^/]+)/)?.[1];
         if (rawBill != null && (typeof rawBill !== 'string' || !/^\d+$/.test(rawBill) || !Number.isSafeInteger(Number(rawBill)) || Number(rawBill) <= 0)) return res.status(400).json({ error: 'Invalid billing reference' });
         const billingid = Number(rawBill);
-        if (capability === 'transactional' && Number.isSafeInteger(billingid) && billingid > 0) {
+        if ((capability === 'transactional' || capability === 'result') && Number.isSafeInteger(billingid) && billingid > 0) {
             const db = await KnexConnection(actor.tenantId), bill = await db('billing').where({ billingid }).first('branchid');
             if (!bill || (!roleAllowed(actor.role, ['admin']) && (actor.branch == null || Number(bill.branchid) !== Number(actor.branch)))) return res.status(404).json({ error: 'Billing record not found' });
         }

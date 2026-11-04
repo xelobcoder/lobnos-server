@@ -4,6 +4,7 @@ import { transactionalDatabase } from '../../testSupport/transactionalDatabase';
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 import KnexConnection from '../../database/KnexConnections';
 import ResultDeliveryClass from './resultDelivery';
+import { TestApprovalClass } from '../../models/operations/testApprovalClass';
 function setup() {
      const store = transactionalDatabase({ billing: [{ billingid: 2, branchid: 4 }, { billingid: 3, branchid: 4 }],
           test_ascension: [{ id: 1, billingid: 2, resultEntryEnd: new Date() }, { id: 5, billingid: 2, resultEntryEnd: null }],
@@ -15,6 +16,42 @@ function setup() {
 const entry = (): any => ({ billingid: 2, ascensionid: 1, delivered_mode: 'email', delivered_by_employeeid: 7 });
 beforeEach(() => vi.clearAllMocks());
 describe('result delivery reconciliation', () => {
+     it('supports imaging deliveries without laboratory collection phases or delivery preferences', async () => {
+          const { store, delivery } = setup();
+          store.rows('test_ascension')[0].testid = 100221;
+          await delivery.updateResultDeliveryLog({ ...entry(), delivered_mode: 'hardcopy' });
+          await delivery.updateResultDeliveryLog({ ...entry(), delivered_mode: 'whatapp' });
+          expect(store.rows('result_delivery_attempts').map(row => row.delivered_mode)).toEqual(['hardcopy', 'whatapp']);
+     });
+     it('reads actual approval and includes imaging orders with no approval row in SMS readiness', async () => {
+          const db = knex({ client: 'mysql2' }); let statement: any;
+          vi.spyOn(db.client, 'runner').mockImplementation((builder: any) => ({ run: async () => {
+               statement = builder.toSQL();
+               return [{ id: 7, ascensionid: 7, iscustom: 1, isapproved: null }];
+          } }) as any);
+          vi.mocked(KnexConnection).mockResolvedValue(db);
+          const results = await TestApprovalClass.getTransactionAscensionsApprovalStatus(1, 2);
+          expect(results[0].isapproved).toBeNull();
+          expect(statement.sql).toContain('left join `dbotestresultapproval`');
+          expect(statement.sql).toContain('`dta`.`isapproved`');
+          expect(statement.sql).toContain('`dta`.`requires_revalidation`');
+          expect(statement.sql).toContain('`ta`.`id` as `ascensionid`');
+          expect(statement.bindings).toEqual([2]);
+     });
+     it('retains every delivery method for one test as separate historical events', async () => {
+          const { store, delivery } = setup();
+          for (const delivered_mode of ['hardcopy', 'whatapp', 'email'])
+               expect(await delivery.updateResultDeliveryLog({ ...entry(), delivered_mode })).toBe(1);
+          expect(store.rows('result_delivery_attempts').map(row => ({
+               ascensionid: row.ascensionid, mode: row.delivered_mode, actor: row.employeeid,
+          }))).toEqual([
+               { ascensionid: 1, mode: 'hardcopy', actor: 7 },
+               { ascensionid: 1, mode: 'whatapp', actor: 7 },
+               { ascensionid: 1, mode: 'email', actor: 7 },
+          ]);
+          expect(store.rows('result_delivery_log')).toHaveLength(1);
+          expect(store.rows('result_delivery_log')[0]).toMatchObject({ delivered_mode: 'email' });
+     });
      it('creates a missing delivery log and keeps failed retries as separate attempts', async () => {
           const { store, delivery } = setup();
           expect(await delivery.updateResultDeliveryLog(entry())).toBe(1);

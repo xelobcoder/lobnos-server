@@ -51,6 +51,7 @@ router.post('/enterprise/recalls/:id/contact',pharmacyReversalAccess,enterprise(
 router.post('/enterprise/supplier-returns',pharmacyReversalAccess,enterprise((s,r)=>s.management.supplierReturn(r.body)));
 router.post('/enterprise/supplier-returns/:id/credit',pharmacyReversalAccess,enterprise((s,r)=>s.management.creditNote(String(r.params.id),r.body)));
 router.post('/enterprise/invoice-match',pharmacyReversalAccess,enterprise((s,r)=>s.management.purchaseInvoice(r.body)));
+router.get('/enterprise/purchase-requests',pharmacyStockAccess,enterprise((s,r)=>s.stock.purchaseRequests(r.query)));
 router.post('/enterprise/purchase-requests',pharmacyStockAccess,enterprise((s,r)=>s.procurement.request(r.body)));
 router.post('/enterprise/purchase-requests/:id/quote',pharmacyStockAccess,enterprise((s,r)=>s.procurement.quote(String(r.params.id),r.body)));
 router.post('/enterprise/purchase-requests/:id/decision',pharmacyReversalAccess,enterprise((s,r)=>s.procurement.decide(String(r.params.id),r.body)));

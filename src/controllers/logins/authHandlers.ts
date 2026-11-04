@@ -17,7 +17,7 @@ import { configuration, effectiveTenantId } from "../../hooks/configuration";
 import { LoginEntityType, parseLoginUsername } from "../../models/auth/TenantLoginDirectory";
 import { TenantRegistry } from "../../models/Tenancy/TenantRegistry";
 import { PasswordRecoveryService } from "../../models/auth/PasswordRecoveryService";
-import { clinicianCredentialVersion, revokePasswordSessions } from "../../models/auth/passwordSessions";
+import { clinicianCredentialVersion, clinicianCredentialMatches, revokePasswordSessions } from "../../models/auth/passwordSessions";
 import { LOCKOUT_MINUTES, PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
 import { recordPortalAudit } from "../../models/patient-portal/PatientPortalAudit";
 
@@ -216,7 +216,7 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 		const loginIdentifier = String(username || identifier || '').trim();
 		if (!loginIdentifier || !password) return customError("username and password required", 400, res);
 
-		const connection = await KnexConnection(tenantId);
+		const connection = await consultationDb(tenantId);
 		const generatedClinicianIdMatch = loginIdentifier.match(/^C(\d+)$/i);
 		const generatedClinicianId = generatedClinicianIdMatch ? parseInt(generatedClinicianIdMatch[1], 10) : null;
 		const query = connection('clinicianscredentials as cc')
@@ -240,7 +240,7 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 			email: clinician.email || clinician.clinician_email,
 		};
 		const token = await new User(null, null, null, null, null).tokenizeData({
-			...user, tid: effectiveTenantId(tenantId), cv: clinicianCredentialVersion(clinician.password),
+			...user, tid: effectiveTenantId(tenantId), cv: clinicianCredentialVersion(clinician.password), sv: Number(clinician.session_version || 0),
 		}, "12h");
 		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
@@ -308,16 +308,16 @@ export const logoutUser = async (req: Request, res: Response) => {
 			return customError('Token not provided', 401, res);
 		}
 
-		const tenantId = parseInt(req.query.tenantId as string);
-		if (isNaN(tenantId)) {
-			return customError('tenantId is required', 400, res);
-		}
 
 		// Decode the token to get the employeeid
 		const decoded = await new TokenValidator().decodeAccessToken(primeUserHeader.toString());
 		if (!decoded || !decoded.employeeid) {
 			return customError('Invalid token', 401, res);
 		}
+
+        if(decoded.tid!=null&&req.query.tenantId!==undefined&&effectiveTenantId(Number(req.query.tenantId))!==Number(decoded.tid))return customError('This session does not belong to the requested organization',403,res);
+        const tenantId = Number(decoded.tid ?? req.query.tenantId);
+        if (!Number.isSafeInteger(tenantId) || tenantId <= 0) return customError('A valid tenant is required',400,res);
 
 		// Portal identities are not staff: their IDs share a number space with employees, so they
 		// must never reach the staff session tables. Patients end their sessions by version bump.
@@ -330,6 +330,15 @@ export const logoutUser = async (req: Request, res: Response) => {
 				await new PatientPortalAccountService(tenantId).endSessions(Number(decoded.patientid));
 				await recordPortalAudit(tenantId, { patientid: Number(decoded.patientid), actorType: 'patient', actorId: Number(decoded.patientid), action: 'logout', ipAddress: req.ip || null });
 			}
+            if (portalRole === 'clinician') {
+                const db = await consultationDb(tenantId);
+                await db.transaction(async trx => {
+                    const credentials = await trx('clinicianscredentials').where({clinicianid:Number(decoded.clinicianid || decoded.employeeid)}).forUpdate().first();
+                    if (credentials && clinicianCredentialMatches(decoded.cv,credentials.password) && Number(credentials.session_version || 0) === Number(decoded.sv || 0)) {
+                        await trx('clinicianscredentials').where({clinicianid:credentials.clinicianid}).increment('session_version',1);
+                    }
+                });
+            }
 			return res.send({ status: "success", statusCode: 200, message: "Logout successful." });
 		}
 

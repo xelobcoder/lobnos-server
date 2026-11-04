@@ -2,6 +2,9 @@ import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
 const ready = new WeakMap<object, Promise<void>>();
 export async function ensureConsultationSchema(db: Knex) {
+    if (await db.schema.hasTable('clinicianscredentials') && !await db.schema.hasColumn('clinicianscredentials','session_version')) {
+        await db.schema.alterTable('clinicianscredentials', table => { table.integer('session_version').notNullable().defaultTo(0); });
+    }
     if (!await db.schema.hasTable('practitioner_access'))
         await db.schema.createTable('practitioner_access', t => {
             t.integer('clinicianid').unsigned().primary();
