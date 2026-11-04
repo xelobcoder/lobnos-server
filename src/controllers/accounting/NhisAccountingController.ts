@@ -1,3 +1,4 @@
+import { NhisOpeningReceivablesService } from '../../accountingModule/services/NhisOpeningReceivablesService';
 import { Router, Request, Response } from 'express';
 import { getAuthUser, AuthUser } from '../../middleware/authority';
 import { AccountingError } from '../../accountingModule/errors/AccountingErrors';
@@ -37,6 +38,10 @@ function endpoint(run: (service: NhisReceivablesService, user: AuthUser, req: Re
      };
 }
 
+nhisAccountingRouter.get('/api/v1/accounting/nhis/openings', endpoint((_service, user) => new NhisOpeningReceivablesService(user.tenantId).history(user)));
+nhisAccountingRouter.post('/api/v1/accounting/nhis/openings/preview', endpoint((_service, user, req) => new NhisOpeningReceivablesService(user.tenantId).preview(user, req.body)));
+nhisAccountingRouter.post('/api/v1/accounting/nhis/openings', endpoint((_service, user, req) => new NhisOpeningReceivablesService(user.tenantId).post(user, req.body), true));
+nhisAccountingRouter.post('/api/v1/accounting/nhis/openings/:id/reversal', endpoint((_service, user, req) => new NhisOpeningReceivablesService(user.tenantId).reverse(user, Number(req.params.id), req.body), true));
 nhisAccountingRouter.get('/api/v1/accounting/nhis/receivables', endpoint((service, user, req) => service.cohort(user, filters(req))));
 nhisAccountingRouter.get('/api/v1/accounting/nhis/cash-receipts', endpoint((service, user, req) => service.cashReceipts(user, filters(req))));
 nhisAccountingRouter.get('/api/v1/accounting/nhis/events', endpoint((service, user, req) => service.events(user, filters(req))));

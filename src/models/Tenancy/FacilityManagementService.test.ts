@@ -320,6 +320,12 @@ describe('platform facility status and subscription management', () => {
                });
           });
 
+          it.each(['Old company notes', 'null', '["legacy"]', '   '])('preserves legacy company additionalInfo %s when changing modules', async legacy => {
+               tenantDb.table('companyprofile')[0].additionalInfo = legacy;
+               await service.setModuleConfiguration(CLIENT, requested as any, actor);
+               expect(JSON.parse(tenantDb.table('companyprofile')[0].additionalInfo)).toMatchObject({ legacyAdditionalInfo: legacy, branchMode: 'single' });
+          });
+
           it('synchronizes both databases, preserves unrelated JSON and audits the authenticated actor', async () => {
                const result = await service.setModuleConfiguration(CLIENT, requested as any, actor);
                const expected = { ...validateModuleConfiguration(requested)!, monthlyTotal: '29.75' };

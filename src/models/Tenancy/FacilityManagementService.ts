@@ -127,7 +127,9 @@ function moduleSettingsPatch(existing: any, config: FacilityModuleConfiguration,
 }
 
 function branchModePatch(existing: any, branchMode: FacilityModuleConfiguration['branchMode']) {
-     const additionalInfo = storedObject(existing.additionalInfo, 'company profile additionalInfo');
+     let additionalInfo: Record<string, unknown>;
+     try { additionalInfo = storedObject(existing.additionalInfo, 'company profile additionalInfo'); }
+     catch { additionalInfo = { legacyAdditionalInfo: existing.additionalInfo }; }
      return { additionalInfo: JSON.stringify({ ...additionalInfo, branchMode }) };
 }
 

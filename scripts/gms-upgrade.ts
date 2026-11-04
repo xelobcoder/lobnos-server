@@ -40,6 +40,8 @@ async function main() {
         const [lock] = await db.raw('SELECT GET_LOCK(?, 0) acquired', [`pls_schema_upgrade:${database}`]).connection(connection);
         if (Number(lock[0].acquired) !== 1) throw new Error('Another GMS upgrade already holds the maintenance lock');
         locked = true;
+        const { normalizeTenantCollation } = await import('../src/database/legacy-upgrade/TenantCollation');
+        await normalizeTenantCollation(db);
         const plan = await assessLegacySchema(db, database, reference);
         console.log(JSON.stringify({ database, tenantId: tenant.tenantId, compatibilitySteps: plan.steps.length, phase: 'applying' }));
         for (const step of plan.steps) {

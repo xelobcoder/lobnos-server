@@ -146,6 +146,7 @@ export class AccountingService implements IAccountingService {
           if (!original) {
                throw new JournalEntryNotFoundError(input.journalEntryId);
           }
+          if (original.source_table === 'acc_nhis_openings') throw new AccountingError('Reverse the linked NHIS opening import so every journal and subledger entry is corrected together', 'NHIS_OPENING_REVERSAL_REQUIRED', 409);
           if (original.source_module === SourceModule.PHARMACY) throw new AccountingError('Reverse the original pharmacy source document through Pharmacy Accounting so both ledgers and allocations remain consistent', 'PHARMACY_SOURCE_REVERSAL_REQUIRED', 409);
 
           if (original.transaction_type === TransactionType.REVERSAL) throw new AccountingError('Create a correcting journal instead of reversing a reversal', 'INVALID_REVERSAL', 409);

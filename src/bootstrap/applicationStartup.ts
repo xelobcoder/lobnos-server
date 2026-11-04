@@ -1,3 +1,4 @@
+import { ensureTenantCollationDefault, normalizeTenantCollation } from '../database/legacy-upgrade/TenantCollation';
 import { processDueRecurringExpenses } from '../accountingModule/services/RecurringExpenseService';
 import { consultationDb } from '../models/consultation/ConsultationSchema';
 import { bootstrapNhisIdentifiers } from '../models/billing/NhisIdentifiers';
@@ -85,6 +86,8 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
 }
 
 export async function runApplicationBootstrappers(tenantId = 1, strict = false, options: { startWorkers?: boolean } = {}): Promise<{ accountingReady: boolean }> {
+	await ensureTenantCollationDefault(await KnexConnection(tenantId));
+	if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
 	await bootstrapLoginAccountSchema(tenantId);
 	await ensureStaffAccessSchema(await KnexConnection(tenantId));
 	await ensureOrganizationDirectorySchema(await KnexConnection(tenantId));

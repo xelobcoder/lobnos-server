@@ -51,6 +51,7 @@
     "onboard:client": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/onboard-client.ts",
     "export:db": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/export-database.ts",
     "master:merge": "node --env-file=./.env ./scripts/merge-master-databases.js",
+    "tenant:upgrade-collation": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js --prefer-ts-exts ./scripts/legacy-upgrade-collation.ts",
     "tenant:upgrade-gms": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js --prefer-ts-exts ./scripts/gms-upgrade.ts",
     "tenant:upgrade-backup": "node --env-file=./.env ./scripts/legacy-upgrade-backup.cjs",
     "tenant:upgrade-bootstrap": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js --prefer-ts-exts ./scripts/legacy-upgrade-bootstrap.ts",

@@ -38,6 +38,11 @@ beforeEach(async () => {
 afterEach(async () => { await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve())); });
 
 describe('NHIS accounting HTTP contracts', () => {
+     it('rejects an accountant attempting owner-only opening receivable actions', async () => {
+          const response = await fetch(`${base}/openings/preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: '2000-01-01', to: '2026-11-04', date: '2026-11-04' }) });
+          expect(response.status).toBe(403);
+          expect(await response.json()).toMatchObject({ code: 'NHIS_OPENING_AUTHORITY_REQUIRED' });
+     });
      it('paginates event allocations through the session branch', async () => {
           const response = await fetch(`${base}/events/42/allocations?page=2&count=20`);
           expect(response.status).toBe(200);

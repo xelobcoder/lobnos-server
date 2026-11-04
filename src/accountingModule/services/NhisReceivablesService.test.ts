@@ -160,6 +160,19 @@ describe('NHIS server-authoritative period settlements', () => {
           expect(await db('acc_nhis_events')).toHaveLength(0);
           expect(await db('test_postings')).toHaveLength(0);
      });
+     it('distinguishes missing accounting recognition from an excessive receipt and retains all financial records', async () => {
+          coverage.mockResolvedValue(new Set());
+          const report = await service.cohort(user);
+          expect(report.accountingCoverage).toMatchObject({ eligibleOutstanding: 0, unrecognizedBillCount: 2, unrecognizedOutstanding: 800000 });
+          await expect(service.previewPeriod(user, period({ amount: 1 }))).rejects.toMatchObject({ code: 'NHIS_ACCRUAL_REQUIRED' });
+          expect(await db('acc_nhis_events')).toHaveLength(0);
+          expect(await db('test_postings')).toHaveLength(0);
+     });
+     it('reports an empty service period independently of receipt size', async () => {
+          await expect(service.previewPeriod(user, period({ from: '2000-01-01', to: '2000-11-04', amount: 1 })))
+               .rejects.toMatchObject({ code: 'NHIS_NO_ELIGIBLE_BILLS' });
+     });
+
      it('excludes mixed, other-branch and unaccrued bills rather than inventing opening accruals', async () => {
           await db('dboservices').insert({ serviceid: 5, billingid: 45, isNHIS: 1 });
           coverage.mockResolvedValue(new Set([43]));

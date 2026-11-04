@@ -14,6 +14,7 @@ export interface CoverageLine {
 
 export interface CoverageReport {
      goLive: string | null;
+     initialization: 'initialized' | 'opening_balances_required';
      generatedAt: string;
      lines: CoverageLine[];
      billDrift: { billingid: number; payable: number; ledger: number; difference: number }[];
@@ -36,7 +37,8 @@ export class AccountingCoverageService {
      async report(): Promise<CoverageReport> {
           const db = await KnexConnection(this.tenantId);
           const goLive = await this.goLive(db);
-          const cut = goLive || '1970-01-01';
+          // An empty ledger has no post-go-live documents. Existing operations need an opening decision.
+          const cut = goLive || '9999-12-31';
           const lines: CoverageLine[] = [];
 
           const one = async (module: string, document: string, sql: string, bindings: any[]) => {
@@ -128,6 +130,7 @@ export class AccountingCoverageService {
 
           return {
                goLive,
+               initialization: goLive ? 'initialized' : 'opening_balances_required',
                generatedAt: new Date().toISOString(),
                lines,
                billDrift: (drift as any[]).map((d) => ({

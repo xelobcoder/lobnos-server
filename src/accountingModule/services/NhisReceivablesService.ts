@@ -187,7 +187,10 @@ export class NhisReceivablesService {
           const snapshotToken = hash({ tenantId: this.tenantId, branchid: actor.branch, ...data, amount, snapshot, excludedMixedBillCount });
           if (reviewedToken && reviewedToken !== snapshotToken) throw new AccountingError('Period membership, accrual coverage or balances changed; review a new preview', 'NHIS_SNAPSHOT_STALE', 409);
           const total = sumMinor(bills.map(b => b.outstandingMinor / 100));
-          if (!total || amount > total) throw new AccountingError('Received amount exceeds the eligible accrued NHIS balance', 'NHIS_OVERALLOCATION', 409);
+          if (!total && excludedMissingAccrualBillCount) throw new AccountingError(
+               `${excludedMissingAccrualBillCount} NHIS bills have outstanding balances but no accounting receivable. Review their opening balances in accounting before recording this remittance.`, 'NHIS_ACCRUAL_REQUIRED', 409);
+          if (!total) throw new AccountingError('No eligible outstanding NHIS bills were found in this branch and service period. Review the selected dates.', 'NHIS_NO_ELIGIBLE_BILLS', 409);
+          if (amount > total) throw new AccountingError(`Received amount exceeds the eligible accrued NHIS balance of ${(total / 100).toFixed(2)} for this branch and service period`, 'NHIS_OVERALLOCATION', 409);
           const shares = allocateMinor(amount, bills.map(b => b.outstandingMinor));
           const remaining = total - amount, adjusted = data.remainingDisposition === 'final' ? remaining : 0;
           const preview: NhisPeriodPreview = {
@@ -551,6 +554,8 @@ export class NhisReceivablesService {
           const allocations = ids.length ? await db('acc_nhis_allocations as allocation').join('acc_nhis_events as event', 'event.id', 'allocation.event_id').whereIn('allocation.billingid', ids).select('allocation.*', 'event.kind', 'event.reverses_kind') : [];
           const history = ids.length ? await db('billinghx').whereIn('Billingid', ids).where(builder => builder.whereNull('isVoided').orWhere('isVoided', 0)) : [];
           const payers = await resolveBillingPayers(db, bills);
+          const covered = await billingReceivableIds(this.tenantId, ids, db);
+          const accountingCoverage = { eligibleOutstanding: 0, unrecognizedOutstanding: 0, unrecognizedBillCount: 0, eligibleBillCount: 0 };
           const allocationsByBill = groupByBill(allocations);
           const historyByBill = groupByBill(history, 'Billingid');
           for (const bill of bills) {
@@ -570,11 +575,20 @@ export class NhisReceivablesService {
                     unverifiedLegacyReceipts: (legacyPaid - netHistory) / 100,
                     reconciliationDifference: (minorUnits(bill.payable) - legacyPaid - legacyWriteoff - minorUnits(bill.outstanding)) / 100,
                };
+               if (minorUnits(row.outstanding) > 0 && bill.status !== 'written-off') {
+                    if (covered.has(row.billingId)) {
+                         accountingCoverage.eligibleOutstanding = (minorUnits(accountingCoverage.eligibleOutstanding) + minorUnits(row.outstanding)) / 100;
+                         accountingCoverage.eligibleBillCount++;
+                    } else {
+                         accountingCoverage.unrecognizedOutstanding = (minorUnits(accountingCoverage.unrecognizedOutstanding) + minorUnits(row.outstanding)) / 100;
+                         accountingCoverage.unrecognizedBillCount++;
+                    }
+               }
                rows.push(row);
                for (const key of Object.keys(totals) as Array<keyof typeof totals>) totals[key] = (minorUnits(totals[key]) + minorUnits(row[key])) / 100;
           }
           return { payer: 'National Health Insurance Scheme (NHIS)', basis: 'current_balances_for_service_period', from: filters.from || null, to: filters.to || null,
-               rows: rows.slice(paging.offset, paging.offset + paging.count), total: rows.length, page: paging.page, count: paging.count, totals, excludedMixedBills };
+               rows: rows.slice(paging.offset, paging.offset + paging.count), total: rows.length, page: paging.page, count: paging.count, totals, excludedMixedBills, accountingCoverage };
      }
 
      async cashReceipts(actor: AuthUser, filters: NhisReportFilters = {}) {

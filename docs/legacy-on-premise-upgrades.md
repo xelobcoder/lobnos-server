@@ -48,7 +48,7 @@ The compatibility baseline added 223 absent tables and 168 absent columns. All 2
 
 A post-cutover assessment found zero missing tables or columns relative to the comparison database. Its only three differences are accepted widenings of `legacy_login_username` to LONGTEXT. The reference used VARCHAR(64), which cannot preserve some GMS historical usernames. These three deliberate widenings resolve the discovered truncation risk.
 
-Normal backend startup completed on port 2300 using GMS's own tenant identity. The health endpoint returned 200. An unauthenticated protected request and a login attempt for another tenant both returned 401. Existing account passwords and account IDs are preserved. Generated login IDs use `NRTAM19S...` for staff, `NRTAM19P...` for patients and `NRTAM19C...` for practitioners. The normal sign-in workflow uses organization-prefixed IDs. No credentials were reset or sent externally during the migration.
+Normal backend startup completed on port 2300 using GMS's own tenant identity. The health endpoint returned 200. An unauthenticated protected request and a login attempt for another tenant both returned 401. Existing account passwords and account IDs are preserved. Generated login IDs use `NRTAM19S...` for staff, `NRTAM19P...` for patients and `NRTAM19C...` for practitioners. The normal sign-in workflow uses organization-prefixed IDs. Existing passwords remain available through the organization-prefixed sign-in workflow.
 
 ## Data-preservation and runtime fixes
 
@@ -60,7 +60,7 @@ All six retired refund-witness fields matched the original evidence for 25,606 r
 
 ## Recovery artifacts and commands
 
-The encrypted backup, sealed data key, restore verification, migration report and full data-preservation report are under the ignored private directory `backups/migrations/gmsprimelab-cutover-20261104/`. Retain the installation's existing `BACKUP_MASTER_KEY` or `BACKUP_MASTER_KEY_FILE` separately. It is required to recover the sealed backup key. The backup SQL was encrypted directly from the dump stream and restored through authenticated streaming. A decrypted SQL file was not written to disk.
+The encrypted backup, sealed data key, restore verification, migration report and full data-preservation report are under the ignored private directory `backups/migrations/gmsprimelab-cutover-20261104/`. Retain the installation's existing `BACKUP_MASTER_KEY` or `BACKUP_MASTER_KEY_FILE` separately. It is required to recover the sealed backup key. The backup SQL was encrypted directly from the dump stream and restored through authenticated streaming. Encryption and restore verification used streams throughout.
 
 The verified pre-upgrade restore database and archived rehearsal contain client data and are retained for recovery and verification. They are excluded from active tenant routing.
 
@@ -79,3 +79,7 @@ npm run tenant:upgrade-backup -- --database CLIENT_DATABASE --tenant TENANT_NUMB
 ```
 
 Pause application writes first. The helper requires a configured backup master key, verifies the authenticated stream before restoring, and refuses to overwrite an existing restore database. Non-InnoDB tables or scheduled database events require a separately reviewed snapshot/restore plan.
+
+## Final cutover verification
+
+The backend build passed and all 3,965 backend tests passed across 327 files. Normal service startup succeeded on port 2300. Health returned 200, unauthenticated protected access returned 401, cross-tenant sign-in returned 401 and GMS's own invalid-credential request reached its credential validator and returned 401. The patient notification sweep succeeded after its existing-table column upgrade. A final comparison with the pre-upgrade restore, performed after normal startup, reported zero differing original tables and zero PIN verification failures across all 213 original tables.

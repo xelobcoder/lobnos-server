@@ -1,3 +1,4 @@
+import { normalizeSchemaTextCollations } from './SchemaCollationPolicy';
 import type { Knex } from 'knex';
 
 export interface LegacySchemaColumn {
@@ -43,7 +44,8 @@ export async function assessLegacySchema(db: Knex, database: string, reference: 
     const missingTables = new Map<string, { sql: string; dependencies: string[] }>();
     for (const table of new Set(source.map(column => column.table))) {
         const [rows] = await db.raw('SHOW CREATE TABLE ??.??', [reference, table]);
-        const createSql = rows[0]?.['Create Table'];
+        const originalSql = rows[0]?.['Create Table'];
+        const createSql = typeof originalSql === 'string' ? normalizeSchemaTextCollations(originalSql) : originalSql;
         if (typeof createSql !== 'string') { plan.review.push(`${table}: views require separate review`); continue; }
         if (!tables.has(table)) {
             const sql = createSql.replace(/^CREATE TABLE `(?:``|[^`])+`/, `CREATE TABLE IF NOT EXISTS ${quoteIdentifier(database)}.${quoteIdentifier(table)}`)

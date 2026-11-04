@@ -61,7 +61,7 @@ describe('billing accounting collection and refund postings', () => {
                const queries: string[] = []; db.on('query', query => queries.push(query.sql));
                const ids = Array.from({ length: 1201 }, (_, i) => i + 1);
                expect(await billingReceivableIds(17, ids, db)).toEqual(new Set([42, 401, 1201]));
-               expect(queries).toHaveLength(8);
+               expect(queries).toHaveLength(9); // One schema probe plus two bounded coverage reads per batch.
           } finally { await db.destroy(); }
      });
      beforeEach(() => {

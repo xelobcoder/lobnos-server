@@ -28,6 +28,17 @@ async function resolvePaymentAccountCode(db: any, paymentModeId?: number | null)
           : CASH;
 }
 
+async function openingReceivableIds(db: any, ids: number[], lock = false, exists?: boolean): Promise<Set<number>> {
+     const present = exists ?? (db.schema?.hasTable ? await db.schema.hasTable('acc_nhis_opening_bills') : false);
+     if (!present) return new Set();
+     const query = db('acc_nhis_opening_bills as opening').join('acc_journal_entries as journal', 'journal.id', 'opening.journal_entry_id')
+          .whereIn('opening.billingid', ids).where('journal.status', 'posted')
+          .whereNotExists(function () { this.select('reversal.id').from('acc_journal_entries as reversal').whereRaw('reversal.reversal_of_entry_id = journal.id').where('reversal.status', 'posted'); })
+          .select('opening.billingid');
+     const rows = await (lock ? query.forUpdate() : query);
+     return new Set(rows.map(row => Number(row.billingid)));
+}
+
 export async function hasBillingReceivable(tenantId: number, billingId: number, trx?: any): Promise<boolean> {
      const db = await resolveDb(tenantId, trx);
 
@@ -42,15 +53,17 @@ export async function hasBillingReceivable(tenantId: number, billingId: number, 
           .whereIn('transaction_type', [TransactionType.ACCRUAL, TransactionType.ADJUSTMENT])
           .first();
 
-     return !!posted;
+     return !!posted || (await openingReceivableIds(db, [billingId], !!trx)).has(billingId);
 }
 
 /** Same coverage contract as hasBillingReceivable, without two queries per bill. */
 export async function billingReceivableIds(tenantId: number, billingIds: number[], trx?: any): Promise<Set<number>> {
      const db = await resolveDb(tenantId, trx);
      const covered = new Set<number>();
+     const openingsExist = db.schema?.hasTable ? await db.schema.hasTable('acc_nhis_opening_bills') : false;
      for (let offset = 0; offset < billingIds.length; offset += 400) {
           const ids = billingIds.slice(offset, offset + 400);
+          for (const id of await openingReceivableIds(db, ids, !!trx, openingsExist)) covered.add(id);
           for (const table of ['acc_posting_outbox', 'acc_journal_entries']) {
                const query = db(table).where({ source_module: SourceModule.BILLING, source_table: 'billing' })
                     .whereIn('source_pk', ids).whereIn('transaction_type', [TransactionType.ACCRUAL, TransactionType.ADJUSTMENT])

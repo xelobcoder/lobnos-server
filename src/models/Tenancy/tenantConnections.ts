@@ -1,3 +1,4 @@
+import { UNICODE_CI_PROTOCOL_ID } from '../../database/legacy-upgrade/SchemaCollationPolicy';
 import { databaseTlsOptions } from '../../database/tls';
 import knex, { Knex } from "knex";
 import mysql, { Pool, PoolConnection } from "mysql2/promise";
@@ -11,6 +12,7 @@ interface TenantConnection {
           user: string;
           password: string;
           database: string;
+          charsetNumber?: number;
           ssl?: import("mysql2").SslOptions;
      };
      mysqlPool?: Pool;
@@ -133,6 +135,7 @@ async function getTenantConnection(id: number, kind: "mysql" | "knex"): Promise<
                          user: process.env.DB_USERNAME!,
                          password: process.env.DB_PASSWORD!,
                          database: tenant.databaseName,
+                         charsetNumber: UNICODE_CI_PROTOCOL_ID,
                          ...databaseTlsOptions(tenant.host || process.env.DB_HOST!),
                     };
                }).catch(error => {

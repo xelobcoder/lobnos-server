@@ -98,4 +98,5 @@ async function main() {
         });
     } finally { await connection.end(); await db.destroy(); }
 }
-main().then(() => process.exit(0)).catch(error => { console.error(error.message); process.exit(1); });
+module.exports = { openAuthenticatedStream, waitForExit };
+if (require.main === module) main().then(() => process.exit(0)).catch(error => { console.error(error.message); process.exit(1); });

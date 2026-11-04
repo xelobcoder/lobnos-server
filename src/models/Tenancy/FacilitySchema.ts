@@ -1,3 +1,4 @@
+import { normalizeSchemaTextCollations } from '../../database/legacy-upgrade/SchemaCollationPolicy';
 import mysql from 'mysql2/promise';
 import { EXPORTED_SOURCE_DATABASE, FacilityStructure } from './FacilityStructureExports';
 
@@ -23,7 +24,7 @@ export function isolateReferenceDdl(ddl: string, source: string, target: string)
      for (const match of isolated.matchAll(/\b(?:REFERENCES|FROM|JOIN|UPDATE|INTO)\s+`([^`]+)`\s*\.\s*`/gi)) {
           if (match[1] !== target) throw new Error('Reference DDL has an external database dependency');
      }
-     return isolated;
+     return normalizeSchemaTextCollations(isolated);
 }
 
 /**

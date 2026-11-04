@@ -1,3 +1,4 @@
+import { UNICODE_CI_PROTOCOL_ID } from './legacy-upgrade/SchemaCollationPolicy';
 import { databaseTlsOptions } from './tls';
 import mysql from "mysql2/promise";
 import knex from 'knex';
@@ -33,13 +34,14 @@ const config: Record<string, DBConfig> = {
 	},
 };
 
-const databaseConnectionPool = mysql.createPool({ ...config[environment], ...databaseTlsOptions(config[environment].host) } as mysql.PoolOptions);
+const databaseConnectionPool = mysql.createPool({ ...config[environment], charsetNumber: UNICODE_CI_PROTOCOL_ID, ...databaseTlsOptions(config[environment].host) } as mysql.PoolOptions);
 
 const singleTenantKnexInstance = knex({
 	client: 'mysql2',
 	connection: {
 		host: config[environment].host,
 		...databaseTlsOptions(config[environment].host),
+        charsetNumber: UNICODE_CI_PROTOCOL_ID,
 		user: config[environment].user,
 		password: config[environment].password,
 		database: config[environment].database,
@@ -66,6 +68,7 @@ const systemConfigConnection = knex({
 	connection: {
 		host: process.env.SYSTEM_CONFIG_DB_HOST || config[environment].host,
 		...databaseTlsOptions(process.env.SYSTEM_CONFIG_DB_HOST || config[environment].host, 'SYSTEM_CONFIG_DB'),
+          charsetNumber: UNICODE_CI_PROTOCOL_ID,
 		user: process.env.SYSTEM_CONFIG_DB_USERNAME || config[environment].user,
 		password: process.env.SYSTEM_CONFIG_DB_PASSWORD || config[environment].password,
 		database: process.env.SYSTEM_CONFIG_DATABASE || 'primelabmaster_control',
