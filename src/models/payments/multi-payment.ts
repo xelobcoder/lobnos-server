@@ -7,6 +7,7 @@ import { minorUnits, sumMinor } from '../../accountingModule/utils/money';
 import { enqueueBillingWriteOff } from '../../accountingModule/integrations/BillingAccounting';
 import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
 import { lockMutableBill, withBillingClosure } from '../billing/BillingFinancialGuard';
+import { resolveBillingPayers } from '../../accountingModule/services/BillingPayer';
 
 
 
@@ -337,13 +338,17 @@ export default class MultiPayment {
 
           if (billingid) {
                if (Array.isArray(billingid)) {
-                    query = query.whereIn('billingid', billingid);
+                    query = query.whereIn('billing.billingid', billingid);
                } else {
-                    query = query.where({ billingid });
+                    query = query.where({ 'billing.billingid': billingid });
                }
           } else if (patientid) {
-               query = query.where({ patientid });
+               query = query.where({ 'billing.patientid': patientid });
           }
+          const outstandingSummary = () => query.clone()
+               .leftJoin(connection('acc_nhis_allocations').select('billingid').sum('amount as settled').groupBy('billingid').as('nhis'), 'nhis.billingid', 'billing.billingid')
+               .whereRaw('billing.outstanding > 0')
+               .select(connection.raw('COALESCE(SUM(CASE WHEN billing.outstanding - COALESCE(nhis.settled, 0) > 0 THEN billing.outstanding - COALESCE(nhis.settled, 0) ELSE 0 END), 0) AS totalOutstanding'));
           let records: any[] = [];
 
           if (status === "completed") {
@@ -388,6 +393,10 @@ export default class MultiPayment {
                                    "dbobillingrefundtable.amountRefunded",
                                    "dbo.discount",
                                    "dbo.amountIncurredDueTax",
+                                   "dbo.isNHIS",
+                                   "dbo.serviceCategory",
+                                   "dbo.categoryTrackId",
+                                   "dbo.registrationType",
                                    connection.raw(`
                                         CASE 
                                              WHEN dbo.categoryTrackId != 5 THEN test_panels.name
@@ -401,7 +410,9 @@ export default class MultiPayment {
                     }
                }
 
-               return { outstandingAmount, records: await withBillingClosure(connection, records) };
+               const projected = await this.withPaymentPayers(connection, records);
+               return { outstandingAmount: sumMinor(projected.map(record => record.outstanding || 0)) / 100,
+                    records: await withBillingClosure(connection, projected.filter(record => Number(record.outstanding) > 0)) };
 
           } else if (status === "all") {
                records = await query.clone()
@@ -431,6 +442,10 @@ export default class MultiPayment {
                                    "dbobillingrefundtable.amountRefunded",
                                    "dbo.discount",
                                    "dbo.amountIncurredDueTax",
+                                   "dbo.isNHIS",
+                                   "dbo.serviceCategory",
+                                   "dbo.categoryTrackId",
+                                   "dbo.registrationType",
                                    connection.raw(`
                                         CASE 
                                              WHEN dbo.categoryTrackId != 5 THEN test_panels.name
@@ -444,15 +459,35 @@ export default class MultiPayment {
                     }
                }
 
-               const outstandingResult = await query.clone()
-                    .whereRaw('outstanding > 0')
-                    .sum('outstanding as totalOutstanding');
+               const outstandingResult = await outstandingSummary();
                const outstandingAmount = outstandingResult[0]?.totalOutstanding || 0;
 
-               return { outstandingAmount, records: await withBillingClosure(connection, records) };
+               return { outstandingAmount, records: await withBillingClosure(connection, await this.withPaymentPayers(connection, records)) };
           }
 
           return { outstandingAmount: 0, records: [] };
+     }
+
+     private async withPaymentPayers(connection: Knex, records: any[]): Promise<any[]> {
+          if (!records.length) return records;
+          const payers = await resolveBillingPayers(connection, records);
+          const allocations = await connection('acc_nhis_allocations as allocation')
+               .join('acc_nhis_events as event', 'event.id', 'allocation.event_id')
+               .whereIn('allocation.billingid', records.map(record => Number(record.billingid)))
+               .select('allocation.billingid').sum('allocation.amount as settled')
+               .select(connection.raw("SUM(CASE WHEN event.kind = 'receipt' OR (event.kind = 'reversal' AND event.reverses_kind = 'receipt') THEN allocation.amount ELSE 0 END) AS received"))
+               .groupBy('allocation.billingid');
+          const allocationsByBill = new Map(allocations.map(allocation => [Number(allocation.billingid), allocation]));
+          return records.map(record => {
+               const payer = payers.get(Number(record.billingid));
+               if (!payer) throw new Error('Unable to resolve billing payer');
+               const nhis = payer.classification === 'nhis' ? allocationsByBill.get(Number(record.billingid)) : undefined;
+               const settled = minorUnits(nhis?.settled || 0), received = minorUnits(nhis?.received || 0);
+               const outstanding = (minorUnits(record.outstanding || 0) - settled) / 100;
+               return { ...record, ...payer, headerOutstanding: Number(record.outstanding || 0), outstanding,
+                    payerOutstanding: outstanding, payerPaid: (minorUnits(record.paid || 0) + received) / 100,
+                    nhisSettledAmount: settled / 100, nhisReceivedAmount: received / 100 };
+          });
      }
 
 

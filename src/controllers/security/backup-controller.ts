@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -171,6 +172,7 @@ export class BackupController {
      }
 
      static async downloadBackup(req: Request<{ id: string }>, res: Response) {
+          let tempDecryptedFile: string | null = null;
           try {
                const tenantId = parseInt(req.query.tenantId as string);
                const { id } = req.params;
@@ -194,10 +196,9 @@ export class BackupController {
                const isEncrypted = !!backup.encryption_key_id;
                let downloadPath = backup.backup_path;
                let downloadName = path.basename(backup.backup_path);
-               let tempDecryptedFile: string | null = null;
 
                if (req.query.decrypt === 'true' && isEncrypted && backup.encryption_key_id) {
-                    const decryptedPath = `${backup.backup_path}.decrypted`;
+                    const decryptedPath = `${backup.backup_path}.${randomUUID()}.decrypted`;
                     const decryptResult = await EncryptionManager.decryptFile(tenantId, backup.backup_path, decryptedPath, backup.encryption_key_id);
 
                     if (decryptResult.success) {
@@ -212,11 +213,11 @@ export class BackupController {
                     }
                }
 
-               if (backup.backup_type === 'database') {
+               if (backup.backup_type === 'database' && (!isEncrypted || tempDecryptedFile)) {
                     if (!downloadName.endsWith('.sql')) {
                          downloadName += '.sql';
                     }
-               } else if (backup.backup_type === 'files') {
+               } else if (backup.backup_type === 'files' && (!isEncrypted || tempDecryptedFile)) {
                     if (!downloadName.endsWith('.tar.gz')) {
                          downloadName += '.tar.gz';
                     }
@@ -254,16 +255,21 @@ export class BackupController {
                     }
                });
 
-               fileStream.on('end', () => {
+               const cleanup = () => {
                     if (tempDecryptedFile && fs.existsSync(tempDecryptedFile)) {
                          try {
                               fs.unlinkSync(tempDecryptedFile);
                          } catch (cleanupError) {
                          }
                     }
-               });
+               };
+               fileStream.once('close', cleanup);
+               res.once('close', () => { fileStream.destroy(); cleanup(); });
 
           } catch (error: any) {
+               if (tempDecryptedFile) {
+                    try { fs.unlinkSync(tempDecryptedFile); } catch {}
+               }
                res.status(500).json({
                     status: false,
                     error: error.message

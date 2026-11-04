@@ -14,6 +14,8 @@ export const LOCAL_MIGRATIONS = [
      '20260807_email_module_activation',
      '20260807_notification_foundation',
      '20260812_backup_security_settings_password',
+     '20261104_backup_encryption_keys',
+     '20261104_nhis_period_settlements',
      '20260820_advanced_commission_calculations',
      '20260829_result_value_analytics',
      '20260901_pharmacy_item_profiles',

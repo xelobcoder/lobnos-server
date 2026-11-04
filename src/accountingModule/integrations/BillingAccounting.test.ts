@@ -10,16 +10,20 @@ vi.mock('../services/SubledgerService', () => ({ recordSubledgerEntry: recordSub
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 vi.mock('../../hooks/logger', () => ({ default: { warn: vi.fn() } }));
 
-import { enqueueBillingPayment, enqueueBillingReceivable, enqueueBillingRefund, enqueueStaffFocBenefit, enqueueStaffFocBenefitReversal } from './BillingAccounting';
+import { billingReceivableIds, enqueueBillingPayment, enqueueBillingReceivable, enqueueBillingRefund, enqueueBillingWriteOff, enqueueStaffFocBenefit, enqueueStaffFocBenefitReversal } from './BillingAccounting';
+import { accountingSqlDatabase } from '../../testSupport/accountingSqlDatabase';
+import { SourceModule } from '../enums/source-module.enum';
+import { TransactionType } from '../enums/transaction-type.enum';
 
-function makeDatabase(options: { receivable?: boolean; paymentMode?: string; focStatus?: string } = {}) {
+function makeDatabase(options: { receivable?: boolean; paymentMode?: string; focStatus?: string; services?: any[] } = {}) {
      const database = ((table: string) => {
           const query: any = {
                select: () => query,
                where: () => query,
                whereIn: () => query,
+               then: (resolve: any, reject: any) => Promise.resolve(table === 'dboservices' ? options.services || [] : []).then(resolve, reject),
                first: async () => {
-                    if (table === 'billing') return { branchid: 4, billedon: new Date('2026-10-01T00:00:00Z'), patientid: 21, payable: 100, amountIncurredDueTax: 0 };
+                    if (table === 'billing') return { billingid: 42, branchid: 4, billedon: new Date('2026-10-01T00:00:00Z'), patientid: 21, payable: 100, amountIncurredDueTax: 0 };
                     if (table === 'billinghx') return { Date: new Date('2026-10-04T00:00:00Z'), paymentmode: 8 };
                     if (table === 'paymentmodes') return { PaymentMode: options.paymentMode || 'Bank Transfer' };
                     if (table === 'staff_foc_transaction') return {
@@ -46,10 +50,57 @@ function makeDatabase(options: { receivable?: boolean; paymentMode?: string; foc
 }
 
 describe('billing accounting collection and refund postings', () => {
+     it('resolves all bulk accrual coverage in bounded SQL reads, excluding payments and other producers', async () => {
+          const { db, native } = accountingSqlDatabase();
+          try {
+               for (const table of ['acc_posting_outbox', 'acc_journal_entries']) native.exec(`CREATE TABLE ${table}(id INTEGER PRIMARY KEY,source_module TEXT,source_table TEXT,source_pk INTEGER,transaction_type TEXT)`);
+               const row = (source_pk: number, transaction_type = TransactionType.ACCRUAL, source_table = 'billing') =>
+                    ({ source_module: SourceModule.BILLING, source_table, source_pk, transaction_type });
+               await db('acc_posting_outbox').insert([row(42), row(43, TransactionType.PAYMENT), row(44, TransactionType.ACCRUAL, 'billinghx')]);
+               await db('acc_journal_entries').insert([row(401, TransactionType.ADJUSTMENT), row(1201)]);
+               const queries: string[] = []; db.on('query', query => queries.push(query.sql));
+               const ids = Array.from({ length: 1201 }, (_, i) => i + 1);
+               expect(await billingReceivableIds(17, ids, db)).toEqual(new Set([42, 401, 1201]));
+               expect(queries).toHaveLength(8);
+          } finally { await db.destroy(); }
+     });
      beforeEach(() => {
           vi.clearAllMocks();
           enqueuePostingMock.mockResolvedValue(undefined);
           recordSubledgerEntryMock.mockResolvedValue(undefined);
+     });
+
+     it('uses one NHIS payer and explicit bill references across accrual, payment, writeoff, refund and FOC', async () => {
+          const trx = makeDatabase({ receivable: true, services: [{ billingid: 42, registrationType: 'nhis' }] });
+          await enqueueBillingReceivable(3, 42, 0, 0, trx);
+          await enqueueBillingPayment(3, 77, 42, 25, 9, trx);
+          await enqueueBillingWriteOff(3, 42, 10, 9, trx, 'request-1');
+          await enqueueBillingRefund(3, 42, 15, 5, 9, trx, 91, 8);
+          await enqueueStaffFocBenefit(3, 14, trx);
+          await enqueueStaffFocBenefitReversal(3, 14, 'correction', makeDatabase({
+               focStatus: 'reversed', services: [{ billingid: 42, isNHIS: 1 }],
+          }));
+          expect(recordSubledgerEntryMock).toHaveBeenCalledTimes(7);
+          for (const [tenantId, , entry] of recordSubledgerEntryMock.mock.calls) {
+               expect(tenantId).toBe(3);
+               expect(entry).toMatchObject({
+                    partyType: 'nhis', partyId: 1, classification: 'nhis',
+                    partyName: 'National Health Insurance Scheme (NHIS)', documentRef: 'BILL-42',
+               });
+          }
+          expect(recordSubledgerEntryMock.mock.calls.map(([, , entry]) => entry.amount)).toEqual([100, -25, -10, -15, 5, -80, 80]);
+          expect(enqueuePostingMock.mock.calls[0][1].lines).toEqual(expect.arrayContaining([
+               expect.objectContaining({ accountCode: 'acc-1002', amount: 100, direction: 'debit' }),
+          ]));
+     });
+
+     it('keeps mixed and ordinary collections with the patient and never splits NHIS copay amounts', async () => {
+          await enqueueBillingPayment(3, 77, 42, 25, 9, makeDatabase({
+               receivable: true, services: [{ billingid: 42, isNHIS: 1 }, { billingid: 42, registrationType: 'self' }],
+          }));
+          expect(recordSubledgerEntryMock.mock.calls[0][2]).toMatchObject({
+               partyType: 'patient', partyId: 21, classification: 'mixed', documentRef: 'PAY-77', amount: -25,
+          });
      });
 
      it('posts outstanding collections to bank and uses the collection date', async () => {

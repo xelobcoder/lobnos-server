@@ -10,7 +10,7 @@ export class FinancialSnapshotService implements IFinancialSnapshotService {
           if (!/^\d{4}-\d{2}-\d{2}$/.test(financialDate)) throw new Error('Financial date must use YYYY-MM-DD');
           const db = this.connectionOverride || await KnexConnection(this.tenantId);
 
-          const [billing, payments, expenses, expensePayments, refunds, ledger, outbox] = await Promise.all([
+          const [billing, payments, expenses, expensePayments, refunds, ledger, outbox, nhis] = await Promise.all([
                db('billing').where({ branchid: branchId }).whereRaw('DATE(billedon) = ?', [financialDate]).select(
                     db.raw('COUNT(*) AS count'), db.raw('COALESCE(SUM(payable), 0) AS payable'), db.raw('COALESCE(SUM(paid), 0) AS paid'),
                     db.raw('COALESCE(SUM(discount), 0) AS discounts'), db.raw('COALESCE(SUM(totalrefunded), 0) AS refunded'), db.raw('COALESCE(SUM(outstanding), 0) AS outstanding')
@@ -40,6 +40,13 @@ export class FinancialSnapshotService implements IFinancialSnapshotService {
                     db.raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending"),
                     db.raw("SUM(CASE WHEN status IN ('failed', 'dead_letter') THEN 1 ELSE 0 END) AS failed")
                ).first(),
+               db('acc_nhis_events').where({ branchid: branchId, event_date: financialDate }).select(
+                    db.raw('COUNT(*) AS count'),
+                    db.raw("COALESCE(SUM(CASE WHEN kind = 'receipt' THEN amount ELSE 0 END), 0) AS receipts"),
+                    db.raw("COALESCE(SUM(CASE WHEN kind = 'reversal' AND reverses_kind = 'receipt' THEN amount ELSE 0 END), 0) AS receipt_reversals"),
+                    db.raw("COALESCE(SUM(CASE WHEN kind = 'revenue_adjustment' THEN amount WHEN kind = 'reversal' AND reverses_kind = 'revenue_adjustment' THEN -amount ELSE 0 END), 0) AS revenue_adjustments"),
+                    db.raw("COALESCE(SUM(CASE WHEN kind = 'write_off' THEN amount WHEN kind = 'reversal' AND reverses_kind = 'write_off' THEN -amount ELSE 0 END), 0) AS write_offs")
+               ).first(),
           ]);
 
           const ledgerDebits = money(ledger?.debits);
@@ -55,12 +62,16 @@ export class FinancialSnapshotService implements IFinancialSnapshotService {
           const totals = {
                billingPayable: money(billing?.payable), billingPaid: money(billing?.paid), billingDiscounts: money(billing?.discounts),
                billingRefunded: money(billing?.refunded), billingOutstanding: money(billing?.outstanding),
-               paymentCredits: money(payments?.credits), paymentDebits: money(payments?.debits),
+               paymentCredits: money(Number(payments?.credits || 0) + Number(nhis?.receipts || 0)),
+               paymentDebits: money(Number(payments?.debits || 0) + Number(nhis?.receipt_reversals || 0)),
+               nhisReceipts: money(nhis?.receipts), nhisReceiptReversals: money(nhis?.receipt_reversals),
+               nhisRevenueAdjustments: money(nhis?.revenue_adjustments), nhisWriteOffs: money(nhis?.write_offs),
                expensesAccrued: money(expenses?.amount), expensesPaid: money(expensePayments?.amount), refundsPaid: money(refunds?.amount),
           };
           const recordCounts = {
                billings: Number(billing?.count || 0), payments: Number(payments?.count || 0), expenses: Number(expenses?.count || 0),
                expensePayments: Number(expensePayments?.count || 0), refunds: Number(refunds?.count || 0), journalEntries: Number(ledger?.entries || 0),
+               nhisEvents: Number(nhis?.count || 0),
           };
           const canonical = { branchId, financialDate, totals, recordCounts, discrepancies, outboxPending, outboxFailed, ledgerDebits, ledgerCredits };
           return { ...canonical, hash: createHash('sha256').update(stableJson(canonical)).digest('hex') };

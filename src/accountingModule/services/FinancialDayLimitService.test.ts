@@ -12,6 +12,7 @@ function fixture(enabled = true) {
        CREATE TABLE billing(billingid INTEGER PRIMARY KEY, branchid INTEGER, billedon TEXT);
        CREATE TABLE dboservices(serviceid INTEGER PRIMARY KEY, branchid INTEGER, serviceAddedOn TEXT);
        CREATE TABLE billinghx(Billingid INTEGER, Date TEXT);
+       CREATE TABLE acc_nhis_events(id INTEGER PRIMARY KEY,branchid INTEGER,event_date TEXT);
        CREATE TABLE dbobillingrefundtable(serviceid INTEGER, isRefundCompleted INTEGER, approvalDate TEXT);
        CREATE TABLE expensesrecord(branchid INTEGER, date TEXT);
        CREATE TABLE expense_payments(branchid INTEGER, payment_date TEXT);
@@ -83,6 +84,7 @@ describe('48-hour financial day transaction limit', () => {
           ['expensesrecord', { branchid: 2, date: '2026-11-02' }],
           ['expense_payments', { branchid: 2, payment_date: '2026-11-02' }],
           ['finance_ledger', { branchid: 2, occurred_at: '2026-11-02' }],
+          ['acc_nhis_events', { branchid: 2, event_date: '2026-11-02' }],
           ['financial_day_closures', { branchid: 2, financial_date: '2026-11-02', status: 'draft' }],
      ])('includes overdue %s activity, not only bills', async (table, row) => {
           const f = fixture();

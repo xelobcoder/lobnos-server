@@ -74,6 +74,116 @@ as C–E above but initiated by an accountant instead of an automated listener.
 
 ### Billing
 
+#### National Health Insurance Scheme (NHIS)
+
+Laboratory bills whose live services are all NHIS are owed by **NHIS**, not by the
+patient. Patient charges must be separate bills. Mixed bills are explicitly flagged
+for review rather than assigning their entire balance to NHIS. Existing bill-linked
+subledger history is attributed in reports without rewriting finalized records or
+posting the same revenue again.
+
+```
+NHIS bill issued
+  -> Debit: Accounts Receivable   Credit: Service Revenue (and output tax, if applicable)
+  -> AR party: National Health Insurance Scheme (NHIS)
+
+NHIA remittance allocated to specific bills
+  -> Debit: selected Cash/Bank   Credit: Accounts Receivable
+
+Explicit final tariff/revenue adjustment
+  -> Debit: Service Revenue (and proportional output tax)   Credit: Accounts Receivable
+
+Explicit authorized uncollectible-debt write-off
+  -> Debit: Bad Debt Expense   Credit: Accounts Receivable
+```
+
+Rejected, queried or merely unpaid claims are **not automatically written off**.
+Choose the adjustment type and supply the external reference and reason. A tariff
+adjustment and a bad-debt write-off are distinct accounting events.
+
+Authenticated accounting APIs use the tenant, branch and employee from the session:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/v1/accounting/nhis/receivables?from=2026-01-01&to=2026-04-30` | Current recoveries/balances for the selected **bill/service period** |
+| GET | `/api/v1/accounting/nhis/cash-receipts?from=2026-11-01&to=2026-11-30` | Cash received/refunded/reversed in the selected **receipt period**, including older bills |
+| GET | `/api/v1/accounting/nhis/events` | Remittance, adjustment and reversal audit trail, including bill allocations |
+| POST | `/api/v1/accounting/nhis/receipts` | Record a verified remittance and exact bill allocations |
+| POST | `/api/v1/accounting/nhis/adjustments` | Explicit `revenue_adjustment` or `write_off` |
+| POST | `/api/v1/accounting/nhis/events/:id/reversal` | Append an exact linked reversal; never delete the original |
+
+Reports support `page` and `count`; totals cover the entire filtered result, not just
+the page. The receivables report is a **current balance report**, not a historical
+as-of snapshot. `expected` is the recognized current bill payable, not a new estimate
+of NHIA tariff eligibility or an externally approved claim value. It reports received,
+revenue adjustments, write-offs and outstanding separately. `excludedMixedBills`
+identifies bills requiring separation/review. `unverifiedLegacyReceipts` identifies
+differences between old bill payment totals and available receipt history; those
+differences are not manufactured as cash receipts.
+`reconciliationDifference` flags an inconsistent original bill equation
+(`payable - paid - writeoff - outstanding`) instead of silently balancing it.
+The general receivables report also distinguishes `nhisReceivedAmount` (net cash
+receipts) from `nhisSettledAmount` (all net debt reductions). `payerPaid` includes
+only the former; tariff adjustments and write-offs must never appear as money received.
+The legacy Cash Collection lookup exposes the same payer classification and projected
+balances, plus service-level NHIS/source metadata. Its `headerOutstanding` remains
+the original invoice balance; its displayed `outstanding`/`payerOutstanding` subtract
+linked NHIS settlements. Fully settled NHIS bills are omitted from its pending list.
+NHIS/mixed payer metadata lets the frontend route settlement to the NHIS workspace
+or require payer separation instead of presenting these balances as patient cash debt.
+
+Receipt example (amounts are Ghana cedis, at most two decimal places):
+
+```json
+{
+  "requestKey": "nhis-remittance-2026-0001",
+  "reference": "NHIA remittance reference",
+  "reason": "Verified against bank statement",
+  "date": "2026-11-04",
+  "amount": 500000,
+  "paymentAccountCode": "acc-1001",
+  "allocations": [
+    { "billingId": 42, "amount": 250000 },
+    { "billingId": 43, "amount": 250000 }
+  ]
+}
+```
+
+For an adjustment, omit `paymentAccountCode` and add
+`"kind": "revenue_adjustment"` or `"kind": "write_off"`. A reversal accepts only
+`requestKey`, `reference`, `reason` and `date`. Receipts require
+`accounting.journal.post`, adjustments require `accounting.journal.approve`, and
+reversals require `accounting.financial_correction.execute`, checked against the
+**full event amount** and the active branch.
+
+Events and signed allocations are append-only, idempotent by request key, and posted
+atomically with the subledger and accounting outbox. An unchanged retry returns the
+same event; reusing a key for different input is rejected. Concurrent allocations
+cannot exceed the remaining receivable. Collection requires an existing accounting
+accrual. A branch cannot record the same external reference twice for the same event
+type, even with a new request key. Resolve historical coverage/opening balances
+rather than silently booking
+new revenue when collecting old debt.
+
+Current-period remittances may settle old finalized bills without modifying those
+bills. The accounting receivable balance is projected from the original outstanding
+amount less linked NHIS allocations. Once linked NHIS events exist, legacy bill edits,
+refunds and collections are blocked to prevent using the stale original balance;
+use this NHIS workflow and linked reversals. The original bill/service records remain
+unchanged. NHIS receipt/adjustment dates participate in financial-day readiness,
+signed snapshots and finalization manifests. Closed/locked posting periods and
+finalized/historically locked posting dates remain protected.
+
+The accounting bootstrap installs `acc_nhis_events`, `acc_nhis_allocations` and MySQL
+immutability triggers. Restart/bootstrap the updated backend before using these APIs.
+Server-authoritative proportional service-period remittances, later final
+adjustment-only decisions, bounded allocation audit and atomic settlement reversals
+are documented in [NHIS period settlement API](nhis-period-settlements-api.md).
+They append `acc_nhis_period_settlements` metadata; settling a service cohort does
+not close or reopen its historic accounting period.
+This is laboratory accounting; the independent pharmacy NHIS register is unchanged,
+and no live NHIA submission or automatic claim adjudication is introduced.
+
 ```
 Payment received (billinghx insert)
   → transaction_type = payment

@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../database/tls';
 /**
  * Trusted desktop child command. JSON request ONLY on stdin; no credentials in argv,
  * environment files, subprocess output, or driver exception messages.
@@ -33,7 +34,7 @@ async function initialize(request: LocalProvisionRequest): Promise<void> {
      });
      const { singleTenantKnexInstance: db, systemConfigConnection: control, databaseConnectionPool } = require('../database/connection');
      const knex = require('knex');
-     const controlAdmin = knex({ client: 'mysql2', connection: { host: state.host, port: Number(state.port),
+     const controlAdmin = knex({ client: 'mysql2', connection: { ...databaseTlsOptions(state.host), host: state.host, port: Number(state.port),
           user: state.account, password: state.accountPassword, database: LOCAL_CONTROL_DATABASE },
           pool: { min: 0, max: 1 } });
      let queryFailed = false;
@@ -150,7 +151,7 @@ async function main(): Promise<void> {
           const { loadFacilityCatalogSeeds } = require('../models/Tenancy/FacilityCatalogSeeds');
           loadFacilityCatalogSeeds(); // Full asset validation before any database side effect.
           const result = await provisionLocalDatabases(request, {
-               connect: options => mysql.createConnection(options),
+               connect: options => mysql.createConnection({ ...options, ...databaseTlsOptions(options.host) }),
                structure: loadFacilityStructureExports(), initialize,
           });
           process.stdout.write(JSON.stringify(result) + '\n');

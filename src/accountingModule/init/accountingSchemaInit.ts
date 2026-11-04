@@ -5,6 +5,7 @@ import { ensureIndexes } from '../../database/ensureIndexes';
 import { ensurePharmacyAttributionColumns, ensurePharmacySourceModule } from './pharmacyAttributionSchema';
 import { ensureCashFlowReviewSchema } from './cashFlowSchema';
 import { ensureFinancialLockSchema } from './financialLockSchema';
+import { ensureNhisAccountingSchema } from './nhisAccountingSchema';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      if (ensuredAccountingTenants.has(tenantId)) return;
@@ -136,6 +137,7 @@ async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> 
      await ensurePeriodTable(tenantId);
      await ensureManualJournalTables(tenantId);
      await ensureSubledgerTable(tenantId);
+     await ensureNhisAccountingSchema(knex);
      await ensureFinancialFinalizationTables(tenantId);
      await ensureFinancialFinalizationTriggers(tenantId);
      await seedAccountsFromConfig(tenantId);

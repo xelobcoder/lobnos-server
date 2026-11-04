@@ -38,6 +38,7 @@ export interface SubledgerEntry extends SubledgerEntryInput {
 
 export interface PartyBalance {
      partyType: string;
+     classification?: 'nhis' | 'patient' | 'mixed';
      partyId: number | null;
      partyName: string | null;
      patientIdentifier?: string | null;
@@ -50,6 +51,7 @@ export interface PartyBalance {
 
 export interface AgingRow {
      partyType: string;
+     classification?: 'nhis' | 'patient' | 'mixed';
      partyId: number | null;
      partyName: string | null;
      patientIdentifier?: string | null;
@@ -75,9 +77,8 @@ export interface ISubledgerService {
      balances(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<any>;
 
      /**
-      * Open documents bucketed by age. Settlements are applied oldest-first within a party rather
-      * than matched to a specific document, because the operational tables do not record which
-      * invoice a payment was meant for.
+      * Open documents bucketed by age. Explicit billing links match their own document first.
+      * NHIS credits never spill into FIFO across claims; ordinary unlinked credits retain FIFO.
       *
       * The bucket totals cover the whole report, not the current page, so they do not shift as you
       * page through.

@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from './tls';
 import mysql, { Pool, PoolConnection} from 'mysql2/promise';
 
 
@@ -37,7 +38,7 @@ const connectionData: ConnectionData = {
     timeout: 1000 * 60
 };
 
-const databaseConnectionPool: Pool = mysql.createPool(connectionData);
+const databaseConnectionPool: Pool = mysql.createPool({ ...connectionData, ...databaseTlsOptions(host) });
 
 
 

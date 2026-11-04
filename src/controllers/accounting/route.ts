@@ -1,4 +1,5 @@
 import { accountingPlanningRouter } from './AccountingPlanningController';
+import { nhisAccountingRouter } from './NhisAccountingController';
 import { Router } from 'express';
 import { AccountingReportController } from './AccountingReportController';
 import { ManualJournalController } from './ManualJournalController';
@@ -14,6 +15,7 @@ const accountingRouter = Router();
 // the books are visible only to signed-in administrators and accountants
 accountingRouter.use('/api/v1/accounting', checkTokenExists, requireAccountingRole);
 accountingRouter.use(accountingPlanningRouter);
+accountingRouter.use(nhisAccountingRouter);
 
 accountingRouter.get('/api/v1/accounting/reports/trial-balance', AccountingReportController.trialBalance);
 accountingRouter.get('/api/v1/accounting/reports/financial-overview', AccountingReportController.financialOverview);

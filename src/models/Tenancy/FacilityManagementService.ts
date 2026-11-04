@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../../database/tls';
 import { Knex } from 'knex';
 import mysql from 'mysql2/promise';
 import { singleTenantKnexInstance, systemConfigConnection } from '../../database/connection';
@@ -505,6 +506,7 @@ export class FacilityManagementService {
                     if (confirmation !== tenant.id) throw new FacilityError('Enter the exact organization identifier to confirm recovery', 400);
                     this.requireDisposableReservation(tenant, tenantId);
                     admin = await mysql.createConnection({
+                         ...databaseTlsOptions(process.env.DB_HOST!),
                          host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
                          user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, multipleStatements: false,
                     });
@@ -546,6 +548,7 @@ export class FacilityManagementService {
                if (!databasePreserved) {
                     // DDL uses a separate connection so MySQL cannot implicitly commit the registry transaction.
                     const admin = await mysql.createConnection({
+                         ...databaseTlsOptions(process.env.DB_HOST!),
                          host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
                          user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD, multipleStatements: false,
                     });

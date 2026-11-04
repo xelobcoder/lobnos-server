@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ connect: vi.fn(), migrate: vi.fn() }));
 vi.mock('../../../database/KnexConnections', () => ({ default: mocks.connect }));
@@ -6,12 +6,16 @@ vi.mock('../../../cron/command-line-tool-database/migrations/20260812_backup_sec
      up: mocks.migrate,
 }));
 
+vi.mock('../../../cron/command-line-tool-database/migrations/20261104_backup_encryption_keys', () => ({ up: vi.fn().mockResolvedValue(undefined) }));
+
 import { bootstrapBackupSecuritySettings } from './BackupSecurityBootstrapper';
 import EncryptionManager from './encryption';
 
 describe('backup security schema readiness', () => {
      beforeEach(() => {
           vi.clearAllMocks();
+          vi.stubEnv('BACKUP_MASTER_KEY', 'test-master-key-for-backup-settings-only');
+          vi.stubEnv('BACKUP_MASTER_KEY_FILE', undefined);
           mocks.migrate.mockResolvedValue(undefined);
      });
 
@@ -52,7 +56,7 @@ describe('backup security schema readiness', () => {
           mocks.connect.mockResolvedValue(connection);
           mocks.migrate.mockImplementation(async () => { ready = true; });
           await expect(EncryptionManager.updateSecuritySettings(7, { encryption_password: 'test-only-password' })).resolves.toBe(true);
-          expect(insert).toHaveBeenCalledWith(expect.objectContaining({ encryption_password: 'test-only-password' }));
+          expect(insert).toHaveBeenCalledWith(expect.objectContaining({ encryption_password: expect.stringMatching(/^sealed:v2:/) }));
      });
 
      it('upgrades schema before reading existing settings', async () => {
@@ -66,3 +70,5 @@ describe('backup security schema readiness', () => {
           expect(mocks.migrate.mock.invocationCallOrder[0]).toBeLessThan(connection.mock.invocationCallOrder[0]);
      });
 });
+
+afterEach(() => vi.unstubAllEnvs());

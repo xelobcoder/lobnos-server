@@ -96,6 +96,7 @@ router.delete('/api/v1/security-features/access-windows/:id', handleOverLoad(Acc
 router.delete('/api/v1/security-features/access-windows/employee/:employeeid', handleOverLoad(AccessWindowsController.deleteAccessWindowByEmployee));
 
 // backup routes
+router.use('/api/v1/security-features/backup', requireOwnerRole);
 router.post('/api/v1/security-features/backup/database', handleOverLoad(BackupController.createDatabaseBackup));
 router.get('/api/v1/security-features/backup/logs', handleOverLoad(BackupController.getBackupLogs));
 router.get('/api/v1/security-features/backup/logs/:id', handleOverLoad(BackupController.getBackupById));

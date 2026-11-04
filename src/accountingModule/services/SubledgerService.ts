@@ -1,5 +1,6 @@
 import KnexConnection from '../../database/KnexConnections';
 import { parsePaging, parseSort, paginate } from '../utils/pagination';
+import { attributeBillingEntries } from './NhisAttributionService';
 import {
      AgingRow,
      ISubledgerService,
@@ -23,11 +24,13 @@ export class SubledgerService implements ISubledgerService {
      }
 
      async record(entry: SubledgerEntryInput, trx?: any): Promise<void> {
-          const db = await this.connection(trx);
-          if (!entry.amount || Number(entry.amount) === 0) return;
+          return this.recordMany([entry], trx);
+     }
 
-          await db('acc_subledger_entries')
-               .insert({
+     /** Bounded inserts, using the identical append-only mapping and source key as record(). */
+     async recordMany(entries: SubledgerEntryInput[], trx?: any): Promise<void> {
+          const db = await this.connection(trx);
+          const rows = entries.filter(entry => entry.amount && Number(entry.amount) !== 0).map(entry => ({
                     ledger: entry.ledger,
                     party_type: entry.partyType,
                     party_id: entry.partyId ?? null,
@@ -44,9 +47,11 @@ export class SubledgerService implements ISubledgerService {
                     source_ref: entry.sourceRef,
                     branchid: entry.branchid ?? null,
                     created_at: new Date(),
-               })
-               .onConflict(['ledger', 'source_table', 'source_ref'])
-               .ignore();
+               }));
+          for (let offset = 0; offset < rows.length; offset += 40) {
+               await db('acc_subledger_entries').insert(rows.slice(offset, offset + 40))
+                    .onConflict(['ledger', 'source_table', 'source_ref']).ignore();
+          }
      }
 
      async balances(ledger: SubledgerName, asOf?: string, options?: { page?: number; count?: number; sortby?: string }) {
@@ -69,7 +74,29 @@ export class SubledgerService implements ISubledgerService {
 
           if (asOf) query.andWhere('document_date', '<=', asOf);
 
-          const rows = await query;
+          let rows: any[];
+          if (ledger === 'AR') {
+               const entryQuery = db('acc_subledger_entries').where({ ledger }).orderBy('document_date', 'asc');
+               if (asOf) entryQuery.andWhere('document_date', '<=', asOf);
+               const entries = await attributeBillingEntries(db, await entryQuery);
+               const grouped = new Map<string, any>();
+               for (const entry of entries) {
+                    const key = `${entry.party_type}:${entry.party_id ?? 'none'}:${entry.classification || entry.party_type}`;
+                    let row = grouped.get(key);
+                    if (!row) {
+                         row = { party_type: entry.party_type, party_id: entry.party_id, party_name: entry.party_name,
+                              classification: entry.classification, documents: 0, charged: 0, settled: 0, balance: 0,
+                              oldest_document_date: entry.document_date };
+                         grouped.set(key, row);
+                    }
+                    row.documents++;
+                    row.charged += Math.max(Number(entry.amount), 0);
+                    row.settled += Math.max(-Number(entry.amount), 0);
+                    row.balance += Number(entry.amount);
+                    if (toDateOnly(entry.document_date) < toDateOnly(row.oldest_document_date)) row.oldest_document_date = entry.document_date;
+               }
+               rows = [...grouped.values()];
+          } else rows = await query;
           const patientIds = [...new Set(rows
                .filter((row: any) => row.party_type === 'patient' && Number(row.party_id) > 0)
                .map((row: any) => Number(row.party_id)))];
@@ -82,11 +109,12 @@ export class SubledgerService implements ISubledgerService {
 
           const mapped: PartyBalance[] = rows.map((row: any) => ({
                partyType: row.party_type,
+               classification: row.classification,
                partyId: row.party_id ? Number(row.party_id) : null,
                partyName: row.party_name || (row.party_type === 'patient'
                     ? [patientById.get(Number(row.party_id))?.firstname, patientById.get(Number(row.party_id))?.middlename, patientById.get(Number(row.party_id))?.lastname].filter(Boolean).join(' ') || null
                     : null),
-               patientIdentifier: patientById.get(Number(row.party_id))?.fullpatientid || null,
+               patientIdentifier: row.party_type === 'patient' ? patientById.get(Number(row.party_id))?.fullpatientid || null : null,
                documents: Number(row.documents || 0),
                charged: round2(Number(row.charged || 0)),
                settled: round2(Number(row.settled || 0)),
@@ -122,7 +150,8 @@ export class SubledgerService implements ISubledgerService {
                .andWhere('document_date', '<=', cutoff)
                .orderBy([{ column: 'document_date', order: 'asc' }, { column: 'id', order: 'asc' }]);
 
-          const entries = await query;
+          const rawEntries = await query;
+          const entries = ledger === 'AR' ? await attributeBillingEntries(db, rawEntries) : rawEntries;
           const paymentHistoryIds = [...new Set(entries
                .filter((entry: any) => entry.amount < 0 && entry.source_table === 'billinghx' && Number(entry.source_ref) > 0)
                .map((entry: any) => Number(entry.source_ref)))];
@@ -142,17 +171,28 @@ export class SubledgerService implements ISubledgerService {
           const byParty = new Map<string, any[]>();
 
           for (const entry of entries) {
-               const key = `${entry.party_type}:${entry.party_id ?? 'none'}`;
+               const key = `${entry.party_type}:${entry.party_id ?? 'none'}:${entry.classification || entry.party_type}`;
                if (!byParty.has(key)) byParty.set(key, []);
                byParty.get(key)!.push(entry);
           }
 
           const rows: Array<AgingRow & { documentId: number }> = [];
+          let unappliedNhisCredits = 0;
 
           for (const partyEntries of byParty.values()) {
-               const open = partyEntries
+               const positive = partyEntries
                     .filter((entry) => Number(entry.amount) > 0)
                     .map((entry) => ({ entry, remaining: round2(Number(entry.amount)) }));
+               const open: typeof positive = [];
+               for (const document of positive) {
+                    const ref = document.entry.billingId ? `BILL-${document.entry.billingId}` : document.entry.document_ref;
+                    const existing = document.entry.party_type === 'nhis' && /^BILL-\d+$/.test(ref || '')
+                         ? open.find((item) => (item.entry.billingId ? `BILL-${item.entry.billingId}` : item.entry.document_ref) === ref)
+                         : undefined;
+                    // Refunds and event reversals restore the original claim, not a new, younger invoice.
+                    if (existing) existing.remaining = round2(existing.remaining + document.remaining);
+                    else open.push(document);
+               }
 
                const paymentCredits = partyEntries.filter((entry) => Number(entry.amount) < 0);
                let unlinkedCredits = 0;
@@ -160,21 +200,27 @@ export class SubledgerService implements ISubledgerService {
                // Cash Collection knows the billing ID, so apply those credits to their own invoice first.
                for (const creditEntry of paymentCredits) {
                     const historyId = creditEntry.source_table === 'billinghx' ? Number(creditEntry.source_ref) : 0;
-                    const billingId = billingIdByPaymentHistoryId.get(historyId);
+                    const billingId = creditEntry.billingId || billingIdByPaymentHistoryId.get(historyId);
+                    const explicitRef = /^BILL-\d+$/.test(creditEntry.document_ref || '') ? creditEntry.document_ref : null;
                     if (!billingId) {
-                         unlinkedCredits += Math.abs(Number(creditEntry.amount));
-                         continue;
+                         if (!explicitRef) {
+                              if (creditEntry.party_type === 'nhis') unappliedNhisCredits += Math.abs(Number(creditEntry.amount));
+                              else unlinkedCredits += Math.abs(Number(creditEntry.amount));
+                              continue;
+                         }
                     }
 
                     let credit = round2(Math.abs(Number(creditEntry.amount)));
-                    const matchingInvoices = open.filter((document) => document.entry.document_ref === `BILL-${billingId}`);
+                    const matchingInvoices = open.filter((document) => document.entry.document_ref === (explicitRef || `BILL-${billingId}`)
+                         || (billingId && document.entry.billingId === billingId));
                     for (const document of matchingInvoices) {
                          if (credit <= 0) break;
                          const applied = Math.min(credit, document.remaining);
                          document.remaining = round2(document.remaining - applied);
                          credit = round2(credit - applied);
                     }
-                    unlinkedCredits += credit;
+                    if (creditEntry.party_type === 'nhis') unappliedNhisCredits += credit;
+                    else unlinkedCredits += credit;
                }
 
                let credit = round2(unlinkedCredits);
@@ -199,6 +245,7 @@ export class SubledgerService implements ISubledgerService {
                     rows.push({
                          documentId: Number(document.entry.id),
                          partyType: document.entry.party_type,
+                         classification: document.entry.classification,
                          partyId: document.entry.party_id ? Number(document.entry.party_id) : null,
                          partyName: patientName || document.entry.party_name,
                          patientIdentifier: patient?.fullpatientid || null,
@@ -224,7 +271,7 @@ export class SubledgerService implements ISubledgerService {
           const filteredRows = rows.filter((row: any) => {
                if (from && row.documentDate < from) return false;
                if (to && row.documentDate > to) return false;
-               if (patientIdFilter && String(row.partyId ?? '') !== patientIdFilter) return false;
+               if (patientIdFilter && (row.partyType !== 'patient' || String(row.partyId ?? '') !== patientIdFilter)) return false;
                if (validBuckets.has(ageBucket) && Number(row[ageBucket] || 0) <= 0) return false;
                if (!search) return true;
                return [row.partyName, row.partyId, row.patientIdentifier, row.reference]
@@ -254,7 +301,9 @@ export class SubledgerService implements ISubledgerService {
           const page = paginate(orderedRows, paging, sort);
 
           // totals stay whole-report figures so the aging buckets do not change as you page
-          return { rows: page.data, total: page.total, page: page.page, count: page.count, totals };
+          return { rows: page.data, total: page.total, page: page.page, count: page.count, totals,
+               // As-of ledger-wide amount, not assignable to an invoice/age bucket or invoice filter.
+               unappliedNhisCredits: round2(unappliedNhisCredits) };
      }
 
      async statement(
@@ -266,6 +315,24 @@ export class SubledgerService implements ISubledgerService {
           options?: { page?: number; count?: number }
      ): Promise<any> {
           const db = await this.connection();
+
+          if (ledger === 'AR') {
+               const query = db('acc_subledger_entries').where({ ledger })
+                    .orderBy([{ column: 'document_date', order: 'asc' }, { column: 'id', order: 'asc' }]);
+               if (to) query.andWhere('document_date', '<=', to);
+               const rows = (await attributeBillingEntries(db, await query))
+                    .filter((row) => row.party_type === partyType && Number(row.party_id) === partyId);
+               const openingBalance = round2(rows.filter((row) => from && toDateOnly(row.document_date) < from)
+                    .reduce((sum, row) => sum + Number(row.amount), 0));
+               let running = openingBalance;
+               const entries = rows.filter((row) => !from || toDateOnly(row.document_date) >= from).map((row) => {
+                    running = round2(running + Number(row.amount));
+                    return { ...row, runningBalance: running };
+               });
+               const paging = parsePaging(options || {}, 50);
+               return { entries: entries.slice(paging.offset, paging.offset + paging.count), total: entries.length,
+                    page: paging.page, count: paging.count, openingBalance, closingBalance: running };
+          }
 
           const openingRow = from
                ? await db('acc_subledger_entries')

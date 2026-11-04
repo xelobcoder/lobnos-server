@@ -1,3 +1,5 @@
+> Current rollout guidance is in [encryption-rollout.md](../../../../docs/encryption-rollout.md). New backups use streamed AES-256-GCM, random tenant data keys, authenticated key wrapping and masked settings passwords. The CBC and password-derived examples below describe the historical format retained for recovery compatibility.
+
 # EncryptionManager Documentation
 
 ## Overview

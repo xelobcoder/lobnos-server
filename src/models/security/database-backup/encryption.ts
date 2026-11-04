@@ -1,3 +1,6 @@
+import { assertEncryptedPaths } from '../../../security/storageEncryption';
+import { Readable } from 'node:stream';
+import { encryptBackupStream, decryptBackupFile } from './backupCipher';
 import KnexConnection from "../../../database/KnexConnections";
 import * as crypto from 'crypto';
 import * as fs from 'fs';
@@ -36,7 +39,17 @@ interface EncryptionKey {
 export default class EncryptionManager {
      private static readonly SETTINGS_TABLE = 'backup_security_settings';
      private static readonly KEYS_TABLE = 'encryption_keys';
-     private static readonly MASTER_KEY = process.env.BACKUP_MASTER_KEY
+     private static masterKey(): string {
+          const keyFile = process.env.BACKUP_MASTER_KEY_FILE;
+          if (keyFile && !path.isAbsolute(keyFile)) throw new Error('BACKUP_MASTER_KEY_FILE must be an absolute path');
+          const secret = keyFile ? fs.readFileSync(keyFile, 'utf8').trim() : process.env.BACKUP_MASTER_KEY;
+          if (!secret) throw new Error('Configure BACKUP_MASTER_KEY_FILE or BACKUP_MASTER_KEY before encrypting backups');
+          return secret;
+     }
+
+     static encryptionRequired(): boolean {
+          return process.env.PLS_ENCRYPTION_REQUIRED === 'true' || process.env.BACKUP_ENCRYPTION_REQUIRED === 'true' || process.env.NODE_ENV === 'production';
+     }
 
      static async getEffectiveStoragePath(tenantId: number): Promise<string> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
@@ -55,12 +68,15 @@ export default class EncryptionManager {
                .orderBy('created_at', 'desc')
                .first();
 
+          if (settings?.encryption_password?.startsWith('sealed:')) {
+               return { ...settings, encryption_password: this.decryptWithMasterKey(settings.encryption_password.slice(7), `backup-password:${tenantId}`).toString('utf8') };
+          }
           return settings || null;
      }
 
      static async shouldEncryptBackups(tenantId: number): Promise<boolean> {
           const settings = await this.getSecuritySettings(tenantId);
-          return !!settings?.encryption_password && settings.encryption_password.trim().length > 0;
+          return this.encryptionRequired() || !!settings?.encryption_enabled || !!settings?.encryption_password?.trim();
      }
 
      static async updateSecuritySettings(tenantId: number, updates: Partial<BackupSecuritySettings>): Promise<boolean> {
@@ -80,15 +96,22 @@ export default class EncryptionManager {
                .where('is_active', true)
                .first();
 
+          if (updates.encryption_password === '************') {
+               if (!existingSettings?.encryption_password) throw new Error('Enter an encryption password');
+               updates = { ...updates, encryption_password: undefined };
+          }
+          const password = updates.encryption_password?.toString().trim();
+          const storedPassword = password ? `sealed:${this.encryptWithMasterKey(Buffer.from(password), `backup-password:${tenantId}`)}` : null;
           if (existingSettings) {
                // Update existing settings
                const updated = await connection(this.SETTINGS_TABLE)
                     .where('is_active', true)
                     .update({
                          ...updates,
+                         encryption_algorithm: 'AES-256-GCM',
                          encryption_password: updates.encryption_password === undefined
                               ? existingSettings.encryption_password
-                              : (updates.encryption_password?.toString().trim() || null),
+                              : storedPassword,
                          updated_at: new Date()
                     });
 
@@ -97,8 +120,8 @@ export default class EncryptionManager {
                // Create new settings
                const newSettings = {
                     encryption_enabled: updates.encryption_enabled ?? false,
-                    encryption_algorithm: updates.encryption_algorithm ?? 'AES-256',
-                    encryption_password: updates.encryption_password?.toString().trim() || null,
+                    encryption_algorithm: 'AES-256-GCM',
+                    encryption_password: storedPassword,
                     key_rotation_days: updates.key_rotation_days ?? 90,
                     secure_deletion_enabled: updates.secure_deletion_enabled ?? false,
                     deletion_passes: updates.deletion_passes ?? 1,
@@ -122,29 +145,18 @@ export default class EncryptionManager {
           }
           const effectivePassword = userKey || settings?.encryption_password || '';
 
-          if (!effectivePassword.trim()) {
+          if (!effectivePassword.trim() && !this.encryptionRequired()) {
                throw new Error('No encryption password configured in backup security settings');
           }
-
-          let key: Buffer;
-
-          if (effectivePassword) {
-               // Validate password used as key source
-               const keyValidation = this.validateUserKey(effectivePassword);
-               if (!keyValidation.valid) {
-                    throw new Error(`Invalid encryption password: ${keyValidation.error}`);
-               }
-
-               // Derive a proper encryption key from password using scrypt.
-               key = crypto.scryptSync(effectivePassword, 'encryption-salt', 32);
-          } else {
-               // Generate random key as before
-               key = crypto.randomBytes(32);
+          if (userKey) {
+               const validation = this.validateUserKey(userKey);
+               if (!validation.valid) throw new Error(`Invalid encryption password: ${validation.error}`);
           }
+          // A fresh random data key on every rotation, independent of tenant passwords.
+          const key = crypto.randomBytes(32);
+          const keyId = `KEY-${crypto.randomUUID()}`;
 
-          const keyId = `KEY-${new Date().getFullYear()}-${String(Math.floor(Math.random() * 1000)).padStart(3, '0')}`;
-
-          const encryptedKey = this.encryptWithMasterKey(key);
+          const encryptedKey = this.encryptWithMasterKey(key, `backup-key:${tenantId}`);
 
           const expiresAt = new Date();
           expiresAt.setDate(expiresAt.getDate() + (settings.key_rotation_days || 90));
@@ -153,7 +165,7 @@ export default class EncryptionManager {
           await connection(this.KEYS_TABLE).insert({
                key_id: keyId,
                encrypted_key: encryptedKey,
-               algorithm: settings.encryption_algorithm,
+               algorithm: 'AES-256-GCM',
                expires_at: expiresAt,
                is_active: true,
                created_by: createdBy
@@ -167,7 +179,7 @@ export default class EncryptionManager {
           return keyId;
      }
 
-     static async getActiveEncryptionKey(tenantId: number): Promise<{ keyId: string; key: Buffer } | null> {
+     static async getActiveEncryptionKey(tenantId: number): Promise<{ keyId: string; key: Buffer; authenticated: boolean } | null> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
           if (!settings?.current_key_id) {
                return null;
@@ -183,105 +195,57 @@ export default class EncryptionManager {
                return null;
           }
 
-          const decryptedKey = this.decryptWithMasterKey(keyRecord.encrypted_key);
+          const decryptedKey = this.decryptWithMasterKey(keyRecord.encrypted_key, `backup-key:${tenantId}`);
           return {
                keyId: keyRecord.key_id,
-               key: decryptedKey
+               key: decryptedKey,
+               authenticated: keyRecord.encrypted_key.startsWith('v2:'),
           };
      }
 
-     static async encryptFile(tenantId: number, inputPath: string, outputPath: string): Promise<{ success: boolean; keyId?: string; error?: string }> {
-          try {
-               const settings = await this.getSecuritySettings(tenantId);
-               const configuredPassword = settings?.encryption_password?.trim();
-               if (!configuredPassword) {
-                    return { success: false, error: 'No encryption password configured' };
-               }
-
-               let keyInfo = await this.getActiveEncryptionKey(tenantId);
-               if (!keyInfo) {
-                    const newKeyId = await this.generateEncryptionKey(tenantId, undefined, configuredPassword);
-                    keyInfo = await this.getActiveEncryptionKey(tenantId);
-                    if (!keyInfo) {
-                         return { success: false, error: 'Failed to generate or retrieve encryption key' };
-                    }
-               }
-
-               const { key, keyId } = keyInfo;
-
-               const fileData = fs.readFileSync(inputPath);
-
-               const iv = crypto.randomBytes(16);
-
-               const cipher = crypto.createCipheriv('aes-256-cbc', key as any, iv as any);
-               const encrypted = Buffer.concat([
-                    iv as any,
-                    cipher.update(fileData as any) as any,
-                    cipher.final() as any
-               ]);
-
-               fs.writeFileSync(outputPath, encrypted as any);
-
-               return { success: true, keyId };
-
-          } catch (error) {
-               return {
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown encryption error'
-               };
+     static async prepareBackupEncryption(tenantId: number) {
+          let keyInfo = await this.getActiveEncryptionKey(tenantId);
+          if (!keyInfo || !keyInfo.authenticated || await this.isKeyRotationNeeded(tenantId)) {
+               await this.generateEncryptionKey(tenantId);
+               keyInfo = await this.getActiveEncryptionKey(tenantId);
           }
+          if (!keyInfo) throw new Error('Failed to retrieve the backup encryption key');
+          const { key, keyId } = keyInfo;
+          return { keyId, encrypt: (input: Readable, output: string) => encryptBackupStream(input, output, key, tenantId, keyId) };
+     }
+
+     static async encryptStream(tenantId: number, input: Readable, outputPath: string): Promise<{ success: boolean; keyId?: string; error?: string }> {
+          let sourceError: Error | undefined;
+          const captureError = (error: Error) => { sourceError = error; };
+          input.on('error', captureError);
+          try {
+               const encryption = await this.prepareBackupEncryption(tenantId);
+               if (sourceError) throw sourceError;
+               await encryption.encrypt(input, outputPath);
+               return { success: true, keyId: encryption.keyId };
+          } catch (error) {
+               input.destroy();
+               return { success: false, error: error instanceof Error ? error.message : 'Backup encryption failed' };
+          } finally {
+               input.off('error', captureError);
+          }
+     }
+
+     static async encryptFile(tenantId: number, inputPath: string, outputPath: string): Promise<{ success: boolean; keyId?: string; error?: string }> {
+          return this.encryptStream(tenantId, fs.createReadStream(inputPath), outputPath);
      }
 
      static async decryptFile(tenantId: number, inputPath: string, outputPath: string, keyId: string): Promise<{ success: boolean; error?: string }> {
           try {
-               console.log('Starting decryption for keyId:', keyId);
-               console.log("MASTER_KEY is set:", !!this.MASTER_KEY, process.env.BACKUP_MASTER_KEY);
-
+               if (process.env.STORAGE_ENCRYPTION_REQUIRED === 'true') await assertEncryptedPaths([path.dirname(path.resolve(outputPath))]);
                const connection = await KnexConnection(tenantId);
-               const keyRecord = await connection(this.KEYS_TABLE)
-                    .where('key_id', keyId)
-                    .first();
-
-               if (!keyRecord) {
-                    console.log('Encryption key not found in database');
-                    return { success: false, error: 'Encryption key not found' };
-               }
-
-               console.log('Found key record, decrypting with master key...');
-               const key = this.decryptWithMasterKey(keyRecord.encrypted_key);
-               console.log('Master key decryption successful, key length:', key.length);
-
-               console.log('Reading encrypted file:', inputPath);
-               const encryptedData = fs.readFileSync(inputPath);
-               console.log('Encrypted file size:', encryptedData.length);
-
-               const iv = encryptedData.slice(0, 16);
-               const encryptedContent = encryptedData.slice(16);
-               console.log('IV length:', iv.length, 'Encrypted content length:', encryptedContent.length);
-
-               console.log('Creating decipher...');
-               const decipher = crypto.createDecipheriv('aes-256-cbc', key as any, iv as any);
-               console.log('Decipher created, starting decryption...');
-
-               const decrypted = Buffer.concat([
-                    decipher.update(encryptedContent as any) as any,
-                    decipher.final() as any
-               ]);
-
-               console.log('Decryption successful, decrypted size:', decrypted.length);
-               console.log('First 200 bytes of decrypted data:', decrypted.slice(0, 200).toString('utf8').replace(/[^\x20-\x7E]/g, '.'));
-               console.log('Writing decrypted file to:', outputPath);
-               fs.writeFileSync(outputPath, decrypted as any);
-
-               console.log('Decryption completed successfully');
+               const record = await connection(this.KEYS_TABLE).where('key_id', keyId).first();
+               if (!record) throw new Error('Encryption key not found');
+               const key = this.decryptWithMasterKey(record.encrypted_key, `backup-key:${tenantId}`);
+               await decryptBackupFile(inputPath, outputPath, key, tenantId, keyId, !record.encrypted_key.startsWith('v2:'));
                return { success: true };
-
           } catch (error) {
-               console.error('Decryption error:', error);
-               return {
-                    success: false,
-                    error: error instanceof Error ? error.message : 'Unknown decryption error'
-               };
+               return { success: false, error: error instanceof Error ? error.message : 'Backup decryption failed' };
           }
      }
 
@@ -315,7 +279,7 @@ export default class EncryptionManager {
 
      static async isKeyRotationNeeded(tenantId: number): Promise<boolean> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
-          if (!settings?.encryption_enabled || !settings.key_last_rotated) {
+          if (!settings?.key_last_rotated) {
                return true;
           }
 
@@ -341,8 +305,10 @@ export default class EncryptionManager {
      }
 
      static async getAllEncryptionKeys(tenantId: number): Promise<EncryptionKey[]> {
+          await bootstrapBackupSecuritySettings(tenantId);
           const connection = await KnexConnection(tenantId);
           return await connection(this.KEYS_TABLE)
+               .select('id', 'key_id', 'algorithm', 'created_at', 'expires_at', 'is_active', 'deactivated_at', 'created_by')
                .orderBy('created_at', 'desc');
      }
 
@@ -366,37 +332,31 @@ export default class EncryptionManager {
           return this.decryptWithMasterKey(encryptedHex).toString('utf8');
      }
 
-     private static encryptWithMasterKey(data: Buffer): string {
-          if (!this.MASTER_KEY) {
-               throw new Error('BACKUP_MASTER_KEY environment variable is not set');
-          }
-
-          const key = crypto.scryptSync(this.MASTER_KEY, 'salt', 32);
-          const iv = crypto.randomBytes(16);
-          const cipher = crypto.createCipheriv('aes-256-cbc', key as any, iv as any);
-          const encrypted = Buffer.concat([
-               iv as any,
-               cipher.update(data as any) as any,
-               cipher.final() as any
-          ]);
-          return encrypted.toString('hex');
+     private static encryptWithMasterKey(data: Buffer, context = ''): string {
+          const salt = crypto.randomBytes(16);
+          const key = crypto.scryptSync(this.masterKey(), salt, 32);
+          const iv = crypto.randomBytes(12);
+          const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+          cipher.setAAD(Buffer.from(context));
+          const encrypted = Buffer.concat([cipher.update(data), cipher.final()]);
+          return `v2:${Buffer.concat([salt, iv, cipher.getAuthTag(), encrypted]).toString('base64')}`;
      }
 
-     private static decryptWithMasterKey(encryptedHex: string): Buffer {
-          if (!this.MASTER_KEY) {
-               throw new Error('BACKUP_MASTER_KEY environment variable is not set');
+     private static decryptWithMasterKey(value: string, context = ''): Buffer {
+          if (value.startsWith('v2:')) {
+               const data = Buffer.from(value.slice(3), 'base64');
+               if (data.length < 44) throw new Error('Invalid encrypted key');
+               const key = crypto.scryptSync(this.masterKey(), data.subarray(0, 16), 32);
+               const decipher = crypto.createDecipheriv('aes-256-gcm', key, data.subarray(16, 28));
+               decipher.setAAD(Buffer.from(context));
+               decipher.setAuthTag(data.subarray(28, 44));
+               return Buffer.concat([decipher.update(data.subarray(44)), decipher.final()]);
           }
-
-          const key = crypto.scryptSync(this.MASTER_KEY, 'salt', 32);
-          const encrypted = Buffer.from(encryptedHex, 'hex');
-          const iv = encrypted.slice(0, 16);
-          const encryptedData = encrypted.slice(16);
-          const decipher = crypto.createDecipheriv('aes-256-cbc', key as any, iv as any);
-          const decrypted = Buffer.concat([
-               decipher.update(encryptedData as any) as any,
-               decipher.final() as any
-          ]);
-          return decrypted;
+          // Existing keys and secrets remain readable during the staged rollout.
+          const key = crypto.scryptSync(this.masterKey(), 'salt', 32);
+          const encrypted = Buffer.from(value, 'hex');
+          const decipher = crypto.createDecipheriv('aes-256-cbc', key, encrypted.subarray(0, 16));
+          return Buffer.concat([decipher.update(encrypted.subarray(16)), decipher.final()]);
      }
 
      private static getOverwritePattern(pass: number): number {

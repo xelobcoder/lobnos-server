@@ -1,5 +1,5 @@
 node_modules
-.frontend-staging/
+/.frontend-staging/
 # Keep environment variables out of version control
 .zip
 FlowCharts

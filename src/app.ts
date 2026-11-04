@@ -1,3 +1,5 @@
+import { assertStorageEncryption } from './security/storageEncryption';
+import { configureTransport, applicationServer } from './security/transport';
 import { practitionerBoundary } from './middleware/practitionerBoundary';
 import { consultationRouter, publicPractitionerRouter } from './controllers/consultation/routes';
 import "reflect-metadata";
@@ -96,6 +98,7 @@ import { pharmacyModuleBoundary } from './middleware/pharmacyModuleBoundary';
 
 
 const app = express();
+configureTransport(app);
 const port = process.env.NODE_ENV === "development" ? process.env.DEVELOPMENT_PORT : process.env.PRODUCTION_PORT;
 
 // Financial, patient and session API responses must never enter a shared CDN cache.
@@ -271,6 +274,7 @@ app.get('/api/v1/health/redis', async (_req: Request, res: Response) => {
 
 
 async function startApplication() {
+    await assertStorageEncryption();
     const { readyTenants, accountingTenants } = await bootstrapTenants();
     await bootstrapMarketplace();
     if (readyTenants.length === 0) {
@@ -278,7 +282,7 @@ async function startApplication() {
     }
     const host = process.env.HOST || "0.0.0.0";
 
-    app.listen(Number(port), host, () => {
+    applicationServer(app).listen(Number(port), host, () => {
         logApplicationStarted(port);
         startApplicationBackgroundWorkers(accountingTenants, { accountingReady: accountingTenants.length > 0 });
         startPatientPortalWorkers(readyTenants);

@@ -21,6 +21,7 @@ import { AccountingError } from '../errors/AccountingErrors';
 import { minorUnits, sumMinor } from '../utils/money';
 import { CashFlowReviewInput, cashFlowReview, readCashFlowReview } from '../utils/cashFlow';
 import { inventoryValuation } from './InventoryValuationService';
+import { resolveBillingPayers } from './BillingPayer';
 
 const COST_OF_SALES_CODES = ['acc-5000'];
 const GENERAL_LEDGER_SORT_COLUMNS = [
@@ -298,6 +299,7 @@ export class AccountingReportService implements IAccountingReportService {
           const billIds = [...new Set(movements.map((row: any) => Number(row.billingid)).filter(Boolean))];
           const bills = billIds.length ? await db('billing').whereIn('billingid', billIds).select('billingid', 'patientid') : [];
           const patients = new Map(bills.map((row: any) => [Number(row.billingid), row.patientid]));
+          const billingPayers = ledger === 'AR' ? await resolveBillingPayers(db, bills) : undefined;
           // Expenses include commissions, utilities and other obligations, not only inventory receipts.
           const expenseIds = [...new Set(movements.map((row: any) => Number(row.expense_id)).filter(Boolean))];
           const expenses = expenseIds.length ? await db('expensesrecord').whereIn('id', expenseIds).select('*') : [];
@@ -315,10 +317,12 @@ export class AccountingReportService implements IAccountingReportService {
                const ref = movement.source_ref || String(movement.source_pk);
                const meta: any = sources.get(`${movement.source_table}:${ref}`);
                const expense: any = expenseById.get(Number(movement.expense_id));
-               const partyId = movement.party_ref ?? (ledger === 'AR' ? patients.get(Number(movement.billingid)) ?? meta?.party_id ?? null : supplierBySource.get(`${movement.source_table}:${ref}`) ?? meta?.party_id ?? expense?.merchantid ?? expense?.merchant ?? null);
-               const partyType = movement.party_type || (ledger === 'AR' ? 'patient' : supplierBySource.has(`${movement.source_table}:${ref}`) ? 'supplier' : meta?.party_type || (expense ? 'merchant' : 'unassigned'));
-               const patient: any = patientById.get(Number(partyId));
-               const partyName = movement.party_name || (ledger === 'AR' ? [patient?.firstname, patient?.middlename, patient?.lastname].filter(Boolean).join(' ') : meta?.party_name || null);
+               const payer = billingPayers?.get(Number(movement.billingid));
+               const nhis = payer?.classification === 'nhis' && (!movement.party_type || ['patient', 'nhis'].includes(movement.party_type));
+               const partyId = nhis ? payer.partyId : movement.party_ref ?? (ledger === 'AR' ? patients.get(Number(movement.billingid)) ?? meta?.party_id ?? null : supplierBySource.get(`${movement.source_table}:${ref}`) ?? meta?.party_id ?? expense?.merchantid ?? expense?.merchant ?? null);
+               const partyType = nhis ? 'nhis' : movement.party_type || (ledger === 'AR' ? meta?.party_type || 'patient' : supplierBySource.has(`${movement.source_table}:${ref}`) ? 'supplier' : meta?.party_type || (expense ? 'merchant' : 'unassigned'));
+               const patient: any = partyType === 'patient' ? patientById.get(Number(partyId)) : undefined;
+               const partyName = nhis ? payer.partyName : movement.party_name || (ledger === 'AR' ? [patient?.firstname, patient?.middlename, patient?.lastname].filter(Boolean).join(' ') || meta?.party_name || null : meta?.party_name || null);
                const reference = movement.document_ref || (movement.billingid ? `BILL-${movement.billingid}` : movement.expense_id ? `EXP-${movement.expense_id}` : meta?.document_ref || `${movement.source_table}:${ref}`);
                events.push({ id: movement.id, reference, partyId, partyType, partyName, patientIdentifier: patient?.fullpatientid || null,
                     documentDate: new Date(movement.occurred_at).toISOString().slice(0,10),
@@ -395,7 +399,7 @@ export class AccountingReportService implements IAccountingReportService {
           for (const doc of documents.values()) { if (!groups.has(doc.key)) groups.set(doc.key, []); groups.get(doc.key)!.push(doc); }
           const items: Array<any> = [];
           for (const docs of groups.values()) {
-               if (docs[0].partyType === 'pharmacy_supplier') {
+               if (['pharmacy_supplier', 'nhis'].includes(docs[0].partyType)) {
                     for (const doc of docs) {
                          if (doc.amount) items.push({ ...doc, reference: doc.amount < 0 ? `Unapplied credit: ${doc.reference}` : doc.reference,
                               amount: doc.amount / 100, age: doc.amount < 0 ? 0 : daysBetween(doc.date, cutoff) });

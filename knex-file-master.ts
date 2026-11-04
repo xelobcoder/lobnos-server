@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from './src/database/tls';
 // Load .env manually (parse and populate process.env before usage)
 import fs from "fs";
 import path from "path";
@@ -17,6 +18,7 @@ module.exports = {
           client: "mysql2",
           connection: {
                host: process.env.SYSTEM_CONFIG_DB_HOST,
+               ...databaseTlsOptions(process.env.SYSTEM_CONFIG_DB_HOST, 'SYSTEM_CONFIG_DB'),
                user: process.env.SYSTEM_CONFIG_DB_USERNAME,
                password: process.env.SYSTEM_CONFIG_DB_PASSWORD,
                database: process.env.SYSTEM_CONFIG_DATABASE,

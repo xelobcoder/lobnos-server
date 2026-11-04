@@ -9,9 +9,8 @@
 #   __UPSTREAM_PORT__   the app's PORT/PRODUCTION_PORT from that client's .env
 #   __APP_ROOT__        absolute path to that client's distribution folder (cert/, public/uploads/)
 #
-# TLS certs default to the self-signed cert shipped in cert/. Replace
-# ssl_certificate[_key] with certbot-issued paths (/etc/letsencrypt/live/<domain>/)
-# for a publicly trusted certificate.
+# Install a valid certificate and private key in cert/ before activation.
+# Cloudflare deployments use Full (strict), with a matching trusted origin certificate.
 # ---- generated config below ----
 
 # Login/auth brute-force protection. Zone name is namespaced per client since
@@ -84,21 +83,14 @@ server {
         return 404;
     }
 
-    # Serve uploaded files directly instead of round-tripping through Node.
-    # Uploads must never be executed as scripts.
-    location /uploads/ {
-        alias __APP_ROOT__/public/uploads/;
-        expires 7d;
-        access_log off;
-        location ~* \.(php|php3|php4|php5|phtml|pl|py|jsp|asp|sh|cgi)$ {
-            deny all;
-        }
-    }
+    # Uploads use the application proxy below so existing patient/file authorization applies.
 
     # Health check: quiet in logs, no rate limiting
     location = /api/v1/health {
         proxy_pass http://__CLIENT_NAME___backend;
         proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         access_log off;
     }
 

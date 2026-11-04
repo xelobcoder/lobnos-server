@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../../../database/tls';
 import fs from 'fs';
 import path from 'path';
 import mysql from 'mysql2/promise';
@@ -37,6 +38,7 @@ exports.seed = async function (knex: any) {
      const db = dbNameResult[0][0].db;
 
      const raw = await mysql.createConnection({
+          ...databaseTlsOptions(process.env.DB_HOST || 'localhost'),
           host: process.env.DB_HOST || 'localhost',
           port: Number(process.env.DB_PORT || 3306),
           user: process.env.DB_USERNAME || 'root',

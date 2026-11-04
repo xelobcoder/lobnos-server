@@ -28,6 +28,7 @@ beforeEach(async () => {
  CREATE TABLE acc_posting_outbox(id INTEGER PRIMARY KEY, status TEXT, payload TEXT, created_at TEXT);
  CREATE TABLE acc_subledger_entries(id INTEGER PRIMARY KEY, ledger TEXT, document_date TEXT, source_table TEXT, source_ref TEXT, party_id INTEGER, party_type TEXT, party_name TEXT, document_ref TEXT);
  CREATE TABLE billing(billingid INTEGER PRIMARY KEY, patientid INTEGER);
+ CREATE TABLE dboservices(billingid INTEGER,isNHIS INTEGER,serviceCategory TEXT,categoryTrackId INTEGER,registrationType TEXT,isDeleted INTEGER DEFAULT 0,isRefunded INTEGER DEFAULT 0,status TEXT);
  CREATE TABLE new_patients(patientid INTEGER PRIMARY KEY, firstname TEXT, middlename TEXT, lastname TEXT, fullpatientid TEXT);
  CREATE TABLE expensesrecord(id INTEGER PRIMARY KEY, merchantid INTEGER);
  CREATE TABLE acc_bank_accounts(id INTEGER PRIMARY KEY, gl_account_code TEXT, branchid INTEGER, is_active INTEGER);
@@ -75,6 +76,21 @@ describe('Accounting accuracy with real SQL queries', () => {
   const reports=new AccountingReportService(1);
   expect((await reports.payableAging('2026-09-30')).rows[0]).toMatchObject({partyId:42,total:100});
   expect((await reports.payableAging('2026-10-31')).totals.total).toBe(40);
+ });
+ it('attributes historical NHIS control-account movements to the payer and never applies one claim credit to another claim',async()=>{
+  await db('billing').insert([{billingid:62,patientid:101},{billingid:63,patientid:102}]);
+  await db('dboservices').insert([62,63].map(billingid=>({billingid,isNHIS:1,serviceCategory:'NHIS',categoryTrackId:4,registrationType:'nhis',status:'active'})));
+  for(const billingid of [62,63])await post('2026-01-15',[line('acc-1002',D.DEBIT,100,{billingid}),line('acc-4000',D.CREDIT,100)]);
+  await post('2026-10-01',[line('acc-1001',D.DEBIT,150),line('acc-1002',D.CREDIT,150,{billingid:62})]);
+  const reports=new AccountingReportService(1);
+  const aging=await reports.receivableAging('2026-10-31');
+  expect(aging.rows).toEqual(expect.arrayContaining([
+   expect.objectContaining({partyType:'nhis',partyId:1,reference:'BILL-63',total:100,documentDate:'2026-01-15'}),
+   expect.objectContaining({partyType:'nhis',reference:'Unapplied credit: BILL-62',total:-50}),
+  ]));
+  expect(aging.reconciliation.difference).toBe(0);
+  expect((await reports.controlStatement('AR','nhis',1,undefined,'2026-10-31')).closingBalance).toBe(50);
+  expect((await reports.controlStatement('AR','patient',101,undefined,'2026-10-31')).closingBalance).toBe(0);
  });
  it('keeps unapplied credits instead of hiding a control-account difference', async () => {
   await post('2026-10-01',[line('acc-1000',D.DEBIT,10),line('acc-1002',D.CREDIT,10)]);

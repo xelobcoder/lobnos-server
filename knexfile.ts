@@ -1,7 +1,9 @@
+import { databaseTlsOptions } from './src/database/tls';
 module.exports = {
      development: {
           client: "mysql2",
           connection: {
+               ...databaseTlsOptions('localhost'),
                host: 'localhost',
                user: 'primelab',
                password: 'Barcelona45##',

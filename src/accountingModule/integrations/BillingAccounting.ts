@@ -5,6 +5,7 @@ import { NormalBalance } from '../enums/normal-balance.enum';
 import { SourceModule } from '../enums/source-module.enum';
 import { TransactionType } from '../enums/transaction-type.enum';
 import { recordSubledgerEntry } from '../services/SubledgerService';
+import { resolveBillingPayer } from '../services/BillingPayer';
 import logger from '../../hooks/logger';
 
 const CASH = 'acc-1000';
@@ -44,6 +45,23 @@ export async function hasBillingReceivable(tenantId: number, billingId: number, 
      return !!posted;
 }
 
+/** Same coverage contract as hasBillingReceivable, without two queries per bill. */
+export async function billingReceivableIds(tenantId: number, billingIds: number[], trx?: any): Promise<Set<number>> {
+     const db = await resolveDb(tenantId, trx);
+     const covered = new Set<number>();
+     for (let offset = 0; offset < billingIds.length; offset += 400) {
+          const ids = billingIds.slice(offset, offset + 400);
+          for (const table of ['acc_posting_outbox', 'acc_journal_entries']) {
+               const query = db(table).where({ source_module: SourceModule.BILLING, source_table: 'billing' })
+                    .whereIn('source_pk', ids).whereIn('transaction_type', [TransactionType.ACCRUAL, TransactionType.ADJUSTMENT])
+                    .orderBy('source_pk').select('source_pk');
+               const rows = await (trx ? query.forUpdate() : query);
+               for (const row of rows) covered.add(Number(row.source_pk));
+          }
+     }
+     return covered;
+}
+
 export async function enqueueBillingReceivable(
      tenantId: number,
      billingId: number,
@@ -59,6 +77,7 @@ export async function enqueueBillingReceivable(
                .first();
 
           if (!bill) return;
+          const payer = await resolveBillingPayer(db, billingId, bill.patientid);
 
           const grossDelta = round2(Number(bill.payable || 0) - Number(previousPayable || 0));
           const taxDelta = round2(Number(bill.amountIncurredDueTax || 0) - Number(previousTax || 0));
@@ -104,8 +123,7 @@ export async function enqueueBillingReceivable(
 
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AR',
-               partyType: 'patient',
-               partyId: bill.patientid ? Number(bill.patientid) : null,
+               ...payer,
                documentType: isInitial ? 'invoice' : 'adjustment',
                documentRef: `BILL-${bill.billingid}`,
                documentDate: isInitial ? bill.billedon || new Date() : new Date(),
@@ -178,12 +196,12 @@ export async function enqueueBillingPayment(
           );
 
           if (onReceivableBasis) {
+               const payer = await resolveBillingPayer(db, billingId, bill?.patientid);
                await recordSubledgerEntry(tenantId, db, {
                     ledger: 'AR',
-                    partyType: 'patient',
-                    partyId: bill?.patientid ? Number(bill.patientid) : null,
+                    ...payer,
                     documentType: 'payment',
-                    documentRef: `PAY-${historyId}`,
+                    documentRef: payer.partyType === 'nhis' ? `BILL-${billingId}` : `PAY-${historyId}`,
                     documentDate: history?.Date || new Date(),
                     amount: -Number(paid),
                     sourceModule: SourceModule.BILLING,
@@ -248,12 +266,12 @@ export async function enqueueBillingWriteOff(
                db
           );
 
+          const payer = await resolveBillingPayer(db, billingId, bill?.patientid);
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AR',
-               partyType: 'patient',
-               partyId: bill?.patientid ? Number(bill.patientid) : null,
+               ...payer,
                documentType: 'write_off',
-               documentRef: `WO-${billingId}`,
+               documentRef: payer.partyType === 'nhis' ? `BILL-${billingId}` : `WO-${billingId}`,
                documentDate: new Date(),
                amount: -written,
                sourceModule: SourceModule.BILLING,
@@ -317,12 +335,12 @@ export async function enqueueStaffFocBenefit(
                db
           );
 
+          const payer = await resolveBillingPayer(db, Number(foc.billingid), bill?.patientid || foc.patientid);
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AR',
-               partyType: 'patient',
-               partyId: bill?.patientid ? Number(bill.patientid) : Number(foc.patientid),
+               ...payer,
                documentType: 'staff_foc',
-               documentRef: `FOC-${foc.id}`,
+               documentRef: payer.partyType === 'nhis' ? `BILL-${foc.billingid}` : `FOC-${foc.id}`,
                documentDate: foc.approved_on || foc.created_at || new Date(),
                amount: -amount,
                sourceModule: SourceModule.BILLING,
@@ -385,12 +403,12 @@ export async function enqueueStaffFocBenefitReversal(
                db
           );
 
+          const payer = await resolveBillingPayer(db, Number(foc.billingid), bill?.patientid || foc.patientid);
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AR',
-               partyType: 'patient',
-               partyId: bill?.patientid ? Number(bill.patientid) : Number(foc.patientid),
+               ...payer,
                documentType: 'staff_foc_reversal',
-               documentRef: `FOC-REVERSAL-${foc.id}`,
+               documentRef: payer.partyType === 'nhis' ? `BILL-${foc.billingid}` : `FOC-REVERSAL-${foc.id}`,
                documentDate: foc.reversed_at || new Date(),
                amount,
                sourceModule: SourceModule.BILLING,
@@ -471,6 +489,7 @@ export async function enqueueBillingRefund(
                     : [];
 
           if (lines.length === 0) return;
+          const payer = await resolveBillingPayer(db, billingId, bill?.patientid);
 
           await enqueuePosting(
                tenantId,
@@ -492,10 +511,9 @@ export async function enqueueBillingRefund(
           if (onReceivableBasis && voided > 0) {
                await recordSubledgerEntry(tenantId, db, {
                     ledger: 'AR',
-                    partyType: 'patient',
-                    partyId: bill?.patientid ? Number(bill.patientid) : null,
+                    ...payer,
                     documentType: 'credit_note',
-                    documentRef: `CN-${billingId}`,
+                    documentRef: payer.partyType === 'nhis' ? `BILL-${billingId}` : `CN-${billingId}`,
                     documentDate: new Date(),
                     amount: -voided,
                     sourceModule: SourceModule.BILLING,
@@ -510,10 +528,9 @@ export async function enqueueBillingRefund(
                const refundSourceRef = refundHistoryId ? String(refundHistoryId) : String(billingId);
                await recordSubledgerEntry(tenantId, db, {
                     ledger: 'AR',
-                    partyType: 'patient',
-                    partyId: bill?.patientid ? Number(bill.patientid) : null,
+                    ...payer,
                     documentType: 'refund',
-                    documentRef: `REFUND-${refundSourceRef}`,
+                    documentRef: payer.partyType === 'nhis' ? `BILL-${billingId}` : `REFUND-${refundSourceRef}`,
                     documentDate: refundHistory?.Date || new Date(),
                     amount: refunded,
                     sourceModule: SourceModule.BILLING,

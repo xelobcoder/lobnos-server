@@ -24,6 +24,7 @@ beforeEach(async()=>{
  CREATE TABLE acc_bank_accounts(id INTEGER PRIMARY KEY,gl_account_code TEXT);
  CREATE TABLE acc_subledger_entries(id INTEGER PRIMARY KEY,ledger TEXT,document_date TEXT,source_table TEXT,source_ref TEXT,party_id INTEGER,party_type TEXT,party_name TEXT,document_ref TEXT);
  CREATE TABLE billing(billingid INTEGER PRIMARY KEY,patientid INTEGER);
+ CREATE TABLE dboservices(billingid INTEGER,isNHIS INTEGER,serviceCategory TEXT,categoryTrackId INTEGER,registrationType TEXT,isDeleted INTEGER DEFAULT 0,isRefunded INTEGER DEFAULT 0,status TEXT);
  CREATE TABLE new_patients(patientid INTEGER PRIMARY KEY,firstname TEXT,middlename TEXT,lastname TEXT,fullpatientid TEXT);
  CREATE TABLE expense_merchants(id INTEGER PRIMARY KEY,name TEXT);
  CREATE TABLE dboexpensecategory(id INTEGER PRIMARY KEY,category TEXT);

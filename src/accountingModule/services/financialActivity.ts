@@ -5,6 +5,7 @@ export function financialActivity(db: Knex, branchId: number) {
           db('billing').where({ branchid: branchId }).select(db.raw('DATE(billedon) AS financial_date')),
           db('dboservices').where({ branchid: branchId }).select(db.raw('DATE(serviceAddedOn) AS financial_date')),
           db('billinghx as receipt').join('billing as bill', 'bill.billingid', 'receipt.Billingid').where('bill.branchid', branchId).select(db.raw('DATE(receipt.Date) AS financial_date')),
+          db('acc_nhis_events').where({ branchid: branchId }).select(db.raw('DATE(event_date) AS financial_date')),
           db('dbobillingrefundtable as refund').join('dboservices as service', 'service.serviceid', 'refund.serviceid').where('service.branchid', branchId).where('refund.isRefundCompleted', 1).select(db.raw('DATE(refund.approvalDate) AS financial_date')),
           db('expensesrecord').where({ branchid: branchId }).select(db.raw('DATE(date) AS financial_date')),
           db('expense_payments').where({ branchid: branchId }).select(db.raw('DATE(payment_date) AS financial_date')),

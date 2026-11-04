@@ -1,11 +1,13 @@
+import { assertEncryptedPaths } from '../../../security/storageEncryption';
+import { tmpdir } from 'node:os';
+import { randomUUID } from 'node:crypto';
+import { withDatabaseDump, runBackupProcess } from './backupProcess';
 import KnexConnection from "../../../database/KnexConnections";
 import * as fs from 'fs';
 import * as path from 'path';
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import EncryptionManager from './encryption';
 
-const execAsync = promisify(exec);
+
 
 interface BackupLog {
      id?: number;
@@ -157,77 +159,26 @@ export default class BackupManager {
           const startTime = Date.now();
 
           try {
+               encryptBackup = encryptBackup || await EncryptionManager.shouldEncryptBackups(tenantId);
                if (!fs.existsSync(backupPath)) {
                     fs.mkdirSync(backupPath, { recursive: true });
                }
 
+               if (process.env.STORAGE_ENCRYPTION_REQUIRED === 'true') {
+                    await assertEncryptedPaths([path.resolve(backupPath), path.resolve(process.env.BACKUP_TEMP_DIRECTORY || tmpdir())]);
+               }
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-               const filename = `${backupName}_${timestamp}.sql`;
+               const filename = `${backupName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${timestamp}_${randomUUID()}.sql${encryptBackup ? ".encrypted" : ""}`;
                const fullPath = path.join(backupPath, filename);
 
                const connection = await KnexConnection(tenantId);
                const config = connection.client.config;
 
-               let command: string;
-
-               if (config.client === 'mysql' || config.client === 'mysql2') {
-                    const host = config.connection.host;
-                    const port = config.connection.port;
-                    const user = config.connection.user;
-                    const password = config.connection.password;
-                    const database = config.connection.database;
-
-                    const mysqldumpPath = process.platform === 'win32'
-                         ? '"C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe"'
-                         : 'mysqldump';
-                    command = `${mysqldumpPath} -h ${host} -P ${port} -u ${user} --password=${password} ${database} > "${fullPath}"`;
-               } else if (config.client === 'postgresql') {
-                    const host = config.connection.host;
-                    const port = config.connection.port;
-                    const user = config.connection.user;
-                    const password = config.connection.password;
-                    const database = config.connection.database;
-
-                    const env = password ? { ...process.env, PGPASSWORD: password } : process.env;
-                    command = `pg_dump -h ${host} -p ${port} -U ${user} -d ${database} -f "${fullPath}"`;
-               } else {
-                    throw new Error(`Unsupported database client: ${config.client}`);
-               }
-
-               await execAsync(command);
-
-               const stats = fs.statSync(fullPath);
-               let size = stats.size;
+               const encryptionKeyId = await withDatabaseDump(config, (binary, args, env) =>
+                    runBackupProcess(binary, args, tenantId, fullPath, encryptBackup, env));
+               const size = fs.statSync(fullPath).size;
                const duration = Math.floor((Date.now() - startTime) / 1000);
-
-               let finalBackupPath = fullPath;
-               let encryptionKeyId: string | undefined;
-
-               // Encryption enabled - backups are stored encrypted
-               if (encryptBackup) {
-                    const encryptedPath = `${fullPath}.encrypted`;
-                    const encryptionResult = await EncryptionManager.encryptFile(tenantId, fullPath, encryptedPath);
-
-                    if (encryptionResult.success) {
-                         // Securely delete the unencrypted file
-                         await EncryptionManager.secureDeleteFile(fullPath);
-                         finalBackupPath = encryptedPath;
-                         encryptionKeyId = encryptionResult.keyId;
-
-                         // Update file size to encrypted size
-                         const encryptedStats = fs.statSync(finalBackupPath);
-                         size = encryptedStats.size;
-                    } else {
-                         // Encryption failed - attempt to clean up unencrypted file and throw error
-                         try {
-                              await EncryptionManager.secureDeleteFile(fullPath);
-                         } catch (deleteError) {
-                              console.error('Failed to delete unencrypted backup file after encryption failure:', deleteError);
-                              // Continue with throwing the encryption error - unencrypted file may remain but backup will be marked as failed
-                         }
-                         throw new Error(`Backup encryption failed: ${encryptionResult.error}`);
-                    }
-               }
+               const finalBackupPath = fullPath;
 
                await this.create(tenantId, {
                     backup_name: backupName,
@@ -290,49 +241,26 @@ export default class BackupManager {
           const startTime = Date.now();
 
           try {
+               encryptBackup = encryptBackup || await EncryptionManager.shouldEncryptBackups(tenantId);
                if (!fs.existsSync(backupPath)) {
                     fs.mkdirSync(backupPath, { recursive: true });
                }
 
+               if (process.env.STORAGE_ENCRYPTION_REQUIRED === 'true') {
+                    await assertEncryptedPaths([path.resolve(backupPath), path.resolve(process.env.BACKUP_TEMP_DIRECTORY || tmpdir())]);
+               }
                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
-               const filename = `${backupName}_${timestamp}.tar.gz`;
+               const filename = `${backupName.replace(/[^a-zA-Z0-9_-]/g, "_")}_${timestamp}_${randomUUID()}.tar.gz${encryptBackup ? ".encrypted" : ""}`;
                const fullPath = path.join(backupPath, filename);
 
-               const command = `tar -czf "${fullPath}" -C "${sourcePath}" .`;
-               await execAsync(command);
-
-               const stats = fs.statSync(fullPath);
-               let size = stats.size;
+               const relativeDestination = path.relative(path.resolve(sourcePath), path.resolve(backupPath));
+               if (!relativeDestination) throw new Error('Backup source and destination must be different directories');
+               const exclusions = !relativeDestination.startsWith('..') && !path.isAbsolute(relativeDestination)
+                    ? [`--exclude=./${relativeDestination.split(path.sep).join('/')}`] : [];
+               const encryptionKeyId = await runBackupProcess('tar', [...exclusions, '-czf', '-', '-C', sourcePath, '.'], tenantId, fullPath, encryptBackup);
+               const size = fs.statSync(fullPath).size;
                const duration = Math.floor((Date.now() - startTime) / 1000);
-
-               let finalBackupPath = fullPath;
-               let encryptionKeyId: string | undefined;
-
-               // Encryption enabled - backups are stored encrypted
-               if (encryptBackup) {
-                    const encryptedPath = `${fullPath}.encrypted`;
-                    const encryptionResult = await EncryptionManager.encryptFile(tenantId, fullPath, encryptedPath);
-
-                    if (encryptionResult.success) {
-                         // Securely delete the unencrypted file
-                         await EncryptionManager.secureDeleteFile(fullPath);
-                         finalBackupPath = encryptedPath;
-                         encryptionKeyId = encryptionResult.keyId;
-
-                         // Update file size to encrypted size
-                         const encryptedStats = fs.statSync(finalBackupPath);
-                         size = encryptedStats.size;
-                    } else {
-                         // Encryption failed - attempt to clean up unencrypted file and throw error
-                         try {
-                              await EncryptionManager.secureDeleteFile(fullPath);
-                         } catch (deleteError) {
-                              console.error('Failed to delete unencrypted backup file after encryption failure:', deleteError);
-                              // Continue with throwing the encryption error - unencrypted file may remain but backup will be marked as failed
-                         }
-                         throw new Error(`Backup encryption failed: ${encryptionResult.error}`);
-                    }
-               }
+               const finalBackupPath = fullPath;
 
                await this.create(tenantId, {
                     backup_name: backupName,

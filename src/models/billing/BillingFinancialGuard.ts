@@ -30,6 +30,8 @@ export async function assertMutableBill(db: any, tenantId: number, bill: any): P
     const record = await db('financial_record_locks').where({ source_table: 'billing', source_ref: String(bill.billingid) }).forUpdate().first();
     if (record) throw new Error('Financial record is finalized and immutable');
     await guard.assertRecordMutable('billing', bill.billingid);
+    const nhisAllocation = await db('acc_nhis_allocations').where({ billingid: bill.billingid }).forUpdate().first();
+    if (nhisAllocation) throw new Error('This bill has linked NHIS accounting events. Use NHIS settlements or linked reversals instead of changing the original bill.');
 }
 
 /** Derived close column: the existing sign-off/day-close/record manifest are the sole authority. */

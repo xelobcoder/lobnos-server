@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { Request, Response } from 'express';
 import * as fs from 'fs';
 import BackupManager from '../../models/security/database-backup/backup';
@@ -12,7 +13,9 @@ export class EncryptionController {
 
                res.json({
                     status: true,
-                    data: settings
+                    encryption_required: EncryptionManager.encryptionRequired(),
+                    data: settings ? { ...settings, encryption_password: settings.encryption_password ? '************' : null,
+                         encryption_required: EncryptionManager.encryptionRequired() } : null
                });
           } catch (error:any) {
                res.status(500).json({
@@ -151,7 +154,7 @@ export class EncryptionController {
                     keyId = keyInfo.keyId;
                }
 
-               const finalOutputPath = outputPath || backup.backup_path.replace('.encrypted', '_decrypted');
+               const finalOutputPath = outputPath || `${backup.backup_path.replace(/\.encrypted$/, '')}.${randomUUID()}.decrypted`;
 
                const result = await EncryptionManager.decryptFile(tenantId, backup.backup_path, finalOutputPath, keyId);
 

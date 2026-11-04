@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from './tls';
 import mysql from "mysql2/promise";
 import knex from 'knex';
 
@@ -32,12 +33,13 @@ const config: Record<string, DBConfig> = {
 	},
 };
 
-const databaseConnectionPool = mysql.createPool(config[environment] as mysql.PoolOptions);
+const databaseConnectionPool = mysql.createPool({ ...config[environment], ...databaseTlsOptions(config[environment].host) } as mysql.PoolOptions);
 
 const singleTenantKnexInstance = knex({
 	client: 'mysql2',
 	connection: {
 		host: config[environment].host,
+		...databaseTlsOptions(config[environment].host),
 		user: config[environment].user,
 		password: config[environment].password,
 		database: config[environment].database,
@@ -60,6 +62,7 @@ const systemConfigConnection = knex({
 	client: "mysql2",
 	connection: {
 		host: process.env.SYSTEM_CONFIG_DB_HOST || config[environment].host,
+		...databaseTlsOptions(process.env.SYSTEM_CONFIG_DB_HOST || config[environment].host, 'SYSTEM_CONFIG_DB'),
 		user: process.env.SYSTEM_CONFIG_DB_USERNAME || config[environment].user,
 		password: process.env.SYSTEM_CONFIG_DB_PASSWORD || config[environment].password,
 		database: process.env.SYSTEM_CONFIG_DATABASE || 'primelabmaster_control',

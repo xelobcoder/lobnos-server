@@ -40,6 +40,8 @@
     "service:backup:stop:win": "powershell -ExecutionPolicy Bypass -File ./scripts/windows/service-control.ps1 -Action stop -ServiceName bkspls",
     "service:backup:restart:win": "powershell -ExecutionPolicy Bypass -File ./scripts/windows/service-control.ps1 -Action restart -ServiceName bkspls",
     "service:backup:status:win": "powershell -ExecutionPolicy Bypass -File ./scripts/windows/service-control.ps1 -Action status -ServiceName bkspls",
+    "security:storage-check": "node --env-file=./.env ./dist/src/scripts/security-preflight.js",
+    "backup:encrypted": "node --env-file=./.env ./dist/src/scripts/secure-backup.js",
     "backup-scheduler:start": "node --env-file=./.env ./dist/src/scripts/backup-scheduler.js start",
     "email:worker": "node --env-file=./.env ./dist/src/models/application/email/workers/emailQueueWorker.js",
     "email:worker:dev": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js --files ./src/models/application/email/workers/emailQueueWorker.ts",

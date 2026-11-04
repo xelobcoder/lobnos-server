@@ -1,6 +1,7 @@
 import { accountingSqlDatabase } from './accountingSqlDatabase';
 import { ensureBillingIntegritySchema } from '../models/billing/BillingIntegritySchema';
 import { ensureFinancialLockSchema } from '../accountingModule/init/financialLockSchema';
+import { ensureNhisAccountingSchema } from '../accountingModule/init/nhisAccountingSchema';
 
 /** Synthetic financial records only; no tenant connections. */
 export async function billingIntegrityDatabase(count = 4, gross = 110, tax = 10) {
@@ -25,6 +26,7 @@ export async function billingIntegrityDatabase(count = 4, gross = 110, tax = 10)
     `);
     await ensureBillingIntegritySchema(db);
     await ensureFinancialLockSchema(db);
+    await ensureNhisAccountingSchema(db);
     await db('paymentmodes').insert([{ KeyID: 1 }, { KeyID: 2 }]);
     await db('billing').insert({ billingid: 1, patientid: 7, branchid: 2, billedon: '2026-10-01', status: 'paid',
         paid: count * gross, payable: count * gross, outstanding: 0, balance: 0, amountIncurredDueTax: count * tax, totalcost: count * gross });

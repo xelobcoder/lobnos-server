@@ -231,6 +231,8 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                { module: 'billing', table: 'billing', key: 'billingid', query: trx('billing').where({ branchid: branchId }).whereRaw('DATE(billedon) = ?', [financialDate]) },
                { module: 'billing', table: 'dboservices', key: 'serviceid', query: trx('dboservices').where({ branchid: branchId }).whereRaw('DATE(serviceAddedOn) = ?', [financialDate]) },
                { module: 'billing', table: 'billinghx', key: 'KeyID', query: trx('billinghx as row').join('billing as bill', 'bill.billingid', 'row.Billingid').where('bill.branchid', branchId).whereRaw('DATE(row.Date) = ?', [financialDate]).select('row.*') },
+               { module: 'billing', table: 'acc_nhis_events', key: 'id', query: trx('acc_nhis_events').where({ branchid: branchId, event_date: financialDate }) },
+               { module: 'billing', table: 'acc_nhis_allocations', key: 'id', query: trx('acc_nhis_allocations as row').join('acc_nhis_events as event', 'event.id', 'row.event_id').where({ 'event.branchid': branchId, 'event.event_date': financialDate }).select('row.*') },
                { module: 'expense', table: 'expensesrecord', key: 'id', query: trx('expensesrecord').where({ branchid: branchId }).whereRaw('DATE(date) = ?', [financialDate]) },
                { module: 'expense', table: 'expense_payments', key: 'id', query: trx('expense_payments').where({ branchid: branchId }).whereRaw('DATE(payment_date) = ?', [financialDate]) },
                { module: 'billing', table: 'receipts', key: 'id', query: trx('receipts as row').join('billing as bill', 'bill.billingid', 'row.billingid').where('bill.branchid', branchId).whereRaw('DATE(row.generated_at) = ?', [financialDate]).select('row.*') },

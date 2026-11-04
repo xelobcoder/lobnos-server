@@ -1,5 +1,7 @@
 import KnexConnection from '../../database/KnexConnections';
 import { parsePaging, parseSort } from '../utils/pagination';
+import { billingPayer, billingPayerClassificationSql, BillingPayerClassification } from './BillingPayer';
+import Decimal from 'decimal.js';
 
 export interface ReceivableFilters {
      from?: string;
@@ -8,6 +10,7 @@ export interface ReceivableFilters {
      page?: number;
      count?: number;
      sortby?: string;
+     payerType?: string;
 }
 
 function dateBoundary(value: string, nextDay = false): string {
@@ -26,18 +29,33 @@ export class OutstandingReceivablesService {
           const from = filters.from ? dateBoundary(filters.from) : undefined;
           const to = filters.to ? dateBoundary(filters.to, true) : undefined;
           if (filters.from && filters.to && filters.from > filters.to) throw new Error('From date must not exceed to date');
+          if (filters.payerType && !['nhis', 'patient', 'mixed'].includes(filters.payerType)) {
+               throw new Error('payerType must be nhis, patient or mixed');
+          }
           const db = await KnexConnection(this.tenantId);
           const paging = parsePaging({ page: Math.trunc(Number(filters.page)), count: Math.trunc(Number(filters.count)) }, 25);
           const sort = parseSort(filters, ['documentDate'], { column: 'documentDate', direction: 'desc' });
+          const classification = billingPayerClassificationSql();
+          const settled = `(CASE WHEN ${classification} = 'nhis' THEN COALESCE(nhis.settled, 0) ELSE 0 END)`;
+          const outstanding = `(bill.outstanding - ${settled})`;
+          const allocations = db('acc_nhis_allocations as allocation')
+               .join('acc_nhis_events as event', 'event.id', 'allocation.event_id')
+               .select('allocation.billingid')
+               .sum('allocation.amount as settled')
+               .select(db.raw("SUM(CASE WHEN event.kind = 'receipt' OR (event.kind = 'reversal' AND event.reverses_kind = 'receipt') THEN allocation.amount ELSE 0 END) AS received"))
+               .groupBy('allocation.billingid').as('nhis');
           const base = db('billing as bill')
                .leftJoin('new_patients as patient', 'patient.patientid', 'bill.patientid')
+               .leftJoin(allocations, 'nhis.billingid', 'bill.billingid')
                .where('bill.outstanding', '>', 0)
+               .whereRaw(`${outstanding} > 0`)
                .where((query) => {
                     query.whereNull('bill.status').orWhereNotIn('bill.status', ['voided', 'corrected', 'written-off']);
                });
 
           if (from) base.andWhere('bill.billedon', '>=', from);
           if (to) base.andWhere('bill.billedon', '<', to);
+          if (filters.payerType) base.andWhereRaw(`${classification} = ?`, [filters.payerType]);
           const search = String(filters.search || '').trim();
           if (search) {
                const text = `%${search.replace(/[\\%_]/g, '\\$&')}%`;
@@ -52,9 +70,15 @@ export class OutstandingReceivablesService {
           }
 
           const [summary, bills] = await Promise.all([
-               base.clone().select(db.raw('COUNT(*) AS documents'), db.raw('COALESCE(SUM(bill.outstanding), 0) AS outstanding')).first<{ documents: number | string; outstanding: number | string }>(),
+               base.clone().select(db.raw('COUNT(*) AS documents'), db.raw(`COALESCE(SUM(${outstanding}), 0) AS outstanding`),
+                    ...(['nhis', 'patient', 'mixed'] as const).map((payer) =>
+                         db.raw(`COALESCE(SUM(CASE WHEN ${classification} = ? THEN ${outstanding} ELSE 0 END), 0) AS ??`, [payer, payer]))
+               ).first<any>(),
                base.clone().select(
-                    'bill.billingid', 'bill.patientid', 'bill.billedon', 'bill.outstanding', 'patient.fullpatientid',
+                    'bill.billingid', 'bill.patientid', 'bill.billedon', 'bill.outstanding', 'bill.paid', 'patient.fullpatientid',
+                    db.raw(`${classification} AS classification`), db.raw(`${settled} AS nhis_settled`),
+                    db.raw(`CASE WHEN ${classification} = 'nhis' THEN COALESCE(nhis.received, 0) ELSE 0 END AS nhis_received`),
+                    db.raw(`${outstanding} AS payer_outstanding`),
                     db.raw("CONCAT_WS(' ', patient.firstname, patient.middlename, patient.lastname) AS patient_name")
                ).orderBy('bill.billedon', sort.direction).orderBy('bill.billingid', sort.direction).limit(paging.count).offset(paging.offset),
           ]);
@@ -62,18 +86,25 @@ export class OutstandingReceivablesService {
           return {
                rows: bills.map((bill: any) => ({
                     billingId: Number(bill.billingid),
-                    partyType: 'patient',
-                    partyId: Number(bill.patientid) || null,
-                    partyName: bill.patient_name || null,
+                    ...billingPayer((bill.classification || 'patient') as BillingPayerClassification, Number(bill.patientid)),
+                    partyName: bill.classification === 'nhis' ? billingPayer('nhis').partyName : bill.patient_name || null,
+                    patientName: bill.patient_name || null,
                     patientIdentifier: bill.fullpatientid || null,
                     reference: `BILL-${bill.billingid}`,
                     documentDate: bill.billedon instanceof Date ? bill.billedon.toISOString().slice(0, 10) : String(bill.billedon).slice(0, 10),
-                    total: Number(bill.outstanding),
+                    headerOutstanding: Number(bill.outstanding),
+                    nhisSettledAmount: Number(bill.nhis_settled || 0),
+                    nhisReceivedAmount: Number(bill.nhis_received || 0),
+                    payerPaid: new Decimal(bill.paid || 0).plus(bill.nhis_received || 0).toDecimalPlaces(2).toNumber(),
+                    payerOutstanding: Number(bill.payer_outstanding ?? bill.outstanding),
+                    total: Number(bill.payer_outstanding ?? bill.outstanding),
                })),
                total: Number(summary?.documents || 0),
                page: paging.page,
                count: paging.count,
-               totals: { total: Number(summary?.outstanding || 0) },
+               totals: { total: Number(summary?.outstanding || 0), byPayer: {
+                    nhis: Number(summary?.nhis || 0), patient: Number(summary?.patient || 0), mixed: Number(summary?.mixed || 0),
+               } },
           };
      }
 }

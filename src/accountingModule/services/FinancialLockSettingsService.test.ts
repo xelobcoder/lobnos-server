@@ -26,6 +26,7 @@ async function fixture() {
        CREATE TABLE billing(billingid INTEGER PRIMARY KEY,branchid INTEGER,billedon TEXT,record_validated_and_signed_off INTEGER);
        CREATE TABLE dboservices(serviceid INTEGER PRIMARY KEY,branchid INTEGER,serviceAddedOn TEXT);
        CREATE TABLE billinghx(Billingid INTEGER,Date TEXT);
+       CREATE TABLE acc_nhis_events(id INTEGER PRIMARY KEY,branchid INTEGER,event_date TEXT);
        CREATE TABLE dbobillingrefundtable(serviceid INTEGER,isRefundCompleted INTEGER,approvalDate TEXT);
        CREATE TABLE expensesrecord(branchid INTEGER,date TEXT);
        CREATE TABLE expense_payments(branchid INTEGER,payment_date TEXT);

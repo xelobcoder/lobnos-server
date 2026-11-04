@@ -5,13 +5,19 @@ vi.mock('../../accountingModule/integrations/BillingAccounting', () => ({ enqueu
 vi.mock('../Expenses/AutomatedExpenseLifecycle', () => ({ default: class { async process() {} } }));
 import MultiPayment from './multi-payment';
 import { accountingSqlDatabase } from '../../testSupport/accountingSqlDatabase';
+import { ensureNhisAccountingSchema } from '../../accountingModule/init/nhisAccountingSchema';
 let db:any, native:any;
 const request=(overrides:any={})=>({ service_payments:[{service_id:10,billing_id:42,amount:25,waive_off:0,discount:0,payment_mode_id:8}],total_amount:25,total_waive_off:0,total_discount:0,employeeid:9,tenantId:3,description:'Synthetic collection',...overrides });
 beforeEach(async()=>{
  ({db,native}=accountingSqlDatabase());connectionMock.mockResolvedValue(db);vi.clearAllMocks();
  native.exec(`
  CREATE TABLE billing(billingid INTEGER PRIMARY KEY, patientid INTEGER, writeoff NUMERIC DEFAULT 0, paid NUMERIC DEFAULT 0, outstanding NUMERIC DEFAULT 40, payable NUMERIC DEFAULT 40, status TEXT, clientstatus TEXT, lastupdatedby INTEGER, adjustmentType TEXT, adjustmentamount NUMERIC, adjustmentReason TEXT, adjustedBy INTEGER, adjustmentdate TEXT, isAdjustment INTEGER);
- CREATE TABLE dboservices(serviceid INTEGER PRIMARY KEY,billingid INTEGER,branchid INTEGER,paidamount NUMERIC,outstanding NUMERIC,totalpayable NUMERIC,paymentstatus TEXT,status TEXT);
+ CREATE TABLE dboservices(serviceid INTEGER PRIMARY KEY,billingid INTEGER,branchid INTEGER,paidamount NUMERIC,outstanding NUMERIC,totalpayable NUMERIC,paymentstatus TEXT,status TEXT,
+ trackId INTEGER,categoryTrackId INTEGER DEFAULT 1,serviceCategory TEXT DEFAULT 'GENERAL',registrationType TEXT DEFAULT 'self',isNHIS INTEGER DEFAULT 0,isDeleted INTEGER DEFAULT 0,isRefunded INTEGER DEFAULT 0,
+ totalcost NUMERIC DEFAULT 0,discount NUMERIC DEFAULT 0,amountIncurredDueTax NUMERIC DEFAULT 0);
+ CREATE TABLE dbobillingrefundtable(serviceid INTEGER PRIMARY KEY,amountRefunded NUMERIC DEFAULT 0);
+ CREATE TABLE test_panels(id INTEGER PRIMARY KEY,name TEXT);
+ CREATE TABLE additionalservices(keyid INTEGER PRIMARY KEY,serviceName TEXT);
  CREATE TABLE billinghx(KeyID INTEGER PRIMARY KEY,billingid INTEGER,paymentmode INTEGER,amount NUMERIC,employeeid INTEGER,type TEXT);
  CREATE TABLE acc_collection_requests(request_key TEXT PRIMARY KEY,fingerprint TEXT,created_at TEXT);
  CREATE TABLE gateway_payment_applications(reference TEXT PRIMARY KEY,billing_id INTEGER,amount_minor INTEGER);
@@ -22,6 +28,7 @@ beforeEach(async()=>{
  ALTER TABLE billing ADD COLUMN branchid INTEGER DEFAULT 4;
  ALTER TABLE billing ADD COLUMN billedon TEXT DEFAULT '2026-10-01';
  `);
+ await ensureNhisAccountingSchema(db);
  await db('billing').insert({billingid:42,patientid:21});
  await db('dboservices').insert({serviceid:10,billingid:42,branchid:4,paidamount:0,outstanding:40,totalpayable:40,paymentstatus:'pending',status:'active'});
  cashPosting.mockImplementation(async(_t:any,_h:any,_b:any,amount:any,_e:any,trx:any)=>trx('test_postings').insert({type:'cash',amount}));
@@ -74,6 +81,27 @@ describe('Cash collection SQL transactions',()=>{
   const result=await new MultiPayment(3).processPayment(request({paymentDate:'2026-11-07',requestKey:'closed-sale-request-0001'}));
   expect(result.success).toBe(false);expect(await db('billinghx')).toHaveLength(0);
   expect((await db('dboservices').first()).outstanding).toBe(40);
+ });
+ it('exposes NHIS payer metadata and projected cash/debt separately to the legacy collection frontend',async()=>{
+  await db('dboservices').where({serviceid:10}).update({isNHIS:1,serviceCategory:'NHIS',categoryTrackId:4,registrationType:'nhis'});
+  await db('acc_nhis_events').insert([
+   {id:1,request_key:'collection-nhis-receipt-0001',fingerprint:'synthetic',kind:'receipt',reference:'RECEIPT-1',reason:'Verified remittance',event_date:'2026-11-04',branchid:4,amount:10,created_by:9},
+   {id:2,request_key:'collection-nhis-adjustment-0001',fingerprint:'synthetic',kind:'revenue_adjustment',reference:'TARIFF-1',reason:'Approved tariff',event_date:'2026-11-04',branchid:4,amount:5,created_by:9},
+  ]);
+  await db('acc_nhis_allocations').insert([{event_id:1,billingid:42,amount:10},{event_id:2,billingid:42,amount:5}]);
+  const result=await new MultiPayment(3).getOutstandingPayments({billingid:42,status:'pending'});
+  expect(result.outstandingAmount).toBe(25);
+  expect(result.records[0]).toMatchObject({classification:'nhis',partyType:'nhis',partyId:1,headerOutstanding:40,outstanding:25,payerPaid:10,nhisSettledAmount:15});
+  expect(result.records[0].serviceDetails[0]).toMatchObject({isNHIS:1,serviceCategory:'NHIS',categoryTrackId:4,registrationType:'nhis'});
+  const all=await new MultiPayment(3).getOutstandingPayments({billingid:42,status:'all'});
+  expect(Number(all.outstandingAmount)).toBe(25);
+  expect(all.records[0].payerOutstanding).toBe(25);
+ });
+ it('removes fully settled NHIS bills from the legacy pending collection list',async()=>{
+  await db('dboservices').where({serviceid:10}).update({isNHIS:1,serviceCategory:'NHIS',categoryTrackId:4,registrationType:'nhis'});
+  await db('acc_nhis_events').insert({id:1,request_key:'collection-nhis-full-0001',fingerprint:'synthetic',kind:'receipt',reference:'RECEIPT-FULL',reason:'Verified remittance',event_date:'2026-11-04',branchid:4,amount:40,created_by:9});
+  await db('acc_nhis_allocations').insert({event_id:1,billingid:42,amount:40});
+  expect(await new MultiPayment(3).getOutstandingPayments({billingid:42})).toMatchObject({outstandingAmount:0,records:[]});
  });
  it('the supplied three-service example commits exactly 100 paid and 48.50 waived',async()=>{
   await db('dboservices').delete();

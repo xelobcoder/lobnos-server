@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../database/tls';
 import mysql, { Connection } from 'mysql2/promise';
 import { singleTenantKnexInstance } from '../database/connection';
 import { configuration } from '../hooks/configuration';
@@ -320,6 +321,7 @@ export async function bootstrapMasterControlDatabase(): Promise<void> {
      environmentDatabase();
      const production = process.env.NODE_ENV === 'production';
      const connection = await mysql.createConnection({
+          ...databaseTlsOptions(process.env.SYSTEM_CONFIG_DB_HOST || (production ? process.env.PRODUCTION_DB_HOSTNAME : process.env.DB_HOST), 'SYSTEM_CONFIG_DB'),
           host: process.env.SYSTEM_CONFIG_DB_HOST || (production ? process.env.PRODUCTION_DB_HOSTNAME : process.env.DB_HOST),
           port: Number(process.env.SYSTEM_CONFIG_DB_PORT || (production ? process.env.PRODUCTION_DB_PORT : process.env.DB_PORT)),
           user: process.env.SYSTEM_CONFIG_DB_USERNAME || (production ? process.env.PRODUCTION_DB_USERNAME : process.env.DB_USERNAME),

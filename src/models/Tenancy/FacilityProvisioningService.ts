@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../../database/tls';
 import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
 import mysql from 'mysql2/promise';
@@ -280,6 +281,7 @@ export class FacilityProvisioningService {
           await TenantRegistry.ensureReady();
           await this.ensureAudit();
           const admin = await mysql.createConnection({
+                         ...databaseTlsOptions(process.env.DB_HOST!),
                host: process.env.DB_HOST, port: Number(process.env.DB_PORT),
                user: process.env.DB_USERNAME, password: process.env.DB_PASSWORD,
                multipleStatements: false,

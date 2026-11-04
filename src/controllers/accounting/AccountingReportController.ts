@@ -42,11 +42,13 @@ export class AccountingReportController {
                page: Number(req.query.page) || 1,
                count: Number(req.query.count) || 25,
                sortby: req.query.sortby ? String(req.query.sortby) : undefined,
+               payerType: req.query.payerType ? String(req.query.payerType) : undefined,
           };
           try {
                return ok(res, await new OutstandingReceivablesService(tenantId).list(filters));
           } catch (error: any) {
-               if (error?.message === 'Dates must be valid YYYY-MM-DD values' || error?.message === 'From date must not exceed to date') {
+               if (error?.message === 'Dates must be valid YYYY-MM-DD values' || error?.message === 'From date must not exceed to date'
+                    || error?.message === 'payerType must be nhis, patient or mixed') {
                     return customError(error.message, 400, res);
                }
                return handle(error, res);

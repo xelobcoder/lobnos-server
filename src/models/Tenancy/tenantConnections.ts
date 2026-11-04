@@ -1,3 +1,4 @@
+import { databaseTlsOptions } from '../../database/tls';
 import knex, { Knex } from "knex";
 import mysql, { Pool, PoolConnection } from "mysql2/promise";
 import { TenantRegistry } from "./TenantRegistry";
@@ -10,6 +11,7 @@ interface TenantConnection {
           user: string;
           password: string;
           database: string;
+          ssl?: import("mysql2").SslOptions;
      };
      mysqlPool?: Pool;
      knex?: Knex;
@@ -131,6 +133,7 @@ async function getTenantConnection(id: number, kind: "mysql" | "knex"): Promise<
                          user: process.env.DB_USERNAME!,
                          password: process.env.DB_PASSWORD!,
                          database: tenant.databaseName,
+                         ...databaseTlsOptions(tenant.host || process.env.DB_HOST!),
                     };
                }).catch(error => {
                     // A failed old generation must never delete a replacement.

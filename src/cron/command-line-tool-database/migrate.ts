@@ -3,6 +3,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import mysql from 'mysql2/promise';
+import { databaseTlsOptions } from '../../database/tls';
 
 interface DBConfig {
      host: string;
@@ -95,7 +96,7 @@ async function migrate(): Promise<void> {
 
      try {
           console.log('🔄 Connecting to MySQL server...');
-          connection = await mysql.createConnection(dbConfig);
+          connection = await mysql.createConnection({ ...dbConfig, ...databaseTlsOptions(dbConfig.host) });
           console.log('✅ Connected to MySQL server');
 
           // Create database if it doesn't exist
@@ -109,7 +110,7 @@ async function migrate(): Promise<void> {
           // Reconnect to the specific database
           console.log(`🔄 Connecting to database '${databaseName}'...`);
           const dbConfigWithDatabase = { ...dbConfig, database: databaseName, multipleStatements: true };
-          connection = await mysql.createConnection(dbConfigWithDatabase);
+          connection = await mysql.createConnection({ ...dbConfigWithDatabase, ...databaseTlsOptions(dbConfigWithDatabase.host) });
           console.log(`✅ Connected to database '${databaseName}'`);
 
           const currentDir = __dirname;
