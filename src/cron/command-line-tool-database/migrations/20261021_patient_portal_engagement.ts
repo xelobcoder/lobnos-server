@@ -68,6 +68,11 @@ export async function up(knex: Knex): Promise<void> {
           });
      }
 
+     // Existing installations may already have the table without retry tracking.
+     await addMissingColumns(knex, 'patient_portal_notifications', [
+          ['attempts', table => { table.integer('attempts').unsigned().notNullable().defaultTo(1); }],
+     ]);
+
      if (await knex.schema.hasTable('home_collection_orders')) {
           await addMissingColumns(knex, 'home_collection_orders', ORDER_COLUMNS);
      }

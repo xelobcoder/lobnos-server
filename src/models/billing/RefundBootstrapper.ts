@@ -1,3 +1,4 @@
+import { archiveRefundWitnesses } from '../../database/legacy-upgrade/LegacyArchive';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
 
@@ -9,6 +10,7 @@ export async function bootstrapRefundTableSanitization(tenantId = 1, strict = fa
                const hasThirdWitness = await connection.schema.hasColumn('dbobillingrefundtable', 'thirdWitness');
 
                if (hasSecondWitness || hasThirdWitness) {
+                    await archiveRefundWitnesses(connection);
                     await connection.raw(`
 					UPDATE dbobillingrefundtable
 					SET firstWitness = COALESCE(

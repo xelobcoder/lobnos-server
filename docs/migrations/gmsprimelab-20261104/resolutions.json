@@ -1,0 +1,278 @@
+{
+  "database": "gmsprimelab",
+  "tenantId": 876954,
+  "organizationPrefix": "NRTAM19",
+  "reviewedColumns": [
+    {
+      "table": "appointments",
+      "column": "patientid",
+      "decision": "Allow the supported unlinked appointment workflow; retain every linked patient ID.",
+      "definition": {
+        "COLUMN_TYPE": "int unsigned",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "clinicianbasicinfo",
+      "column": "phone",
+      "decision": "Allow an unknown phone without changing stored contacts.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(13)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "commission_configs",
+      "column": "commission_type",
+      "decision": "Extend the existing commission enumeration while retaining every legacy value.",
+      "definition": {
+        "COLUMN_TYPE": "enum('percentage','fixed','tiered','hybrid','sliding_scale','volume','quota','accelerating')",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "commission_tracking",
+      "column": "commission_type",
+      "decision": "Extend the existing commission enumeration while retaining every legacy value.",
+      "definition": {
+        "COLUMN_TYPE": "enum('percentage','fixed','tiered','hybrid','sliding_scale','volume','quota','accelerating')",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dboservices",
+      "column": "nhismembershipid",
+      "decision": "Store insurance identifiers as text. Existing numeric values retain their decimal representation.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(64)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dboservices",
+      "column": "claimscheckcode",
+      "decision": "Store insurance identifiers as text. Existing numeric values retain their decimal representation.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(64)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbotestresultapproval",
+      "column": "approvedBy",
+      "decision": "Widen storage for multiple approvals without changing historical approvers.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(2048)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbovitalsigns",
+      "column": "bp",
+      "decision": "Widen blood-pressure text and allow an unrecorded measurement.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(32)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbovitalsigns",
+      "column": "temperature",
+      "decision": "Widen precision without rounding or reinterpreting original temperatures.",
+      "definition": {
+        "COLUMN_TYPE": "decimal(12,2)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbovitalsigns",
+      "column": "pulse",
+      "decision": "Allow unrecorded readings after verifying all existing values fit signed INT.",
+      "definition": {
+        "COLUMN_TYPE": "int",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbovitalsigns",
+      "column": "respiration",
+      "decision": "Allow unrecorded readings after verifying all existing values fit signed INT.",
+      "definition": {
+        "COLUMN_TYPE": "int",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "dbovitalsigns",
+      "column": "spo2",
+      "decision": "Allow unrecorded readings after verifying all existing values fit signed INT.",
+      "definition": {
+        "COLUMN_TYPE": "int",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "expensesrecord",
+      "column": "amount",
+      "decision": "Support monetary fractions while preserving every original integer amount.",
+      "definition": {
+        "COLUMN_TYPE": "decimal(14,2) unsigned",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "incidents",
+      "column": "status",
+      "decision": "Archive and normalize the obsolete cause-analysis spelling to the current application status.",
+      "definition": {
+        "COLUMN_TYPE": "enum('reported','investigating','root-cause-analysis','corrective-actions','resolved','closed')",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "reported"
+      },
+      "resolved": true
+    },
+    {
+      "table": "inv_supplier_payments",
+      "column": "payment_method",
+      "decision": "Retain all existing methods and support cheque and mobile-money payments.",
+      "definition": {
+        "COLUMN_TYPE": "enum('cash','check','bank_transfer','credit_card','wire_transfer','other','mobile_money','cheque')",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": "bank_transfer"
+      },
+      "resolved": true
+    },
+    {
+      "table": "leads",
+      "column": "contact_email",
+      "decision": "Allow unknown lead emails without replacing existing values.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(255)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "payroll_employee_allowances",
+      "column": "allowance_type",
+      "decision": "Extend supported allowance categories while retaining legacy spellings used by the application.",
+      "definition": {
+        "COLUMN_TYPE": "enum('housing','risk','transport','meal','medical','education','uniform','mobile','hazard','shift_allowance','professional_development','responsibillity','hardship','acting','other')",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "payroll_employee_other_deductions",
+      "column": "deduction_type",
+      "decision": "Accept configured deduction codes while retaining existing categories.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(100)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "primesmsjobrecipients",
+      "column": "deliverystatus",
+      "decision": "Allow current provider delivery states without rewriting historical states.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(32)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": "queued"
+      },
+      "resolved": true
+    },
+    {
+      "table": "primesmsjobs",
+      "column": "status",
+      "decision": "Allow current campaign states without rewriting historical states.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(32)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": "pending"
+      },
+      "resolved": true
+    },
+    {
+      "table": "roles",
+      "column": "role",
+      "decision": "Support current role names. Existing role and permission assignments are retained.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(50)",
+        "IS_NULLABLE": "NO",
+        "COLUMN_DEFAULT": "scientist"
+      },
+      "resolved": true
+    },
+    {
+      "table": "roles",
+      "column": "pin",
+      "decision": "Use an absent PIN by default. Existing PINs are preserved until normal secure hash migration.",
+      "definition": {
+        "COLUMN_TYPE": "int unsigned",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": null
+      },
+      "resolved": true
+    },
+    {
+      "table": "test_results",
+      "column": "entrymode",
+      "decision": "Widen supported entry modes while preserving original result and audit values.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(20)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": "manual"
+      },
+      "resolved": true
+    },
+    {
+      "table": "test_results_audit_log",
+      "column": "entrymode",
+      "decision": "Widen supported entry modes while preserving original result and audit values.",
+      "definition": {
+        "COLUMN_TYPE": "varchar(20)",
+        "IS_NULLABLE": "YES",
+        "COLUMN_DEFAULT": "manual"
+      },
+      "resolved": true
+    }
+  ],
+  "acceptedAdditionalWidenings": [
+    "roles.legacy_login_username",
+    "patients_credentials.legacy_login_username",
+    "clinicianscredentials.legacy_login_username"
+  ],
+  "additionalRuntimeRepair": "patient_portal_notifications.attempts is added even when the table already exists",
+  "verifiedAt": "2026-11-04T17:35:13.538Z"
+}

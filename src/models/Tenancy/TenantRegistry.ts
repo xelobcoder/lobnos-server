@@ -308,6 +308,29 @@ export class TenantRegistry {
      }
 
      /** The database registration is authoritative, including after automatic tenant-ID migration. */
+     /** Explicit CLI adoption of an existing database. Never reassign another database's tenant ID. */
+     async registerLocalDatabaseForUpgrade(expectedDatabase: string): Promise<RegisteredTenant> {
+          const databaseName = singleTenantKnexInstance.client.config?.connection?.database;
+          if (!databaseName || expectedDatabase !== databaseName) {
+               throw new Error('The confirmed database must exactly match the configured local database');
+          }
+          await this.ensureSchema();
+          const existing = await this.connection(TENANTS_TABLE).where({ database_name: databaseName }).first('*');
+          if (existing) {
+               const tenant = toRegisteredTenant(existing);
+               if (!tenant?.isActive) throw new Error('Existing database registration is inactive or has no valid tenant identity');
+               configuration.defaultTenantId = tenant.tenantId;
+               return tenant;
+          }
+          const tenantId = await this.firstFreeTenantNumber(this.connection);
+          await this.insertLocalTenant(tenantId, databaseName);
+          configuration.defaultTenantId = tenantId;
+          TenantRegistry.invalidate();
+          const tenant = await this.getLocalTenant();
+          if (!tenant) throw new Error('Local database registration could not be verified');
+          return tenant;
+     }
+
      private async registerLocalTenant(): Promise<void> {
           const databaseName = singleTenantKnexInstance.client.config?.connection?.database as string | undefined;
           const tenantId = configuration.defaultTenantId;
@@ -327,7 +350,7 @@ export class TenantRegistry {
 
           const byNumber = await this.connection(TENANTS_TABLE).where({ tenant_number: tenantId }).first('id', 'database_name');
           if (byNumber) {
-               throw new Error(`Configured tenant ${tenantId} belongs to "${byNumber.database_name}", not "${databaseName}"`);
+               throw new Error(`Configured tenant ${tenantId} belongs to "${byNumber.database_name}", not "${databaseName}". For an existing client database, run npm run tenants -- --register-local ${databaseName}, then set DEFAULT_TENANT_ID to the returned identity. Existing registrations must not be reassigned.`);
           }
 
           const newId = tenantId >= 100000 && tenantId <= 999999
@@ -338,6 +361,9 @@ export class TenantRegistry {
 
      private async insertLocalTenant(tenantId: number, databaseName: string): Promise<void> {
           const local = singleTenantKnexInstance;
+          const localConnection = local.client.config.connection as Knex.MySql2ConnectionConfig;
+          const databaseHost = localConnection.host || 'localhost';
+          const databasePort = localConnection.port || 3306;
           const company = await local('companyprofile').first().catch(() => null);
           const settings = await local('applicationsettings').first('regioncode').catch(() => null);
           let regionCode: string | null = null;
@@ -392,7 +418,7 @@ export class TenantRegistry {
                     district_code: district.district_code,
                     sequence_number: sequence,
                     database_name: databaseName,
-                    db_connection_string: `mysql://${process.env.DB_HOST || 'localhost'}:${process.env.DB_PORT || 3306}/${databaseName}`,
+                    db_connection_string: `mysql://${databaseHost.includes(':') ? `[${databaseHost}]` : databaseHost}:${databasePort}/${databaseName}`,
                     status: 'active',
                     provisioned_at: trx.fn.now(),
                     created_by: creator.id,

@@ -1,3 +1,4 @@
+import { archiveLegacyTable } from '../../database/legacy-upgrade/LegacyArchive';
 import KnexConnection from '../../database/KnexConnections';
 import {ensureLabCashierSchema} from './LabCashierWorkflow';
 import { ensureBillingIntegritySchema } from './BillingIntegritySchema';
@@ -55,11 +56,11 @@ export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
      }
 
      if (await connection.schema.hasTable('clinician_packages')) {
-          await connection.schema.dropTable('clinician_packages');
+          await archiveLegacyTable(connection, 'clinician_packages');
      }
 
      if (await connection.schema.hasTable('organization_packages')) {
-          await connection.schema.dropTable('organization_packages');
+          await archiveLegacyTable(connection, 'organization_packages');
      }
 
 

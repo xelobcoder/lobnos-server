@@ -29,9 +29,11 @@ function database() {
      const writes = vi.fn();
      const checks = vi.fn();
      let invalid = false;
+     const historyTypes = new Map<string, string>();
      const db = (table: string) => {
           const filters: Array<(row: AccountRow) => boolean> = [];
           const query = {
+               columnInfo: async () => ({ type: historyTypes.get(table) || 'varchar' }),
                whereNull: (column: string) => {
                     filters.push((row) => row[column] === null || row[column] === undefined);
                     return query;
@@ -67,10 +69,13 @@ function database() {
                hasColumn: async (table: string, column: string) => columns.has(`${table}.${column}`) ||
                     ['username', 'identifier'].includes(column),
                alterTable: async (table: string, action: (builder: Knex.CreateTableBuilder) => void) => {
-                    const builder = { string: (column: string) => {
-                         columns.add(`${table}.${column}`);
-                         return { nullable: () => undefined };
-                    } };
+                    const builder = {
+                         string: (column: string) => { columns.add(`${table}.${column}`); return { nullable: () => undefined }; },
+                         text: (column: string) => {
+                              columns.add(`${table}.${column}`); historyTypes.set(table, 'longtext');
+                              return { nullable: () => ({ alter: () => undefined }) };
+                         },
+                    };
                     action(builder as unknown as Knex.CreateTableBuilder);
                },
           },
@@ -84,7 +89,7 @@ function database() {
                }
           },
      });
-     return { connection, rows, columns, writes, checks, markInvalid: () => { invalid = true; } };
+     return { connection, rows, columns, writes, checks, historyTypes, markInvalid: () => { invalid = true; } };
 }
 
 describe('automatic existing-user migration', () => {
@@ -114,6 +119,28 @@ describe('automatic existing-user migration', () => {
           db.writes.mockClear();
           await bootstrapLoginUsernames(397773);
           expect(db.writes).not.toHaveBeenCalled();
+     });
+
+     it('widens legacy history fields and preserves historical usernames beyond the former 64-character limit', async () => {
+          const db = database();
+          db.columns.add('patients_credentials.legacy_login_username');
+          db.rows.patients_credentials[0].username = 'p'.repeat(100);
+          mocks.connect.mockResolvedValue(db.connection);
+          await bootstrapLoginUsernames(397773);
+          expect(db.historyTypes.get('patients_credentials')).toBe('longtext');
+          expect(db.rows.patients_credentials[0].legacy_login_username).toBe('p'.repeat(100));
+     });
+
+     it('explicitly preserves automatic account update timestamps during login migration', async () => {
+          const db = database();
+          db.columns.add('patients_credentials.updated_on');
+          db.rows.patients_credentials[0].updated_on = '2020-02-03 10:20:30';
+          mocks.connect.mockResolvedValue(db.connection);
+          await bootstrapLoginUsernames(397773);
+          expect(db.rows.patients_credentials[0].updated_on).toBe('2020-02-03 10:20:30');
+          const changes = db.writes.mock.calls.filter(([table]) => table === 'patients_credentials').map(([, change]) => change);
+          expect(changes).toHaveLength(3);
+          expect(changes.every(change => change.updated_on?.sql === 'ref')).toBe(true);
      });
 
      it('migrates an account added since the previous startup without losing historical usernames', async () => {

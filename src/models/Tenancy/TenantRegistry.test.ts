@@ -26,6 +26,34 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           vi.spyOn(TenantRegistry, 'ensureReady').mockResolvedValue(undefined);
      });
 
+     it('requires the exact configured database before explicit local registration', async () => {
+          const registry = new TenantRegistry();
+          await expect(registry.registerLocalDatabaseForUpgrade('another_database')).rejects.toThrow('exactly match');
+     });
+
+     it('adopts a separate database using a fresh identity without changing existing registrations', async () => {
+          const query: any = { where: vi.fn(() => query), first: vi.fn(async () => null) };
+          const registry = new TenantRegistry(vi.fn(() => query) as any);
+          registry['ensureSchema'] = vi.fn(async () => {});
+          registry['firstFreeTenantNumber'] = vi.fn(async () => 555111);
+          registry['insertLocalTenant'] = vi.fn(async () => {});
+          vi.spyOn(registry, 'getLocalTenant').mockResolvedValue({ tenantId: 555111, databaseName: 'desktop_local', isActive: true } as RegisteredTenant);
+          const tenant = await registry.registerLocalDatabaseForUpgrade('desktop_local');
+          expect(tenant.tenantId).toBe(555111);
+          expect(registry['insertLocalTenant']).toHaveBeenCalledWith(555111, 'desktop_local');
+          expect(mocks.config.defaultTenantId).toBe(555111);
+          expect(TenantRegistry.ensureReady).not.toHaveBeenCalled();
+     });
+
+     it('refuses to reactivate an inactive existing database registration during adoption', async () => {
+          const query: any = { where: vi.fn(() => query), first: vi.fn(async () => ({ tenant_number: 555111, status: 'suspended' })) };
+          const registry = new TenantRegistry(vi.fn(() => query) as any);
+          registry['ensureSchema'] = vi.fn(async () => {});
+          registry['insertLocalTenant'] = vi.fn();
+          await expect(registry.registerLocalDatabaseForUpgrade('desktop_local')).rejects.toThrow('inactive');
+          expect(registry['insertLocalTenant']).not.toHaveBeenCalled();
+     });
+
      it('maps the public identifier to its distinct internal tenant ID', async () => {
           const registry = new TenantRegistry();
           vi.spyOn(registry, 'listTenants').mockResolvedValue([

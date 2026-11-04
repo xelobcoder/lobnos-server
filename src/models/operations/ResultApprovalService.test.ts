@@ -7,15 +7,16 @@ vi.mock("../application/appsettings/result-settings/resultSettings", () => ({
 vi.mock("./imaging/ImagingResultAuditRepository", () => ({
      default: { isImagingTest: vi.fn().mockResolvedValue(false) },
 }));
+import ResultSettings from "../application/appsettings/result-settings/resultSettings";
 import KnexConnection from "../../database/KnexConnections";
 import { ResultApprovalService, invalidateResultApprovals, applyResultValidationBypass } from "./ResultApprovalService";
 
-function setup(overrides: any = {}) {
+function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid: any = 0) {
      const store = transactionalDatabase({
           test_ascension: [{ id: 1, billingid: 2, testid: 3, serviceid: 6, resultEntryEnd: new Date(), ...overrides }],
           billing: [{ billingid: 2, branchid: 4 }],
-          applicationsettings: [{ allowValidationUpaid: 0 }],
-          dboservices: [{ serviceid: 6, paymentstatus: 'paid' }],
+          applicationsettings: [{ allowValidationUpaid }],
+          dboservices: [{ serviceid: 6, paymentstatus }],
           test_results: [{ ascensionid: 1, fieldid: 10, value: "100" }],
           dbotestresultapproval: [
                {
@@ -34,8 +35,36 @@ function setup(overrides: any = {}) {
      vi.mocked(KnexConnection).mockResolvedValue(db);
      return { store, service: new ResultApprovalService(1) };
 }
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true); });
 describe("result validation integrity", () => {
+     for (const status of ['paid', 'partial', 'pending']) {
+          it.each([0, 1])(`validates ${status} services only when the validation setting permits (%s)`, async enabled => {
+               const { store, service } = setup({}, status, enabled);
+               if (status === 'paid' || enabled === 1) {
+                    await expect(service.approve(1, 7, 4, 5)).resolves.toBe(true);
+                    expect(store.rows('lab_result_approval_events')).toHaveLength(1);
+               } else {
+                    await expect(service.approve(1, 7, 4, 5)).rejects.toMatchObject({ statusCode: 403, code: 'UNPAID_RESULT_VALIDATION_DISABLED' });
+                    expect(store.rows('lab_result_approval_events')).toHaveLength(0);
+                    expect(store.rows('dbotestresultapproval')[0].approvedBy).toBeNull();
+               }
+          });
+          it.each([0, 1])(`automatic validation bypass honors payment for ${status} services (%s)`, async enabled => {
+               const { store } = setup({}, status, enabled);
+               await store.db.transaction(async trx => {
+                    await trx('test_ascension').forUpdate().first();
+                    await applyResultValidationBypass(trx, 1, 9, true);
+               });
+               expect(Number(store.rows('dbotestresultapproval')[0].isapproved || 0)).toBe(status === 'paid' || enabled === 1 ? 1 : 0);
+          });
+     }
+     it('retains validator authorization even when unpaid validation is enabled', async () => {
+          const { store, service } = setup({}, 'pending', 1);
+          vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false);
+          expect(await service.approve(1, 7, 4, 5)).not.toBe(true);
+          expect(store.rows('lab_result_approval_events')).toHaveLength(0);
+     });
+
      it("preserves simultaneous validators and finalizes only after the minimum is reached", async () => {
           const { store, service } = setup();
           await Promise.all([service.approve(1, 7, 4, 5), service.approve(1, 8, 4, 5)]);

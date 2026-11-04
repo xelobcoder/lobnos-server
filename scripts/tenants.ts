@@ -45,6 +45,14 @@ async function migrate(tenantIds: number[]): Promise<void> {
 
 async function main(): Promise<void> {
      const args = process.argv.slice(2);
+     if (args.includes('--register-local')) {
+          const database = args[args.indexOf('--register-local') + 1];
+          const tenant = await new TenantRegistry().registerLocalDatabaseForUpgrade(database);
+          console.log(JSON.stringify({ database: tenant.databaseName, tenantId: tenant.tenantId,
+               organizationNumber: tenant.organizationNumber, facilityCode: tenant.facilityCode,
+               nextStep: `Set DEFAULT_TENANT_ID=${tenant.tenantId} in this installation before startup` }, null, 2));
+          return;
+     }
      await TenantRegistry.ensureReady();
 
      if (args.includes('--migrate-tenant-ids')) {

@@ -272,7 +272,6 @@ export const getResultPrintoutHandler = async (request: Request<
 		if (!ascensionId) return customError(OperationsFailures.invalidResquestQuery + ". ascensionid not provided", 404, response);
 		const numAscensionId = parseInt(ascensionId.toString());
           if (normalizeRole(actor.role) === "scientist") await assertLabTestAccess(await KnexConnection(tenantIdP), actor, numAscensionId);
-		const userRole = await new RolesRepository(tenantIdP).getRoleById(parseInt(employeeid.toString()));
 
 		if (!roleAllowed(actor.role, ['admin', 'manager', 'crm'])) {
 			isWithinWindow = await RequestAccess.verifyWindowPeriod(tenantIdP, ascensionId, parseInt(employeeid), "access");
@@ -361,7 +360,6 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 			// check each for acess window or acess permission allowed
 
 			let accessPermissionTest = []
-			const currentRole = await new RolesRepository(tenantIdP).getRoleById(pEmployeeId) as IEmployee;
 			const isPriviledgedUser = roleAllowed(actor.role, ['admin', 'manager']);
 
 			for (let i = 0; i < qualifiedForPrintOut.length; i++) {

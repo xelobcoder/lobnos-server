@@ -1,3 +1,4 @@
+import { archiveLegacyTable } from '../../../../database/legacy-upgrade/LegacyArchive';
 import KnexConnection from '../../../../database/KnexConnections';
 import { up as applyAdvancedCommissionMigration } from '../../../../cron/command-line-tool-database/migrations/20260820_advanced_commission_calculations';
 
@@ -116,7 +117,7 @@ export async function bootstrapCommissionTables(tenantId = 1): Promise<void> {
      }
 
      if (await connection.schema.hasTable('commission_defaults')) {
-          await connection.schema.dropTable('commission_defaults');
+          await archiveLegacyTable(connection, 'commission_defaults');
      }
 
      await applyAdvancedCommissionMigration(connection);

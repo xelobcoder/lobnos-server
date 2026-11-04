@@ -84,7 +84,7 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
 	return { readyTenants, accountingTenants };
 }
 
-export async function runApplicationBootstrappers(tenantId = 1, strict = false): Promise<{ accountingReady: boolean }> {
+export async function runApplicationBootstrappers(tenantId = 1, strict = false, options: { startWorkers?: boolean } = {}): Promise<{ accountingReady: boolean }> {
 	await bootstrapLoginAccountSchema(tenantId);
 	await ensureStaffAccessSchema(await KnexConnection(tenantId));
 	await ensureOrganizationDirectorySchema(await KnexConnection(tenantId));
@@ -138,7 +138,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 		console.error('[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):', error);
 	}
 
-	startCrmReminderWorker(tenantId);
+	if (options.startWorkers !== false) startCrmReminderWorker(tenantId);
 	return { accountingReady };
 }
 

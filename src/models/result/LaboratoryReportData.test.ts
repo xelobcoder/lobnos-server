@@ -70,6 +70,22 @@ describe('shared laboratory report data', () => {
           mocks.revision.mockRejectedValue(new Error('Result revision changed'));
           await expect(loadLaboratoryReportData(4, 21, 31, 8, 108, true)).rejects.toThrow('revision changed');
      });
+     it.each(['partial', 'pending'])('denies a %s report when unpaid printing is disabled', async status => {
+          mocks.payment.mockResolvedValue({ paymentstatus: status });
+          await expect(loadLaboratoryReportData(4, 21, 31, 8, 108, true)).rejects.toMatchObject({ statusCode: 403 });
+          expect(mocks.view).not.toHaveBeenCalled();
+     });
+     it('permits unpaid printing only under its own explicit setting', async () => {
+          mocks.policy.mockResolvedValue({ allowPrintingUnpaid: 1, allowValidationUpaid: 0 });
+          mocks.payment.mockResolvedValue({ paymentstatus: 'pending' });
+          await expect(loadLaboratoryReportData(4, 21, 31, 8, 108, true)).resolves.toBeDefined();
+     });
+     it('rejects forged patient, billing or test identifiers before loading values', async () => {
+          for (const ids of [[22, 31, 8], [21, 32, 8], [21, 31, 9]]) {
+               await expect(loadLaboratoryReportData(4, ids[0], ids[1], ids[2], 108, true)).rejects.toMatchObject({ statusCode: 403 });
+          }
+          expect(mocks.view).not.toHaveBeenCalled();
+     });
      it('enforces critical release controls before loading clinical data', async () => {
           mocks.critical.mockRejectedValue(new Error('Critical release blocked'));
           await expect(loadLaboratoryReportData(4, 21, 31, 8, 108, true)).rejects.toThrow('Critical release blocked');

@@ -20,15 +20,24 @@ export async function bootstrapLoginUsernames(tenantId: number): Promise<void> {
      const connection = await KnexConnection(tenantId);
      for (const account of LOGIN_ACCOUNTS) {
           if (!(await connection.schema.hasTable(account.table))) continue;
-          for (const column of ['login_username', 'legacy_login_username']) {
-               if (!(await connection.schema.hasColumn(account.table, column))) {
-                    await connection.schema.alterTable(account.table, (table) => table.string(column, 255).nullable());
+          if (!(await connection.schema.hasColumn(account.table, 'login_username'))) {
+               await connection.schema.alterTable(account.table, table => table.string('login_username', 255).nullable());
+          }
+          if (!(await connection.schema.hasColumn(account.table, 'legacy_login_username'))) {
+               await connection.schema.alterTable(account.table, table => table.text('legacy_login_username', 'longtext').nullable());
+          } else {
+               const history = await connection(account.table).columnInfo('legacy_login_username');
+               if (history.type !== 'longtext') {
+                    // Older installations used VARCHAR(64), shorter than historical usernames.
+                    await connection.schema.alterTable(account.table, table => table.text('legacy_login_username', 'longtext').nullable().alter());
                }
           }
           const hasPrevious = await connection.schema.hasColumn(account.table, account.previous);
+          const preserveUpdatedOn = await connection.schema.hasColumn(account.table, 'updated_on');
           const prefix = `${tenant.platformId.toUpperCase()}${account.type === 'staff' ? 'S' : account.type === 'patient' ? 'P' : 'C'}`;
           const generatedLogin = "CONCAT(?, LPAD(CAST(?? AS CHAR), GREATEST(3, CHAR_LENGTH(CAST(?? AS CHAR))), '0'))";
           await connection.transaction(async (trx) => {
+               const preservedTimes = preserveUpdatedOn ? { updated_on: trx.ref('updated_on') } : {};
                const invalid = await trx(account.table).whereNull(account.id)
                     .orWhere(account.id, '<=', 0).orWhere(account.id, '>', 999999999).first();
                if (invalid) throw new Error(`Cannot migrate ${account.table}: invalid ${account.id}`);
@@ -37,14 +46,16 @@ export async function bootstrapLoginUsernames(tenantId: number): Promise<void> {
                     .first(account.id);
                if (!needsMigration) return;
                await trx(account.table).whereNull('legacy_login_username').update({
+                    ...preservedTimes,
                     legacy_login_username: hasPrevious
                          ? trx.raw('COALESCE(CONVERT(?? USING utf8mb4) COLLATE utf8mb4_bin, CONVERT(?? USING utf8mb4) COLLATE utf8mb4_bin)',
                               ['login_username', account.previous])
                          : trx.ref('login_username'),
                });
                // Clear old unique login values before assigning the deterministic new IDs.
-               await trx(account.table).update({ login_username: null });
+               await trx(account.table).update({ ...preservedTimes, login_username: null });
                await trx(account.table).update({
+                    ...preservedTimes,
                     login_username: trx.raw(generatedLogin,
                          [prefix, account.id, account.id]),
                });

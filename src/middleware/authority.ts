@@ -11,7 +11,7 @@ export interface AuthUser {
      tenantId: number;
 }
 
-export function getAuthUser(request: Request): AuthUser | null {
+export function getAuthUser(request: Request<any, any, any, any>): AuthUser | null {
      return (request as any).authUser || null;
 }
 

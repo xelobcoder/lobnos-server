@@ -1,0 +1,11 @@
+{
+  "database": "gmsprimelab",
+  "reference": "primelabtestmig",
+  "existingTables": 437,
+  "steps": [],
+  "review": [
+    "clinicianscredentials.legacy_login_username: existing longtext NULL differs from reference varchar(64) NULL or its default; retained for reviewed migration",
+    "patients_credentials.legacy_login_username: existing longtext NULL differs from reference varchar(64) NULL or its default; retained for reviewed migration",
+    "roles.legacy_login_username: existing longtext NULL differs from reference varchar(64) NULL or its default; retained for reviewed migration"
+  ]
+}

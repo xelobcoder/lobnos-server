@@ -1,3 +1,5 @@
+import KnexConnection from '../../database/KnexConnections';
+import { assertResultPaymentPolicy } from '../operations/ResultPaymentPolicy';
 
 import {
 	advancedTablesSearchQueryWithFilters,
@@ -5,7 +7,6 @@ import {
 	approvedByUsernameQuery,
 	checkApprovalQuery,
 	extrainfoTestQuery,
-	makeDecisionOnResultQuery,
 	modelQueryWithFilters,
 	samplingQuery,
 	summaryReadyPageQuery,
@@ -234,19 +235,19 @@ class ResultPrint implements IResultPrint {
 	}): Promise<boolean> {
 		const { billingid, testid, declineMessage, approvalstatus, actionPlan, approvedby } = requestbody;
 
-		try {
-			const queryResult = await promisifyQuery(tenantId, makeDecisionOnResultQuery, [
-				approvalstatus,
-				actionPlan,
-				declineMessage,
-				approvedby,
-				billingid,
-				testid,
-			]);
-			return rowAffected(queryResult);
-		} catch (err) {
-			throw err;
-		}
+          if (![0, 1].includes(Number(approvalstatus))) throw Object.assign(new Error('Invalid result decision'), { statusCode: 400 });
+          const db = await KnexConnection(tenantId);
+          return db.transaction(async trx => {
+               const orders = await trx('test_ascension').where({ billingid: Number(billingid), testid: Number(testid) }).forUpdate().select('id');
+               if (!orders.length) throw Object.assign(new Error('Ordered test not found'), { statusCode: 404 });
+               if (Number(approvalstatus) === 1) {
+                    for (const order of orders) await assertResultPaymentPolicy(trx, Number(order.id), 'validation', true);
+               }
+               const changed = await trx('test_ascension').whereIn('id', orders.map(order => order.id)).update({
+                    approvalstatus: Number(approvalstatus), actionPlan: actionPlan ?? null, declineMessage: declineMessage ?? null, approvedby,
+               });
+               return changed > 0;
+          });
 	}
 
 

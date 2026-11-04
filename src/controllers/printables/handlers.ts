@@ -1,3 +1,6 @@
+import { getAuthUser } from '../../middleware/authority';
+import ResultSettings from '../../models/application/appsettings/result-settings/resultSettings';
+import KnexConnection from '../../database/KnexConnections';
 import { Request, response, Response } from "express";
 import ResultPrint from "../../models/result/resultPrint";
 import { getBillingInvoiceData } from "../../models/invoice/invoice";
@@ -152,16 +155,23 @@ export const checkApproval = async (req: Request<{}, {}, { billingid: number, te
 	}
 };
 
-export const makeDecisionOnResult = async (req: Request<{}, {}, {}, { tenantId: string }>, res: Response) => {
-	try {
-		const tenantId = parseInt(req.query.tenantId.toString())
-		const result = await new ResultPrint(0).makeDecisionOnResult(tenantId, req.body as any);
-		result
-			? res.send({ status: "success", statusCode: 200, message: "update successful" })
-			: res.send({ status: "error", statusCode: 401, message: "error updating data" });
-	} catch (err) {
-		responseError(res);
-	}
+export const makeDecisionOnResult = async (req: Request<{}, {}, Parameters<ResultPrint['makeDecisionOnResult']>[1], { tenantId: string }>, res: Response) => {
+     try {
+          const actor = getAuthUser(req);
+          if (!actor) return customError('Authentication required', 401, res);
+          if (Number(req.query.tenantId) !== actor.tenantId) return customError('Organization scope does not match the session', 403, res);
+          if (!await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) return customError('You do not have permission to validate results', 403, res);
+          const billingid = Number(req.body?.billingid), testid = Number(req.body?.testid);
+          if (![billingid, testid].every(id => Number.isSafeInteger(id) && id > 0)) return customError('Valid billing and test IDs are required', 400, res);
+          const db = await KnexConnection(actor.tenantId);
+          const bill = await db('billing').where({ billingid }).first('branchid');
+          if (!bill || actor.branch != null && Number(bill.branchid) !== Number(actor.branch)) return customError('Ordered test not found in your branch', 404, res);
+          const result = await new ResultPrint(0).makeDecisionOnResult(actor.tenantId, { ...req.body, billingid, testid, approvedby: String(actor.employeeid) });
+          return res.send({ status: result ? 'success' : 'error', statusCode: result ? 200 : 409, message: result ? 'update successful' : 'error updating data' });
+     } catch (err: any) {
+          if (err?.statusCode) return customError(err.message, err.statusCode, res);
+          responseError(res, err);
+     }
 };
 
 export const getBillingInvoice = async (req: Request<{}, {}, {}, { tenantId: string, billingid: string }>, response: Response) => {
