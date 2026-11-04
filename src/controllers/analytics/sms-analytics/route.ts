@@ -3,6 +3,7 @@ import { handleOverLoad } from '../../../hooks/helper';
 import { retryFailedTransactionHandler } from '../../sms/primesms/RetryFailedSms';
 import { PrimeSmsAnalyticsController } from '../../sms/primesms/PrimeSmsAnalyticsController';
 import { sendEventSmsPaymentHandler, getClientResultReadySentcount, sendResultReadyEvent, getSentResultReadyMessage } from '../../sms/primesms/SmsEventsTriggersHandler';
+import { getResultReadySmsWorkspace, previewResultReadySms, sendSelectedResultReadySms, getResultReadySmsHistory } from '../../sms/primesms/ResultReadySmsHandlers';
 
 const router = Router();
 
@@ -21,6 +22,10 @@ router.get('/api/v1/prime/sms/transaction/result/ready/:billingid', handleOverLo
 
 
 // use sms events here
+router.get('/api/v1/sms/events/result-ready/workspace', handleOverLoad(getResultReadySmsWorkspace));
+router.post('/api/v1/sms/events/result-ready/preview', handleOverLoad(previewResultReadySms));
+router.post('/api/v1/sms/events/result-ready/send', handleOverLoad(sendSelectedResultReadySms));
+router.get('/api/v1/sms/events/result-ready/history', handleOverLoad(getResultReadySmsHistory));
 router.get('/api/v1/sms/events/trigger/payment-made', handleOverLoad(sendEventSmsPaymentHandler));
 router.get('/api/v1/sms/events/trigger/send/result-ready', handleOverLoad(sendResultReadyEvent));
 router.get('/api/v1/sms/events/get/result-ready/result-sent', handleOverLoad(getClientResultReadySentcount));

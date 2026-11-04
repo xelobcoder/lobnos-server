@@ -259,15 +259,57 @@ dated events, the recorded operator and notes, and unsuccessful attempts. Imagin
 report entry and completed imaging worklists use this same delivery workspace,
 including multiple methods, existing history, and partial retries.
 
-Imaging also links to the existing result-ready SMS workspace with the ordered
-test, patient, and bill identifiers. Sonographers may access result-ready SMS
-only; campaign, provider, payment-notification, and SMS-settings permissions remain
-unchanged. The notification covers the entire bill, including mixed imaging and
-laboratory orders. Both default and custom messages require every ordered result
-to have completed entry, finalized approval, and no pending revalidation or
-critical-release hold. Custom-test flags are not approval status. A queued SMS
-is not proof of recipient delivery and does not mark the report as delivered;
-use message history and record result delivery separately.
+Imaging links to the result-ready SMS workspace with the ordered test, patient,
+and bill identifiers. Sonographers may access result-ready SMS only; campaign,
+provider, payment-notification, and SMS-settings permissions remain unchanged.
+
+The workspace allows **one or several ready tests** to be selected from a bill
+that can contain both imaging and laboratory orders. Unselected pending tests
+do not block notification. Each selected test must have completed report entry,
+finalized approval, and no pending revalidation or critical-release hold.
+Custom-test flags are not approval status. A link to one test does not silently
+select other ready tests when the linked test is not eligible.
+
+The SMS always names the selected ready tests and states that the notice covers
+only those tests. Staff may append an optional custom note (up to 1000 characters),
+but cannot remove the generated scope. The complete preview is limited to 1600
+characters and shows the saved recipient number and encoding-dependent segment
+count. These selected-result notices use the existing `PATIENT_RESULT_READY`
+activation switch and durable queue, rather than a whole-bill message template
+that could incorrectly imply that every result is ready.
+
+Selected-result API (authenticated `tenantId` and `billingid` query parameters):
+
+- `GET /api/v1/sms/events/result-ready/workspace`: patient, saved SMS number,
+  activation/contact blockers, all ordered tests, and specific readiness reasons.
+  Optional `patientid` is checked against the bill.
+- `POST /api/v1/sms/events/result-ready/preview`: body
+  `{ "ascensionids": [7, 8], "message": "Please collect tomorrow." }`.
+  No message is queued. The response includes the rendered message, recipient,
+  selected identities, pending-test count, metrics, and `fingerprint`.
+- `POST /api/v1/sms/events/result-ready/send`: the same selection and note plus
+  the reviewed `fingerprint`. Send rechecks eligibility and critical holds under
+  row locks and freezes the reviewed message into the queue. Changed selection,
+  recipient, report revision, or message requires a fresh preview (409).
+- `GET /api/v1/sms/events/result-ready/history`: all saved notification states
+  with message text, job identity, timestamps, staff identity, and errors.
+  `page` defaults to 1 and `count` to 10 (maximum 100).
+
+Selections contain 1–100 distinct positive ordered-test IDs belonging to the
+bill. The recipient and recording employee are server-derived. Reconfirming an
+identical selection, message, recipient, and approved revisions reuses the
+existing notification and returns its **current** status; it does not fabricate
+a new queued attempt. A different subset or newly approved revision has a
+different deduplication key.
+
+The legacy whole-bill `GET /sms/events/trigger/send/result-ready` remains
+whole-bill and requires all results to be ready; it is not the selected-result
+workspace's send API. Existing automatic event behavior is unchanged.
+
+A queued/submitted SMS is not proof of recipient delivery and does not mark the
+report as delivered. History preserves queued, submitted, sent, delivered,
+failed, unknown, and cancelled states rather than showing only successful sends.
+Use message history and record result delivery separately.
 
 A failed history check
 is displayed explicitly; it is not treated as "never delivered".

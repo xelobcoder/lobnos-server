@@ -22,6 +22,7 @@ export function smsCapabilityFor(method: string, path: string): SmsCapability | 
     if (!/^\/api\/v1\/(?:sms(?:\/|$)|prime\/sms(?:[-/]|$))/i.test(path)) return null;
     if (/\/sms-contact-groups(?:\/|$)/.test(path)) return 'sync';
     if (/\/sms-provider(?:\/|$)/.test(path)) return 'setup';
+    if (/^\/api\/v1\/sms\/events\/result-ready\/(?:workspace|preview|send|history)$/.test(path)) return 'result';
     if (/\/transaction\/result\/ready\/|\/events\/trigger\/send\/result-ready$|\/events\/get\/(?:result-ready\/result-sent|sent-result-ready-message)$/.test(path)) return 'result';
     if (/\/events\/trigger\//.test(path)) return 'transactional';
     if (/\/transaction\/result\/ready\/|\/events\/get\//.test(path)) return 'transactional';
