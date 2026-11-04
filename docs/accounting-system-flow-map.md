@@ -4,6 +4,42 @@ Companion to [accounting-system-plan.md](accounting-system-plan.md) and
 [accounting-system-prd.md](accounting-system-prd.md). This maps how a business event becomes a
 balanced journal entry, and how refunds/adjustments/reversals flow without mutating history.
 
+## Historical migration and optional closing enforcement
+
+Administrators can configure the active branch in Settings > Financial lock. The page shows
+the earliest/latest financial activity dates and today's server date (UTC).
+
+- Preview and confirm an inclusive historical date range ending before today. A reason is
+  required. One immutable range record protects all dates in the range, including dates with
+  no activity; it does not manufacture daily approvals, signed snapshots, or reconciled balances.
+- Migrated periods are financially immutable even when overdue-day enforcement is disabled.
+  Correct historical errors through current-period linked corrections, not historical edits.
+- Activate enforcement separately. The default for a branch without a saved policy is **off**
+  with a 48-hour interval. Choose 24 hours, 48 hours, one week (168 hours), or custom whole
+  hours from 1 to 8760. The deadline is UTC midnight of the financial activity date plus
+  the configured interval, not the time of the first transaction.
+- Only migrated ranges and normally finalized dates are excluded from overdue checks.
+  Uncovered historical gaps remain eligible: changing the interval or switching enforcement
+  off/on does not reset their age. A current-date receipt on an old invoice remains current
+  financial activity, subject to existing source-record mutation protections.
+- This setting governs laboratory/facility activity, including the shared ledger when pharmacy
+  accounting integration is enabled. Independent pharmacy day closing retains its existing policy.
+
+Authenticated, administrator-only APIs (tenant/branch/actor come from the session):
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| GET | `/api/v1/financial-day/settings` | Policy, earliest/latest/current dates, historical ranges |
+| PUT | `/api/v1/financial-day/settings` | Save `{enabled, graceHours, reason}` with an audit event |
+| POST | `/api/v1/financial-day/historical-locks/preview` | Count distinct activity dates for `{startDate, endDate}` |
+| POST | `/api/v1/financial-day/historical-locks` | Lock `{startDate, endDate, reason, confirm: true}` without activating enforcement |
+
+Range and audit writes are atomic; identical range retries do not create duplicate locks.
+There is no unlock/delete API. Existing finalized-record protections remain independent.
+The accounting schema bootstrap creates `financial_lock_settings` and
+`financial_historical_locks` and installs database protections for legacy financial writes.
+Missing schema is an explicit error, never an automatic enforcement bypass.
+
 ## High-level posting flow
 
 ```mermaid

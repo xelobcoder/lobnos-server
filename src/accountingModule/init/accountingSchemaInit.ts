@@ -4,6 +4,7 @@ import { ACCOUNT_CONFIG } from '../config/accountConfig';
 import { ensureIndexes } from '../../database/ensureIndexes';
 import { ensurePharmacyAttributionColumns, ensurePharmacySourceModule } from './pharmacyAttributionSchema';
 import { ensureCashFlowReviewSchema } from './cashFlowSchema';
+import { ensureFinancialLockSchema } from './financialLockSchema';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      if (ensuredAccountingTenants.has(tenantId)) return;
@@ -30,6 +31,7 @@ async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> 
      const knex = await KnexConnection(tenantId);
      await ensureAccountingPlanningSchema(knex);
      await ensureCashFlowReviewSchema(knex);
+     await ensureFinancialLockSchema(knex);
 
      if (!(await knex.schema.hasTable('acc_collection_requests'))) {
           await knex.schema.createTable('acc_collection_requests', table => {
@@ -321,7 +323,7 @@ async function ensureFinancialFinalizationTables(tenantId: number): Promise<void
      }
 }
 
-async function ensureFinancialFinalizationTriggers(tenantId: number): Promise<void> {
+export async function ensureFinancialFinalizationTriggers(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
      const protectedTables = [
           { table: 'billing', key: 'billingid', branch: 'NEW.branchid', date: 'DATE(NEW.billedon)' },
@@ -338,22 +340,35 @@ async function ensureFinancialFinalizationTriggers(tenantId: number): Promise<vo
           { table: 'acc_manual_journal_lines', key: 'id', branch: 'NEW.branchid', date: '(SELECT journal_date FROM acc_manual_journals WHERE id = NEW.manual_journal_id LIMIT 1)' },
           { table: 'acc_cash_flow_classifications', key: 'journal_entry_id', branch: '(SELECT branchid FROM acc_journal_lines WHERE journal_entry_id = NEW.journal_entry_id AND branchid IS NOT NULL LIMIT 1)', date: '(SELECT DATE(occurred_at) FROM acc_journal_entries WHERE id = NEW.journal_entry_id)' },
           { table: 'acc_subledger_entries', key: 'id', branch: 'NEW.branchid', date: 'NEW.document_date' },
+          { table: 'financial_day_closures', key: 'id', branch: 'NEW.branchid', date: 'NEW.financial_date' },
      ];
 
      for (const definition of protectedTables) {
           if (!(await knex.schema.hasTable(definition.table))) continue;
           const prefix = `trg_fin_lock_${definition.table}`;
+          const historical = (image: 'OLD' | 'NEW') => {
+               const branch = definition.branch.replace(/\bNEW\b/g, image), date = definition.date.replace(/\bNEW\b/g, image);
+               const branchMatch = definition.table === 'acc_journal_entries'
+                    ? `branchid IN (SELECT branchid FROM acc_journal_lines WHERE journal_entry_id = ${image}.id)`
+                    : definition.table === 'acc_manual_journals'
+                    ? `branchid IN (SELECT branchid FROM acc_manual_journal_lines WHERE manual_journal_id = ${image}.id)`
+                    : definition.table === 'acc_cash_flow_classifications'
+                    ? `branchid IN (SELECT branchid FROM acc_journal_lines WHERE journal_entry_id = ${image}.journal_entry_id)`
+                    : `branchid = ${branch}`;
+               // Locking reads see committed migrations even in an older repeatable-read transaction.
+               return `EXISTS (SELECT 1 FROM financial_historical_locks WHERE ${branchMatch} AND ${date} BETWEEN start_date AND end_date FOR UPDATE)`;
+          };
           await knex.raw(`DROP TRIGGER IF EXISTS ${prefix}_update`);
           await knex.raw(`DROP TRIGGER IF EXISTS ${prefix}_delete`);
           await knex.raw(`DROP TRIGGER IF EXISTS ${prefix}_insert`);
-          await knex.raw(`CREATE TRIGGER ${prefix}_update BEFORE UPDATE ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_record_locks WHERE source_table = '${definition.table}' AND source_ref = CAST(OLD.${definition.key} AS CHAR)) OR EXISTS (SELECT 1 FROM financial_day_closures WHERE branchid = ${definition.branch} AND financial_date = ${definition.date} AND status = 'finalized') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_RECORD_FINALIZED'; END IF; END`);
-          await knex.raw(`CREATE TRIGGER ${prefix}_delete BEFORE DELETE ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_record_locks WHERE source_table = '${definition.table}' AND source_ref = CAST(OLD.${definition.key} AS CHAR)) THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_RECORD_FINALIZED'; END IF; END`);
-          await knex.raw(`CREATE TRIGGER ${prefix}_insert BEFORE INSERT ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_day_closures WHERE branchid = ${definition.branch} AND financial_date = ${definition.date} AND status = 'finalized') THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_DAY_FINALIZED'; END IF; END`);
+          await knex.raw(`CREATE TRIGGER ${prefix}_update BEFORE UPDATE ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_record_locks WHERE source_table = '${definition.table}' AND source_ref = CAST(OLD.${definition.key} AS CHAR)) OR EXISTS (SELECT 1 FROM financial_day_closures WHERE branchid = ${definition.branch} AND financial_date = ${definition.date} AND status = 'finalized') OR ${historical('OLD')} OR ${historical('NEW')} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_RECORD_FINALIZED'; END IF; END`);
+          await knex.raw(`CREATE TRIGGER ${prefix}_delete BEFORE DELETE ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_record_locks WHERE source_table = '${definition.table}' AND source_ref = CAST(OLD.${definition.key} AS CHAR)) OR ${historical('OLD')} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_RECORD_FINALIZED'; END IF; END`);
+          await knex.raw(`CREATE TRIGGER ${prefix}_insert BEFORE INSERT ON ${definition.table} FOR EACH ROW BEGIN IF EXISTS (SELECT 1 FROM financial_day_closures WHERE branchid = ${definition.branch} AND financial_date = ${definition.date} AND status = 'finalized') OR ${historical('NEW')} THEN SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'FINANCIAL_DAY_FINALIZED'; END IF; END`);
      }
 
      const appendOnlyTables = [
           'financial_day_close_actions', 'financial_day_close_snapshots', 'financial_record_locks',
-          'financial_correction_actions', 'financial_authorization_attempts', 'receipt_print_events', 'acc_control_audit', 'acc_collection_requests',
+          'financial_correction_actions', 'financial_authorization_attempts', 'receipt_print_events', 'acc_control_audit', 'acc_collection_requests', 'financial_historical_locks',
      ];
      for (const tableName of appendOnlyTables) {
           const prefix = `trg_fin_append_${tableName}`;

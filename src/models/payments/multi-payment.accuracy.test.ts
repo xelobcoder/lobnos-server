@@ -17,6 +17,7 @@ beforeEach(async()=>{
  CREATE TABLE gateway_payment_applications(reference TEXT PRIMARY KEY,billing_id INTEGER,amount_minor INTEGER);
  CREATE TABLE test_postings(id INTEGER PRIMARY KEY,type TEXT,amount NUMERIC);
  CREATE TABLE financial_day_closures(id INTEGER PRIMARY KEY,branchid INTEGER,financial_date TEXT,status TEXT);
+ CREATE TABLE financial_historical_locks(id INTEGER PRIMARY KEY,branchid INTEGER,start_date TEXT,end_date TEXT);
  CREATE TABLE financial_record_locks(source_table TEXT,source_ref TEXT);
  ALTER TABLE billing ADD COLUMN branchid INTEGER DEFAULT 4;
  ALTER TABLE billing ADD COLUMN billedon TEXT DEFAULT '2026-10-01';

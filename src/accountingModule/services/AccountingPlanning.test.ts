@@ -5,6 +5,7 @@ vi.mock('./AuthorityService',()=>({AuthorityService:class{can(...args:any[]){ret
 vi.mock('../../hooks/logger',()=>({default:{error:vi.fn(),warn:vi.fn(),info:vi.fn()}}));
 import {accountingSqlDatabase}from'../../testSupport/accountingSqlDatabase';
 import {ensureAccountingPlanningSchema}from'../init/AccountingPlanningSchema';
+import {ensureFinancialLockSchema}from'../init/financialLockSchema';
 import {BudgetService}from'./BudgetService';
 import {RecurringExpenseService}from'./RecurringExpenseService';
 import {CashForecastService}from'./CashForecastService';
@@ -13,6 +14,7 @@ let db:any,native:any;
 beforeEach(async()=>{
  vi.useFakeTimers({toFake:['Date']});vi.setSystemTime(new Date('2026-01-31T12:00:00Z'));vi.clearAllMocks();authorityMock.mockResolvedValue({allowed:true});({db,native}=accountingSqlDatabase());connectionMock.mockResolvedValue(db);
  await ensureAccountingPlanningSchema(db);
+ await ensureFinancialLockSchema(db);
  native.exec(`
  CREATE TABLE roles(employeeid INTEGER PRIMARY KEY,activation INTEGER);
  CREATE TABLE acc_control_audit(id INTEGER PRIMARY KEY,action TEXT,entity_id INTEGER,employee_id INTEGER,before_state TEXT,after_state TEXT,created_at TEXT);

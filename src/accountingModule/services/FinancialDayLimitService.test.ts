@@ -5,7 +5,7 @@ import { FinancialDayLimitService, financialDayReadiness } from './FinancialDayL
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 const databases: ReturnType<typeof accountingSqlDatabase>[] = [];
 afterEach(async () => { await Promise.all(databases.splice(0).map(f => f.db.destroy())); });
-function fixture() {
+function fixture(enabled = true) {
      const f = accountingSqlDatabase();
      databases.push(f);
      f.native.exec(`
@@ -21,11 +21,41 @@ function fixture() {
        CREATE TABLE financial_day_closures(id INTEGER PRIMARY KEY, branchid INTEGER, financial_date TEXT, status TEXT);
        CREATE TABLE pharmacy_financial_days(branchid INTEGER, financial_date TEXT, status TEXT);
        CREATE TABLE pharmacy_accounting_settings(branchid INTEGER, tenant_id INTEGER, enabled INTEGER);
+       CREATE TABLE financial_lock_settings(branchid INTEGER PRIMARY KEY, enabled INTEGER, grace_hours INTEGER);
+       CREATE TABLE financial_historical_locks(id INTEGER PRIMARY KEY, branchid INTEGER, start_date TEXT, end_date TEXT);
      `);
+     if (enabled) f.native.exec('INSERT INTO financial_lock_settings VALUES (2,1,48),(3,1,48)');
      return { ...f, service: new FinancialDayLimitService(1, f.db) };
 }
 const now = new Date('2026-11-04T00:00:00.000Z');
 describe('48-hour financial day transaction limit', () => {
+     it('defaults existing installations to optional enforcement without hiding overdue activity', async () => {
+          const f = fixture(false);
+          await f.db('billing').insert({ billingid: 1, branchid: 2, billedon: '2024-01-01' });
+          expect(await f.service.status(2, now)).toMatchObject({ blocked: false, overdue: true, enabled: false, graceHours: 48 });
+     });
+     it.each([24, 48, 168, 73])('enforces the configured %s-hour threshold exactly', async hours => {
+          const f = fixture();
+          await f.db('financial_lock_settings').where({ branchid: 2 }).update({ grace_hours: hours });
+          await f.db('billing').insert({ billingid: 1, branchid: 2, billedon: '2026-11-01' });
+          const deadline = new Date(new Date('2026-11-01T00:00:00Z').getTime() + hours * 3600000);
+          expect((await f.service.status(2, new Date(deadline.getTime() - 1))).blocked).toBe(false);
+          expect(await f.service.status(2, deadline)).toMatchObject({ blocked: true, graceHours: hours, deadline: deadline.toISOString() });
+     });
+     it('exempts only migrated dates and keeps uncovered backlog and current receipts eligible', async () => {
+          const f = fixture();
+          await f.db('billing').insert([
+               { billingid: 1, branchid: 2, billedon: '2024-01-01' },
+               { billingid: 2, branchid: 2, billedon: '2025-01-01' },
+          ]);
+          await f.db('financial_historical_locks').insert({ branchid: 2, start_date: '2024-01-01', end_date: '2024-12-31' });
+          expect(await f.service.status(2, now)).toMatchObject({ blocked: true, oldestFinancialDate: '2025-01-01' });
+          await f.db('financial_historical_locks').insert({ branchid: 2, start_date: '2025-01-01', end_date: '2026-11-01' });
+          expect((await f.service.status(2, now)).blocked).toBe(false);
+          await f.db('billinghx').insert({ Billingid: 1, Date: '2026-11-02' });
+          expect(await f.service.status(2, now)).toMatchObject({ blocked: true, oldestFinancialDate: '2026-11-02' });
+          expect(await f.service.status(3, now)).toMatchObject({ blocked: false, oldestFinancialDate: null });
+     });
      it('allows 47:59:59.999 but blocks at exactly 48 hours for both ledgers', () => {
           for (const pharmacy of [false, true]) {
                expect(financialDayReadiness(2, '2026-11-02', new Date(now.getTime() - 1), pharmacy).blocked).toBe(false);

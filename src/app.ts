@@ -20,6 +20,7 @@ import { startSmsContactGroupWorker } from './models/application/sms/SmsContactG
 import { recordSmsDelivery, startSmsCampaignWorker } from './models/application/sms/SmsCampaignWorker';
 import { smsAuthority } from './middleware/smsAuthority';
 import { financialDayLimit, financialDayReadinessHandler } from './middleware/financialDayLimit';
+import financialLockSettingsRouter from './middleware/financialLockSettings';
 import settingsRouter from "./controllers/settings/route";
 import LoginsRouter from "./controllers/logins/route";
 import insuranceRouters from './controllers/insurance/routes'
@@ -156,6 +157,7 @@ app.use(pharmacyModuleBoundary);
 app.use(labAssignmentAccess);
 app.use(smsAuthority);
 app.get('/api/v1/financial-day/readiness', financialDayReadinessHandler);
+app.use(financialLockSettingsRouter);
 app.use(financialDayLimit);
 app.use('/api/v1/operations/control', operationalControlRoutes);
 app.use('/api/v1/queue', walkInQueueRouter);

@@ -51,7 +51,7 @@ export async function financialDayLimit(request: Request, response: Response, ne
           const service = new FinancialDayLimitService(actor.tenantId);
           const status = await service.transactionStatus(branchId, ledger === 'pharmacy');
           if (status.blocked) {
-               const message = `Transactions are blocked: financial day ${status.oldestFinancialDate} has reached the 48-hour closing limit. ${ledger === 'pharmacy' && status.closeUrl === '/pharmacy/finance' ? 'Close the pharmacy financial day' : 'Finalize the laboratory financial day'} before starting another transaction.`;
+               const message = `Transactions are blocked: financial day ${status.oldestFinancialDate} has reached the ${status.graceHours}-hour closing limit. ${ledger === 'pharmacy' && status.closeUrl === '/pharmacy/finance' ? 'Close the pharmacy financial day' : 'Finalize the laboratory financial day'} before starting another transaction.`;
                return response.status(409).json({
                     status: 'error', success: false, statusCode: 409, code: 'FINANCIAL_DAY_OVERDUE', message,
                     error: { code: 'FINANCIAL_DAY_OVERDUE', message }, result: status,

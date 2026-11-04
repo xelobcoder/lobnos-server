@@ -32,10 +32,11 @@ function harness(initialRows: any[], controls: any = null) {
           const builder: any = {
                whereIn: (_column: string, values: number[]) => { ids = values; return builder; },
                orderBy: () => builder,
-               forUpdate: async () => state.rows.filter((row) => ids.includes(Number(row.id))),
+               forUpdate: () => builder,
                where: (values: Record<string, unknown>) => { whereValues = values; return builder; },
                whereNull: (column: string) => { nullColumn = column; return builder; },
                first: async () => {
+                    if (table === 'financial_historical_locks' || table === 'financial_day_closures') return undefined;
                     if (table === 'expense_control_settings') {
                          if (nullColumn) return controls?.branchid == null ? controls : undefined;
                          return controls && Number(controls.branchid) === Number(whereValues?.branchid) ? controls : undefined;
@@ -51,6 +52,8 @@ function harness(initialRows: any[], controls: any = null) {
                     if (table === 'expense_approval_actions') state.actions.push(structuredClone(values));
                     return [1];
                },
+               then: (resolve: (rows: any[]) => unknown, reject: (error: unknown) => unknown) =>
+                    Promise.resolve(state.rows.filter(row => ids.includes(Number(row.id)))).then(resolve, reject),
           };
           return builder;
      };

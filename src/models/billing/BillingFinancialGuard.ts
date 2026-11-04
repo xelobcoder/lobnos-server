@@ -39,15 +39,20 @@ export async function withBillingClosure(db: any, bills: any[]): Promise<any[]> 
         .whereIn('source_ref', bills.map(b => String(b.billingid)));
     const branches = [...new Set(bills.map(b => Number(b.branchid)))];
     const days = await db('financial_day_closures').whereIn('branchid', branches).where({ status: 'finalized' });
+    const historical = await db('financial_historical_locks').whereIn('branchid', branches);
     return bills.map(bill => {
         const day = (value: any) => value instanceof Date ? value.toISOString().slice(0, 10) : String(value).slice(0, 10);
         const lock = locks.find(l => String(l.source_ref) === String(bill.billingid));
         const closure = days.find(d => Number(d.branchid) === Number(bill.branchid) && day(d.financial_date) === day(bill.billedon));
-        const closed = !!lock || !!closure || Number(bill.record_validated_and_signed_off) === 1;
+        const range = historical.find(r => Number(r.branchid) === Number(bill.branchid) &&
+            day(r.start_date) <= day(bill.billedon) && day(r.end_date) >= day(bill.billedon));
+        const closed = !!lock || !!closure || !!range || Number(bill.record_validated_and_signed_off) === 1;
         return { ...bill, closed_status: closed ? 'CLOSED' : 'OPEN',
             closure_evidence: closed ? { closure_id: closure?.id || lock?.closure_id || null,
-                closed_at: closure?.finalized_at || lock?.locked_at || null,
-                closed_by: closure?.owner_employeeid || bill.record_validated_and_signed_off_by || null,
+                closed_at: closure?.finalized_at || lock?.locked_at || range?.created_at || null,
+                closed_by: closure?.owner_employeeid || bill.record_validated_and_signed_off_by || range?.created_by || null,
+                historical_lock_id: range?.id || null,
+                closure_type: range && !closure && !lock ? 'historical_migration' : 'finalization',
                 signed_off: Number(bill.record_validated_and_signed_off) === 1 } : null };
     });
 }

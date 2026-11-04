@@ -8,6 +8,9 @@ export class FinancialFinalizationGuard implements IFinancialFinalizationGuard {
      async assertDateOpen(branchId: number, date: Date | string): Promise<void> {
           const db = this.connectionOverride || await KnexConnection(this.tenantId);
           const financialDate = this.dateOnly(date);
+          const historical = await db('financial_historical_locks').where({ branchid: branchId })
+               .where('start_date', '<=', financialDate).where('end_date', '>=', financialDate).forUpdate().first();
+          if (historical) throw new AccountingError('This historical financial period is immutable. Use a current-period linked correction.', 'FINANCIAL_RECORD_FINALIZED', 409);
           const finalized = await db('financial_day_closures').where({ branchid: branchId, financial_date: financialDate, status: 'finalized' }).first();
           if (finalized) throw new AccountingError(`Financial day ${financialDate} is finalized and immutable`, 'FINANCIAL_RECORD_FINALIZED', 409);
      }
