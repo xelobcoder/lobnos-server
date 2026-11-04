@@ -40,8 +40,11 @@ import ImagingResultAuditRepository from "../operations/imaging/ImagingResultAud
 import ApplicationSettings from "../application/appsettings/appset";
 import { applyDemographicLimits, getAgeGroup } from "./demographic-limits";
 import { UltrasoundTemplateInput, UltrasoundTemplateRepository } from "../operations/imaging/UltrasoundTemplateRepository";
+import { beginResultSave, recordResultSaveRequest, resultSaveHasChanges, validateResultFields } from './ResultSaveGuard';
 
 export default class Creator {
+	resultSaveChanged = false;
+	resultSaveReplayed = false;
 	testid: number;
 
 	constructor(testid: number) {
@@ -296,6 +299,9 @@ export default class Creator {
 
 	public async resultEntry(tenantId: number, requestBody: resultEntryType) {
 		const { csvid, ptid, testid, fields, employeeid, comments, ascensionid, isScan, hasDrugs, drugs } = requestBody;
+		this.resultSaveChanged = false;
+		this.resultSaveReplayed = false;
+		validateResultFields(fields);
 
 		if (!csvid || !ptid || !testid || !fields || (Array.isArray(fields) && fields.length == 0)) {
 			return OperationsFailures.invalidResponseBodyParams;
@@ -303,9 +309,9 @@ export default class Creator {
 
 		let { billingid, patientid } = this.sanitize_patientid_billingid_query(csvid, ptid, "70,50");
 
-		if (typeof billingid != "number" || typeof patientid != "number") {
-			return OperationsFailures.invalidRequestBodyType;
-		}
+		if ([billingid, patientid, testid, ascensionid, employeeid].some(value =>
+			!Number.isSafeInteger(Number(value)) || Number(value) <= 0))
+			throw Object.assign(new Error('Valid ordered test, patient, billing, test and actor identities are required'), { statusCode: 400 });
 
 		await new LaboratoryWorkflowService(tenantId).requireResultEntry(ascensionid, testid, billingid, patientid);
 		const qcConnection = await KnexConnection(tenantId);
@@ -322,71 +328,39 @@ export default class Creator {
 		const connection = await KnexConnection(tenantId);
 		const calculationService = new CalculationFormulaService();
           let entryFields = fields as any[];
-		const shouldCreateRecord = async (trx: any, fieldid: number, ascensionId: number, testid: number) => {
-               return !(await trx('test_results').where({ ascensionid: ascensionId, testid, fieldid }).first());
-          };
-
-
 		const insertUpdate = async function (trx: any, tenantId: number, fields: any[], testid: number) {
-			const cryptedValues = await resultEncrptionReferer(fields);
-			if (!cryptedValues?.resources) throw new Error("Encryption failed");
-			const { resources } = cryptedValues;
+			// Encrypt the two scalar values independently, including an empty display
+			// with a nonempty original. Never coerce an encryption failure to blank data.
+			const resources = fields.map(item => ({
+				...item, value: encrypt_value(String(item.value)), originalvalue: encrypt_value(String(item.originalvalue)),
+			}));
 			const editSessionId = uuidv4();
 			const isAdmin = await new RolesRepository(tenantId).getEmployeeRole(employeeid);
 			if (isAdmin == undefined) throw new Error("Employee not found");
 			const iswithinWindow = isAdmin.toLowerCase() === 'admin' ? true : await RequestAccess.verifyWindowPeriod(tenantId, ascensionid, employeeid, 'edit');
 
-			await Promise.all(
-				resources.map(async (item: any, index: number) => {
-					const originalvalue = item.originalvalue;
-					const isCreateRecord = await shouldCreateRecord(trx, item.fieldid, ascensionid, testid);
-					if (isCreateRecord) {
-						return await insertRecord();
-					} else {
-						return await updateRecord();
-					}
-
-					async function updateRecord() {
-						if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
-						const updateRecords = `UPDATE test_results SET value = ?,updated_on =Now(),employeeid = ?,entrymode = ?,originalvalue = ? ,field = ? ,edit_session_id = ? WHERE ascensionid = ? AND fieldid = ? AND testid = ?`;
-						const result = await trx.raw(updateRecords, [item.value, employeeid, item?.entrymode || "manual", originalvalue, item.field, editSessionId, ascensionid, item.fieldid, testid]);
-						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid, trx);
-						return rowAffected(result);
-					}
-
-					async function insertRecord() {
-						const values = [item.field, billingid, patientid, item.value, employeeid, item?.entrymode || "manual", originalvalue, item.fieldid, testid, ascensionid, editSessionId];
-						if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid, trx);
-						const query = `INSERT INTO test_results (field,billingid,patientid,value,employeeid,entrymode,originalvalue,fieldid,testid,ascensionid,edit_session_id)
-							VALUES(?,?,?,?,?,?,?,?,?,?,?)`;
-						const result = await trx.raw(query, values);
-						await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid, trx);
-						return rowAffected(result);
-					}
-				})
-			);
-
-			const pushCommentsQuery = `UPDATE result_comments SET comments = ? WHERE billingid = ? AND testid = ?`;
-
-			const commentSection = async function () {
-				const isRecordAvailable = await trx.raw(`SELECT * FROM result_comments WHERE testid = ? AND billingid = ?`, [
-					testid,
-					billingid,
-				]);
-
-				if (Array.isArray(isRecordAvailable[0]) && isRecordAvailable[0].length > 0) {
-					const result = await trx.raw(pushCommentsQuery, [comments, billingid, testid]);
-					return rowAffected(result);
+			// Serialize parameter writes under the ordered-test lock. Never fan out a
+			// check-then-insert for repeated IDs; validation and the unique index agree.
+			for (const item of resources) {
+				const key = { ascensionid, testid, fieldid: Number(item.fieldid) };
+				const prior = await trx('test_results').where(key).first();
+				const values = {
+					field: item.field, value: item.value, originalvalue: item.originalvalue,
+					employeeid, entrymode: item.entrymode || 'manual', edit_session_id: editSessionId,
+				};
+				if (prior) {
+					if (!iswithinWindow) throw new Error("Edit window period has elapsed, you can no longer edit this result");
+					await trx('test_results').where(key).update({ ...values, updated_on: new Date() });
 				} else {
-					const result = await trx.raw(`INSERT INTO result_comments (testid,billingid,comments) VALUES (?,?,?)`, [testid, billingid, comments]);
-					return rowAffected(result);
+					if (isScan) await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryStart', new Date(), employeeid, trx);
+					await trx('test_results').insert({ ...key, ...values, billingid, patientid });
 				}
-			};
-
-			const isCommented = await commentSection();
-
-
-			return isCommented;
+				await TestAscension.updateSampleAscensionstate(tenantId, ascensionid, 'resultEntryEnd', new Date(), employeeid, trx);
+			}
+			const key = { billingid, testid };
+			const priorComment = await trx('result_comments').where(key).first();
+			if (priorComment) await trx('result_comments').where(key).update({ comments: comments ?? '' });
+			else await trx('result_comments').insert({ ...key, comments: comments ?? '' });
 		};
 
 
@@ -403,7 +377,7 @@ export default class Creator {
 			}
 
 			if (!hasDrugs) {
-				await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid);
+				await TestAscension.incrementTestEditCount(tenantId, billingid, ascensionid, trx);
 			}
 		}
 
@@ -414,11 +388,22 @@ export default class Creator {
 		if (auditImaging) await ImagingResultAuditRepository.ensureTable(tenantId);
 
 		try {
+			const context = { ascensionid: Number(ascensionid), testid: Number(testid), billingid, patientid, employeeid: Number(employeeid) };
 			await connection.transaction(async (trx) => {
-                    await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
+                    const save = await beginResultSave(trx, context, requestBody);
+                    if (save.replayed) { this.resultSaveReplayed = true; return; }
                     await trx('test_panels').where({ id: testid }).forUpdate().first();
                     const calculatedEntry = await calculationService.prepareResultEntry(tenantId, testid, ascensionid, fields as any[], trx);
                     entryFields = calculatedEntry.fields;
+                    const changed = await resultSaveHasChanges(trx, context, requestBody, entryFields, save.rows);
+                    if (!changed) {
+                         await recordResultSaveRequest(trx, context, requestBody, save.hash);
+                         return;
+                    }
+                    const revision = await trx('dbotestresultapproval').where({ ascensionid }).first();
+                    if (requestBody.expected_revision !== undefined &&
+                         (!Number.isSafeInteger(requestBody.expected_revision) || requestBody.expected_revision !== Number(revision?.approval_revision || 0)))
+                         throw Object.assign(new Error('The result has changed. Reload and review the current result before saving your edits.'), { statusCode: 409 });
                     const currentQcWork = await trx('lab_work_assignments').where({ ascensionid }).first('device_id');
                     await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: currentQcWork?.device_id || null }, trx);
                     await invalidateResultApprovals(trx, ascensionid, employeeid);
@@ -464,9 +449,12 @@ export default class Creator {
 				await drugProcessor(trx);
 				await TestAscension.systemLaboratoryByPass(tenantId, ascensionid, 'byPassValidation', employeeid, trx);
                     await evaluateCriticalActions(trx, { testid, ascensionid, billingid, employeeid }, entryFields);
+                    await recordResultSaveRequest(trx, context, requestBody, save.hash);
+                    this.resultSaveChanged = true;
 			});
 
 			// Critical findings and holds were saved atomically with the result revision.
+			if (!this.resultSaveChanged) return true;
 
 			// Fire-and-forget result value analytics processing
 			const { ResultValueAnalyticsService } = await import("../result-value-analytics/ResultValueAnalyticsService");

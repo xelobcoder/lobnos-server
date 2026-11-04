@@ -14,6 +14,7 @@ import { ExcelHelper } from '../../utils/ExcelHelper';
 
 import { minorUnits } from '../utils/money';
 import { ensureIndexes } from '../../database/ensureIndexes';
+import { BankDateFormat, bankWorkbookAmount, bankWorkbookDate } from '../utils/bankWorkbook';
 
 const DEFAULT_DAY_TOLERANCE = 5;
 
@@ -368,7 +369,10 @@ export class BankReconciliationService implements IBankReconciliationService {
           return bank;
      }
 
-     async importExcel(input: { bankAccountId: number; importedBy: number; buffer: Buffer }): Promise<ImportResult> {
+     async importExcel(input: { bankAccountId: number; importedBy: number; buffer: Buffer; dateFormat?: BankDateFormat }): Promise<ImportResult> {
+          if (input.dateFormat !== undefined && !['YMD', 'DMY', 'MDY'].includes(input.dateFormat)) {
+               throw new AccountingError('dateFormat must be YMD, DMY or MDY', 'INVALID_BANK_DATE_FORMAT', 400);
+          }
           const excel = new ExcelHelper();
           let parsed: { header: string[]; data: Record<string, any>[] };
           try {
@@ -391,14 +395,19 @@ export class BankReconciliationService implements IBankReconciliationService {
           }
 
           const lines: ImportStatementInput['lines'] = [];
+          if (!input.dateFormat && data.some(row => typeof row.date === 'string' && !/^\d{4}-\d{2}-\d{2}$/.test(row.date.trim()))) {
+               throw new AccountingError('Select dateFormat YMD, DMY or MDY for text dates other than ISO YYYY-MM-DD', 'BANK_DATE_FORMAT_REQUIRED', 400);
+          }
           let skipped = 0;
           const problems: string[] = [];
           data.forEach((row: any, index) => {
-               const date = excelDate(row.date);
+               const date = bankWorkbookDate(row.date, input.dateFormat, !!excel.workbook.properties.date1904);
+               const credit = hasDebitCredit ? bankWorkbookAmount(row.credit, true) : null;
+               const debit = hasDebitCredit ? bankWorkbookAmount(row.debit, true) : null;
                const amount = hasDebitCredit
-                    ? toAmount(row.credit) - toAmount(row.debit)
-                    : toAmount(row.amount);
-               if (!date || !isFinite(amount) || amount === 0) {
+                    ? credit === null || debit === null || credit < 0 || debit < 0 || (credit > 0 && debit > 0) ? null : (minorUnits(credit) - minorUnits(debit)) / 100
+                    : bankWorkbookAmount(row.amount);
+               if (!date || amount === null || amount === 0) {
                     skipped++;
                     problems.push(`Row ${index + 2}: ${!date ? 'invalid date' : 'missing or invalid amount'}`);
                     return;
@@ -411,6 +420,9 @@ export class BankReconciliationService implements IBankReconciliationService {
                });
           });
 
+          if (problems.length) {
+               throw new AccountingError(`No rows imported. ${problems.slice(0, 20).join('; ')}${problems.length > 20 ? '; further invalid rows omitted' : ''}`, 'INVALID_BANK_WORKBOOK_ROWS', 400);
+          }
           const result = await this.importStatement({ ...input, lines });
           return { imported: result.imported, skipped: result.skipped + skipped, problems };
      }
@@ -468,34 +480,6 @@ function daysBetween(start: Date | string, end: Date | string): number {
 
 function toDateOnly(date: Date | string): string {
      return new Date(date).toISOString().split('T')[0];
-}
-
-function toAmount(value: unknown): number {
-     if (value === null || value === undefined || String(value).trim() === '') return 0;
-     return Number(String(value).replace(/[^0-9.-]/g, '')) || 0;
-}
-
-function excelDate(value: unknown): string | null {
-     if (value instanceof Date && isFinite(value.getTime())) return toDateOnly(value);
-     if (typeof value === 'number') {
-          const date = new Date(Math.round((value - 25569) * 86400 * 1000));
-          return isFinite(date.getTime()) ? toDateOnly(date) : null;
-     }
-     if (typeof value !== 'string' || !value.trim()) return null;
-     const text = value.trim();
-     const match = text.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
-     if (match) {
-          const [, first, second, year] = match;
-          const day = Number(first) > 12 ? Number(first) : Number(second);
-          const month = Number(first) > 12 ? Number(second) : Number(first);
-          const date = new Date(Number(year), month - 1, day);
-          if (date.getFullYear() === Number(year) && date.getMonth() === month - 1 && date.getDate() === day) {
-               return toDateOnly(date);
-          }
-          return null;
-     }
-     const parsed = new Date(text);
-     return isFinite(parsed.getTime()) ? toDateOnly(parsed) : null;
 }
 
 function round2(value: number): number {

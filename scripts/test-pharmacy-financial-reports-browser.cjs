@@ -40,7 +40,18 @@ write('api.ts', `
 export function useResource(endpoint) {
   window.__requests.push(endpoint);
   const report = new URLSearchParams(endpoint.split('?')[1]).get('report');
-  const data = report === 'balance_sheet' ? {
+  const filters = new URLSearchParams(endpoint.split('?')[1]);
+  const ledger = [
+    {id:1,journal_id:'266a7e7d-5e3b-4d61-9a7a-f4a82ade9174',date:'2026-10-24',account:'collection:1',account_number:'1000',account_name:'Synthetic cash',normal_balance:'debit',description:'Synthetic pharmacy sale',source_document:'f262eb76-53c6-40b5-911b-f8043b7174ef',kind:'sale',debit:100,credit:0,running_balance:100,journal_debit:100,journal_credit:100,journal_line_count:2,journal_line_number:1},
+    {id:2,journal_id:'266a7e7d-5e3b-4d61-9a7a-f4a82ade9174',date:'2026-10-24',account:'sales',account_number:'4000',account_name:'Synthetic sales',normal_balance:'credit',description:'Synthetic pharmacy sale',source_document:'f262eb76-53c6-40b5-911b-f8043b7174ef',kind:'sale',debit:0,credit:100,running_balance:100,journal_debit:100,journal_credit:100,journal_line_count:2,journal_line_number:2}
+  ];
+  const data = endpoint.startsWith('ledger?') ? {
+    rows:filters.get('account') ? ledger.filter(row=>row.account===filters.get('account')) : ledger,
+    total:filters.get('account') ? 1 : 2,journalCount:1,
+    periodTotals:{debit:100,credit:filters.get('account') ? 0 : 100},
+    openingBalance:0,closingBalance:100,normalBalance:'debit',
+    accountBalances:[{account:'collection:1',account_number:'1000',account_name:'Synthetic cash',normal_balance:'debit',opening:0,closing:100}]
+  } : report === 'balance_sheet' ? {
     rows: [
       {section:'Assets',account_number:'1000',account_name:'Synthetic cash',amount:1500},
       {section:'Assets',account_number:'1010',account_name:'Synthetic bank',amount:-100},
@@ -50,13 +61,23 @@ export function useResource(endpoint) {
     columns:[{key:'section',label:'Section'},{key:'account_number',label:'Account no.'},{key:'account_name',label:'Account'},{key:'amount',label:'Amount (GHS)'}],
     totals:{assets:1400,liabilities:400,equity:1000,unclassified:0,balanceDifference:0},
     summary:{bookRevenue:100,costOfSales:20,operatingExpenses:10,profit:70}
+  } : report === 'cash_flow' ? {
+    rows:[{id:'review-journal',section:'Classification required',description:'Offsetting cash journal',inflow:100,outflow:100,net:0}],
+    columns:['section','description','inflow','outflow','net'],
+    classificationIssues:window.__reviewed?[]:[{journalId:'review-journal',description:'Offsetting cash journal',amount:0}],
+    totals:{netMovement:0}
   } : {
     rows:[{section:'Revenue',account:'sales',account_name:'Synthetic report evidence',amount:'12.00'}],
     columns:['section','account_name','amount'],totals:{netProfit:12}
   };
-  return { data: window.__fail ? null : data, loading:false, error:window.__fail ? 'Synthetic report unavailable' : '', refresh(){} };
+  return { data: window.__fail ? null : data, loading:false, error:window.__fail ? 'Synthetic report unavailable' : '', refresh(){dispatchEvent(new PopStateEvent('popstate'));} };
 }
-export async function request() { throw Error('Unexpected request in navigation fixture'); }`);
+export async function request(endpoint,method,body) {
+  if(endpoint==='cash-flow/review-journal/classification'&&method==='PUT'){
+    window.__reviews.push({endpoint,method,body});window.__reviewed=true;return {};
+  }
+  throw Error('Unexpected request in navigation fixture');
+}`);
 write('exports.ts', `
 export async function fullFilteredExport(endpoint, filters) {
   window.__exports.push({endpoint, filters});
@@ -76,7 +97,7 @@ import { createRoot } from 'react-dom/client';
 import { useSearchParams } from './navigation';
 import { FinancialReportLinks, Register } from ${JSON.stringify(path.join(frontend, 'app', 'pharmacy', 'accounting', 'components', 'Registers'))};
 import layout from ${JSON.stringify(path.join(frontend, 'app', 'pharmacy', 'accounting', 'components', 'AccountingWorkspace.module.css'))};
-window.__requests=[]; window.__exports=[];
+window.__requests=[]; window.__exports=[];window.__reviews=[];window.__reviewed=false;
 function App() {
   useSearchParams();
   const section=location.pathname.endsWith('trial-balance')?'trial-balance':location.pathname.endsWith('statements')?'statements':'general-ledger';
@@ -126,12 +147,47 @@ async function main() {
     page.on('pageerror', error => errors.push(error.message));
     const base = `http://127.0.0.1:${server.address().port}`;
     await page.goto(`${base}/pharmacy/accounting/general-ledger`);
+    const ledger = page.getByRole('region', { name: 'General ledger postings' });
+    await ledger.waitFor();
+    assert.equal(await ledger.locator('tbody').count(), 1);
+    assert.equal(await ledger.locator('th[scope="rowgroup"] a').count(), 1);
+    assert.match(await ledger.innerText(), /2 of 2 journal lines shown.*Balanced/);
+    assert.equal(await ledger.getByRole('columnheader', { name: 'Account balance', exact: true }).count(), 0);
+    assert.equal(await ledger.getByRole('columnheader', { name: 'Account code', exact: true }).count(), 1);
+    const source = ledger.getByRole('link', { name: /Source evidence/ }).first();
+    assert.match(await source.getAttribute('href'), /266a7e7d-5e3b-4d61-9a7a-f4a82ade9174#source-evidence$/);
+    await page.locator('input[list="ledger-account-options"]').fill('collection:1');
+    await page.getByRole('button', { name: 'Apply filters', exact: true }).click();
+    await ledger.getByRole('columnheader', { name: 'Account balance', exact: true }).waitFor();
+    assert.match(await ledger.innerText(), /Filtered journal/);
+    assert.match(await ledger.innerText(), /100\.00 Dr/);
+    assert.equal(await ledger.getByText('Unbalanced journal - investigate', { exact: true }).count(), 0);
+    assert.equal(await ledger.locator('td').filter({ hasText: /^GH₵100.00 Dr$/ }).first().evaluate(element => getComputedStyle(element).textAlign), 'right');
+    await page.emulateMedia({ media: 'print' });
+    assert.equal(await ledger.isVisible(), true);
+    await page.emulateMedia({ media: 'screen' });
+    console.log('PASS Ledger groups complete journals, separates accounts, flags filtered excerpts and shows actual Dr/Cr balances');
+    await page.goto(`${base}/pharmacy/accounting/general-ledger`);
     const navigation = page.getByRole('navigation', { name: 'Financial reports' });
     await navigation.getByRole('link', { name: /Profit & loss/ }).waitFor();
     assert.equal(await navigation.locator('a').count(), 4);
     await navigation.getByRole('link', { name: /Cash flow/ }).click();
     await page.getByRole('heading', { name: 'Statement of Cash Flows', exact: true }).waitFor();
     assert.equal(await navigation.locator('[aria-current="page"]').getAttribute('href'), '/pharmacy/accounting/statements?report=cash_flow');
+    const review = page.locator('details').filter({ hasText: 'Net movement is zero' });
+    await review.locator('summary').click();
+    assert.equal(await review.getByRole('button', { name: 'Save classification' }).isDisabled(), true);
+    await review.getByLabel('operating cash inflow', { exact: true }).fill('100');
+    await review.getByLabel('investing cash outflow', { exact: true }).fill('100');
+    await review.getByLabel('Review reason / evidence', { exact: true }).fill('Reviewed synthetic sale and equipment payment');
+    await review.getByRole('button', { name: 'Save classification' }).click();
+    await page.waitForFunction(() => window.__reviews.length === 1);
+    const reviewed = await page.evaluate(() => window.__reviews[0]);
+    assert.equal(reviewed.body.allocations[0].inflow, 100);
+    assert.equal(reviewed.body.allocations[1].outflow, 100);
+    assert.match(reviewed.body.idempotencyKey, /^[a-f0-9-]{36}$/);
+    assert.equal(await page.locator('table').count(), 1);
+    console.log('PASS Zero-net compound cash review captures gross allocations, evidence and retry identity without another statement table');
     await page.getByLabel('From', { exact: true }).fill('2026-03-01');
     await page.getByLabel('To', { exact: true }).fill('2026-03-31');
     await page.getByRole('button', { name: 'Apply filters', exact: true }).click();

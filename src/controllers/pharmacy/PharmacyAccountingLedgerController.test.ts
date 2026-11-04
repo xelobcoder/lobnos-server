@@ -19,7 +19,7 @@ beforeEach(async () => {
      vi.mocked(KnexConnection).mockResolvedValue({ transaction: vi.fn(async callback => callback(trx)) } as never);
      vi.mocked(pharmacyGeneralLedger).mockResolvedValue({
           rows: [{ id: 1, journal_id: 'journal', date: '2026-10-01', reference: 'sale', kind: 'sale', description: 'Pharmacy sale', account: 'collection:1', account_name: 'Pharmacy till', source_document: 'sale', branchid: 2, debit: 100, credit: 0, business_unit: 'pharmacy', running_balance: 100 }],
-          total: 1, page: 1, count: 50, totalPages: 1, openingBalance: 0, closingBalance: 100, accountBalances: [],
+          total: 1, page: 1, count: 50, totalPages: 1, journalCount: 1, periodTotals: { debit: 100, credit: 0 }, normalBalance: 'debit', openingBalance: 0, closingBalance: 100, accountBalances: [],
      });
      const app = express();
      app.use(express.json());

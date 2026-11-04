@@ -1,3 +1,5 @@
+import { BankDateFormat } from '../utils/bankWorkbook';
+
 export interface BankAccount {
      id: number;
      name: string;
@@ -90,7 +92,7 @@ export interface IBankReconciliationService {
       */
      importStatement(input: ImportStatementInput): Promise<ImportResult>;
 
-     importExcel(input: { bankAccountId: number; importedBy: number; buffer: Buffer }): Promise<ImportResult>;
+     importExcel(input: { bankAccountId: number; importedBy: number; buffer: Buffer; dateFormat?: BankDateFormat }): Promise<ImportResult>;
 
      statementLines(
           bankAccountId: number,

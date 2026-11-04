@@ -1,9 +1,11 @@
 import {applyPharmacyHistoryFilters} from '../PharmacyHistoryFilters';
 import { allocateBatches, quantity, money } from '../PharmacyRules';
 import Decimal from 'decimal.js';
+import { allocateMinor, minorUnits } from '../../../accountingModule/utils/money';
 import { pharmacyAvailability } from '../PharmacyAvailability';
 import {assertNoStockCount,assertBatchNotRecalled} from '../PharmacyEnterpriseCore';
 import { collectPharmacyPayment, refundPharmacyPayment } from '../PharmacyPayments';
+import { assertPharmacyDayOpen } from '../PharmacyLedger';
 import { randomUUID } from 'crypto';
 import { Knex } from 'knex';
 import KnexConnection from '../../../database/KnexConnections';
@@ -69,7 +71,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           const coldChainIncidents=rows.length?await this.scope(unitOfWork)('pharmacy_workflows').where({branchid:this.branchId,kind:'cold_chain',status:'requires_quarantine'}):[];
           const quarantinedItemIds=new Set(coldChainIncidents.map((incident:any)=>JSON.parse(incident.details).itemId));
           for(const row of rows){await assertNoStockCount(this.scope(unitOfWork),row.id);if(quarantinedItemIds.has(row.id))throw new Error('A cold-chain excursion for this medicine requires investigation before dispensing');}
-          return rows.map((row: any) => this.toItemRow(row));
+          return Promise.all(rows.map(async (row: any) => ({ ...this.toItemRow(row), stockBookValue: await this.bookValue(row, unitOfWork) })));
      }
 
      async lockItem(itemId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySellableItemRow | null> {
@@ -78,11 +80,30 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                .where({ id: itemId, branchid: this.branchId ?? -1 })
                .forUpdate()
                .first();
-          return row ? this.toItemRow(row) : null;
+          return row ? { ...this.toItemRow(row), stockBookValue: await this.bookValue(row, unitOfWork) } : null;
+     }
+
+     /** Item row is already locked: all stock producers lock that row before movements. */
+     private async bookValue(item: any, unitOfWork: PharmacyUnitOfWork): Promise<number> {
+          const movements = await this.scope(unitOfWork)('pharmacy_stock_movements').where({ item_id: item.id, branchid: this.branchId });
+          let units = new Decimal(0), value = new Decimal(0);
+          for (const movement of movements) {
+               const delta = new Decimal(movement.new_stock).minus(movement.previous_stock);
+               units = units.plus(delta);
+               if (!delta.isZero()) {
+                    if (movement.total_cost == null) throw new Error('Stock valuation is incomplete; reconcile opening movement values before selling');
+                    value = value.plus(new Decimal(movement.total_cost).mul(delta.gt(0) ? 1 : -1));
+               }
+          }
+          if (!units.eq(item.current_stock) || value.lt(0))
+               throw new Error('Stock quantity or book value is unreconciled; review pharmacy opening balances');
+          return money(value);
      }
 
      async lockSale(saleId: string, unitOfWork: PharmacyUnitOfWork): Promise<PharmacySaleRow | null> {
           const snapshot=await this.scope(unitOfWork)('pharmacy_sales').where({id:saleId}).first();
+          if(snapshot && (this.branchId === undefined || Number(snapshot.branchid) === Number(this.branchId)))
+               await assertPharmacyDayOpen(this.scope(unitOfWork), Number(snapshot.branchid), snapshot.completed_at || snapshot.created_at);
           if(snapshot?.prescription_id)await this.scope(unitOfWork)('prescriptions').where({id:snapshot.prescription_id}).forUpdate().first();
           const query=this.scope(unitOfWork)('pharmacy_sales').where({id:saleId});
           this.scopeBranch(query);
@@ -223,7 +244,8 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           if(disposition==='quarantine')for(const line of lines){
                const issues=await db('pharmacy_stock_movements').where({reference_id:sale.id,item_id:line.inventoryItemId,transaction_type:'consumption'});
                if(quantity(issues.reduce((sum:number,row:any)=>sum+Number(row.quantity),0))!==Number(line.quantity))throw new Error('Original batch movements do not match the quarantined return');
-               for(const issue of issues)await db('pharmacy_quarantine_lots').insert({id:randomUUID(),branchid:sale.branchid,item_id:line.inventoryItemId,batch_number:issue.batch_number||null,expiry_date:issue.expiry_date||null,quantity:Number(issue.quantity),remaining_quantity:Number(issue.quantity),unit_cost:Number(issue.unit_cost||line.unitCost||0),book_value:0,source:'customer_return',reference_id:sale.id,status:'held',reason,created_by:actor,created_at:new Date()});
+               const restoration=allocateMinor(minorUnits(line.lineCost),issues.map((issue:any)=>new Decimal(issue.quantity).mul(1000).toDecimalPlaces(0).toNumber()));
+               for(const [index,issue] of issues.entries())await db('pharmacy_quarantine_lots').insert({id:randomUUID(),branchid:sale.branchid,item_id:line.inventoryItemId,batch_number:issue.batch_number||null,expiry_date:issue.expiry_date||null,quantity:Number(issue.quantity),remaining_quantity:Number(issue.quantity),unit_cost:Number(issue.unit_cost||line.unitCost||0),book_value:0,restoration_value:restoration[index]/100,source:'customer_return',reference_id:sale.id,status:'held',reason,created_by:actor,created_at:new Date()});
           }
           if(disposition==='not_returned')return;
           const dispenses=await db('pharmacy_dispenses').where({sale_id:sale.id,is_reversed:false});
@@ -266,10 +288,11 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                if(quantity(allocations.reduce((sum,row)=>sum+row.quantity,0))!==movement.quantity)throw new Error('Original stock movements do not match the return');
           }
           let previous=movement.previousStock;
-          for(const allocation of allocations) {
+          const costs = allocateMinor(minorUnits(movement.totalCost), allocations.map(a => Math.round(a.quantity * 1000)));
+          for(const [index, allocation] of allocations.entries()) {
                await assertBatchNotRecalled(db,this.branchId!,movement.itemId,allocation.batchNumber);
                const next=quantity(previous+(movement.direction==='issue'?-allocation.quantity:allocation.quantity));
-               await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:money(new Decimal(movement.unitCost).mul(allocation.quantity)),reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
+               await db('pharmacy_stock_movements').insert({id:'PHM-'+randomUUID(),item_id:movement.itemId,branchid:this.branchId,transaction_type:movement.direction==='issue'?'consumption':'addition',quantity:allocation.quantity,unit_type:'consumption',previous_stock:previous,new_stock:next,unit_cost:movement.unitCost,total_cost:costs[index]/100,reason:movement.reason,reference_id:movement.referenceId,patientid:movement.patientId,performed_by:movement.performedBy,transaction_date:movement.occurredAt,notes:movement.receiptNumber,batch_number:allocation.batchNumber,expiry_date:allocation.expiryDate,created_at:movement.occurredAt});
                previous=next;
           }
      }

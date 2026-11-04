@@ -98,7 +98,7 @@ export class PharmacyAccountingRegisters extends PharmacyAccountingCore {
      async revenue(query: any = {}): Promise<any> {
           const page = paging(query);
           const q = this.db('pharmacy_journal_lines as l').join('pharmacy_journals as j', 'j.id', 'l.journal_id')
-               .where('j.branchid', this.context.branch).where(function () { this.where('l.account_code', 'sales').orWhere('l.account_code', 'like', 'revenue:%'); });
+               .where('j.branchid', this.context.branch).where(function () { this.whereIn('l.account_code', ['sales', 'sales_returns', 'sales_discounts']).orWhere('l.account_code', 'like', 'revenue:%'); });
           this.dates(q, 'j.financial_date', query);
           const [items, total] = await Promise.all([
                q.clone().select('l.id', 'l.account_code', 'l.debit', 'l.credit', 'j.id as journal_id', 'j.source_ref', 'j.kind', 'j.financial_date', 'j.description')

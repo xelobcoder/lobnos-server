@@ -42,6 +42,8 @@ function fixture(generator?: () => string) {
                     quantity: 10,
                     previous_stock: 0,
                     new_stock: 10,
+                    unit_cost: 4,
+                    total_cost: 40,
                     batch_number: "B",
                     expiry_date: "2099-12-31",
                },
@@ -87,7 +89,12 @@ describe("separate pharmacy counter workflow", () => {
      it("reviews current prices and usable stock without changing the original invoice or reserving stock", async () => {
           const f = fixture();
           const ticket = await f.attendant.create({ ...invoice(), patientId: 99 });
-          await f.db.transaction(async (trx: any) => { await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first(); await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ sale_price: 47, current_stock: 0 }); });
+          await f.db.transaction(async (trx: any) => {
+               await trx("pharmacy_inventory_items").where({ id: "drug" }).forUpdate().first();
+               await trx("pharmacy_inventory_items").where({ id: "drug" }).update({ sale_price: 47, current_stock: 0 });
+               // Synthetic zero-stock opening balance must agree with its movement valuation.
+               await trx("pharmacy_stock_movements").where({ id: "receipt" }).update({ quantity: 0, new_stock: 0, total_cost: 0 });
+          });
           const review = await f.cashier.review(ticket.id);
           expect(review.invoice).toMatchObject({ status: "unpaid", total: 40, details: { customerName: "Customer Name", patientId: 99, priceType: "retail" } });
           expect(review).toMatchObject({ canRecover: false, refreshedTotal: 47 });

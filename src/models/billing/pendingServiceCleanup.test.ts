@@ -11,6 +11,7 @@ function loadBilling(connection: any) {
         module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true,
     } }).outputText, { exports, console, require: (name: string) => {
         if (name === '../../database/KnexConnections') return async () => connection;
+        if (name === './BillingFinancialGuard') return { lockMutableBill: async () => ({ billingid: 1 }) };
         if (name === '../operations/types') return { OperationsFailures: {
             notFound: 'missing', serviceAlreadyDeleted: 'deleted', internalServerError: 'failed',
         } };
@@ -24,7 +25,7 @@ describe('pending-service transaction cleanup', () => {
         'rolls back validation exits and releases their connection: %j', async service => {
             let rollbacks = 0;
             let completed = false;
-            const trx: any = () => ({ where() { return this; }, first: async () => service });
+            const trx: any = () => ({ where() { return this; }, forUpdate() { return this; }, first: async () => service });
             trx.isCompleted = () => completed;
             trx.rollback = async () => { rollbacks++; completed = true; };
             trx.commit = async () => { throw new Error('Invalid service must not commit'); };

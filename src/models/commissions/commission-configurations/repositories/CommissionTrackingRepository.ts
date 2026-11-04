@@ -42,12 +42,14 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
           }
      }
 
-     async findByServiceId(serviceId: number): Promise<ICommissionTracking[]> {
+     async findByServiceId(serviceId: number, lock = false): Promise<ICommissionTracking[]> {
           try {
                const connection = await this.connection;
-               const records = await connection('commission_tracking')
+               const query = connection('commission_tracking')
                     .where('service_id', serviceId)
                     .orderBy('calculated_at', 'desc');
+               if (lock) query.forUpdate();
+               const records = await query;
 
                return records.map((record) => new CommissionTracking(record));
           } catch (error) {
@@ -235,7 +237,8 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
           originalId: number,
           amount: number,
           reason: string,
-          kind: 'refund' | 'cancellation' | 'rejection' | 'credit' | 'reversal' | 'clawback'
+          kind: 'refund' | 'cancellation' | 'rejection' | 'credit' | 'reversal' | 'clawback',
+          appendForKeyedRefund = false
      ): Promise<ICommissionTracking> {
           try {
                const connection = await this.connection;
@@ -252,26 +255,26 @@ export class CommissionTrackingRepository implements ICommissionTrackingReposito
                     .where('config_id', original.config_id)
                     .orderBy('calculated_at', 'desc')
                     .first();
-               if (existing) return new CommissionTracking(existing);
+               if (existing && !appendForKeyedRefund) return new CommissionTracking(existing);
 
                const adjustmentAmount = Math.min(Math.abs(amount), Math.abs(Number(original.final_commission || 0)));
                return await this.create({
-                    service_id: original.service_id,
-                    service_amount: original.service_amount,
+                    service_id: Number(original.service_id),
+                    service_amount: Number(original.service_amount),
                     commission_type: original.commission_type,
-                    percentage_rate_applied: original.percentage_rate_applied,
-                    fixed_amount_applied: original.fixed_amount_applied,
-                    tier_id: original.tier_id,
+                    percentage_rate_applied: original.percentage_rate_applied == null ? undefined : Number(original.percentage_rate_applied),
+                    fixed_amount_applied: original.fixed_amount_applied == null ? undefined : Number(original.fixed_amount_applied),
+                    tier_id: original.tier_id == null ? undefined : Number(original.tier_id),
                     commission_due: -adjustmentAmount,
                     min_cap_adjustment: 0,
                     max_cap_adjustment: 0,
                     period_cap_adjustment: 0,
                     final_commission: -adjustmentAmount,
-                    config_id: original.config_id,
-                    assignment_id: original.assignment_id,
+                    config_id: original.config_id == null ? undefined : Number(original.config_id),
+                    assignment_id: original.assignment_id == null ? undefined : Number(original.assignment_id),
                     recipient_type: original.recipient_type,
-                    recipient_id: original.recipient_id,
-                    cap_period_reference: original.cap_period_reference,
+                    recipient_id: Number(original.recipient_id),
+                    cap_period_reference: original.cap_period_reference ?? undefined,
                     calculated_at: new Date(),
                     currency: original.currency,
                     status: 'adjusted',

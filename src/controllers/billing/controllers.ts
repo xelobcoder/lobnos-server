@@ -3,6 +3,7 @@ import { customError, responseError } from "../../hooks/helper";
 import { Billing } from "../../../obso/billing";
 import { TBillingData } from "../../models/billing/billingclientTypes";
 import { Refund } from "../../models/billing/RefundClass";
+import { BillingRefundService } from '../../models/billing/BillingRefundService';
 import { wrapperTryCatch } from "../../models/generics/trycatch";
 import { OperationsFailures } from "../../models/operations/types";
 import { IDetermineStageOfRefund, RefundRequestBodyParams, UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType } from "./sales/type";
@@ -56,8 +57,11 @@ export async function handleMultiUpdateBilling(request: Request<{}, {}, { patien
 		}
 		const { tenantId } = request.query;
 		const tenantIdP = parseInt(tenantId.toString());
+		const actor = getAuthUser(request as unknown as Request);
+		if (!actor || actor.tenantId !== tenantIdP) return customError('Tenant access denied', 403, response);
 
-		let bill = await BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()), request.body as MultiTBillingDataShared);
+		let bill = await BillingUpdateRepo.updateBillingTransaction(tenantIdP, parseInt(request.query.billingid.toString()),
+			{ ...request.body, employeeid: actor.employeeid, branchid: actor.branch } as MultiTBillingDataShared);
 		if (typeof bill === "string") {
 			return customError(bill, 404, response);
 		}
@@ -158,6 +162,8 @@ export async function updateBilledTransaction(request: Request<{}, {}, { isCondi
 		const { billingid, tenantId } = request.query;
 		const billId = parseInt(billingid.toString());
 		const tenantIdP: number = parseInt(tenantId.toString(), 10);
+		const actor = getAuthUser(request as unknown as Request);
+		if (!actor || actor.tenantId !== tenantIdP) { customError('Tenant access denied', 403, response); return; }
 		const isConditionsUnderstood = request.body.isConditionsUnderstood;
 		if (!isConditionsUnderstood) {
 			response.send({
@@ -166,11 +172,9 @@ export async function updateBilledTransaction(request: Request<{}, {}, { isCondi
 				transaction might lead to data overwritten in favor of this current Transaction. Please ensure you understand the implications of this action before proceeding.`
 			})
 		} else {
-			const outcome = await new Billing(0).updatePreviousTransaction(tenantIdP, request.body as unknown as TBillingData, billId);
-			if (outcome) {
-				NotificationDispatcher.dispatch(tenantIdP, 'INVOICE_UPDATED', { billingId: billId }).catch(() => { });
-			}
-			response.send({ status: outcome });
+			await BillingUpdateRepo.updateBillingTransaction(tenantIdP, billId, { ...request.body, employeeid: actor.employeeid, branchid: actor.branch } as any);
+			NotificationDispatcher.dispatch(tenantIdP, 'INVOICE_UPDATED', { billingId: billId }).catch(() => { });
+			response.send({ status: true });
 		}
 	} catch (err) {
 		responseError(response);
@@ -293,7 +297,7 @@ export async function requestForRefundCashIssueOut(
 		try { minorUnits(refundAmount); } catch { return customError('Invalid refund amount', 400, response); }
 		const tenantId: number = parseInt(request.query.tenantId.toString(), 10);
 		if (tenantId !== Number(actor.tenantId)) return response.status(403).send({ status: false, message: 'Tenant access denied' });
-		const result = await Refund.issueOutCashOutOfRefund(tenantId, { ...request.body, employeeid, selectedPaymentMode });
+		const result = await Refund.issueOutCashOutOfRefund(tenantId, { ...request.body, employeeid, selectedPaymentMode, branchid: actor.branch });
 		const isCashoutDocumented = result === true;
 		if (!isCashoutDocumented) return response.status(400).send({ status: false, message: typeof result === 'string' ? result : 'Service refund failed' });
 
@@ -368,10 +372,11 @@ export async function refundAllTransactionHandler(request: Request<{ selectedPay
 	const tenantId = parseInt(request.query.tenantId.toString());
 	const reason = request.query.reason || "No reason provided";
 	try {
-		const isBillLocked = await PrimeBillingEnterprise.isBillingLocked(tenantId, billingid);
-		if (isBillLocked) return customError("Billing is  locked, cannot proceed with refund", 400, response);
-
-		const isRefunded = await WriteOff.refundCompletelyTransaction(tenantId, employeeid, billingid, selectedPaymentMode, reason.toString() || undefined);
+		const actor = getAuthUser(request as unknown as Request);
+		if (!actor || actor.tenantId !== tenantId) return customError('Tenant access denied', 403, response);
+		const isRefunded = await new BillingRefundService(tenantId).refund({ billingid: Number(billingid),
+			employeeid: actor.employeeid, branchid: actor.branch, selectedPaymentMode: Number(selectedPaymentMode),
+			request_key: `refund-all-billing-${billingid}`, all: true, reason: reason.toString() });
 		response.send({ status: isRefunded })
 	} catch (error) {
 		console.error("Error processing refund:", error);

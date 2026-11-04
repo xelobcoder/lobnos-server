@@ -66,10 +66,12 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                const closure = await this.requireClosure(trx, closureId);
                this.assertActorBranch(actor, Number(closure.branchid));
                this.assertVersion(closure, input.expectedVersion);
+               if (!['approve', 'reject'].includes(input.decision)) throw new AccountingError('Choose approve or reject', 'INVALID_DAILY_CLOSE_DECISION', 400);
+               const overrideReason = this.administratorOverride(actor, input);
                const nextStatus = input.decision === 'reject' ? 'returned_to_accountant' : 'manager_approved';
                if (!canTransitionFinancialDay(closure.status, nextStatus)) throw new AccountingError(`Financial day is ${closure.status}`, 'INVALID_DAILY_CLOSE_TRANSITION', 409);
-               if (Number(closure.accountant_employeeid) === actor.employeeid) throw new AccountingError('The accountant cannot approve their own submission', 'SEGREGATION_OF_DUTIES', 403);
-               const authority = await new AuthorityService(this.tenantId).can(actor.employeeid, 'accounting.daily_close.manager_approve', null, Number(closure.branchid));
+               if (Number(closure.accountant_employeeid) === actor.employeeid && !overrideReason) throw new AccountingError('You prepared this financial day. Use a different authorized reviewer, or explicitly confirm an administrator override with a reason and PIN.', 'SEGREGATION_OF_DUTIES', 403);
+               const authority = overrideReason ? this.overrideAuthority() : await new AuthorityService(this.tenantId).can(actor.employeeid, 'accounting.daily_close.manager_approve', null, Number(closure.branchid));
                if (!authority.allowed) throw new AccountingError(authority.reason, 'DAILY_CLOSE_AUTHORITY_DENIED', 403);
                await this.verifyPin(trx, actor, input, 'daily_close_manager_decision', String(closureId));
                const version = Number(closure.workflow_version) + 1;
@@ -77,7 +79,7 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                     const reason = String(input.reason || '').trim();
                     if (reason.length < 3) throw new AccountingError('A return reason is required', 'DAILY_CLOSE_REASON_REQUIRED', 400);
                     await trx('financial_day_closures').where({ id: closureId }).update({ status: 'returned_to_accountant', workflow_version: version, manager_employeeid: actor.employeeid, manager_decided_at: new Date(), return_reason: reason, updated_by: actor.employeeid, updated_at: new Date() });
-                    await this.insertAction(trx, closure, actor, authority, 'manager_rejected', 'returned_to_accountant', version, reason, closure.latest_snapshot_hash);
+                    await this.insertAction(trx, closure, actor, authority, 'manager_rejected', 'returned_to_accountant', version, reason, closure.latest_snapshot_hash, overrideReason);
                     return this.detailIn(trx, closureId);
                }
                const snapshot = await new FinancialSnapshotService(this.tenantId, trx).create(Number(closure.branchid), this.dateOnly(closure.financial_date));
@@ -85,7 +87,7 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                this.assertSnapshotUnchanged(closure.latest_snapshot_hash, snapshot.hash);
                await this.insertSnapshot(trx, closure.id, 'manager_approved', version, actor.employeeid, snapshot);
                await trx('financial_day_closures').where({ id: closureId }).update({ status: 'manager_approved', workflow_version: version, manager_employeeid: actor.employeeid, manager_decided_at: new Date(), return_reason: null, latest_snapshot_hash: snapshot.hash, updated_by: actor.employeeid, updated_at: new Date() });
-               await this.insertAction(trx, closure, actor, authority, 'manager_approved', 'manager_approved', version, input.notes, snapshot.hash);
+               await this.insertAction(trx, closure, actor, authority, 'manager_approved', 'manager_approved', version, input.notes, snapshot.hash, overrideReason);
                return this.detailIn(trx, closureId);
           });
      }
@@ -97,9 +99,10 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                const closure = await this.requireClosure(trx, closureId);
                this.assertActorBranch(actor, Number(closure.branchid));
                this.assertVersion(closure, input.expectedVersion);
+               const overrideReason = this.administratorOverride(actor, input);
                if (!canTransitionFinancialDay(closure.status, 'finalized')) throw new AccountingError(`Financial day is ${closure.status}`, 'INVALID_DAILY_CLOSE_TRANSITION', 409);
-               if ([closure.accountant_employeeid, closure.manager_employeeid].map(Number).includes(actor.employeeid)) throw new AccountingError('Facility Owner must be different from the Accountant and Finance Manager', 'SEGREGATION_OF_DUTIES', 403);
-               const authority = await new AuthorityService(this.tenantId).can(actor.employeeid, 'accounting.daily_close.finalize', null, Number(closure.branchid));
+               if ([closure.accountant_employeeid, closure.manager_employeeid].map(Number).includes(actor.employeeid) && !overrideReason) throw new AccountingError('You prepared or approved this financial day. Use a different authorized Facility Owner, or explicitly confirm an administrator override with a reason and PIN.', 'SEGREGATION_OF_DUTIES', 403);
+               const authority = overrideReason ? this.overrideAuthority() : await new AuthorityService(this.tenantId).can(actor.employeeid, 'accounting.daily_close.finalize', null, Number(closure.branchid));
                if (!authority.allowed) throw new AccountingError(authority.reason, 'DAILY_CLOSE_AUTHORITY_DENIED', 403);
                await this.verifyPin(trx, actor, input, 'daily_close_owner_finalize', String(closureId));
                const financialDate = this.dateOnly(closure.financial_date);
@@ -108,12 +111,13 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
                this.assertSnapshotUnchanged(closure.latest_snapshot_hash, snapshot.hash);
                const version = Number(closure.workflow_version) + 1;
                await this.insertSnapshot(trx, closure.id, 'finalized', version, actor.employeeid, snapshot);
-               await this.createRecordManifest(trx, closure.id, Number(closure.branchid), financialDate);
                await trx('billing').where({ branchid: closure.branchid }).whereRaw('DATE(billedon) = ?', [financialDate]).update({ islocked: 1, record_validated_and_signed_off: 1, record_validated_and_signed_off_by: actor.employeeid });
                await trx('dboservices').where({ branchid: closure.branchid }).whereRaw('DATE(serviceAddedOn) = ?', [financialDate]).update({ isLocked: 1 });
+               // Capture signed-off rows before installing the immutable record locks.
+               await this.createRecordManifest(trx, closure.id, Number(closure.branchid), financialDate);
                const now = new Date();
                await trx('financial_day_closures').where({ id: closureId }).update({ status: 'finalized', workflow_version: version, owner_employeeid: actor.employeeid, finalized_at: now, locked_at: now, latest_snapshot_hash: snapshot.hash, finalized_hash: snapshot.hash, updated_by: actor.employeeid, updated_at: now });
-               await this.insertAction(trx, closure, actor, authority, 'owner_finalized', 'finalized', version, input.notes, snapshot.hash);
+               await this.insertAction(trx, closure, actor, authority, 'owner_finalized', 'finalized', version, input.notes, snapshot.hash, overrideReason);
                return this.detailIn(trx, closureId);
           });
      }
@@ -200,12 +204,26 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
 
      private role(actor: AuthUser): string { return String(actor.role || '').toLowerCase().trim(); }
 
+     private administratorOverride(actor: AuthUser, input: FinancialCloseActionInput): string | undefined {
+          if (input.overrideSegregationOfDuties !== undefined && typeof input.overrideSegregationOfDuties !== 'boolean') throw new AccountingError('Administrator override must be explicitly confirmed', 'INVALID_DAILY_CLOSE_OVERRIDE', 400);
+          if (!input.overrideSegregationOfDuties) return undefined;
+          if (!roleAllowed(this.role(actor), OWNER_ONLY_ROLES)) throw new AccountingError('Only an administrator may override financial day separation of duties', 'DAILY_CLOSE_OVERRIDE_DENIED', 403);
+          const reason = typeof input.overrideReason === 'string' ? input.overrideReason.trim() : '';
+          if (reason.length < 10 || reason.length > 500) throw new AccountingError('Explain the administrator override in 10 to 500 characters', 'DAILY_CLOSE_OVERRIDE_REASON_REQUIRED', 400);
+          return reason;
+     }
+
+     private overrideAuthority(): AuthorityDecision {
+          return { allowed: true, reason: 'Explicit administrator override', delegationId: null, source: 'role' };
+     }
+
      private async insertSnapshot(trx: any, closureId: number, stage: string, version: number, actorId: number, snapshot: any): Promise<void> {
           await trx('financial_day_close_snapshots').insert({ closure_id: closureId, stage, workflow_version: version, totals_json: JSON.stringify(snapshot.totals), discrepancies_json: JSON.stringify(snapshot.discrepancies), record_counts_json: JSON.stringify(snapshot.recordCounts), outbox_pending: snapshot.outboxPending, outbox_failed: snapshot.outboxFailed, ledger_debits: snapshot.ledgerDebits, ledger_credits: snapshot.ledgerCredits, snapshot_hash: snapshot.hash, created_by: actorId, created_at: new Date() });
      }
 
-     private async insertAction(trx: any, closure: any, actor: AuthUser, authority: AuthorityDecision, action: string, toStatus: string, version: number, reason?: string, snapshotHash?: string): Promise<void> {
-          await trx('financial_day_close_actions').insert({ closure_id: closure.id, action, from_status: closure.status, to_status: toStatus, actor_employeeid: actor.employeeid, actor_role: actor.role, actor_branchid: actor.branch, permission: action.startsWith('accountant') ? 'accounting.daily_close.submit' : action.startsWith('manager') ? 'accounting.daily_close.manager_approve' : 'accounting.daily_close.finalize', authority_source: authority.source, authority_delegation_id: authority.delegationId, result: 'succeeded', reason: reason?.trim() || null, snapshot_hash: snapshotHash || null, workflow_version: version, metadata_json: JSON.stringify({ tenantId: actor.tenantId }), action_at: new Date() });
+     private async insertAction(trx: any, closure: any, actor: AuthUser, authority: AuthorityDecision, action: string, toStatus: string, version: number, reason?: string, snapshotHash?: string, overrideReason?: string): Promise<void> {
+          const auditReason = overrideReason ? `Administrator override: ${overrideReason}${reason?.trim() ? `\n${reason.trim()}` : ''}` : reason?.trim() || null;
+          await trx('financial_day_close_actions').insert({ closure_id: closure.id, action, from_status: closure.status, to_status: toStatus, actor_employeeid: actor.employeeid, actor_role: actor.role, actor_branchid: actor.branch, permission: action.startsWith('accountant') ? 'accounting.daily_close.submit' : action.startsWith('manager') ? 'accounting.daily_close.manager_approve' : 'accounting.daily_close.finalize', authority_source: authority.source, authority_delegation_id: authority.delegationId, result: 'succeeded', reason: auditReason, snapshot_hash: snapshotHash || null, workflow_version: version, metadata_json: JSON.stringify({ tenantId: actor.tenantId, ...(overrideReason ? { administratorOverride: { reason: overrideReason, preparerEmployeeId: closure.accountant_employeeid, reviewerEmployeeId: closure.manager_employeeid } } : {}) }), action_at: new Date() });
      }
 
      private async createRecordManifest(trx: any, closureId: number, branchId: number, financialDate: string): Promise<void> {

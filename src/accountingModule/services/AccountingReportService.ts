@@ -10,7 +10,6 @@ import {
      IncomeStatement,
      FinancialOverview,
      InventoryValuation,
-     InventoryValuationRow,
      LedgerLine,
      PeriodBreakdownRow,
      TrialBalanceRow,
@@ -20,6 +19,8 @@ import { AccountingPeriodService } from './AccountingPeriodService';
 import { FinancialFinalizationGuard } from './FinancialFinalizationGuard';
 import { AccountingError } from '../errors/AccountingErrors';
 import { minorUnits, sumMinor } from '../utils/money';
+import { CashFlowReviewInput, cashFlowReview, readCashFlowReview } from '../utils/cashFlow';
+import { inventoryValuation } from './InventoryValuationService';
 
 const COST_OF_SALES_CODES = ['acc-5000'];
 const GENERAL_LEDGER_SORT_COLUMNS = [
@@ -454,7 +455,13 @@ export class AccountingReportService implements IAccountingReportService {
                .select('e.id as entry_id', 'l.direction', 'l.amount');
           const netByEntry = new Map<number, number>();
           for (const line of cashLines) netByEntry.set(Number(line.entry_id), (netByEntry.get(Number(line.entry_id)) || 0) + minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1));
-          const entryIds = [...netByEntry.keys()].filter(id => netByEntry.get(id) !== 0);
+          const entryIds = [...netByEntry.keys()];
+          const grossByEntry = new Map<number, { inflow: number; outflow: number }>();
+          for (const line of cashLines) {
+               const id = Number(line.entry_id), gross = grossByEntry.get(id) || { inflow: 0, outflow: 0 };
+               gross[line.direction === 'debit' ? 'inflow' : 'outflow'] += minorUnits(line.amount);
+               grossByEntry.set(id, gross);
+          }
           const operatingByEntry = new Map<number,number>();
           const buckets = new Map<string, CashFlowLine>();
           const classificationIssues: Array<{ journalEntryId: number; amount: number }> = [];
@@ -464,31 +471,44 @@ export class AccountingReportService implements IAccountingReportService {
                     .select('l.journal_entry_id', 'l.amount', 'l.direction', 'a.account_code', 'a.name', 'a.type');
                const classifications = await db('acc_cash_flow_classifications').whereIn('journal_entry_id', entryIds);
                const reviewed = new Map(classifications.map((row: any) => [Number(row.journal_entry_id), row]));
-               const add = (entryId:number, category: CashFlowLine['category'], code: string, name: string, amount: number) => {
+               const add = (entryId:number, category: CashFlowLine['category'], code: string, name: string, amount: number, inflow = Math.max(0, amount), outflow = Math.max(0, -amount)) => {
                     if(category==='operating') operatingByEntry.set(entryId,(operatingByEntry.get(entryId)||0)+amount);
                     const key = `${category}:${code}`, previous = buckets.get(key);
-                    buckets.set(key, { category, accountCode: code, accountName: name, amount: (previous?.amount || 0) + amount });
+                    buckets.set(key, { category, accountCode: code, accountName: name, amount: (previous?.amount || 0) + amount,
+                         inflow: (previous?.inflow || 0) + inflow, outflow: (previous?.outflow || 0) + outflow });
                };
                for (const id of entryIds) {
                     const net = netByEntry.get(id)!;
-                    const saved: any = reviewed.get(id);
-                    if (saved && sumMinor([saved.operating, saved.investing, saved.financing]) === net) {
-                         for (const category of ['operating','investing','financing'] as const) add(id, category, `JOURNAL-${id}`, 'Reviewed cash flow classification', minorUnits(saved[category]));
+                    const parts = counterparts.filter((line: any) => Number(line.journal_entry_id) === id);
+                    const counterpartNet = parts.reduce((sum: number, line: any) => sum + minorUnits(line.amount) * (line.direction === 'credit' ? 1 : -1), 0);
+                    if (counterpartNet !== net) {
+                         add(id, 'unclassified', `JOURNAL-${id}`, 'Unbalanced source journal: review required', counterpartNet);
+                         classificationIssues.push({ journalEntryId: id, amount: net / 100 });
                          continue;
                     }
-                    const parts = counterparts.filter((line: any) => Number(line.journal_entry_id) === id);
+                    if (!parts.length && net === 0) continue; // Proven cash-only transfer, not external activity.
+                    const gross = grossByEntry.get(id)!;
+                    const saved = readCashFlowReview(reviewed.get(id), net, { inflowMinor: gross.inflow, outflowMinor: gross.outflow });
+                    if (saved) {
+                         for (const row of saved) add(id, row.category, `JOURNAL-${id}`, 'Reviewed cash flow classification',
+                              minorUnits(row.inflow) - minorUnits(row.outflow), minorUnits(row.inflow), minorUnits(row.outflow));
+                         continue;
+                    }
                     const categories = new Set(parts.map((line: any) => classifyCashFlow(line.account_code, line.type)));
                     // A compound cash/non-cash journal does not prove the gross cash split.
                     // Keep its cash visible and require an explicit reviewed allocation.
-                    if (categories.size > 1) {
-                         add(id, 'unclassified', `JOURNAL-${id}`, 'Compound journal: classification required', net);
+                    if (categories.size !== 1 || (gross.inflow > 0 && gross.outflow > 0) || categories.has('unclassified')) {
+                         add(id, 'unclassified', `JOURNAL-${id}`, 'Compound journal: classification required', net, gross.inflow, gross.outflow);
                          classificationIssues.push({ journalEntryId: id, amount: net / 100 });
                     } else {
-                         for (const line of parts) add(id, classifyCashFlow(line.account_code, line.type), line.account_code, line.name, minorUnits(line.amount) * (line.direction === 'credit' ? 1 : -1));
+                         // Opposing noncash lines do not prove gross receipts/payments.
+                         if (parts.some((line: any) => (line.direction === 'credit' ? 1 : -1) !== Math.sign(net))) {
+                              add(id, [...categories][0] as CashFlowLine['category'], `JOURNAL-${id}`, 'Net cash movement', net);
+                         } else for (const line of parts) add(id, classifyCashFlow(line.account_code, line.type), line.account_code, line.name, minorUnits(line.amount) * (line.direction === 'credit' ? 1 : -1));
                     }
                }
           }
-          const lines = [...buckets.values()].filter(line => line.amount !== 0).map(line => ({ ...line, amount: line.amount / 100 }));
+          const lines = [...buckets.values()].filter(line => line.amount || line.inflow || line.outflow).map(line => ({ ...line, amount: line.amount / 100, inflow: (line.inflow || 0) / 100, outflow: (line.outflow || 0) / 100 }));
           const sumBy = (category: CashFlowLine['category']) => sumMinor(lines.filter(line => line.category === category).map(line => line.amount)) / 100;
           const openingCash = await this.cashBalanceAsOf(previousDay(from), cashAccounts), closingCash = await this.cashBalanceAsOf(to, cashAccounts);
           const netMovement = (minorUnits(closingCash) - minorUnits(openingCash)) / 100;
@@ -515,7 +535,7 @@ export class AccountingReportService implements IAccountingReportService {
           return {netIncome:netIncome/100,adjustments:adjustmentRows,adjustmentsTotal:sumMinor(adjustmentRows.map(r=>r.amount))/100,workingCapital,workingCapitalTotal:sumMinor(workingCapital.map(r=>r.amount))/100,reclassifications,reclassificationsTotal:sumMinor(reclassifications.map(r=>r.amount))/100};
      }
 
-     async saveCashFlowClassification(journalEntryId: number, amounts: { operating: number; investing: number; financing: number }, employeeId: number) {
+     async saveCashFlowClassification(journalEntryId: number, amounts: CashFlowReviewInput, employeeId: number) {
           const db = await this.connection();
           return db.transaction(async (trx: any) => {
                const entry = await trx('acc_journal_entries').where({ id: journalEntryId }).first();
@@ -527,9 +547,21 @@ export class AccountingReportService implements IAccountingReportService {
                const cash = await trx('acc_journal_lines as l').join('acc_accounts as a','a.id','l.account_id').where('l.journal_entry_id',journalEntryId).whereIn('a.account_code',codes).select('l.amount','l.direction','l.branchid');
                for (const branchId of [...new Set<number>(cash.map((line: any) => Number(line.branchid)).filter(Boolean))]) await new FinancialFinalizationGuard(this.tenantId, trx).assertDateOpen(branchId, entry.occurred_at);
                const net = cash.reduce((sum: number, line: any) => sum + minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1), 0);
-               if (!net || sumMinor([amounts.operating, amounts.investing, amounts.financing]) !== net) throw new AccountingError('Classification must exactly equal the journal cash movement', 'INVALID_CASH_FLOW_CLASSIFICATION', 400);
+               if (!cash.length) throw new AccountingError('The journal has no cash movements', 'INVALID_CASH_FLOW_CLASSIFICATION', 400);
+               const allLines = await trx('acc_journal_lines as l').join('acc_accounts as a', 'a.id', 'l.account_id')
+                    .where('l.journal_entry_id', journalEntryId).select('a.account_code', 'l.amount', 'l.direction');
+               const journalNet = allLines.reduce((sum: number, line: any) => sum + minorUnits(line.amount) * (line.direction === 'debit' ? 1 : -1), 0);
+               if (journalNet || allLines.every((line: any) => codes.includes(line.account_code))) {
+                    throw new AccountingError('Only a balanced journal with external counterpart evidence can be classified', 'INVALID_CASH_FLOW_CLASSIFICATION', 400);
+               }
+               const review = cashFlowReview(amounts, net, {
+                    inflowMinor: sumMinor(cash.filter((line: any) => line.direction === 'debit').map((line: any) => line.amount)),
+                    outflowMinor: sumMinor(cash.filter((line: any) => line.direction === 'credit').map((line: any) => line.amount)),
+               });
                const before = await trx('acc_cash_flow_classifications').where({ journal_entry_id: journalEntryId }).first();
-               const after = { journal_entry_id: journalEntryId, operating: minorUnits(amounts.operating)/100, investing: minorUnits(amounts.investing)/100, financing: minorUnits(amounts.financing)/100, updated_by: employeeId, updated_at: new Date() };
+               const after = { journal_entry_id: journalEntryId, operating: review.operating, investing: review.investing, financing: review.financing,
+                    ...(amounts.allocations !== undefined ? { gross_allocations: JSON.stringify(review.allocations) } : before?.gross_allocations ? { gross_allocations: null } : {}),
+                    updated_by: employeeId, updated_at: new Date() };
                await trx('acc_cash_flow_classifications').insert(after).onConflict('journal_entry_id').merge();
                await trx('acc_control_audit').insert({ action:'cash_flow_classification', entity_id:journalEntryId, employee_id:employeeId, before_state:JSON.stringify(before || {}), after_state:JSON.stringify(after), created_at:new Date() });
                return after;
@@ -655,59 +687,8 @@ export class AccountingReportService implements IAccountingReportService {
 
      async inventoryValuation(asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<InventoryValuation> {
           const db = await this.connection();
-
-          const items = await db('inv_inventory_items')
-               .where('is_active', true)
-               .andWhere('current_stock', '>', 0)
-               .select('id', 'name', 'sku', 'current_stock');
-
-          const rows: InventoryValuationRow[] = [];
-
-          for (const item of items) {
-               const costRow = await db('inv_inventory_transactions')
-                    .where('item_id', item.id)
-                    .andWhere('unit_cost', '>', 0)
-                    .orderBy('transaction_date', 'desc')
-                    .select('unit_cost')
-                    .first();
-
-               const unitCost = Number(costRow?.unit_cost || 0);
-               const quantity = Number(item.current_stock || 0);
-
-               rows.push({
-                    itemId: item.id,
-                    name: item.name,
-                    sku: item.sku || null,
-                    quantity,
-                    unitCost: round2(unitCost),
-                    value: round2(quantity * unitCost),
-               });
-          }
-
-          const balances = await this.accountBalances({ to: asOf });
-          const inventoryAccount = balances.find((row) => row.account_code === INVENTORY_ACCOUNT);
-          const value = round2(rows.reduce((total, row) => total + row.value, 0));
-          const generalLedger = round2(inventoryAccount?.balance || 0);
-
-          const paging = parsePaging(options || {}, 50);
-          const sort = parseSort(options || {}, ['name', 'sku', 'quantity', 'unitCost', 'value'], {
-               column: 'value',
-               direction: 'desc',
-          });
-          const page = paginate(rows, paging, sort);
-
-          return {
-               rows: page.data,
-               total: page.total,
-               page: page.page,
-               count: page.count,
-               totals: {
-                    quantity: round2(rows.reduce((total, row) => total + row.quantity, 0)),
-                    value,
-                    generalLedger,
-                    difference: round2(value - generalLedger),
-               },
-          };
+          if (!this.trx) return db.transaction((trx: any) => new AccountingReportService(this.tenantId, trx).inventoryValuation(asOf, options), { isolationLevel: 'repeatable read' });
+          return inventoryValuation(db, asOf, options);
      }
 
      private async cashAccountCodes(): Promise<string[]> {

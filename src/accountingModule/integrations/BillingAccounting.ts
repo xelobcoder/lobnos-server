@@ -416,11 +416,15 @@ export async function enqueueBillingRefund(
      employeeId?: number | null,
      trx?: any,
      refundHistoryId?: number,
-     paymentModeId?: number
+     paymentModeId?: number,
+     taxVoided = 0,
+     refundEventId?: number
 ): Promise<void> {
      try {
           const voided = round2(Number(payableVoided) || 0);
           const refunded = round2(Number(cashRefunded) || 0);
+          const tax = round2(Number(taxVoided) || 0);
+          if (tax < 0 || tax > voided) throw new Error('Refund tax exceeds the credit note');
           if (voided <= 0 && refunded <= 0) return;
 
           const db = await resolveDb(tenantId, trx);
@@ -430,6 +434,11 @@ export async function enqueueBillingRefund(
                : null;
           const onReceivableBasis = await hasBillingReceivable(tenantId, billingId, db);
           const cashAccount = await resolvePaymentAccountCode(db, paymentModeId || refundHistory?.paymentmode);
+          const sourceTable = refundHistoryId ? 'billinghx' : refundEventId ? 'billing_refund_events' : 'billing_void';
+          const sourcePk = Number(refundHistoryId || refundEventId || billingId);
+          const sourceRef = String(refundHistoryId || refundEventId || '');
+          // Legacy cash-basis records recognized tax only on the cash received.
+          const cashTax = voided > 0 ? round2(tax * Math.min(refunded, voided) / voided) : 0;
 
           const dimensions = {
                billingid: Number(billingId),
@@ -441,7 +450,8 @@ export async function enqueueBillingRefund(
                ? [
                     ...(voided > 0
                          ? [
-                              { accountCode: SERVICE_REVENUE, direction: NormalBalance.DEBIT, amount: voided, ...dimensions },
+                              ...(voided > tax ? [{ accountCode: SERVICE_REVENUE, direction: NormalBalance.DEBIT, amount: round2(voided - tax), ...dimensions }] : []),
+                              ...(tax > 0 ? [{ accountCode: OUTPUT_VAT_PAYABLE, direction: NormalBalance.DEBIT, amount: tax, ...dimensions }] : []),
                               { accountCode: ACCOUNTS_RECEIVABLE, direction: NormalBalance.CREDIT, amount: voided, ...dimensions },
                          ]
                          : []),
@@ -454,7 +464,8 @@ export async function enqueueBillingRefund(
                ]
                : refunded > 0
                     ? [
-                         { accountCode: SERVICE_REVENUE, direction: NormalBalance.DEBIT, amount: refunded, ...dimensions },
+                         ...(refunded > cashTax ? [{ accountCode: SERVICE_REVENUE, direction: NormalBalance.DEBIT, amount: round2(refunded - cashTax), ...dimensions }] : []),
+                         ...(cashTax > 0 ? [{ accountCode: OUTPUT_VAT_PAYABLE, direction: NormalBalance.DEBIT, amount: cashTax, ...dimensions }] : []),
                          { accountCode: cashAccount, direction: NormalBalance.CREDIT, amount: refunded, ...dimensions },
                     ]
                     : [];
@@ -467,9 +478,9 @@ export async function enqueueBillingRefund(
                     tenantId,
                     transactionType: TransactionType.REFUND,
                     sourceModule: SourceModule.BILLING,
-                    sourceTable: refundHistoryId ? 'billinghx' : 'billing_void',
-                    sourcePk: refundHistoryId ? Number(refundHistoryId) : Number(billingId),
-                    sourceRef: refundHistoryId ? String(refundHistoryId) : '',
+                    sourceTable,
+                    sourcePk,
+                    sourceRef,
                     description: refundHistoryId ? 'Billing service refund paid' : 'Bill voided and refunded',
                     occurredAt: refundHistory?.Date || new Date(),
                     createdBy: employeeId ? Number(employeeId) : null,
@@ -488,8 +499,8 @@ export async function enqueueBillingRefund(
                     documentDate: new Date(),
                     amount: -voided,
                     sourceModule: SourceModule.BILLING,
-                    sourceTable: 'billing_void',
-                    sourceRef: String(billingId),
+                    sourceTable,
+                    sourceRef: String(sourcePk),
                     branchid: bill?.branchid ? Number(bill.branchid) : null,
                });
           }

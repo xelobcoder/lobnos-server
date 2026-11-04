@@ -7,6 +7,7 @@ import Services from "../../services/services";
 import { EntityType } from "./billing_shared_types";
 import { SalesSessionRepo } from "../repositories/SalesSessionRepo";
 import { BillingModuleCodes } from "./billingTypes";
+import { allocateMinor, minorUnits } from '../../../accountingModule/utils/money';
 
 export class PrimeBillingEnterprise {
 	protected tenantId: number;
@@ -109,6 +110,7 @@ export class PrimeBillingEnterprise {
 		if (!Array.isArray(items) || !promo || !promo.value || promo.value <= 0) return items;
 		if (items.length === 0) return items;
 		if (promo.type === 'percentage') {
+			if (!Number.isFinite(promo.value) || promo.value > 100) throw new Error('Promo percentage must be between 0 and 100');
 			return items.map(item => {
 				if (!item.discountedValue || item.discountedValue === 0) {
 					return { ...item };
@@ -126,20 +128,15 @@ export class PrimeBillingEnterprise {
 				};
 			});
 		} else if (promo.type === 'flat') {
-			const validItems = items.filter(item => item.discountedValue && item.discountedValue !== 0);
-			const totalPromoDiscount = Number(promo.value);
-			const perItem = validItems.length > 0 ? Number((totalPromoDiscount / validItems.length).toFixed(2)) : 0;
-			let distributed = 0;
+			const weights = items.map(item => minorUnits(Number(Number(item.discountedValue || 0).toFixed(2))));
+			const totalPromoDiscount = Math.min(minorUnits(Number(promo.value)), weights.reduce((sum, n) => sum + n, 0));
+			const shares = allocateMinor(totalPromoDiscount, weights);
 			return items.map((item, idx) => {
 				if (!item.discountedValue || item.discountedValue === 0) {
 					return { ...item };
 				}
 				const base = item.discountedValue || 0;
-				const validIdx = validItems.indexOf(item);
-				const share = validIdx === validItems.length - 1
-					? Number((totalPromoDiscount - distributed).toFixed(2))
-					: perItem;
-				distributed += share;
+				const share = shares[idx] / 100;
 				const totalpayable = Number((base - share).toFixed(2));
 				return {
 					...item,
@@ -237,7 +234,8 @@ export class PrimeBillingEnterprise {
 				if (userAdjustmentType == "discount" && userAdjustedValue && parsedBase && parsedBase > 0 && parsedUserAdjustedValue > 0) {
 					const base = test.discountedValue;
 					const discountedValue = Math.max(0, parsedBase - parsedUserAdjustedValue)
-					return { ...test, discountedValue, discount: userAdjustedValue, userAdjustedValue };
+					const appliedDiscount = Math.min(parsedBase, parsedUserAdjustedValue);
+					return { ...test, discountedValue, discount: appliedDiscount, userAdjustedValue: appliedDiscount };
 				}
 
 				return { ...test, discountedValue: test.discountedValue, discount: test.discount || 0, userAdjustedValue: 0, userAdjustmentType: null };
@@ -378,9 +376,10 @@ export class PrimeBillingEnterprise {
 		let totalsurcharge = 0;
 		if (usedPackage) {
 			recalculatedPackageList.forEach(item => {
-				subtotal += item.discountedValue;
-				totaldiscount += item.discount;
-				totalpayable += item.totalpayable;
+				subtotal += Number(item.discountedValue || 0);
+				totaldiscount += Number(item.discount || 0);
+				totalpayable += Number(item.totalpayable || 0);
+				totalAmountIncurredDueTax += Number(item.amountIncurredDueTax || 0);
 			});
 		} else {
 			recalculatedCart.forEach(item => {
@@ -388,7 +387,8 @@ export class PrimeBillingEnterprise {
 					totalsurcharge += parseFloat(item.userAdjustedValue.toString());
 				}
 
-				if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+				if (Number(item.promoDiscount || 0) > 0) totaldiscount += Number(item.discount || item.promoDiscount);
+				else if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
 					totaldiscount += parseFloat(item.userAdjustedValue.toString());
 				}
 
@@ -403,7 +403,8 @@ export class PrimeBillingEnterprise {
 					totalsurcharge += parseFloat(item.userAdjustedValue.toString());
 				}
 
-				if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
+				if (Number(item.promoDiscount || 0) > 0) totaldiscount += Number(item.discount || item.promoDiscount);
+				else if (item.userAdjustmentType === "discount" && item.userAdjustedValue && parseFloat(item.userAdjustedValue.toString()) > 0) {
 					totaldiscount += parseFloat(item.userAdjustedValue.toString());
 				}
 
@@ -522,7 +523,7 @@ export class PrimeBillingEnterprise {
 		}
 
 		if (isPromo && promoValid && promoCode && promoDetails) {
-			recalculatedServicesList = PrimeBillingEnterprise.applyPromoToItems(recalculatedServicesList, { type: promoDetails.discount_type, value: promoDetails.discount_value });
+			// Applied once across both catalogues in checkout.
 		} else {
 			recalculatedServicesList = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedServicesList);
 		}

@@ -1,5 +1,7 @@
 ﻿import {money} from './PharmacyRules';
 import {pharmacyAccountDisplay} from './PharmacyAccountDisplay';
+import {minorUnits} from '../../accountingModule/utils/money';
+import {readCashFlowReview} from '../../accountingModule/utils/cashFlow';
 export const financialReports=['profit_loss','balance_sheet','cash_flow','trial_balance','transactions'];
 export function accountGroup(code:string):string {
  if(['sales','sales_returns','sales_discounts'].includes(code)||code.startsWith('revenue:'))return 'Revenue';
@@ -80,9 +82,16 @@ export async function pharmacyFinancialReport(db:any,branch:number,f:any,all:boo
  if(movements.length>10000)throw new Error('Cash-flow reports are limited to 10,000 journals. Narrow the date range');
  const counterpartLines=movements.length?await db('pharmacy_journal_lines').whereIn('journal_id',movements.map((r:any)=>r.id)).select('journal_id','account_code'):[];
  const taxAccounts=await db('pharmacy_tax_events').where({branchid:branch}).where('financial_date','<=',f.to).distinct('local_account');
- rows=movements.map((r:any)=>{
+ const reviews=movements.length&&await db.schema.hasTable('pharmacy_cash_flow_classifications')?await db('pharmacy_cash_flow_classifications').where({branchid:branch}).whereIn('journal_id',movements.map((r:any)=>r.id)):[];
+ rows=movements.flatMap((r:any)=>{
  const net=money(Number(r.inflow)-Number(r.outflow));
- return {...r,type:journalTypeLabel(r.kind),section:net===0?'Internal transfers':pharmacyCashFlowSection(counterpartLines.filter((line:any)=>line.journal_id===r.id).map((line:any)=>line.account_code),taxAccounts.map((tax:any)=>tax.local_account)),inflow:Math.max(0,net),outflow:Math.max(0,-net),net};
+ const counterparts=counterpartLines.filter((line:any)=>line.journal_id===r.id&&!line.account_code.startsWith('collection:'));
+ const internal=!counterparts.length&&net===0;
+ const review=internal?null:readCashFlowReview(reviews.find((row:any)=>row.journal_id===r.id),minorUnits(net),{inflowMinor:minorUnits(r.inflow),outflowMinor:minorUnits(r.outflow)});
+ const sections={operating:'Operating activities',investing:'Investing activities',financing:'Financing activities'};
+ if(review)return review.filter(row=>row.inflow||row.outflow).map(row=>({...r,type:journalTypeLabel(r.kind),section:sections[row.category],inflow:row.inflow,outflow:row.outflow,net:money(row.inflow-row.outflow),reviewed:true}));
+ const section=internal?'Internal transfers':Number(r.inflow)>0&&Number(r.outflow)>0?'Classification required':pharmacyCashFlowSection(counterparts.map((line:any)=>line.account_code),taxAccounts.map((tax:any)=>tax.local_account));
+ return [{...r,type:journalTypeLabel(r.kind),section,inflow:internal?0:section==='Classification required'?Number(r.inflow):Math.max(0,net),outflow:internal?0:section==='Classification required'?Number(r.outflow):Math.max(0,-net),net}];
  });
  const net=(r:any)=>money(Number(r?.debit||0)-Number(r?.credit||0));totals={openingCash:net(opening),inflows:money(rows.reduce((s,r)=>s+Number(r.inflow),0)),outflows:money(rows.reduce((s,r)=>s+Number(r.outflow),0)),closingCash:net(closing)};totals.reconciliationDifference=money(totals.openingCash+totals.inflows-totals.outflows-totals.closingCash);
  for(const [key,section] of [['operatingCashFlow','Operating activities'],['investingCashFlow','Investing activities'],['financingCashFlow','Financing activities'],['unclassifiedCashFlow','Classification required']])totals[key]=money(rows.filter(r=>r.section===section).reduce((sum,r)=>sum+r.net,0));

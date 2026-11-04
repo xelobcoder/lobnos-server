@@ -6,6 +6,8 @@ import { OperationsFailures } from '../operations/types';
 import AutomatedExpenseLifecycle from '../Expenses/AutomatedExpenseLifecycle';
 import { enqueueBillingWriteOff, enqueueBillingRefund } from '../../accountingModule/integrations/BillingAccounting';
 import { FinancialFinalizationGuard } from '../../accountingModule/services/FinancialFinalizationGuard';
+import { BillingRefundService } from './BillingRefundService';
+import { lockMutableBill } from './BillingFinancialGuard';
 
 export class WriteOff {
      static async writeOffTransaction(
@@ -46,6 +48,9 @@ export class WriteOff {
                     const knexConnection = await KnexConnection(tenantId);
                     const conn = await knexConnection.transaction();
                     try {
+                         const source = await lockMutableBill(conn, tenantId, billingid);
+                         if (Number(source.islocked) === 1) throw new Error('Transaction is locked');
+                         if (Number(source.outstanding) !== Number(writeOffAmount)) throw new Error('Outstanding balance changed; reload before writing off');
 
                          await conn.raw(updateQuery,
                               [status, reason, employeeid, writeOffAmount, outstanding, billingid]);
@@ -113,110 +118,8 @@ export class WriteOff {
           return Array.isArray(result) && result.length > 0 && result[0].isWriteOff === 1;
      }
 
-     static async refundCompletelyTransaction(tenantId: number, employeeid: number, billingid: number, paymentmode: number, message?: string): Promise<boolean> {
-          const connection = await KnexConnection(tenantId);
-          const trx = await connection.transaction();
-          try {
-               const services = await trx('dboservices as s')
-                    .leftJoin('dbobillingrefundtable as r', 's.serviceid', 'r.serviceid')
-                    .where('s.billingid', billingid)
-                    .select('s.*', 'r.*');
-               if (!services || services.length === 0) {
-                    await trx.rollback();
-                    return false;
-               }
-               const billingRecord = await trx('billing').where({ billingid }).first();
-               const finalizationGuard = new FinancialFinalizationGuard(tenantId, trx);
-               await finalizationGuard.assertRecordMutable('billing', billingid);
-               await finalizationGuard.assertDateOpen(Number(billingRecord?.branchid), billingRecord?.billedon);
-
-               for (const service of services) {
-                    await trx('dboservices')
-                         .where({ serviceid: service.serviceid })
-                         .update({
-                              totalpayable: 0,
-                              amountIncurredDueTax: 0,
-                              isLocked: 1,
-                              isRefunded: 1,
-                              outstanding: 0,
-                              discount: 0,
-                              paidamount: 0,
-                              paymentstatus: 'refunded'
-                         });
-
-                    const updatedService = await trx('dboservices').where({ serviceid: service.serviceid }).first();
-                    if (updatedService) {
-                         await applyDboservicesAfterUpdate(trx, updatedService, employeeid ? employeeid.toString() : undefined);
-                    }
-
-                    const comprehensiveMessage = message || `Transaction voided and refunded by admin (employeeid: ${employeeid}) on ${new Date()}. All witnesses set to admin. Reason: Service fully refunded and voided.`;
-
-                    await trx('dbobillingrefundtable')
-                         .where('serviceid', service.serviceid)
-                         .update({
-                              isRefundCompleted: 1,
-                              isRefundInitiated: 1,
-                              isRefundApproved: 1,
-                              refundedBy: employeeid,
-                              amountRefunded: service.totalpayable,
-                              isRefundMatterClosed: 1,
-                              firstWitness: employeeid,
-                              initiatedBy: employeeid,
-                              approvalDate: new Date(),
-                              firstWitnessPurpose: comprehensiveMessage,
-                              firstWitnessDate: new Date()
-                         });
-               }
-
-               const totalRefunded = await trx('billing').where({ billingid }).select('paid').first();
-
-               const billBeforeVoid = await trx('billing').where({ billingid }).select('payable').first();
-
-               await trx('billing')
-                    .where({ billingid })
-                    .update({
-                         status: 'voided',
-                         paid: 0.0,
-                         payable: 0.0,
-                         outstanding: 0.0,
-                         discount: 0,
-                         totalrefunded: totalRefunded.paid,
-                         balance: 0.0,
-                         amountIncurredDueTax: 0,
-                         islocked: 1,
-                         adjustedBy: employeeid,
-                         isAdjustment: 1,
-                         adjustmentType: 'voided',
-                         adjustmentReason: 'Transaction voided and refunded by admin.',
-                         adjustmentdate: new Date()
-                    });
-
-               const refundHistoryInsert = await trx.raw(
-                    'INSERT INTO billinghx(billingid, paymentmode, amount, employeeid, type) VALUES (?, ?, ?, ?, ?)',
-                    [billingid, paymentmode, totalRefunded.paid, employeeid, 'debit']
-               );
-               const refundHistoryResult = Array.isArray(refundHistoryInsert) ? refundHistoryInsert[0] : refundHistoryInsert;
-               const refundHistoryId = Number(refundHistoryResult?.insertId);
-               if (!refundHistoryId) throw new Error('Could not create refund history for accounting posting');
-
-               await enqueueBillingRefund(
-                    tenantId,
-                    billingid,
-                    Number(billBeforeVoid?.payable || 0),
-                    Number(totalRefunded?.paid || 0),
-                    employeeid,
-                    trx,
-                    refundHistoryId,
-                    paymentmode
-               );
-
-               await trx.commit();
-
-               return true;
-          } catch (err) {
-               console.error('Error refunding transaction:', err);
-               await trx.rollback();
-               return false;
-          }
+     static async refundCompletelyTransaction(tenantId: number, employeeid: number, billingid: number, paymentmode: number, message?: string, requestKey = `refund-all-billing-${billingid}`): Promise<boolean> {
+          return new BillingRefundService(tenantId).refund({ billingid, employeeid, selectedPaymentMode: paymentmode,
+               request_key: requestKey, all: true, reason: message || 'Transaction refund' });
      }
 }

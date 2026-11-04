@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import { TransactionManagementFactory } from "./TransactionManagementFactory";
 import { responseError, handleOverLoad, customError } from "../../../hooks/helper";
+import { getAuthUser } from '../../../middleware/authority';
 
 export class TransactionManagementController {
     /**
@@ -65,32 +66,36 @@ export class TransactionManagementController {
         try {
             const { tenantId } = req.query;
             const { KeyID, Amount, PaymentMode, Date: paymentDate, employeeid, reason } = req.body;
+            const actor = getAuthUser(req);
+            if (!actor || Number(tenantId) !== actor.tenantId) return customError('Tenant access denied', 403, res);
 
-            if (!tenantId || !KeyID || !employeeid) {
-                return customError("tenantId, KeyID, and employeeid are required", 400, res);
+            if (!tenantId || !KeyID) {
+                return customError("tenantId and KeyID are required", 400, res);
             }
 
             const service = TransactionManagementFactory.createService(Number(tenantId));
             const success = await service.updatePaymentHistory({
+                request_key: req.body.request_key,
                 KeyID: Number(KeyID),
                 Amount: Amount !== undefined ? Number(Amount) : undefined,
                 PaymentMode: PaymentMode !== undefined ? Number(PaymentMode) : undefined,
                 Date: paymentDate,
-                employeeid: Number(employeeid),
+                employeeid: actor.employeeid,
+                branchid: actor.branch,
                 reason
             });
 
             if (success) {
                 res.send({
                     statusCode: 200,
-                    message: "Payment history updated successfully"
+                    message: "Linked receipt correction recorded",
+                    correction: success
                 });
             } else {
                 customError("Failed to update payment history", 500, res);
             }
-        } catch (err) {
-            console.error("Error in updatePaymentHistory:", err);
-            responseError(res);
+        } catch {
+            return customError('Receipt correction rejected. Check source sale, correction reason and request key; amounts/dates cannot be overwritten.', 409, res);
         }
     });
 

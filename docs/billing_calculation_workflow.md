@@ -2,6 +2,66 @@
 
 This document explains how billing calculations are performed in the backend codebase, including the order of operations and the meaning of key fields.
 
+## Current financial controls
+
+- The server uses authoritative checkout service rows and payment allocations;
+  browser-provided prices, paid flags and header totals are not independent
+  posting instructions. A flat promotion is allocated once across eligible tests
+  and additional services, without negative lines or lost cents.
+- Ordinary submissions and explicit service additions require `request_key`.
+  The composer retains the same key and payload across ambiguous failures,
+  including a page reload, and prevents another submission after confirmed
+  success. Browser session storage holds only a payload digest and opaque key,
+  not the billing payload. Conversion workflows retain their existing atomic
+  request/appointment protections.
+- Refund remaining reads `GET /api/v1/billing/refund-quote?billingid=...` and
+  submits `POST /api/v1/billing/refund-all` with `billingid`,
+  `selectedPaymentMode`, `request_key` and a reason. Quote amounts are already
+  remaining amounts: never subtract cumulative refunds again. Partial cashouts
+  also require a stable key. The server serializes execution, rechecks approval
+  and available cash, preserves proportional tax and appends financial evidence.
+- The sales list's **Sales closing** column verifies OPEN/CLOSED status.
+  Finalize through the existing Accounting daily-close preparation, independent
+  review and administrator PIN/sign-off workflow. Closed source sales reject
+  refunds, voids, deletions, receipt changes and financial edits even when an
+  attempted operation supplies a newer date. Unverified closure status disables
+  financial changes; receipts and history remain available for inspection.
+- Daily close defaults to three distinct employees: preparer, authorized Finance
+  Manager reviewer, and authorized Facility Owner finalizer. An administrator who
+  submits is the preparer, not a downgraded accountant; submission does not lock
+  the day. For small teams, **Override approval** and **Override finalization**
+  explicitly authorize an administrator exception with their own secure PIN and
+  a 10-500 character reason. The request sets `overrideSegregationOfDuties: true`
+  and `overrideReason`. Ordinary approval still rejects self-review.
+  The existing action audit records the override reason, authenticated actor,
+  and prior preparer/reviewer identities in the same transaction. Exceptions
+  do not skip stages, branch scope, stale-version checks, reconciliation,
+  snapshot integrity, or finalized-day immutability. Only administrator roles
+  can authorize this exception; accountants cannot obtain it through the flag.
+  Finalization updates source sign-off flags before installing immutable record
+  manifests, within the same transaction; manifests capture the signed-off rows.
+  Database-trigger conflicts return an actionable HTTP 409, while unexpected
+  daily-close failures return a generic message. SQL and driver details are never
+  included in the client response.
+- Receipt corrections preserve original credit receipts, amounts and dates.
+  The authorized `PUT /api/v1/billing/management/payment-history` workflow takes
+  `KeyID`, optional corrected `PaymentMode`, a 5-500 character reason and
+  `request_key`, and appends linked reversal/replacement records.
+- Billing-source correction changes attribution only and locks the bill; it does
+  not reprice historical services. Financial legacy updates accept explicit
+  additions, not in-place financial repricing.
+- Pharmacy sale/return cost snapshots conserve received inventory value in
+  cents. Tenant startup automatically initializes billing integrity and Pharmacy
+  return valuation schemas on restart; standalone provisioning also includes
+  `20261107_billing_integrity` and `20261107_pharmacy_return_value`. Existing
+  financial inconsistencies and historical returns missing valuation snapshots
+  require reviewed reconciliation; no automatic financial backfill is performed.
+
+The comparison below records the earlier June 2025 design assessment, not the
+current posting contract. The controls above supersede its descriptions of the
+old implementation. See [accounting controls](accounting-system-prd.md) and
+[result-save deployment](result-revalidation.md) for their separate migrations.
+
 ## Calculation Steps (Recommended / Industry Standard)
 
 1. **Discount Application**
@@ -50,7 +110,7 @@ This document explains how billing calculations are performed in the backend cod
    |-- plus Tax (last) --> [Total Cost/Payable]
 ```
 
-## Comparison: Current Flow vs. Industry Standard
+## Historical comparison: June 2025 flow vs. recommended order
 
 | Step                | Current Flow (Your Code)                                   | Industry Standard Billing Software                |
 |---------------------|------------------------------------------------------------|---------------------------------------------------|

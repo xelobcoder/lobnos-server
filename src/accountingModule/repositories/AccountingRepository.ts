@@ -113,7 +113,7 @@ export class AccountingRepository implements IAccountingRepository {
           await db('acc_journal_lines').insert(linePayloads);
 
           const savedEntry = await db('acc_journal_entries').where({ id: journalEntryId }).first();
-          const savedLines = await db('acc_journal_lines').where({ journal_entry_id: journalEntryId });
+          const savedLines = await db('acc_journal_lines').where({ journal_entry_id: journalEntryId }).orderBy('id');
 
           return { entry: savedEntry, lines: savedLines };
      }

@@ -195,6 +195,16 @@ when a search or page hides preceding transactions. The `/ledger/export` and
 scope; exports over 10,000 rows are explicitly rejected rather than truncated.
 Use printable accounting layouts for PDF output.
 
+The General ledger groups visible posting lines by journal, separating account
+numbers from account names. Each group carries full-journal debit/credit totals,
+line count and line positions calculated before account/search/page filtering.
+Partial journals explicitly identify continuation or filtering and link to the
+complete immutable journal; a page excerpt is not a balancing check. Period totals
+and journal counts cover all matching lines, not just the current page. Running
+balances are displayed only for a selected account, with Dr/Cr indicators that
+reverse for abnormal balances. Opening/closing balances retain all account history;
+search narrows the displayed evidence and period totals, not those balances.
+
 The trial balance displays net debit/credit balances, not lifetime movements.
 Cash flow excludes internal cash/bank transfers from inflow/outflow totals and
 classifies supported transactions. Ambiguous compound or unknown accounts are
@@ -277,6 +287,28 @@ Legacy original payments/credited returns currently have no financial cancellati
 endpoint. They remain immutable. A future source-correction path must atomically
 retire its allocation source before correction and reject unreleased allocations
 or pending reviews; the retirement helper alone is not a correction workflow.
+
+### Cash-flow classification review
+
+The cash-flow statement keeps compound journals requiring classification visible
+even when their net cash movement is zero. Expand the journal's review, allocate
+actual receipts and payments separately to operating, investing and financing,
+and record the supporting evidence. The allocated net must equal the journal's
+cash movement; gross inflows and outflows cannot exceed its cash debit/credit
+evidence. Include offsetting movements, including receipts and payments within
+the same activity. A zero reconciliation difference does not resolve an
+outstanding classification review.
+
+Saving uses authenticated branch/employee context, posting authority, a stable
+retry key and the existing period/day/bank-statement locks. It changes report
+classification only, never posted monetary history. Local pharmacy and shared
+ledger classifications are separate reviews. Refresh after saving and resolve
+all outstanding issues before relying on activity totals.
+
+Deploy `20261103_cash_flow_reviews` for each intended tenant before exposing the
+review action. See [accounting deployment requirements](accounting-system-prd.md)
+for initialization checks and non-destructive reconciliation of historical
+accounting defects. No migration or historical repair is applied by the UI.
 
 ## Deployment
 

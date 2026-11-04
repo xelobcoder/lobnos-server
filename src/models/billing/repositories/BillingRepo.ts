@@ -1,5 +1,6 @@
 import { PrimeLimsTablebilling } from "../../../database/DatabaseTableSchema";
 import KnexConnection from "../../../database/KnexConnections";
+import { lockMutableBill, withBillingClosure } from '../BillingFinancialGuard';
 
 interface PaginatedResponse<T> {
      data: T[];
@@ -31,9 +32,11 @@ export class BillingRepo {
      async update(billingId: number, updates: Partial<PrimeLimsTablebilling>) {
           try {
                const conn = await this.connection;
-               return await conn('billing')
-                    .where({ billingid: billingId })
-                    .update(updates);
+               return await conn.transaction(async trx => {
+                    await lockMutableBill(trx, this.tenantId, billingId);
+                    if (Object.keys(updates).some(k => k !== 'additionalinformation')) throw new Error('Use validated billing financial workflows');
+                    return trx('billing').where({ billingid: billingId }).update(updates);
+               });
           } catch (error) {
                console.error('Billing update error:', error);
                throw error;
@@ -43,9 +46,10 @@ export class BillingRepo {
      async findById(billingId: number) {
           try {
                const conn = await this.connection;
-               return await conn('billing')
+               const bill = await conn('billing')
                     .where({ billingid: billingId })
                     .first();
+               return bill ? (await withBillingClosure(conn, [bill]))[0] : bill;
           } catch (error) {
                console.error('Billing find error:', error);
                throw error;
@@ -92,10 +96,11 @@ export class BillingRepo {
      async findByPatientIdWithDateRange(patientId: number, startDate: string, endDate: string): Promise<PrimeLimsTablebilling[]> {
           try {
                const conn = await this.connection;
-               return await conn('billing')
+               const bills = await conn('billing')
                     .where({ patientid: patientId })
                     .whereBetween('billedon', [startDate, endDate])
                     .orderBy('billedon', 'desc');
+               return withBillingClosure(conn, bills);
           } catch (error) {
                console.error('Billing find by patient with date range error:', error);
                throw error;
@@ -121,7 +126,7 @@ export class BillingRepo {
                     .offset(offset);
 
                return {
-                    data,
+                    data: await withBillingClosure(conn, data),
                     total: total.count,
                     page,
                     totalPages: Math.ceil(total.count / limit)

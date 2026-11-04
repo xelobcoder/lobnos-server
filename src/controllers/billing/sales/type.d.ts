@@ -43,6 +43,8 @@ export type IDetermineStageOfRefund = {
 
 
 export type updateRefundCashRequestBodyType = {
+    request_key?: string;
+    branchid?: number;
     serviceid: number;
     employeeid: number,
     name: string,
@@ -70,4 +72,3 @@ interface MultiTestItem {
     nightAdjustmentMode: "none" | "percentage" | "absolute" | string;
     nightAdjustmentValue: number;
 }
-

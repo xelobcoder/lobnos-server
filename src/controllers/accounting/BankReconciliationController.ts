@@ -126,6 +126,7 @@ export class BankReconciliationController {
                          bankAccountId,
                          importedBy: user?.employeeid || 0,
                          buffer: req.file.buffer,
+                         dateFormat: req.body?.dateFormat,
                     }),
                     201
                );

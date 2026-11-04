@@ -66,7 +66,9 @@ export class PharmacySaleService implements IPharmacySaleService {
                     if (!Number.isFinite(requested.quantity) || requested.quantity <= 0) throw new Error('Sale quantities must be positive');
                     const unitPrice=pharmacyUnitPrice(item,selectedType);
                     const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
-                    const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
+                    // Allocate cents from the remaining BOOK value; the last unit exhausts it exactly.
+                    const book = item.stockBookValue ?? money(new Decimal(item.currentStock).mul(item.costPrice));
+                    const lineCost = money(new Decimal(book).mul(requested.quantity).div(item.currentStock));
                     total = total.plus(lineTotal);
                     return { id: randomUUID(), saleId: heldSaleId, inventoryItemId: item.id, name: item.name, sku: item.sku, quantity: requested.quantity, unitPrice, priceType:selectedType, lineTotal, unitCost: item.costPrice, lineCost, grossProfit: money(new Decimal(lineTotal).minus(lineCost)) };
                });
@@ -165,7 +167,8 @@ export class PharmacySaleService implements IPharmacySaleService {
                if (item.currentStock < requested.quantity) throw new Error(`${item.name} has insufficient stock`);
 
                const lineTotal = money(new Decimal(unitPrice).mul(requested.quantity));
-               const lineCost = money(new Decimal(item.costPrice).mul(requested.quantity));
+               const book = item.stockBookValue ?? money(new Decimal(item.currentStock).mul(item.costPrice));
+               const lineCost = money(new Decimal(book).mul(requested.quantity).div(item.currentStock));
                total = total.plus(lineTotal);
                totalCost = totalCost.plus(lineCost);
                lines.push({
@@ -213,6 +216,7 @@ export class PharmacySaleService implements IPharmacySaleService {
           for (const line of lines) {
                await this.applyStockChange(itemsById.get(line.inventoryItemId)!, -line.quantity, {
                     direction: 'issue',
+                    totalCost: line.lineCost,
                     reason: 'Pharmacy POS sale',
                     sale,
                     performedBy: cashierId,
@@ -305,6 +309,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                               performedBy: actorId,
                               occurredAt: now,
                               unitCost:line.unitCost,
+                              totalCost: line.lineCost,
                               unitOfWork
                          });
                     }
@@ -329,7 +334,7 @@ export class PharmacySaleService implements IPharmacySaleService {
 
      /** Moves stock by `delta` and keeps the stored status column in step, so inventory screens stay truthful. */
      private async applyStockChange(
-          item: { id: string; currentStock: number; minimumStock: number; costPrice: number },
+          item: { id: string; currentStock: number; minimumStock: number; costPrice: number; stockBookValue?: number },
           delta: number,
           context: {
                direction: 'issue' | 'return';
@@ -339,6 +344,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                occurredAt: Date;
                unitOfWork: PharmacyUnitOfWork;
                unitCost?: number;
+               totalCost: number;
           }
      ): Promise<void> {
           const previousStock = item.currentStock;
@@ -350,7 +356,8 @@ export class PharmacySaleService implements IPharmacySaleService {
                resolveStockStatus(newStock, item.minimumStock),
                context.occurredAt,
                context.unitOfWork,
-               delta>0&&newStock>0 ? new Decimal(previousStock).mul(item.costPrice).plus(new Decimal(delta).mul(context.unitCost??item.costPrice)).div(newStock).toDecimalPlaces(6).toNumber() : undefined
+               newStock > 0 ? new Decimal(item.stockBookValue ?? money(new Decimal(previousStock).mul(item.costPrice)))
+                    .plus(delta > 0 ? context.totalCost : -context.totalCost).div(newStock).toDecimalPlaces(6).toNumber() : 0
           );
           await this.saleRepository.recordStockMovement({
                itemId: item.id,
@@ -365,7 +372,7 @@ export class PharmacySaleService implements IPharmacySaleService {
                receiptNumber: context.sale.receiptNumber,
                occurredAt: context.occurredAt,
                unitCost: context.unitCost ?? item.costPrice,
-               totalCost: money(new Decimal(context.unitCost ?? item.costPrice).mul(Math.abs(delta)))
+               totalCost: context.totalCost
           }, context.unitOfWork);
      }
 

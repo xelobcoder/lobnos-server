@@ -44,8 +44,13 @@ import { previewModernBilling } from './ModernBillingController';
 import {lookupLabCashier} from './LabCashierController';
 import { requireRefundActor } from '../../middleware/refundAuthority';
 import { requireOwnerRole } from '../../middleware/authority';
+import { billingClosureStatus } from './BillingClosureController';
+import { refundAllBillingPost, refundQuoteBillingGet } from './BillingRefundController';
 
 const router = Router();
+router.get('/api/v1/billing/closure/status', checkTokenExists, handleOverLoad(billingClosureStatus));
+router.post('/api/v1/billing/refund-all', requireRefundActor, requireOwnerRole, handleOverLoad(refundAllBillingPost));
+router.get('/api/v1/billing/refund-quote', requireRefundActor, handleOverLoad(refundQuoteBillingGet));
 router.get('/api/v1/billing/lab-counter/lookup', lookupLabCashier);
 
 // Modern has an independent bulk preview contract; final persistence remains the established billing flow.
@@ -179,4 +184,3 @@ router.get('/api/v1/locations/regions-districts', (async (req: Request, res: Res
 }) as RequestHandler);
 
 export default router;
-

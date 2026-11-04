@@ -11,6 +11,8 @@ type RecordLedgerEntryInput = {
      sourceTable: string;
      sourcePk: number;
      sourceRef?: string;
+     /** Immutable shared journal line identity; prevents same-direction compound line loss. */
+     journalLineId?: number;
      billingid?: number | null;
      expenseId?: number | null;
      invoiceId?: number | null;
@@ -42,6 +44,10 @@ export class FinanceLedgerService {
           }
 
           const db = input.trx || await KnexConnection(input.tenantId);
+          const sourceRef = input.journalLineId === undefined ? input.sourceRef || '' : `acc-line:${input.journalLineId}`;
+          if (input.journalLineId !== undefined && (!Number.isSafeInteger(input.journalLineId) || input.journalLineId <= 0)) {
+               throw new Error('Invalid shared journal line identity');
+          }
 
           const payload = {
                occurred_at: input.occurredAt || new Date(),
@@ -51,7 +57,7 @@ export class FinanceLedgerService {
                source_module: input.sourceModule,
                source_table: input.sourceTable,
                source_pk: input.sourcePk,
-               source_ref: input.sourceRef || '',
+               source_ref: sourceRef,
                billingid: input.billingid || null,
                expense_id: input.expenseId || null,
                invoice_id: input.invoiceId || null,
@@ -74,7 +80,7 @@ export class FinanceLedgerService {
                     source_module: input.sourceModule,
                     source_table: input.sourceTable,
                     source_pk: input.sourcePk,
-                    source_ref: input.sourceRef || '',
+                    source_ref: sourceRef,
                     direction: input.direction
                })
                .first();
@@ -177,4 +183,3 @@ export class FinanceLedgerService {
           };
      }
 }
-

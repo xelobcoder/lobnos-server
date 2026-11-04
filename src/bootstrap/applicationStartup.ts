@@ -35,6 +35,8 @@ import { bootstrapPhysicalSampleTables } from '../models/samples/PhysicalSampleB
 import { bootstrapWalkInQueueTables } from '../models/queue/WalkInQueueBootstrapper';
 import { bootstrapSuspendedBillingTables } from '../models/billing/SuspendedBillingBootstrapper';
 import { bootstrapCalculationAndQcTables } from '../models/creator/calculations/CalculationBootstrapper';
+import { up as bootstrapResultSaveSchema } from '../cron/command-line-tool-database/migrations/20261103_result_save_identity';
+import { up as bootstrapPharmacyReturnValue } from '../cron/command-line-tool-database/migrations/20261107_pharmacy_return_value';
 import { bootstrapAppointmentTables } from '../models/appointments/AppointmentBootstrapper';
 import { startOptionalRedisCache } from '../services/cache/testPanelCache';
 import { listServedTenants } from '../models/Tenancy/TenantRegistry';
@@ -88,11 +90,13 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false):
 	await ensureOrganizationDirectorySchema(await KnexConnection(tenantId));
 	await bootstrapInventoryDefaults(tenantId);
 	await bootstrapPharmacyTables(tenantId);
+	await bootstrapPharmacyReturnValue(await KnexConnection(tenantId));
 	await bootstrapPrescriptionTables(tenantId);
 	await bootstrapEntityOrderTables(tenantId);
 	await bootstrapBillingTables(tenantId);
 	await bootstrapNhisIdentifiers(tenantId);
 	await bootstrapCalculationAndQcTables(tenantId);
+	await bootstrapResultSaveSchema(await KnexConnection(tenantId));
 	await bootstrapOperationsWorkflow(tenantId);
 	await bootstrapOperationalControls(tenantId);
 	await consultationDb(tenantId);

@@ -12,6 +12,7 @@ import { roleAllowed } from "../../../middleware/roles";
 import DiscountLimitService from "../billing-services/discount-limit";
 import { StaffFocService } from "../../foc/services/StaffFocService";
 import logger from "../../../hooks/logger";
+import { lockMutableBill } from '../BillingFinancialGuard';
 
 
 
@@ -126,6 +127,18 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                entityid,
                entitytype
           });
+          // A promo belongs to the whole invoice, not separately to each catalogue.
+          if (isPromo && promoValid && promoDetails && !usedPackage) {
+               const count = recalculatedCart.length;
+               const combined = PrimeBillingEnterprise.applyPromoToItems([...recalculatedCart, ...recalculatedServicesList],
+                    { type: promoDetails.discount_type, value: promoDetails.discount_value });
+               promoDiscount = Number(combined.reduce((sum: number, item: any) => sum + Number(item.promoDiscount || 0), 0).toFixed(2));
+               const taxed = PrimeBillingEnterprise.applyTaxToTests(combined, includeTax === 1 ? Number(taxation.taxValue || 0) : 0);
+               recalculatedCart = taxed.slice(0, count);
+               recalculatedServicesList = taxed.slice(count);
+          }
+          taxIncluded = includeTax === 1;
+          taxList = includeTax === 1 ? JSON.stringify(taxation) : undefined;
           const {
                subtotal,
                totaldiscount,
@@ -150,14 +163,14 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const paid = toFixed2(paymentDetails && paymentDetails.amount ? paymentDetails.amount : 0);
           const totalTestAmountPayable = toFixed2(recalculatedCart.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
           const totalServiceAmountPayable = toFixed2(recalculatedServicesList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
-          const overallPayable = totalServiceAmountPayable + totalTestAmountPayable + (totalsurcharge || 0);
+          const overallPayable = totalServiceAmountPayable + totalTestAmountPayable;
           const totalPacKageAmountPayable = toFixed2(recalculatedPackageList.reduce((sum, item) => sum + (item.totalpayable || 0), 0));
 
-          const amountPayable = isPackageUsed ? toFixed2(totalPacKageAmountPayable) : toFixed2(overallPayable);
+          const amountPayable = toFixed2(totalpayable);
           const outstanding = toFixed2(amountPayable - paid);
           const balance = paid > amountPayable ? toFixed2(paid - amountPayable) : 0;
 
-          if (balance < 0) {
+          if (paid < 0 || paid > amountPayable) {
                return { success: false, message: 'Paid amount exceeds total payable amount', data: { balance } };
           }
 
@@ -384,6 +397,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
                     paymentStatus: 'pending',
                     paymentReceived: false,
                     taxIncluded,
+                    taxValue: includeTax === 1 ? Number(taxation.taxValue || 0) : 0,
                     taxList,
                     discountLimitInfo: exposedRule,
                     entitytype,
@@ -436,7 +450,7 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           }
 
           if (isPromo && promoValid && promoCode && promoDetails) {
-               recalculatedCart = PrimeBillingEnterprise.applyPromoToItems(recalculatedCart, { type: promoDetails.discount_type, value: promoDetails.discount_value });
+               // Applied once across tests and additional services by handleCheckout.
           } else {
                recalculatedCart = PrimeBillingEnterprise.applyDiscountsToTests(recalculatedCart);
           }
@@ -505,7 +519,8 @@ class CustomerBillingCheckoutSingleton extends PrimeBillingEnterprise {
           const transaction = await conn.transaction();
 
           try {
-               const transactionServices = await transaction('dboservices').where('billingid', billingid);
+               await lockMutableBill(transaction, tenantId, billingid);
+               const transactionServices = await transaction('dboservices').where('billingid', billingid).orderBy('serviceid').forUpdate();
                if (transactionServices.length === 0) {
                     await transaction.rollback();
                     return { success: false, message: 'No services found for the provided billingid' };

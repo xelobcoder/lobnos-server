@@ -1,9 +1,12 @@
 import { it, expect, vi } from 'vitest';
 import { Knex } from 'knex';
-import { verifyLocalForeignKeys, migrateLocalInstallation } from './standalonePipeline';
+import { verifyLocalForeignKeys, migrateLocalInstallation, verifyLocalPipelineAssets } from './standalonePipeline';
 
 const key = { TABLE_NAME: 'testconditiondefinitions', COLUMN_NAME: 'createdBy', CONSTRAINT_NAME: 'author',
      REFERENCED_TABLE_SCHEMA: 'primelabsys', REFERENCED_TABLE_NAME: 'roles', REFERENCED_COLUMN_NAME: 'employeeid' };
+it('includes all reviewed migrations in the standalone startup asset allowlist', () => {
+     expect(() => verifyLocalPipelineAssets()).not.toThrow();
+});
 it('checks seeded foreign keys including Windows-normalized schemas using bound identifiers', async () => {
      const raw = vi.fn().mockResolvedValueOnce([[key]]).mockResolvedValueOnce([[]]);
      await verifyLocalForeignKeys({ raw } as unknown as Knex, 'Primelabsys');

@@ -118,6 +118,7 @@ export class AccountingService implements IAccountingService {
                          sourceTable: input.sourceTable,
                          sourcePk: input.sourcePk,
                          sourceRef: input.sourceModule === SourceModule.PHARMACY ? `${input.sourceRef}:line:${index}` : input.sourceRef || '',
+                         ...(input.sourceModule === SourceModule.PHARMACY ? {} : { journalLineId: lines[index].id }),
                          billingid: line.billingid ?? null,
                          expenseId: line.expenseId ?? null,
                          invoiceId: line.invoiceId ?? null,

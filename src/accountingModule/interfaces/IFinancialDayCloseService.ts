@@ -7,6 +7,8 @@ export interface FinancialCloseActionInput {
      expectedVersion?: number;
      notes?: string;
      timezone?: string;
+     overrideSegregationOfDuties?: boolean;
+     overrideReason?: string;
      requestContext?: { ipAddress?: string | null; userAgent?: string | null; requestId?: string | null };
 }
 
@@ -19,7 +21,7 @@ export interface IFinancialDayCloseService {
      /** Creates or resubmits a branch/day close after PIN verification and reconciliation. */
      submit(actor: AuthUser, branchId: number, financialDate: string, input: FinancialCloseActionInput): Promise<any>;
 
-     /** Approves or returns an accountant submission; the manager must be a different employee. */
+     /** Independent review by default; an explicit administrator exception requires PIN and reason. */
      managerDecision(actor: AuthUser, closureId: number, input: ManagerCloseDecisionInput): Promise<any>;
 
      /** Permanently finalizes a manager-approved day and creates immutable source-record manifests. */

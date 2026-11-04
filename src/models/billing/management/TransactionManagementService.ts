@@ -8,6 +8,10 @@ import {
     IFullTransactionDetails
 } from "./TransactionManagementTypes";
 import { WriteOff } from "../WriteOff";
+import { lockMutableBill } from '../BillingFinancialGuard';
+import { billingFingerprint, billingRequestKey } from '../BillingRequestIdentity';
+import { minorUnits } from '../../../accountingModule/utils/money';
+import { enqueueBillingPayment, enqueueBillingRefund } from '../../../accountingModule/integrations/BillingAccounting';
 
 export class TransactionManagementService {
     private repository: TransactionManagementRepository;
@@ -44,24 +48,53 @@ export class TransactionManagementService {
     /**
      * stand-alone function to update payment history of a particular transaction
      */
-    async updatePaymentHistory(updates: IPaymentHistoryUpdate): Promise<boolean> {
+    async updatePaymentHistory(updates: IPaymentHistoryUpdate): Promise<any> {
+        const key = billingRequestKey(updates.request_key);
+        const fingerprint = billingFingerprint(updates);
+        const reason = updates.reason?.trim();
+        if (!reason || reason.length < 5 || reason.length > 500) throw new Error('A correction reason of 5–500 characters is required');
         const trx = await this.repository.startTransaction();
         try {
-            const current = await this.repository.getPaymentHistoryByKeyId(updates.KeyID);
+            const snapshot = await trx('billinghx').where({ KeyID: updates.KeyID }).first();
+            if (!snapshot) throw new Error('Payment history record not found');
+            const replay = await trx('billing_receipt_corrections').where({ request_key: key }).first();
+            if (replay) {
+                if (replay.fingerprint !== fingerprint) throw new Error('Correction key was used for different inputs');
+                await trx.rollback(); return replay;
+            }
+            const bill = await lockMutableBill(trx, this.tenantId, Number(snapshot.billingid ?? snapshot.Billingid));
+            if (updates.branchid !== undefined && Number(bill.branchid) !== Number(updates.branchid)) throw new Error('Branch access denied');
+            const concurrentReplay = await trx('billing_receipt_corrections').where({ request_key: key }).forUpdate().first();
+            if (concurrentReplay) {
+                if (concurrentReplay.fingerprint !== fingerprint) throw new Error('Correction key was used for different inputs');
+                await trx.rollback(); return concurrentReplay;
+            }
+            const current = await trx('billinghx').where({ KeyID: updates.KeyID }).forUpdate().first();
             if (!current) throw new Error(`Payment history record ${updates.KeyID} not found`);
-
-            await this.repository.updatePaymentHistoryRecord(updates.KeyID, {
-                Amount: updates.Amount !== undefined ? updates.Amount : current.Amount,
-                PaymentMode: updates.PaymentMode !== undefined ? updates.PaymentMode : current.PaymentMode,
-                Date: updates.Date !== undefined ? updates.Date : current.Date,
-                employeeid: updates.employeeid
-            }, trx);
-
+            if (await trx('billing_receipt_corrections').where({ original_history_id: updates.KeyID }).first())
+                throw new Error('This receipt already has a linked correction');
+            if (String(current.type).toLowerCase() !== 'credit') throw new Error('Only received payments can be corrected');
+            const amount = Number(current.Amount ?? current.amount);
+            if (updates.Amount !== undefined && minorUnits(updates.Amount) !== minorUnits(amount))
+                throw new Error('Amount corrections require an allocated refund or collection; receipt totals cannot be overwritten');
+            if (updates.Date && String(updates.Date) !== String(current.Date))
+                throw new Error('A receipt collection date is historical and cannot be changed');
+            const mode = updates.PaymentMode ?? Number(current.PaymentMode ?? current.paymentmode);
+            if (!await trx('paymentmodes').where({ KeyID: mode }).first()) throw new Error('Unknown payment mode');
+            const billingid = Number(current.billingid ?? current.Billingid);
+            const [reversal] = await trx('billinghx').insert({ billingid, paymentmode: current.PaymentMode ?? current.paymentmode,
+                amount, employeeid: updates.employeeid, type: 'debit' });
+            const [replacement] = await trx('billinghx').insert({ billingid, paymentmode: mode,
+                amount, employeeid: updates.employeeid, type: 'credit' });
+            await enqueueBillingRefund(this.tenantId, billingid, 0, amount, updates.employeeid, trx, Number(reversal), Number(current.PaymentMode ?? current.paymentmode));
+            await enqueueBillingPayment(this.tenantId, Number(replacement), billingid, amount, updates.employeeid, trx);
+            const correction = { request_key: key, fingerprint, original_history_id: updates.KeyID,
+                reversal_history_id: Number(reversal), replacement_history_id: Number(replacement), reason, employeeid: updates.employeeid };
+            await trx('billing_receipt_corrections').insert(correction);
             await trx.commit();
-            return true;
+            return correction;
         } catch (error) {
             await trx.rollback();
-            console.error("Error updating payment history:", error);
             throw error;
         }
     }
@@ -138,6 +171,9 @@ export class TransactionManagementService {
     async editTransaction(billingUpdate: IBillingUpdate, serviceUpdates: IServiceUpdate[]): Promise<boolean> {
         const trx = await this.repository.startTransaction();
         try {
+            await lockMutableBill(trx, this.tenantId, billingUpdate.billingid);
+            if (serviceUpdates.length || Object.keys(billingUpdate.updates || {}).some(key => key !== 'additionalinformation'))
+                throw new Error('Direct financial edits are disabled; use validated additions, collections or linked refunds');
             if (billingUpdate.updates) {
                 await this.repository.updateBilling(billingUpdate.billingid, {
                     ...billingUpdate.updates,

@@ -91,8 +91,7 @@ export class Services {
     }
 
     async deleteServicesAssociatedToBillingId(tenantId: number, billingid: number) {
-        const result = await promisifyQuery(tenantId, q_delete_billed_services_using_billingid, [billingid]);
-        return rowAffected(result);
+        throw new Error('Billed services are historical; use validated pending-service removal or a linked refund');
     }
 
     public async getServiceProgress(tenantId: number) {

@@ -15,6 +15,7 @@ import { PharmacyAccountingReversals } from '../../models/pharmacy/accounting/Ph
 import { PharmacyAccountingTaxCredits } from '../../models/pharmacy/accounting/PharmacyAccountingTaxCredits';
 import { PharmacyAccountingSupplierAllocations } from '../../models/pharmacy/accounting/PharmacyAccountingSupplierAllocations';
 import { PharmacyLocalAccounts } from '../../models/pharmacy/accounting/PharmacyLocalAccounts';
+import { PharmacyCashFlowReview } from '../../models/pharmacy/accounting/PharmacyCashFlowReview';
 
 /**
  * Mounted under /pharmacy/accounting AFTER pharmacyAccess. Tenant/branch/user inputs
@@ -51,6 +52,12 @@ const endpoint = (work: (s: Services, req: Request) => Promise<any>, created = f
      } catch (error) { pharmacyAccountingFailure(res, error); }
 };
 pharmacyAccountingRouter.get('/overview', endpoint(s => s.registers.overview()));
+pharmacyAccountingRouter.put('/cash-flow/:journalId/classification', async (req, res) => {
+     try {
+          const context = pharmacyAccountingContext(req), db = await KnexConnection(context.tenantId);
+          res.json({ success: true, data: await new PharmacyCashFlowReview(db, context).save(String(req.params.journalId), req.body) });
+     } catch (error) { pharmacyAccountingFailure(res, error); }
+});
 pharmacyAccountingRouter.get('/accounts', endpoint(s => s.catalogue.accounts()));
 pharmacyAccountingRouter.post('/local-accounts', endpoint((s, r) => s.localAccounts.create(r.body), true));
 pharmacyAccountingRouter.put('/local-accounts/:id', endpoint((s, r) => s.localAccounts.update(positiveId(r.params.id), r.body)));

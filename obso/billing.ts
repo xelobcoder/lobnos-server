@@ -676,8 +676,7 @@ export class Billing {
 
 
 	public async updateBillingHistory(tenantId: number, paymentmode: number, billingid: number, amount: number): Promise<any> {
-		const values: [number, number, number] = [paymentmode, amount, billingid];
-		return await promisifyQuery(tenantId, updatebillHistoryQuery, values);
+		throw new Error('Receipt history is immutable; use a linked receipt correction');
 	}
 
 	public async insertBillingHistory(tenantId: number, paymentmode: number, billingid: number, amount: number, employeeid: number, type = "credit"): Promise<any> {
@@ -690,8 +689,7 @@ export class Billing {
 	}
 
 	public async deleteBillingHistory(tenantId: number, billingid: number) {
-		if (billingid) return false;
-		return await promisifyQuery(tenantId, deleteNewBillPaymentHx, [billingid]);
+		throw new Error('Receipt history is immutable; use a linked reversal');
 	}
 
 
@@ -727,12 +725,12 @@ export class Billing {
 
 
 	public async deleteBillTransaction(tenantId: number, billingid: number): Promise<any> {
-		return await promisifyQuery(tenantId, deleteBillTransactionQuery, [billingid]);
+		throw new Error('Financial sales cannot be deleted; use a linked void/refund');
 	}
 
 
 	async cleanUpRecordedPaymentHx(tenantId: number, billingid: number): Promise<void> {
-		await promisifyQuery(tenantId, deleteNewBillPaymentHx, [billingid]);
+		throw new Error('Receipt history is immutable');
 	}
 
 
@@ -981,143 +979,8 @@ export class Billing {
 		tenantId: number,
 		records: updateRefundCashRequestBodyType
 	): Promise<boolean | void | undefined> {
-		let trx: any;
-		try {
-			const { billingid, refundAmount, serviceid, employeeid, selectedPaymentMode } = records;
-			if (![billingid, serviceid, employeeid, selectedPaymentMode].every(value => Number.isSafeInteger(value) && value > 0) ||
-				typeof refundAmount !== 'number') return false;
-			const refundCents = minorUnits(refundAmount);
-			if (refundCents <= 0) return false;
-			const connection = await KnexConnection(tenantId);
-			trx = await connection.transaction();
-			// Every balance and refund-state decision is made under the same locks
-			// as the resulting financial writes. All callers share this boundary.
-			const bill = await trx('billing').where({ billingid }).forUpdate().first();
-			if (!bill) return false;
-			if (Number(bill.islocked) === 1 || Number(bill.isWriteOff) === 1) return false;
-			const finalizationGuard = new FinancialFinalizationGuard(tenantId, trx);
-			await finalizationGuard.assertRecordMutable('billing', billingid);
-			await finalizationGuard.assertDateOpen(Number(bill.branchid), bill.billedon);
-			let { paid, payable, totalcost, totalrefunded, totalTransactionCost, discount, amountIncurredDueTax } = bill;
-			const serviceInformation = await trx("dboservices as s")
-				.join("dbobillingrefundtable as r", "s.serviceid", "r.serviceid")
-				.select("s.totalpayable", "s.totalcost", "s.discount", "s.amountIncurredDueTax", "s.paidamount", "r.amountRefunded", 'r.isRefundApproved', 'r.isRefundCompleted', 'r.isRefundMatterClosed')
-				.where("s.serviceid", serviceid)
-				.where('s.billingid', billingid)
-				.forUpdate()
-				.first();
-			if (!serviceInformation || Number(serviceInformation.isRefundApproved) !== 1 ||
-				Number(serviceInformation.isRefundCompleted) === 1 || Number(serviceInformation.isRefundMatterClosed) === 1 ||
-				refundCents > minorUnits(serviceInformation.paidamount) || refundCents > minorUnits(serviceInformation.totalpayable) ||
-				refundCents > minorUnits(paid) || refundCents > minorUnits(payable)) return false;
-			const mode = await trx('paymentmodes').where({ KeyID: selectedPaymentMode }).first();
-			if (!mode) return false;
-
-			if (serviceInformation) {
-				const servicepayable = parseFloat(serviceInformation.totalpayable.toString()) - parseFloat(refundAmount.toString());
-				const servicetotalcost = serviceInformation.totalcost;
-				const servicediscount = serviceInformation.discount;
-				const serviceAmountIncurredDueTax = serviceInformation.amountIncurredDueTax;
-				const servicepaidAmount = parseFloat(serviceInformation.paidamount.toString()) - parseFloat(refundAmount.toString());
-				const serviceTotalRefunded = parseFloat(serviceInformation.amountRefunded.toString()) + parseFloat(refundAmount.toString());
-				const serviceoutstanding = servicepayable - servicepaidAmount;
-
-				const newRefundableAmount = parseFloat(totalrefunded.toString()) + parseFloat(refundAmount.toString());
-				const currentPayable = parseFloat(payable.toString()) - parseFloat(refundAmount.toString());
-				const currentPaid = parseFloat(paid.toString()) - parseFloat(refundAmount.toString());
-				const currentTotalCost = parseFloat(totalcost.toString())
-				const currentDiscount = parseFloat(discount.toString())
-				const currentAmountIncurredDueTax = parseFloat(amountIncurredDueTax.toString()) - parseFloat(serviceInformation.amountIncurredDueTax.toString());
-
-
-
-				let newOutstandingAmount = 0;
-				let newBalanceAmount = 0;
-
-				if (currentPaid >= currentPayable) {
-					newBalanceAmount = currentPaid - currentPayable;
-				} else {
-					newOutstandingAmount = currentPayable - currentPaid;
-				}
-
-
-				await trx.raw(q_update_Billing_Information, [
-					currentPaid,
-					currentPayable,
-					newOutstandingAmount,
-					currentDiscount,
-					currentAmountIncurredDueTax,
-					newBalanceAmount,
-					newRefundableAmount,
-					currentTotalCost,
-					totalTransactionCost,
-					billingid
-				])
-
-
-				await trx("dboservices")
-					.update({
-						isRefunded: 1,
-						isLocked: 1,
-						status: 'refunded',
-						totalcost: servicetotalcost,
-						paidamount: servicepaidAmount,
-						totalpayable: servicepayable,
-						outstanding: serviceoutstanding
-					})
-					.where({
-						serviceid: serviceid
-					})
-
-				const updatedService = await trx("dboservices").where({ serviceid }).first();
-				if (updatedService) {
-					await applyDboservicesAfterUpdate(trx, updatedService, employeeid ? employeeid.toString() : undefined);
-				}
-
-
-				await trx("dbobillingrefundtable").update({
-					isRefundCompleted: 1,
-					isRefundMatterClosed: 1,
-					refundedBy: employeeid,
-					amountRefunded: serviceTotalRefunded,
-				}).where({
-					serviceid: serviceid
-				});
-
-
-				const historyInsert = await trx.raw(insertbillHistoryQuery, [billingid, selectedPaymentMode, refundAmount, employeeid, 'debit']);
-				const historyResult = Array.isArray(historyInsert) ? historyInsert[0] : historyInsert;
-				const refundHistoryId = Number(historyResult?.insertId);
-				if (!refundHistoryId) throw new Error('Could not create refund history for accounting posting');
-
-				await enqueueBillingRefund(
-					tenantId,
-					billingid,
-					Number(refundAmount),
-					Number(refundAmount),
-					employeeid,
-					trx,
-					refundHistoryId,
-					Number(selectedPaymentMode)
-				);
-				const trackingRepository = new CommissionTrackingRepository(tenantId, trx);
-				const trackingRecords = await trackingRepository.findByServiceId(serviceid);
-				const originalTracking = trackingRecords.find(tracking => tracking.status !== 'adjusted' && tracking.final_commission > 0);
-				if (originalTracking) await trackingRepository.createAdjustment(originalTracking.id, refundAmount,
-					`Service refund completed for service ${serviceid}`, 'refund');
-
-				await trx.commit();
-
-				return true;
-			}
-
-		}
-		catch (err: any) {
-			if (trx && !trx.isCompleted?.()) await trx.rollback().catch(() => undefined);
-			throw err;
-		} finally {
-			if (trx && !trx.isCompleted()) await trx.rollback();
-		}
+		const { BillingRefundService } = await import('../src/models/billing/BillingRefundService');
+		return new BillingRefundService(tenantId).refund(records as any);
 	}
 
 
@@ -1294,6 +1157,8 @@ export class Billing {
 				const trx = await connection.transaction()
 
 				try {
+					const { lockMutableBill } = await import('../src/models/billing/BillingFinancialGuard');
+					await lockMutableBill(trx, tenantId, billingid);
 					const loadAllServices = await this.mapAndInsertServices(tenantId, allEntries, billingid, trx);
 					if (loadAllServices.length > 0) {
 						throw new Error(billErrors.unableToLoadServices);
@@ -1545,7 +1410,4 @@ export class Billing {
 		}
 	}
 }
-
-
-
 

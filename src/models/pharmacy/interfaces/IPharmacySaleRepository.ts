@@ -13,6 +13,7 @@ export interface PharmacySellableItemRow {
      salePrice: number;
      wholesalePrice?: number;
      costPrice: number;
+     stockBookValue?: number;
      requiresPrescription?: boolean;
      batchTracking?: boolean;
 }
@@ -141,4 +142,3 @@ export interface IPharmacySaleRepository {
      findSaleLines(saleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleLineRow[]>;
      listSales(filters: PharmacySaleListFilters): Promise<{ sales: PharmacySaleRow[]; total: number }>;
 }
-

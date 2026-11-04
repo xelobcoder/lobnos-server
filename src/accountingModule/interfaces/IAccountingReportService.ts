@@ -100,6 +100,8 @@ export interface CashFlowLine {
      accountCode: string;
      accountName: string;
      amount: number;
+     inflow?: number;
+     outflow?: number;
 }
 
 export interface CashFlowStatement {
@@ -142,9 +144,13 @@ export interface InventoryValuationRow {
      quantity: number;
      unitCost: number;
      value: number;
+     population?: 'facility' | 'pharmacy';
+     branchid?: number | null;
 }
 
 export interface InventoryValuation {
+     asOf?: string;
+     basis?: string;
      rows: InventoryValuationRow[];
      total: number;
      page: number;
@@ -210,8 +216,9 @@ export interface IAccountingReportService {
      branchPerformance(from: string, to: string): Promise<BranchPerformanceRow[]>;
 
      /**
-      * Stock on hand valued at its most recent known unit cost, next to the inventory control
-      * account so the two can be reconciled.
+      * Persisted moving-average on-hand value, or evidenced historical replay, compared
+      * with the same facility/consolidated-pharmacy population in inventory control.
+      * Unsupported opening/cost histories and incomplete consolidation fail explicitly.
       */
      inventoryValuation(asOf?: string, options?: { page?: number; count?: number; sortby?: string }): Promise<InventoryValuation>;
 }

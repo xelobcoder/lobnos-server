@@ -4,6 +4,7 @@ import { getAllCompanyProfiles } from '../../settings/companyProfile';
 import { enqueueBillingPayment } from '../../../accountingModule/integrations/BillingAccounting';
 import { applyDboservicesAfterUpdate } from '../../../database/appLevelTriggers';
 import { bootstrapOrganizationInvoices } from './OrganizationInvoiceBootstrapper';
+import { lockMutableBill } from '../../billing/BillingFinancialGuard';
 import {
      AllocatableLine,
      CreditServiceRow,
@@ -422,6 +423,8 @@ export class OrganizationInvoiceService {
                     if (!mode) throw new OrganizationInvoiceError(400, 'Unknown payment mode.');
 
                     const lines = await trx('org_invoice_lines').where({ invoice_id: invoiceId }).orderBy('id').forUpdate();
+                    for (const id of [...new Set<number>(lines.map((l: any) => Number(l.billing_id)))].sort((a,b) => a-b))
+                         await lockMutableBill(trx, this.tenantId, id);
                     const serviceIds = lines.map((line: any) => Number(line.service_id));
                     const services = serviceIds.length === 0 ? [] : await trx('dboservices')
                          .whereIn('serviceid', serviceIds).forUpdate();

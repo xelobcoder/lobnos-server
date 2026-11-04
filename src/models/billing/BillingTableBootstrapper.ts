@@ -1,8 +1,10 @@
 import KnexConnection from '../../database/KnexConnections';
 import {ensureLabCashierSchema} from './LabCashierWorkflow';
+import { ensureBillingIntegritySchema } from './BillingIntegritySchema';
 
 export async function bootstrapBillingTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
+     await ensureBillingIntegritySchema(connection);
      await ensureLabCashierSchema(connection);
 
      if (await connection.schema.hasTable('dboservices')) {

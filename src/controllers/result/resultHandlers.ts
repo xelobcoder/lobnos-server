@@ -31,6 +31,7 @@ import { InAppNotificationService } from "../../models/application/in-app-notifi
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 import { roleAllowed } from "../../middleware/roles";
 import { loadLaboratoryReportData } from "../../models/result/LaboratoryReportData";
+import logger from "../../hooks/logger";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -50,12 +51,13 @@ export const resultEntry = async (req: Request, response: Response): Promise<voi
 		if (isNaN(testid)) return customError("testid must be a number", 400, response);
 		const tenantIdP = parseInt(tenantId.toString())
 
-		const isDataInserted = await new Creator(testid).resultEntry(tenantIdP, req.body as unknown as resultEntryType);
+		const creator = new Creator(testid);
+		const isDataInserted = await creator.resultEntry(tenantIdP, req.body as unknown as resultEntryType);
 		if (isDataInserted == true) {
 			const body = req.body as any;
 			const ascensionId = body?.ascensionid || body?.ascensionId;
 			const actorId = body?.employeeid ? Number(body.employeeid) : undefined;
-			if (ascensionId) {
+			if (ascensionId && creator.resultSaveChanged) {
 				InAppNotificationService.publish(tenantIdP, {
 					eventCode: 'RESULT_ENTERED',
 					module: 'result',
@@ -69,14 +71,17 @@ export const resultEntry = async (req: Request, response: Response): Promise<voi
 			const connection = await KnexConnection(tenantIdP);
                const approval = await connection('dbotestresultapproval').where({ ascensionid: Number(ascensionId) }).first();
                const requiresRevalidation = Number(approval?.requires_revalidation) === 1;
-               response.send({ status: 'success', statusCode: 200, requires_revalidation: requiresRevalidation, approval_revision: Number(approval?.approval_revision || 0), message: requiresRevalidation ? 'Results saved. Previous validation was invalidated; validate this revision again before release.' : 'Results saved successfully' });
+               response.send({ status: 'success', statusCode: 200, changed: creator.resultSaveChanged, replayed: creator.resultSaveReplayed, requires_revalidation: requiresRevalidation, approval_revision: Number(approval?.approval_revision || 0), message: creator.resultSaveReplayed ? 'This save was already committed. No values were reapplied; reload to review the current result.' : requiresRevalidation ? 'Results saved. Previous validation was invalidated; validate this revision again before release.' : 'Results saved successfully' });
 		} else {
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
 		}
 	} catch (err) {
 		const statusCode = Number((err as any)?.statusCode);
-		if (statusCode >= 400 && statusCode < 500) {
-			response.status(statusCode).send({ status: 'error', statusCode, message: (err as any)?.message || 'Result entry was rejected' });
+		if ((err as any)?.code === 'RESULT_SAVE_SCHEMA_REQUIRED') {
+			logger.error('[Result entry] Tenant result-save schema is unavailable; verify tenant startup bootstrap completed.', { code: 'RESULT_SAVE_SCHEMA_REQUIRED' });
+		}
+		if ((statusCode >= 400 && statusCode < 500) || (statusCode === 503 && (err as any)?.code === 'RESULT_SAVE_SCHEMA_REQUIRED')) {
+			response.status(statusCode).send({ status: 'error', statusCode, code: (err as any)?.code, message: (err as any)?.message || 'Result entry was rejected' });
 			return;
 		}
 		responseError(response, err);

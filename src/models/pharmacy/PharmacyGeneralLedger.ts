@@ -38,10 +38,14 @@ export async function pharmacyGeneralLedger(db: Knex | Knex.Transaction, branch:
           .select('l.id', 'j.id as journal_id', 'j.financial_date as date', 'j.source_ref as reference',
                'j.kind', 'j.description', 'j.created_at as posting_created_at', 'l.account_code as account', db.raw('COALESCE(l.document_ref, j.source_ref) as source_document'),
                'j.branchid', 'l.debit', 'l.credit',
-               db.raw('SUM(l.debit - l.credit) OVER (PARTITION BY l.account_code ORDER BY j.financial_date, j.created_at, j.id, l.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS signed_running_balance'));
-     if (account) source.where('l.account_code', account);
+               db.raw('SUM(l.debit - l.credit) OVER (PARTITION BY l.account_code ORDER BY j.financial_date, j.created_at, j.id, l.id ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS signed_running_balance'),
+               db.raw('SUM(l.debit) OVER (PARTITION BY j.id) AS journal_debit'),
+               db.raw('SUM(l.credit) OVER (PARTITION BY j.id) AS journal_credit'),
+               db.raw('COUNT(*) OVER (PARTITION BY j.id) AS journal_line_count'),
+               db.raw('ROW_NUMBER() OVER (PARTITION BY j.id ORDER BY l.id) AS journal_line_number'));
      const filtered = () => {
           const query = db.from(source.clone().as('ledger'));
+          if (account) query.where('account', account);
           if (from) query.where('date', '>=', from);
           if (search) query.where(builder => builder.where('description', 'like', `%${search}%`)
                .orWhere('reference', 'like', `%${search}%`).orWhere('account', 'like', `%${search}%`)
@@ -49,7 +53,8 @@ export async function pharmacyGeneralLedger(db: Knex | Knex.Transaction, branch:
                .orWhereRaw('LOWER(??) LIKE ?', ['source_document', `%${searchTerm.toLowerCase()}%`]));
           return query;
      };
-     const totalRow = await filtered().count('* as total').first(), total = Number(totalRow?.total || 0);
+     const totalRow = await filtered().count('* as total').countDistinct('journal_id as journal_count')
+          .sum('debit as debit').sum('credit as credit').first(), total = Number(totalRow?.total || 0);
      const all = input.all === true || input.all === 'true';
      if (all && total > 10000) throw new Error('Ledger exports are limited to 10,000 rows. Narrow the date range or account filter');
      const query = filtered().select('*').orderBy('date').orderBy('posting_created_at').orderBy('journal_id').orderBy('id');
@@ -69,12 +74,19 @@ export async function pharmacyGeneralLedger(db: Knex | Knex.Transaction, branch:
      const rows = rawRows.map(row => ({
           ...row, account_number: display.get(row.account)?.number ?? null, account_name: display.get(row.account)?.name, normal_balance: normalBalance(row.account),
           business_unit: 'pharmacy', debit: Number(row.debit), credit: Number(row.credit),
+          journal_debit: money(Number(row.journal_debit)), journal_credit: money(Number(row.journal_credit)),
+          journal_line_count: Number(row.journal_line_count), journal_line_number: Number(row.journal_line_number),
           running_balance: normal(row.account, row.signed_running_balance, 0),
      }));
      return {
           rows, total, page: all ? 1 : page, count: all ? total : count, totalPages: all ? 1 : Math.max(1, Math.ceil(total / count)),
+          journalCount: Number(totalRow?.journal_count || 0),
+          periodTotals: { debit: money(Number(totalRow?.debit || 0)), credit: money(Number(totalRow?.credit || 0)) },
+          normalBalance: account ? normalBalance(account) : null,
           openingBalance: account ? normal(account, opening[0]?.debit || 0, opening[0]?.credit || 0) : null,
           closingBalance: account ? normal(account, closing[0]?.debit || 0, closing[0]?.credit || 0) : null,
-          accountBalances: closing.map(row => ({ account: row.account, opening: normal(row.account, opening.find(value => value.account === row.account)?.debit || 0, opening.find(value => value.account === row.account)?.credit || 0), closing: normal(row.account, row.debit, row.credit) })),
+          accountBalances: closing.map(row => ({ account: row.account, account_number: display.get(row.account)?.number ?? null, account_name: display.get(row.account)?.name,
+               normal_balance: normalBalance(row.account),
+               opening: normal(row.account, opening.find(value => value.account === row.account)?.debit || 0, opening.find(value => value.account === row.account)?.credit || 0), closing: normal(row.account, row.debit, row.credit) })),
      };
 }

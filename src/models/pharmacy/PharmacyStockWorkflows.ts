@@ -75,8 +75,11 @@ export class PharmacyStockWorkflows extends PharmacyEnterpriseCore{
                if(lot.expiry_date&&dateOnly(lot.expiry_date)<new Date().toISOString().slice(0,10))throw new Error('Expired stock cannot be released');
                if(item.pharmacy_batch_tracking&&(!lot.batch_number||!lot.expiry_date))throw new Error('Tracked stock requires batch and expiry evidence before release');
                await assertBatchNotRecalled(trx,this.branch,item.id,lot.batch_number);const before=Number(item.current_stock);await this.move(trx,item,count,lot.batch_number,lot.expiry_date,'Inspected quarantine release: '+reason,id,Number(lot.unit_cost));
-               const weighted=Number(item.current_stock)>0?(before*Number(item.cost_price)+count*Number(lot.unit_cost))/Number(item.current_stock):Number(lot.unit_cost);await trx('pharmacy_inventory_items').where({id:item.id}).update({cost_price:Number(weighted.toFixed(6))});
-               const amount=value||money(count*Number(lot.unit_cost));if(amount)await postPharmacyJournal(trx,this.branch,id,'quarantine_release',reason,this.actor,[{account:'inventory',debit:amount},{account:lot.source==='customer_return'?'cost_of_sales':'quarantine_inventory',credit:amount}]);
+               if(lot.source==='customer_return' && lot.restoration_value == null)throw new Error('Reconcile the historical return cost before release');
+               const amount=lot.source==='customer_return' ? Number(lot.restoration_value) : value;
+               await trx('pharmacy_stock_movements').where({reference_id:id,item_id:item.id,previous_stock:before}).update({total_cost:amount});
+               const weighted=Number(item.current_stock)>0?(before*Number(item.cost_price)+amount)/Number(item.current_stock):Number(lot.unit_cost);await trx('pharmacy_inventory_items').where({id:item.id}).update({cost_price:Number(weighted.toFixed(6))});
+               if(amount)await postPharmacyJournal(trx,this.branch,id,'quarantine_release',reason,this.actor,[{account:'inventory',debit:amount},{account:lot.source==='customer_return'?'cost_of_sales':'quarantine_inventory',credit:amount}]);
           }else if(value)await postPharmacyJournal(trx,this.branch,id,'quarantine_disposal',reason,this.actor,[{account:'operating_expenses',debit:value},{account:'quarantine_inventory',credit:value}]);
           const status=input.action==='release'?'released':'disposed';await trx('pharmacy_quarantine_lots').where({id}).update({status,remaining_quantity:0,book_value:0});await this.event(trx,status,{reason,quantity:count,previousBookValue:value},id);return {id,status};
      });}

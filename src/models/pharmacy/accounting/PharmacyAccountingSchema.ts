@@ -1,8 +1,10 @@
 import { Knex } from 'knex';
+import { ensureCashFlowReviewSchema } from '../../../accountingModule/init/cashFlowSchema';
 export const REVERSAL_IDENTITY_SQL = "varchar(36) GENERATED ALWAYS AS (CASE WHEN status <> 'voided' THEN reversal_of ELSE NULL END) VIRTUAL";
 
 /** Additive only. Called by the pharmacy bootstrap/migration, never by request handlers. */
 export async function ensurePharmacyAccountingSchema(db: Knex): Promise<void> {
+     await ensureCashFlowReviewSchema(db, true);
      if (!await db.schema.hasTable('pharmacy_accounting_settings')) await db.schema.createTable('pharmacy_accounting_settings', t => {
           t.integer('branchid').unsigned().primary(); t.integer('tenant_id').unsigned().notNullable();
           t.boolean('enabled').notNullable().defaultTo(false); t.date('effective_date').nullable(); t.json('mappings').nullable();

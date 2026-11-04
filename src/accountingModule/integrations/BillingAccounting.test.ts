@@ -132,6 +132,19 @@ describe('billing accounting collection and refund postings', () => {
                amount: -80,
           }));
      });
+     it('reverses net revenue and proportional VAT explicitly, keeping the refund journal balanced', async () => {
+          await enqueueBillingRefund(3, 42, 20, 20, 9, makeDatabase({ receivable: true }), 92, 8, 1.82);
+          const posting = enqueuePostingMock.mock.calls[0][1];
+          expect(posting.lines).toEqual(expect.arrayContaining([
+               expect.objectContaining({ accountCode: 'acc-4000', direction: 'debit', amount: 18.18 }),
+               expect.objectContaining({ accountCode: 'acc-2002', direction: 'debit', amount: 1.82 }),
+          ]));
+          expect(Math.round(posting.lines.reduce((n: number, l: any) => n + (l.direction === 'debit' ? l.amount : -l.amount), 0) * 100)).toBe(0);
+     });
+     it('identifies cashless remaining-credit notes by positive refund event IDs', async () => {
+          await enqueueBillingRefund(3, 42, 90, 0, 9, makeDatabase({ receivable: true }), undefined, 8, 8.18, 123);
+          expect(enqueuePostingMock.mock.calls[0][1]).toMatchObject({ sourceTable: 'billing_refund_events', sourcePk: 123, sourceRef: '123' });
+     });
 
      it('reverses Staff FOC by restoring receivables and reversing the benefit expense', async () => {
           const trx = makeDatabase({ focStatus: 'reversed' });

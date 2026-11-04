@@ -19,6 +19,10 @@ import { CommissionLogger, CommissionServiceFactory, logger } from "../commissio
 import { NotificationDispatcher } from "../application/notifications/services/NotificationDispatcher";
 import { StaffFocService } from "../foc/services/StaffFocService";
 import { normalizeSubmissionPayments } from "./submissionPayments";
+import { authoritativeSubmission } from './authoritativeSubmission';
+import { billingFingerprint, billingRequestKey, reserveBillingRequest } from './BillingRequestIdentity';
+import { lockMutableBill, assertBillingDateOpen } from './BillingFinancialGuard';
+import { minorUnits } from '../../accountingModule/utils/money';
 import { nhisIdentifiers, prepareNhisIdentifierStorage } from './NhisIdentifiers';
 import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
@@ -27,26 +31,10 @@ import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL 
 export class SubmitCustomerBilling {
 
     static getPaidAmountAndStatus(item: { paidamount?: any, paymentstatus?: string, totalpayable?: number }): { paidamount: number, paymentstatus: string, outstanding: number } {
-        const paidamount = (typeof item.paidamount !== 'undefined' && !isNaN(item.paidamount) && typeof parseFloat(item.paidamount.toString()) === 'number')
-            ? Number(item.paidamount)
-            : 0;
-        let paymentstatus: string;
-        const p_totalpayable = isNaN(parseInt(item.totalpayable?.toString() || '0')) ? 0 : parseFloat(item.totalpayable?.toString() || '0');
-        const p_paidamount = isNaN(parseInt(item.paidamount?.toString() || '0')) ? 0 : parseFloat(item.paidamount?.toString() || '0');
-        const outstanding: number = p_totalpayable - p_paidamount;
-        if (p_paidamount != null) {
-            if ((p_totalpayable && p_paidamount === p_totalpayable) || p_totalpayable === 0) {
-                paymentstatus = 'paid';
-            } else if (p_paidamount > 0) {
-                paymentstatus = 'partial';
-            } else {
-                paymentstatus = 'pending';
-
-            }
-        } else {
-            paymentstatus = 'pending';
-        }
-        return { paidamount, paymentstatus, outstanding };
+        const paid = minorUnits(item.paidamount || 0), payable = minorUnits(item.totalpayable || 0);
+        if (paid < 0 || payable < 0 || paid > payable) throw new Error('Invalid service payment allocation');
+        return { paidamount: paid / 100, outstanding: (payable - paid) / 100,
+            paymentstatus: paid === payable ? 'paid' : paid ? 'partial' : 'pending' };
     }
 
 
@@ -70,6 +58,16 @@ export class SubmitCustomerBilling {
 
     async submit(): Promise<{ status: boolean; message: string; billingid?: number; cashierCode?: string }> {
         try {
+            const requestKey = this.writeHooks ? null : billingRequestKey(this.payload.request_key);
+            const fingerprint = billingFingerprint(this.payload);
+            // Return a committed replay before pricing or closure checks can change its outcome.
+            if (requestKey) {
+                const prior = await (await this.connection)('billing_submission_requests').where({ request_key: requestKey }).first();
+                if (prior) {
+                    if (prior.fingerprint !== fingerprint) throw new Error('Request key was used for different financial inputs');
+                    if (prior.result_json) return typeof prior.result_json === 'string' ? JSON.parse(prior.result_json) : prior.result_json;
+                }
+            }
             this.payload = normalizeSubmissionPayments(this.payload);
             const separateCashier = requiresCashierHandoff(await labCheckoutMode(await this.connection), this.payload);
             if (separateCashier) {
@@ -202,11 +200,8 @@ export class SubmitCustomerBilling {
                 this.payload.cart = data.cart.map((item: any) => ({ ...item, paidamount: 0, paymentstatus: 'pending' }));
             }
 
+            this.payload = authoritativeSubmission(this.payload, data);
             let updatedBillingData: CustomerInitResponse = this.payload;
-
-            if (updatedBillingData.isPackageUsed && !updatedBillingData.packageid) {
-                updatedBillingData.cart = data.packageTestList;
-            }
 
             const conn = await this.connection;
             const trx = await conn.transaction();
@@ -215,14 +210,28 @@ export class SubmitCustomerBilling {
             let finalBillingIdForEvent = 0;
             let shouldTriggerCommission = false;
             let cashierCode: string | undefined;
+            let lockedSourceBill: any = null;
 
             try {
+                if (requestKey) {
+                    const replay = await reserveBillingRequest(trx, 'billing_submission_requests', requestKey, fingerprint);
+                    if (replay) { await trx.rollback(); return replay; }
+                }
+                if (hasRelatedBilling) {
+                    const source = await lockMutableBill(trx, this.tenantId, Number(this.payload.billingid));
+                    lockedSourceBill = source;
+                    if (Number(source.patientid) !== Number(patientId) || Number(source.branchid) !== Number(branchid))
+                        throw new Error('The bill does not belong to this patient and branch');
+                    if (!this.payload.isAdjustment || this.payload.adjustmentType !== 'addition')
+                        throw new Error('Existing bills accept service additions only; use linked refunds for corrections');
+                }
                 const existingBillingId = await this.writeHooks?.beforeWrite(trx);
                 if (existingBillingId) {
                     await trx.rollback();
                     return { status: true, message: "Request already converted.", billingid: existingBillingId };
                 }
                 if (!hasRelatedBilling) {
+                    await assertBillingDateOpen(trx, this.tenantId, Number(branchid), billeddate || new Date());
                     billingID = await BillingSharedRepo.generateBillingID(
                         this.payload.patientid || this.payload.patientId,
                         this.tenantId,
@@ -234,6 +243,10 @@ export class SubmitCustomerBilling {
                     billingID = this.payload.billingid;
                 }
                 finalBillingIdForEvent = billingID;
+                for (const payment of this.payload.payments || []) {
+                    if (!Number.isSafeInteger(Number(payment.mode)) || !await trx('paymentmodes').where({ KeyID: Number(payment.mode) }).first())
+                        throw new Error('Unknown payment mode');
+                }
 
                 const computeAdjustmentTotals = (items: any[]) => {
                     let discountTotal = 0;
@@ -275,7 +288,7 @@ export class SubmitCustomerBilling {
                 if (!parsedEmployeeId || isNaN(parsedEmployeeId)) throw new Error("Missing employeeid for discount validation.");
 
                 const previousBilling = hasRelatedBilling
-                    ? await trx("billing").where({ billingid: billingID }).first()
+                    ? lockedSourceBill
                     : null;
                 const previousDiscount = previousBilling ? Number(previousBilling.discount || 0) : 0;
                 const previousSurcharges = previousBilling ? Number(previousBilling.surcharges || 0) : 0;
@@ -352,13 +365,13 @@ export class SubmitCustomerBilling {
                 let balance = 0;
                 let writeOffAmount = 0;
                 let overallPaymentsMade = updatedBillingData.paid;
-                let status = this.payload.paid == amountPayable ? "paid" : this.payload.paid > 0 ? "partial" : "pending";
+                let status = updatedBillingData.paid == updatedBillingData.amountPayable ? "paid" : updatedBillingData.paid > 0 ? "partial" : "pending";
                 testPayableAmount = data.testPayableAmount || 0;
                 totalcost = data.totalcost;
                 totalservicesAmount = data.totalServiceAmountPayable;
                 totaldiscount = data.totaldiscount || 0;
                 totalAmountIncurredDueTax = data.totalAmountIncurredDueTax;
-                totalOutstanding = Math.max(amountPayable - updatedBillingData.paid, 0);
+                totalOutstanding = Math.max(updatedBillingData.amountPayable - updatedBillingData.paid, 0);
                 balance = totalOutstanding > 0 ? 0 : updatedBillingData.paid - totalAmountPayable;
                 const surcharges = checkoutResult.data?.totalsurcharge || 0;
 
@@ -446,7 +459,7 @@ export class SubmitCustomerBilling {
                 let AdditionAdjustmentBillingData = null;
 
                 if (isAdjustment && adjustmentType === "addition" && this.payload.billingid) {
-                    let previousTransaction = await trx("billing").where({ billingid: this.payload.billingid }).first();
+                    let previousTransaction = lockedSourceBill;
 
                     if (previousTransaction) {
                         const previousOutstanding = previousTransaction.outstanding || 0;
@@ -515,10 +528,10 @@ export class SubmitCustomerBilling {
                 const payableBeforeUpdate = await trx('billing')
                     .select('payable', 'amountIncurredDueTax')
                     .where({ billingid: finalBillingId })
-                    .first();
+                    .forUpdate().first();
 
                 const result = await trx("billing")
-                    .update({ ...finalUpdateData, billedon: billeddate ? billeddate : new Date() })
+                    .update({ ...finalUpdateData, ...(!hasRelatedBilling ? { billedon: billeddate ? billeddate : new Date() } : {}) })
                     .where({ billingid: finalBillingId });
 
                 if (!result) throw new Error("unable to update billing record");
@@ -556,7 +569,7 @@ export class SubmitCustomerBilling {
                     if (focTransaction?.id && focTransaction.status === 'approved') {
                         const serviceRows = await trx('dboservices')
                             .where({ billingid: finalBillingId })
-                            .orderBy('serviceid', 'asc');
+                            .orderBy('serviceid', 'asc').forUpdate();
                         let remainingFoc = Number(focTransaction.foc_amount || 0);
 
                         for (const serviceRow of serviceRows) {
@@ -607,7 +620,7 @@ export class SubmitCustomerBilling {
                     for (const payment of paymentsArr) {
                         const paymentMode = payment.mode;
                         const paymentAmount = payment.amount;
-                        const employeeId = payment.employeeid || this.payload.employeeid;
+                        const employeeId = this.payload.employeeid;
 
                         if (!paymentMode || !employeeId) {
                             throw new Error("Missing mode or employeeid in payment record.");
@@ -631,6 +644,8 @@ export class SubmitCustomerBilling {
                     const saved = await trx('billing').where({billingid: billingID}).first();
                     if (Number(saved?.outstanding || 0) > 0) cashierCode = await createLabCashierCode(trx, billingID, Number(branchid), Number(employeeid));
                 }
+                if (requestKey) await trx('billing_submission_requests').where({ request_key: requestKey })
+                    .update({ result_json: JSON.stringify({ status: true, message: 'Order submitted successfully', billingid: billingID, ...(cashierCode ? { cashierCode } : {}) }) });
                 await trx.commit();
             } catch (error: any) {
                 try {
@@ -656,8 +671,7 @@ export class SubmitCustomerBilling {
 
             return { status: true, message: "Order submitted successfully", billingid: billingID, ...(cashierCode ? {cashierCode} : {}) };
         } catch (error: any) {
-            console.log(error)
-            logger.error('Failed to submit billing', { error: error.message, payload: this.payload });
+            logger.error('Failed to submit billing', { error: error.message });
             throw new Error(`Failed to submit billing`);
         }
     }
@@ -1217,11 +1231,12 @@ export class SubmitCustomerBilling {
     }
 
 
-    static async removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid }: {
+    static async removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid, branchid }: {
         tenantId: number,
         billingid: number,
         serviceid: number,
-        employeeid: number
+        employeeid: number,
+        branchid?: number
     }): Promise<boolean | OperationsFailures[keyof OperationsFailures]> {
         const connection = await KnexConnection(tenantId);
         const overalBillRecord = await connection('billing').where({ billingid }).first();
@@ -1232,9 +1247,11 @@ export class SubmitCustomerBilling {
         let isRelatedUsed = false;
         const transaction = await connection.transaction();
         try {
+            const source = await lockMutableBill(transaction, tenantId, billingid);
+            if (branchid !== undefined && Number(source.branchid) !== Number(branchid)) throw new Error('Branch access denied');
             const service = await transaction('dboservices')
                 .where({ serviceid, billingid, paymentstatus: 'pending' })
-                .first();
+                .forUpdate().first();
             if (!service) {
                 return OperationsFailures.notFound;
             }
@@ -1243,6 +1260,7 @@ export class SubmitCustomerBilling {
 
 
             if (relatedbillingid && !isNaN(relatedbillingid)) {
+                if (Number(relatedbillingid) !== Number(billingid)) throw new Error('Use a linked correction for services belonging to another historical source');
                 isParentBillingId = true;
                 workingBillinId = relatedbillingid;
                 isRelatedUsed = true;
@@ -1277,7 +1295,7 @@ export class SubmitCustomerBilling {
 
                 const overalBillRecord = await transaction('billing')
                     .where({ billingid: workingBillinId })
-                    .first();
+                    .forUpdate().first();
 
 
                 if (!overalBillRecord) {
@@ -1302,6 +1320,8 @@ export class SubmitCustomerBilling {
                         balance: newBalance,
                         status: newStatus,
                         lastupdatedby: employeeid,
+                        amountIncurredDueTax: (minorUnits(overalBillRecord.amountIncurredDueTax || 0) - minorUnits(service.amountIncurredDueTax || 0)) / 100,
+                        discount: Math.max(0, minorUnits(overalBillRecord.discount || 0) - minorUnits(service.discount || 0)) / 100,
                     });
 
                 await enqueueBillingReceivable(

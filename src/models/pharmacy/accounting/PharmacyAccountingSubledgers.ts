@@ -51,7 +51,7 @@ export class PharmacyAccountingSubledgers extends PharmacyAccountingCore {
                if (date < source.date || date > today() || amendments.some(a => json(a.details).sourceId === sourceId && accountingDate(a.financial_date) > date))
                     fail('Correction date must follow the original document and latest correction, and cannot be in the future');
                const id = randomUUID(), reason = text(input.reason, 'due-date correction evidence');
-               const details: TermsDetails = { sourceId, previousDueDate: current.dueDate, dueDate, previousRevision: current.revision };
+               const details: TermsDetails = { sourceId, previousDueDate: current.dueDate!, dueDate, previousRevision: current.revision };
                const row = { id, branchid: this.context.branch, kind: this.termsKind(party), status: 'draft', version: 1, financial_date: date, amount: '0.00', description: reason, created_by: this.context.actor, details: JSON.stringify(details) };
                await trx('pharmacy_accounting_documents').insert(row);
                await this.audit(trx, `${party}:terms:create`, id, null, row);

@@ -84,7 +84,7 @@ describe('Accounting accuracy with real SQL queries', () => {
   await post('2026-09-01',[line('acc-1000',D.DEBIT,200),line('acc-3000',D.CREDIT,200)]);
   await post('2026-10-01',[line('acc-1000',D.DEBIT,100.01),line('acc-4000',D.CREDIT,25.93),line('acc-4000',D.CREDIT,37.04),line('acc-4000',D.CREDIT,37.04)]);
   await post('2026-10-02',[line('acc-1001',D.DEBIT,50),line('acc-1000',D.CREDIT,50)]);
-  const compound=await post('2026-10-03',[line('acc-1000',D.DEBIT,100),line('acc-5001',D.DEBIT,50),line('acc-3000',D.CREDIT,150)]);
+  const compound=await post('2026-10-03',[line('acc-1000',D.DEBIT,150),line('acc-1000',D.CREDIT,50),line('acc-5001',D.DEBIT,50),line('acc-3000',D.CREDIT,150)]);
   const report=await new AccountingReportService(1).cashFlow('2026-10-01','2026-10-31');
   expect(report.totals).toMatchObject({openingCash:200,closingCash:400.01,netMovement:200.01,operating:100.01,financing:0,unclassified:100});
   expect(report.reconciliation).toEqual({balanced:true,difference:0});
@@ -197,7 +197,7 @@ describe('Accounting accuracy with real SQL queries', () => {
  });
 
  it('cash-flow classification respects finalized records and closed periods', async () => {
-  const entry=await post('2026-10-01',[line('acc-1000',D.DEBIT,100),line('acc-5001',D.DEBIT,50),line('acc-3000',D.CREDIT,150)]);
+  const entry=await post('2026-10-01',[line('acc-1000',D.DEBIT,150),line('acc-1000',D.CREDIT,50),line('acc-5001',D.DEBIT,50),line('acc-3000',D.CREDIT,150)]);
   const reports=new AccountingReportService(1), amounts={operating:-50,investing:0,financing:150};
   await db('financial_record_locks').insert({source_table:'acc_journal_entries',source_ref:String(entry.entry.id)});
   await expect(reports.saveCashFlowClassification(entry.entry.id,amounts,9)).rejects.toThrow('finalized');await db('financial_record_locks').delete();

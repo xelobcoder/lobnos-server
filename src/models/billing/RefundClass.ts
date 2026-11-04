@@ -34,6 +34,8 @@ import { Services } from '../services/services';
 import { PrimeBillingEnterprise } from './multi/PrimeBillingEnterprise';
 import KnexConnection from '../../database/KnexConnections';
 import ApplicationSettings from '../application/appsettings/appset';
+import { BillingRefundService } from './BillingRefundService';
+import { minorUnits } from '../../accountingModule/utils/money';
 
 
 type dbReturned = PrimeLimsTabledbobillingrefundtable & PrimeLimsTabledboservices & PrimeLimsTablebilling[];
@@ -406,8 +408,9 @@ export class Refund {
 	private static async amountRefundableExceeded(tenantId: number, serviceId: number): Promise<boolean | null> {
 		const result: (PrimeLimsTabledboservices & PrimeLimsTabledbobillingrefundtable)[] = await promisifyQuery(tenantId, q_service_refundable_amount_exceeded, [serviceId]);
 		if (!result || !Array.isArray(result)) return null;
-		const { amountRefunded, paidamount } = result[0];
-		const canAmountSillBeRefunded = parseFloat(paidamount.toString()) - parseFloat(amountRefunded.toString());
+		if (!result.length) return null;
+		const { paidamount } = result[0];
+		const canAmountSillBeRefunded = minorUnits(paidamount || 0) / 100;
 		if (canAmountSillBeRefunded <= 0) return true;
 		return false;
 	}
@@ -415,15 +418,16 @@ export class Refund {
 	static async issueOutCashOutOfRefund(tenantId: number, records: updateRefundCashRequestBodyType) {
 		// The writer validates approval, document ownership, balances and replay
 		// under row locks, and includes commission/accounting writes atomically.
-		return Billing.updatePreviouslyBilledClientAfterRefundConcluded(tenantId, records);
+		return new BillingRefundService(tenantId).refund(records as any);
 	}
 
 	static async calculateServiceRefundableAmount(tenantId: number, serviceid: number) {
 		if (!serviceid) return undefined;
 		const serviceData: (PrimeLimsTabledboservices & PrimeLimsTabledbobillingrefundtable)[] =
 			await promisifyQuery(tenantId, q_service_refundable_amount_exceeded, [serviceid])
-		const { paidamount, amountRefunded } = serviceData[0]
-		const refundableAmount = parseFloat(paidamount.toString()) - parseFloat(amountRefunded.toString());
+		if (!serviceData?.length) return 0;
+		const { paidamount } = serviceData[0]
+		const refundableAmount = minorUnits(paidamount || 0) / 100;
 		return refundableAmount;
 	}
 
@@ -452,54 +456,9 @@ export class Refund {
 		return OperationsFailures.notFound;
 	}
 
-	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number): Promise<boolean | string | void> {
-		const validity = await Billing.checkValidityOfBillingid(tenantId, billingid);
-		if (!validity) return OperationsFailures.unfoundID;
-
-		const serviceList: PrimeLimsTabledboservices[] = await Services.findAllServicesAssociatedWithBillingId(tenantId, billingid);
-
-		const updatedValues = await Promise.all(serviceList.map(async (item: PrimeLimsTabledboservices) => {
-			const { serviceid } = item;
-			const initiate = await this.initiateRefundofServices(tenantId, employeeid, serviceid, 'Admin Refund of all transaction services');
-			if (!initiate) return false;
-
-			const updateWithness = await this.approveRequestedRefund(tenantId, serviceid, employeeid, 1);
-			if (!updateWithness) throw new Error("Witness Not Found");
-
-			const isServiceAlreadyRefunded = await this.isServiceRefundedOut(tenantId, serviceid);
-
-			if (isServiceAlreadyRefunded == true) return true;
-			if (isServiceAlreadyRefunded == null) return false;
-
-			if (isServiceAlreadyRefunded == false) {
-				const refundableAmount = await this.refundVerification(tenantId, serviceid, billingid);
-				if (!refundableAmount || typeof refundableAmount !== "object" || !refundableAmount.refundableAmount) return false;
-
-				const amountToRefund = refundableAmount.refundableAmount;
-				const issueOutCash = await this.issueOutCashOutOfRefund(tenantId, {
-					selectedPaymentMode,
-					serviceid,
-					employeeid,
-					billingid,
-					refundAmount: amountToRefund,
-					trackId: 0,
-					name: '',
-					cost: 0
-				});
-				return issueOutCash;
-			}
-		}));
-
-		const isAllRefunded = updatedValues.some((item) => item !== false);
-		// if all is refunded , we lock billing table and update islockedstatus
-		if (isAllRefunded) {
-			const lockBilling = await PrimeBillingEnterprise.lockBillingRecord(tenantId, billingid, 'voided');
-			if (!lockBilling) return OperationsFailures.notFound;
-			return true;
-		}
+	static async refundAllItemsOfTransaction(tenantId: number, billingid: number, employeeid: number, selectedPaymentMode: number, requestKey = `refund-all-billing-${billingid}`): Promise<boolean | string | void> {
+		return new BillingRefundService(tenantId).refund({ billingid, employeeid, selectedPaymentMode, request_key: requestKey, all: true });
 	}
 }
-
-
 
 

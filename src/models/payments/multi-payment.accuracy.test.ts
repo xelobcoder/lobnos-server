@@ -16,6 +16,10 @@ beforeEach(async()=>{
  CREATE TABLE acc_collection_requests(request_key TEXT PRIMARY KEY,fingerprint TEXT,created_at TEXT);
  CREATE TABLE gateway_payment_applications(reference TEXT PRIMARY KEY,billing_id INTEGER,amount_minor INTEGER);
  CREATE TABLE test_postings(id INTEGER PRIMARY KEY,type TEXT,amount NUMERIC);
+ CREATE TABLE financial_day_closures(id INTEGER PRIMARY KEY,branchid INTEGER,financial_date TEXT,status TEXT);
+ CREATE TABLE financial_record_locks(source_table TEXT,source_ref TEXT);
+ ALTER TABLE billing ADD COLUMN branchid INTEGER DEFAULT 4;
+ ALTER TABLE billing ADD COLUMN billedon TEXT DEFAULT '2026-10-01';
  `);
  await db('billing').insert({billingid:42,patientid:21});
  await db('dboservices').insert({serviceid:10,billingid:42,branchid:4,paidamount:0,outstanding:40,totalpayable:40,paymentstatus:'pending',status:'active'});
@@ -63,6 +67,12 @@ describe('Cash collection SQL transactions',()=>{
   const [first,second]=await Promise.all([new MultiPayment(3).processPayment(request({requestKey:'synthetic-request-0004'})),new MultiPayment(3).processPayment(request({requestKey:'synthetic-request-0005'}))]);
   expect([first,second].filter(result=>result.success)).toHaveLength(1);
   expect((await db('billing').first()).paid).toBe(25);expect((await db('dboservices').first()).outstanding).toBe(15);
+ });
+ it('blocks collecting a CLOSED source sale even with a newer payment date',async()=>{
+  await db('financial_day_closures').insert({branchid:4,financial_date:'2026-10-01',status:'finalized'});
+  const result=await new MultiPayment(3).processPayment(request({paymentDate:'2026-11-07',requestKey:'closed-sale-request-0001'}));
+  expect(result.success).toBe(false);expect(await db('billinghx')).toHaveLength(0);
+  expect((await db('dboservices').first()).outstanding).toBe(40);
  });
  it('the supplied three-service example commits exactly 100 paid and 48.50 waived',async()=>{
   await db('dboservices').delete();

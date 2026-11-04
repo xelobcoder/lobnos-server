@@ -308,7 +308,20 @@ export class EntityOrderService {
                amountPayable: data.amountPayable,
           };
 
-          const result = await new SubmitCustomerBilling(payload, this.tenantId).submit();
+          const result = await new SubmitCustomerBilling(payload, this.tenantId, {
+               beforeWrite: async trx => {
+                    const source = await trx('entity_orders').where({ id: orderId }).forUpdate().first();
+                    if (!source) throw new Error('Order not found');
+                    if (source.billing_id) return Number(source.billing_id);
+                    if (source.status !== 'APPROVED' || Number(source.revision) !== Number(order.revision))
+                         throw new Error('Order changed; refresh before converting');
+                    return null;
+               },
+               afterWrite: async (trx, billingId) => {
+                    await this.repo.updateOrder(orderId, { status: 'CONVERTED', billing_id: billingId,
+                         converted_by: actorId, converted_at: new Date() }, trx);
+               }
+          }).submit();
           if (!result || result.status === false || !result.billingid) {
                throw new Error(result?.message || 'Billing submission failed during conversion');
           }

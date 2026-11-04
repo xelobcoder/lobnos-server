@@ -13,6 +13,7 @@ import {
 
 const RETAINED_EARNINGS = 'acc-3001';
 import { minorUnits, sumMinor } from '../utils/money';
+import { AccountingPeriodService } from './AccountingPeriodService';
 
 export class AccountingCloseService implements IAccountingCloseService {
      constructor(private tenantId: number) { }
@@ -22,7 +23,14 @@ export class AccountingCloseService implements IAccountingCloseService {
      }
 
      async closeFiscalYear(fiscalYear: number, employeeId?: number | null): Promise<YearEndCloseResult> {
-          const db = await this.connection();
+          if (!Number.isInteger(fiscalYear) || fiscalYear < 1900 || fiscalYear > 9999) throw new AccountingError('Invalid fiscal year', 'INVALID_FISCAL_YEAR', 400);
+          const connection = await this.connection();
+          return connection.transaction(async db => {
+          // Take the same locks as posting before calculating the sweep. Read committed
+          // avoids an earlier period-ensure read hiding postings committed while we waited.
+          for (let month = 1; month <= 12; month++) {
+               await new AccountingPeriodService(this.tenantId).lockPeriodForDate(`${fiscalYear}-${String(month).padStart(2, '0')}-01`, db);
+          }
           const yearEnd = `${fiscalYear}-12-31`;
 
           const existing = await db('acc_journal_entries')
@@ -45,7 +53,7 @@ export class AccountingCloseService implements IAccountingCloseService {
                };
           }
 
-          const { rows } = await new AccountingReportService(this.tenantId).trialBalance(undefined, yearEnd);
+          const { rows } = await new AccountingReportService(this.tenantId, db).trialBalance(undefined, yearEnd);
           const revenue = rows.filter((row) => row.type === 'revenue' && row.balance !== 0);
           const expenses = rows.filter((row) => row.type === 'expense' && row.balance !== 0);
 
@@ -57,20 +65,22 @@ export class AccountingCloseService implements IAccountingCloseService {
                );
           }
 
-          const revenueTotal = round2(revenue.reduce((total, row) => total + row.balance, 0));
-          const expenseTotal = round2(expenses.reduce((total, row) => total + row.balance, 0));
-          const netProfit = round2(revenueTotal - expenseTotal);
+          // Trial balance is normal-side signed, not revenue/expense signed. Contra
+          // accounts must be closed against their actual debit/credit position.
+          const revenueTotal = sumMinor(revenue.map(row => (minorUnits(row.credits) - minorUnits(row.debits)) / 100)) / 100;
+          const expenseTotal = sumMinor(expenses.map(row => (minorUnits(row.debits) - minorUnits(row.credits)) / 100)) / 100;
+          const netProfit = (minorUnits(revenueTotal) - minorUnits(expenseTotal)) / 100;
 
           const lines = [
                ...revenue.map((row) => ({
                     accountCode: row.account_code,
-                    direction: row.balance > 0 ? NormalBalance.DEBIT : NormalBalance.CREDIT,
-                    amount: Math.abs(row.balance),
+                    direction: row.credits > row.debits ? NormalBalance.DEBIT : NormalBalance.CREDIT,
+                    amount: Math.abs(minorUnits(row.credits) - minorUnits(row.debits)) / 100,
                })),
                ...expenses.map((row) => ({
                     accountCode: row.account_code,
-                    direction: row.balance > 0 ? NormalBalance.CREDIT : NormalBalance.DEBIT,
-                    amount: Math.abs(row.balance),
+                    direction: row.debits > row.credits ? NormalBalance.CREDIT : NormalBalance.DEBIT,
+                    amount: Math.abs(minorUnits(row.debits) - minorUnits(row.credits)) / 100,
                })),
                {
                     accountCode: RETAINED_EARNINGS,
@@ -89,6 +99,7 @@ export class AccountingCloseService implements IAccountingCloseService {
                occurredAt: yearEnd,
                createdBy: employeeId ?? null,
                lines,
+               trx: db,
           });
 
           return {
@@ -99,6 +110,7 @@ export class AccountingCloseService implements IAccountingCloseService {
                journalEntryId: entry.id,
                alreadyClosed: false,
           };
+          }, { isolationLevel: 'read committed' });
      }
 
      async postOpeningBalances(

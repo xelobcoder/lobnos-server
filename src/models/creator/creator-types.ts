@@ -12,6 +12,8 @@ export type drugsType = {
      categoryId?: number
 }
 export type resultEntryType = {
+     request_id?: string,
+     expected_revision?: number,
      csvid: string, ptid: string,
      testid: number,
      fields: [],

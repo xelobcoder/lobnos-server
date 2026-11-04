@@ -16,6 +16,7 @@ import { EntityType } from "../../models/billing/multi/billing_shared_types";
 import { SubmitCustomerBilling } from "../../models/billing/billing-new-client-multi";
 import { CustomerBillingCheckout } from "../../models/billing/multi/customerBillingCheckout";
 import moment from "moment";
+import { getAuthUser } from '../../middleware/authority';
 
 
 
@@ -481,7 +482,9 @@ export const removePendingNonPaidServicesHandler = async (req: Request, res: Res
 	try {
 		const tenantId = parseInt(req.query.tenantId as string, 10);
 		const { billingid, serviceid, employeeid } = req.body;
-		const result = await SubmitCustomerBilling.removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid });
+		const actor = getAuthUser(req);
+		if (!actor || actor.tenantId !== tenantId) return res.status(403).json({ status: false, message: 'Billing access denied' });
+		const result = await SubmitCustomerBilling.removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid: actor.employeeid, branchid: actor.branch });
 
 		if (typeof result === 'string') return res.status(400).json({ success: false, message: result });
 		if (typeof result === 'boolean') {
@@ -498,6 +501,9 @@ export const removePendingNonPaidServicesHandler = async (req: Request, res: Res
 export const submitBillingHandler = async (req: Request, res: Response) => {
 	try {
 		const tenantId = parseInt(req.query.tenantId as string, 10);
+		const actor = getAuthUser(req);
+		if (!actor || Number(actor.tenantId) !== tenantId) return res.status(403).json({ status: false, message: 'Billing access denied' });
+		if (Number(req.body.branchid) !== Number(actor.branch)) return res.status(403).json({ status: false, message: 'Use your assigned billing branch' });
 		const {
 			amountPayable,
 			cart,
@@ -546,6 +552,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 		}
 
 		const result = await new SubmitCustomerBilling({
+			request_key: req.body.request_key,
 			tenantId,
 			amountPayable,
 			cart,
@@ -559,7 +566,7 @@ export const submitBillingHandler = async (req: Request, res: Response) => {
 			adjustmentReason,
 			isConditionsUnderstood,
 			patientId: patientid ?? patientId,
-			employeeid,
+			employeeid: actor.employeeid,
 			isPackageUsed,
 			entitytype,
 			writeOffOutstanding,

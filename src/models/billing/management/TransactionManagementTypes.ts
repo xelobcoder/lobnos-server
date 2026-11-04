@@ -34,6 +34,8 @@ export interface IFullTransactionDetails {
 }
 
 export interface IPaymentHistoryUpdate {
+    request_key?: string;
+    branchid?: number;
     KeyID: number;
     Amount?: number;
     PaymentMode?: number;

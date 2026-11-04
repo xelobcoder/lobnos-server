@@ -3,6 +3,7 @@ import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
 import { ensureIndexes } from '../../database/ensureIndexes';
 import { ensurePharmacyAttributionColumns, ensurePharmacySourceModule } from './pharmacyAttributionSchema';
+import { ensureCashFlowReviewSchema } from './cashFlowSchema';
 
 export async function ensureAccountingSchema(tenantId: number): Promise<void> {
      if (ensuredAccountingTenants.has(tenantId)) return;
@@ -28,17 +29,7 @@ const pendingAccountingEnsures = new Map<number, Promise<void>>();
 async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
      await ensureAccountingPlanningSchema(knex);
-
-     if (!(await knex.schema.hasTable('acc_cash_flow_classifications'))) {
-          await knex.schema.createTable('acc_cash_flow_classifications', table => {
-               table.integer('journal_entry_id').unsigned().primary();
-               table.decimal('operating', 14, 2).notNullable();
-               table.decimal('investing', 14, 2).notNullable();
-               table.decimal('financing', 14, 2).notNullable();
-               table.integer('updated_by').unsigned().notNullable();
-               table.datetime('updated_at').notNullable();
-          });
-     }
+     await ensureCashFlowReviewSchema(knex);
 
      if (!(await knex.schema.hasTable('acc_collection_requests'))) {
           await knex.schema.createTable('acc_collection_requests', table => {

@@ -503,6 +503,20 @@ describe('pharmacy ledger and financial statement registers', () => {
           expect(result.rows[0]).toMatchObject({ debit: 0, credit: 30, running_balance: 70, business_unit: 'pharmacy', account_name: 'Pharmacy till' });
           expect((await pharmacyGeneralLedger(fixture.db, 9, { to: '2026-10-02' })).rows).toEqual([]);
      });
+     it('returns full journal evidence when pagination or account filters hide the balancing lines', async () => {
+          await post('sale-review');
+          const first = await pharmacyGeneralLedger(fixture.db, 2, { to: '2026-10-02', count: 1 });
+          expect(first).toMatchObject({ total: 4, journalCount: 1, periodTotals: { debit: 140, credit: 140 } });
+          expect(first.rows[0]).toMatchObject({ journal_debit: 140, journal_credit: 140, journal_line_count: 4, journal_line_number: 1 });
+          const second = await pharmacyGeneralLedger(fixture.db, 2, { to: '2026-10-02', count: 1, page: 2 });
+          expect(second.rows[0]).toMatchObject({ journal_debit: 140, journal_credit: 140, journal_line_count: 4, journal_line_number: 2 });
+          const account = await pharmacyGeneralLedger(fixture.db, 2, { to: '2026-10-02', account: 'collection:1' });
+          expect(account).toMatchObject({ total: 1, journalCount: 1, normalBalance: 'debit', periodTotals: { debit: 100, credit: 0 } });
+          expect(account.rows[0]).toMatchObject({ journal_debit: 140, journal_credit: 140, journal_line_count: 4 });
+          expect(account.accountBalances[0]).toMatchObject({ account_name: 'Pharmacy till', normal_balance: 'debit', closing: 100 });
+          const empty = await pharmacyGeneralLedger(fixture.db, 9, { to: '2026-10-02' });
+          expect(empty).toMatchObject({ journalCount: 0, periodTotals: { debit: 0, credit: 0 } });
+     });
      it('finds compact displayed references without rewriting journal or original document identifiers', async () => {
           const documentRef = 'f262eb76-eb00-48f8-9b80-09fffed1655f';
           await post('original-source-reference', cashSale.map(line => ({ ...line, documentRef })));

@@ -60,6 +60,16 @@ export const LOCAL_MIGRATIONS = [
      '20261031_department_receipts_permissions',
      '20261031_department_stock_collations',
      '20261031_department_requisition_baskets',
+     '20261101_department_stock_incidents',
+     '20261102_pharmacy_accounting',
+     '20261103_cash_flow_reviews',
+     '20261103_pharmacy_procurement',
+     '20261103_result_save_identity',
+     '20261104_pharmacy_order_workspace',
+     '20261105_pharmacy_quantity_orders',
+     '20261106_pharmacy_local_accounts',
+     '20261107_billing_integrity',
+     '20261107_pharmacy_return_value',
 ] as const;
 export const LOCAL_REFERENCE_MODULES = [
      '01_regions', '01_sample_containers', '02_application_settings', '05_payment_modes',

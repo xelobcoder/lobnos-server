@@ -9,7 +9,7 @@ import { collectCompositeSale } from './PharmacySettlement';
 function fixture() {
      const f = transactionalDatabase({
           pharmacy_inventory_items: [{ id: 'drug', name: 'Medicine', sku: 'D', branchid: 2, is_active: true, current_stock: 10, min_stock: 1, cost_price: 4, sale_price: 42.5, pharmacy_batch_tracking: true, requires_prescription: false }],
-          pharmacy_stock_movements: [{ id: 'receipt', item_id: 'drug', branchid: 2, transaction_type: 'addition', quantity: 10, previous_stock: 0, new_stock: 10, batch_number: 'B', expiry_date: '2099-12-31' }],
+          pharmacy_stock_movements: [{ id: 'receipt', item_id: 'drug', branchid: 2, transaction_type: 'addition', quantity: 10, previous_stock: 0, new_stock: 10, unit_cost: 4, total_cost: 40, batch_number: 'B', expiry_date: '2099-12-31' }],
           pharmacy_collection_accounts: [{ id: 1, account_type: 'cash', currency: 'GHS', branchid: 2, is_active: true }], pharmacy_payment_routes: [{ branchid: 2, method: 'cash', account_id: 1 }],
           pharmacy_customer_accounts: [{ id: 1, branchid: 2, patient_id: 4, is_active: true, credit_limit: 500 }],
           pharmacy_shifts: [{ id: 'shift', active_key: '2:3' }], pharmacy_sales: [], pharmacy_sale_lines: [], pharmacy_payments: [], pharmacy_financial_days: [{id:1,branchid:2,financial_date:new Date().toISOString().slice(0,10),status:'open',opened_by:3,opened_at:new Date()}], pharmacy_journals: [], pharmacy_journal_lines: [],
@@ -46,6 +46,7 @@ describe('pharmacy checkout workflow', () => {
           await f.db.transaction(async (trx: any) => {
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first();
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).update({ cost_price: 0.1 });
+               await trx('pharmacy_stock_movements').where({ id: 'receipt' }).update({ total_cost: 1, unit_cost: 0.1 });
           });
           const receipt = await f.service.completeSale({ ...request(), expectedTotal: 127.5, amountTendered: 200, lines: [{ inventoryItemId: 'drug', quantity: 3 }] }, 3);
           expect(receipt.total).toBe(127.5);
@@ -57,7 +58,7 @@ describe('pharmacy checkout workflow', () => {
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first();
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).update({ sale_price: 0.2 });
                await trx('pharmacy_inventory_items').insert({ id: 'drug-two', name: 'Second medicine', sku: 'D2', branchid: 2, is_active: true, current_stock: 10, min_stock: 1, cost_price: 0.1, sale_price: 0.1, pharmacy_batch_tracking: true, requires_prescription: false });
-               await trx('pharmacy_stock_movements').insert({ id: 'receipt-two', item_id: 'drug-two', branchid: 2, transaction_type: 'addition', quantity: 10, previous_stock: 0, new_stock: 10, batch_number: 'B2', expiry_date: '2099-12-31' });
+               await trx('pharmacy_stock_movements').insert({ id: 'receipt-two', item_id: 'drug-two', branchid: 2, transaction_type: 'addition', quantity: 10, previous_stock: 0, new_stock: 10, unit_cost: 0.1, total_cost: 1, batch_number: 'B2', expiry_date: '2099-12-31' });
           });
           const receipt = await f.service.completeSale({ ...request(), expectedTotal: 0.3, amountTendered: 0.3, lines: [{ inventoryItemId: 'drug', quantity: 1 }, { inventoryItemId: 'drug-two', quantity: 1 }] }, 3);
           expect(receipt.total).toBe(0.3);
@@ -117,13 +118,61 @@ describe('pharmacy checkout workflow', () => {
           await f.db.transaction(async (trx: any) => {
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first();
                await trx('pharmacy_inventory_items').where({ id: 'drug' }).update({ cost_price: 3.333333 });
+               await trx('pharmacy_stock_movements').where({ id: 'receipt' }).update({ total_cost: 33.33, unit_cost: 3.333333 });
           });
           const receipt = await f.service.completeSale(request(), 3);
           await f.service.reverseSale(receipt.id, { type: 'refund', reason: 'Unopened pack return', disposition: 'restock' }, 3);
-          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 10, cost_price: 3.333333 });
+          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 10, cost_price: 3.333 });
      });
      it('does not sell pharmacy stock belonging to another branch', async () => {
           const f = fixture(); const other = new PharmacySaleService(new PharmacySaleRepository(1, 9), 9);
           await expect(other.completeSale(request(), 3)).rejects.toThrow('unavailable'); expect(f.rows('pharmacy_payments')).toEqual([]);
+     });
+     it.each([1, 0.02])('conserves every cent selling three units with book value %s, then returning/reselling', async value => {
+          const f = fixture();
+          await f.db.transaction(async (trx: any) => {
+               await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first();
+               await trx('pharmacy_inventory_items').where({ id: 'drug' }).update({ current_stock: 3, cost_price: Number((value / 3).toFixed(6)) });
+               await trx('pharmacy_stock_movements').where({ id: 'receipt' }).update({ quantity: 3, new_stock: 3, total_cost: value, unit_cost: Number((value / 3).toFixed(6)) });
+          });
+          const sales = [];
+          for (let n = 0; n < 3; n++) sales.push(await f.service.completeSale({ ...request(`cent-sale-${n}-000001`), expectedTotal: 42.5, amountTendered: 42.5, lines: [{ inventoryItemId: 'drug', quantity: 1 }] }, 3));
+          expect(Math.round(f.rows('pharmacy_sale_lines').reduce((n, r) => n + r.line_cost, 0) * 100)).toBe(Math.round(value * 100));
+          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 0, cost_price: 0 });
+          const originalCost = f.rows('pharmacy_sale_lines').find(r => r.sale_id === sales[0].id).line_cost;
+          await f.service.reverseSale(sales[0].id, { type: 'refund', reason: 'Unopened cent-value return', disposition: 'restock' }, 3);
+          const restore = f.rows('pharmacy_stock_movements').filter(r => r.reference_id === sales[0].id && r.transaction_type === 'addition');
+          expect(restore.reduce((n, r) => n + r.total_cost, 0)).toBe(originalCost);
+          const again = await f.service.completeSale({ ...request('cent-resale-000001'), expectedTotal: 42.5, amountTendered: 42.5, lines: [{ inventoryItemId: 'drug', quantity: 1 }] }, 3);
+          expect(f.rows('pharmacy_sale_lines').find(r => r.sale_id === again.id).line_cost).toBe(originalCost);
+     });
+     it('refuses stock with missing historical opening valuation rather than inventing COGS', async () => {
+          const f = fixture();
+          await f.db.transaction(async (trx: any) => { await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first(); await trx('pharmacy_stock_movements').where({ id: 'receipt' }).update({ total_cost: null }); });
+          await expect(f.service.completeSale(request(), 3)).rejects.toThrow('valuation is incomplete');
+          expect(f.rows('pharmacy_sales')).toEqual([]);
+     });
+     it('restores immutable original sale cost after a later acquisition at a different price', async () => {
+          const f = fixture(), sale = await f.service.completeSale(request(), 3);
+          await f.db.transaction(async (trx: any) => {
+               await trx('pharmacy_inventory_items').where({ id: 'drug' }).forUpdate().first();
+               await trx('pharmacy_inventory_items').where({ id: 'drug' }).update({ current_stock: 10, cost_price: 13.2 });
+               await trx('pharmacy_stock_movements').insert({ id: 'new-acquisition', item_id: 'drug', branchid: 2, transaction_type: 'addition',
+                    quantity: 2, previous_stock: 8, new_stock: 10, total_cost: 100, unit_cost: 50, batch_number: 'B', expiry_date: '2099-12-31' });
+          });
+          await f.service.reverseSale(sale.id, { type: 'refund', reason: 'Unopened return after new acquisition', disposition: 'restock' }, 3);
+          expect(f.rows('pharmacy_stock_movements').filter(r => r.reference_id === sale.id && r.transaction_type === 'addition').reduce((n, r) => n + r.total_cost, 0)).toBe(8);
+          expect(f.rows('pharmacy_inventory_items')[0]).toMatchObject({ current_stock: 12, cost_price: 11.666667 });
+     });
+     it('blocks refunds of closed SOURCE sales even on an open new operation day', async () => {
+          const f = fixture(), sale = await f.service.completeSale(request(), 3);
+          await f.db.transaction(async (trx: any) => {
+               await trx('pharmacy_sales').where({ id: sale.id }).forUpdate().first();
+               await trx('pharmacy_sales').where({ id: sale.id }).update({ completed_at: '2026-09-01T10:00:00Z' });
+               await trx('pharmacy_financial_days').insert({ id: 2, branchid: 2, financial_date: '2026-09-01', status: 'closed' });
+          });
+          await expect(f.service.reverseSale(sale.id, { type: 'refund', reason: 'Attempt with a newer payment day', disposition: 'restock' }, 3)).rejects.toThrow('closed');
+          expect(f.rows('pharmacy_inventory_items')[0].current_stock).toBe(8);
+          expect(f.rows('pharmacy_sales')[0].status).toBe('completed');
      });
 });

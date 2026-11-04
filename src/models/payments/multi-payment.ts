@@ -6,6 +6,7 @@ import { createHash, randomUUID } from 'crypto';
 import { minorUnits, sumMinor } from '../../accountingModule/utils/money';
 import { enqueueBillingWriteOff } from '../../accountingModule/integrations/BillingAccounting';
 import { enqueueBillingPayment } from "../../accountingModule/integrations/BillingAccounting";
+import { lockMutableBill, withBillingClosure } from '../billing/BillingFinancialGuard';
 
 
 
@@ -91,8 +92,7 @@ export default class MultiPayment {
                     }
                     // Consistent bill ordering serializes concurrent collectors and bill-level totals.
                     for (const billingid of [...new Set(paymentData.service_payments.map(p => p.billing_id))].sort((a,b) => a-b)) {
-                         const bill = await trx(this.billingTable).where({ billingid }).forUpdate().first();
-                         if (!bill) throw new Error('Billing record not found');
+                         await lockMutableBill(trx, this.tenantId, billingid);
                     }
                     if (paymentData.idempotencyKey) {
                          try {
@@ -208,13 +208,13 @@ export default class MultiPayment {
                     for (const billingId of uniqueBillingIds) {
                          const billingServices = await trx(this.servicesTable)
                               .select('dboservices.*')
-                              .where({ 'dboservices.billingid': billingId });
+                              .where({ 'dboservices.billingid': billingId }).orderBy('serviceid').forUpdate();
 
                          const totalPaid = sumMinor(billingServices.map(service => service.paidamount || 0)) / 100;
                          const totalOutstanding = sumMinor(billingServices.map(service => service.outstanding || 0)) / 100;
                          const totalPayable = sumMinor(billingServices.map(service => service.totalpayable || 0)) / 100;
 
-                         const billingRecord = await trx(this.billingTable).where({ billingid: billingId }).first();
+                         const billingRecord = await trx(this.billingTable).where({ billingid: billingId }).forUpdate().first();
                          const existingWriteOff = parseFloat(billingRecord?.writeoff as string) || 0;
                          const currentWaiveOff = waiveOffsPerBilling[billingId] || 0;
                          const newWriteOff = (minorUnits(existingWriteOff) + minorUnits(currentWaiveOff)) / 100;
@@ -401,7 +401,7 @@ export default class MultiPayment {
                     }
                }
 
-               return { outstandingAmount, records };
+               return { outstandingAmount, records: await withBillingClosure(connection, records) };
 
           } else if (status === "all") {
                records = await query.clone()
@@ -449,7 +449,7 @@ export default class MultiPayment {
                     .sum('outstanding as totalOutstanding');
                const outstandingAmount = outstandingResult[0]?.totalOutstanding || 0;
 
-               return { outstandingAmount, records };
+               return { outstandingAmount, records: await withBillingClosure(connection, records) };
           }
 
           return { outstandingAmount: 0, records: [] };

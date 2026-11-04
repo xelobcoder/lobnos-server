@@ -14,12 +14,13 @@ import MultiPayment from './multi-payment';
 function queryBuilder(result: any) {
      const query: any = {
           forUpdate: () => query,
+          orderBy: () => query,
           select: () => query,
           where: () => query,
           whereIn: () => query,
           join: () => query,
           leftJoin: () => query,
-          first: async () => result,
+          first: async () => Array.isArray(result) ? result[0] : result,
           update: async () => 1,
           insert: async () => [501],
           then: (resolve: (value: any) => any, reject: (reason: any) => any) => Promise.resolve(result).then(resolve, reject),
@@ -40,7 +41,7 @@ describe('MultiPayment accounting integration', () => {
                          ? queryBuilder({ serviceid: 10, billingid: 42, patientid: 21, branchid: 4, paidamount: 0, outstanding: 40, totalpayable: 40, paymentstatus: 'pending', status: 'active' })
                          : queryBuilder([{ serviceid: 10, billingid: 42, paidamount: 25, outstanding: 15, totalpayable: 40, amountRefunded: 0 }]);
                }
-               if (table === 'billing') return queryBuilder({ writeoff: 0 });
+               if (table === 'billing') return queryBuilder({ billingid: 42, branchid: 4, billedon: '2026-10-01', writeoff: 0 });
                if (table === 'billinghx') return queryBuilder([501]);
                return queryBuilder([]);
           };
