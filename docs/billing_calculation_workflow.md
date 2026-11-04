@@ -4,6 +4,28 @@ This document explains how billing calculations are performed in the backend cod
 
 ## Current financial controls
 
+- Laboratory and Pharmacy transaction endpoints enforce a maximum **48 hours
+  from midnight UTC of the financial date** to close an active branch day.
+  For example, activity dated 2 November must be closed before 4 November at
+  00:00 UTC; at exactly that deadline new transactions are rejected.
+  Laboratory days must reach `finalized`; Pharmacy days must reach `closed`.
+  Unsubmitted laboratory activity and old backlog are included, not just
+  submitted close records or the selected reporting date range. Checks use
+  the server clock and authenticated tenant/branch, not a backdated request.
+- Independent pharmacy accounting checks its own financial days. When shared
+  posting is enabled, Pharmacy also checks the facility's laboratory close.
+  Closing one independent ledger does not clear another ledger's overdue day.
+  Existing stricter Pharmacy previous-day and shift requirements remain.
+- `FINANCIAL_DAY_OVERDUE` is an HTTP 409 with a readable explanation, the
+  oldest date, deadline and closing-page link. Administrators must close the
+  overdue day; segregation-of-duties override does not waive this limit.
+  Reads, clinical results, PIN authorization, closing, source corrections and
+  authorized reconciliation remain available. Posted financial actions such
+  as sales, receipts, refunds, supplier payments and new journal postings are
+  blocked. Database verification failure blocks transactions with a safe 503.
+  Both closing screens show the current limit and recovery link.
+  No new schema or manual migration is required.
+
 - The server uses authoritative checkout service rows and payment allocations;
   browser-provided prices, paid flags and header totals are not independent
   posting instructions. A flat promotion is allocated once across eligible tests

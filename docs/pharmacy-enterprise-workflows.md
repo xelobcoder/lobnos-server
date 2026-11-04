@@ -5,6 +5,21 @@ inventory. Configured pharmacy accounting can post those source journals into th
 shared organization GL, attributed to the pharmacy source module and branch.
 All pharmacy operations and reports use the authenticated branch and employee.
 
+## Maximum financial-day closing interval
+
+An unclosed Pharmacy financial day blocks new financial transactions at exactly
+48 hours after that financial date's midnight UTC. Close the oldest overdue day
+in **Cash & day closing** before selling, collecting, refunding, receiving stock
+or posting new payments/journals. An administrator cannot waive this time limit.
+Existing previous-day and cashier-shift restrictions remain stricter where applicable.
+Independent pharmacy days remain separate from Laboratory daily-close records.
+Shared posting additionally requires that the Laboratory ledger has no overdue
+unfinalized day. The closing screen identifies the actual blocking ledger and
+links to its closing workflow. Reads, clinical records, closing, handovers,
+evidence attachments and authorized reconciliation remain available.
+See [Billing Calculation Workflow](billing_calculation_workflow.md) for deadline
+semantics and safe transaction-blocking responses.
+
 ## Find the right pharmacy task
 
 The pharmacy navigation groups existing pages into **Sell & serve customers**,
