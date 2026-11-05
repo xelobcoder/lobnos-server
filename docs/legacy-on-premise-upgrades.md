@@ -2,6 +2,61 @@
 
 Older installations have independent schema histories. Use an assessed compatibility baseline followed by the application's idempotent bootstrappers. Run against a restored copy before upgrading the working installation.
 
+## Collation release gate
+
+The ordinary-text standard is `utf8mb4_unicode_ci`. Explicit binary and case-sensitive
+columns are retained for exact-match behavior; they are reported separately, not
+silently converted. A correct database default does not establish that existing
+tables and columns have been converted.
+
+Run `pnpm run build` in the source checkout when preparing the release. The audit
+and collation conversion commands ship as compiled JavaScript in the standard
+distribution and need no source checkout or TypeScript runtime on the on-premise
+installation.
+
+Run the read-only installation check before and after maintenance:
+
+```powershell
+pnpm run tenant:audit-collation -- --database CLIENT_DATABASE --output CLIENT_RELEASE-collation.json
+```
+
+For the active registry fleet, including each configured database endpoint:
+
+```powershell
+pnpm run tenant:audit-collation -- --registered --output FLEET_RELEASE-collation.json
+```
+
+The commands query schema metadata only, start no workers and run no bootstrappers
+or registry repairs. They use deployment-owned database credentials and TLS policy.
+Output files are created exclusively and never overwritten. Exit code 0 means all
+checked schemas meet the collation policy, 1 means drift remains, and 2 means the
+audit is incomplete or failed. Block release activation for either nonzero exit
+code. An unreachable tenant is not a pass. These checks do
+not certify backups, data preservation, permissions or clinical/financial behavior.
+Offline on-premise installations must run the same check locally and return their
+dated report; absence from the reachable registry is not evidence of compliance.
+
+Pause application and worker writes, authenticate and restore a fresh backup, and
+rehearse the conversion on that restore before touching the working installation.
+Use the existing backup/restore procedure below, then:
+
+```powershell
+pnpm run tenant:upgrade-collation -- --database CLIENT_DATABASE --backup-manifest VERIFIED_BACKUP_MANIFEST --output CLIENT_RELEASE-conversion.json
+```
+
+The configured database must match the requested database, and the backup fingerprint
+and restore evidence must pass. The conversion checks unique-key conflicts and
+foreign-key membership and restores intentional exact-match column definitions.
+It now checks database, table and column collation again before reporting completion.
+MySQL DDL is not transactionally reversible: a failure can leave partial changes.
+Keep maintenance mode active, inspect the report and use the rehearsed recovery plan.
+Do not repeatedly run conversions against a writing production database.
+
+The legacy `setup:new-client` clone now normalizes copied DDL using the same policy
+as facility provisioning and stops on a DDL error instead of skipping it. Its
+`--force` mode still leaves pre-existing tables untouched; audit and, where needed,
+convert those tables through the maintenance path before activation.
+
 ## Tenant identity
 
 `DEFAULT_TENANT_ID` identifies a registered database. Changing `DATABASE` does not transfer that identity. The registry must continue to reject a tenant number owned by another database.

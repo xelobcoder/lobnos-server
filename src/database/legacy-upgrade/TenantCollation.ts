@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto';
 import type { Knex } from 'knex';
 import { columnDefinition, quoteIdentifier } from './LegacySchema';
 import { TENANT_COLLATION, caseSensitiveCollation } from './SchemaCollationPolicy';
+import { auditTenantCollation } from './TenantCollationAudit';
 
 /** Lightweight startup guard for future DDL. Existing data conversions use the reviewed maintenance tool. */
 export async function ensureTenantCollationDefault(db: Knex): Promise<void> {
@@ -100,5 +101,7 @@ export async function normalizeTenantCollation(db: Knex): Promise<{ changedTable
     for (const [key, fingerprint] of after.fingerprints) {
         if (originalOrphans.fingerprints.get(key) !== fingerprint) throw new Error(`Foreign-key membership changed after conversion in ${key}`);
     }
+    const audit = await auditTenantCollation(db);
+    if (!audit.compliant) throw new Error('Collation conversion finished with remaining schema drift; keep the installation in maintenance and review the collation audit');
     return { changedTables: changed.map(table => table.TABLE_NAME), preservedCaseSensitiveColumns: sensitive.length, existingOrphanConstraints: originalOrphans.orphaned };
 }

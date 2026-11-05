@@ -55,7 +55,7 @@ def para(text, style='ManualBody'):
     return Paragraph(escape(clean(text)), styles[style])
 
 def heading(text, level, key):
-    value = para(text, ['ManualH1', 'ManualH2'][min(level, 1)])
+    value = para(text, ['ManualH1', 'ManualH2', 'ManualH2'][min(level, 2)])
     value.toc_level = level
     value.bookmark = key
     return value
@@ -74,13 +74,17 @@ class ManualDoc(BaseDocTemplate):
         if hasattr(flowable, 'bookmark'):
             self.canv.bookmarkPage(flowable.bookmark)
             self.canv.addOutlineEntry(flowable.getPlainText(), flowable.bookmark, level=flowable.toc_level, closed=False)
-            self.notify('TOCEntry', (flowable.toc_level, flowable.getPlainText(), self.page, flowable.bookmark))
+            if flowable.bookmark != 'contents':
+                self.notify('TOCEntry', (flowable.toc_level, flowable.getPlainText(), self.page, flowable.bookmark))
 
 def footer(canvas, doc):
     canvas.saveState()
     canvas.setStrokeColor(colors.HexColor('#dce5de'))
     canvas.line(19*mm, 16*mm, A4[0]-19*mm, 16*mm)
     canvas.setFont('Manual', 8)
+    if doc.page > 1:
+        canvas.linkAbsolute('Contents', 'contents', (19*mm, 275*mm, 48*mm, 282*mm), thickness=0)
+        canvas.drawString(19*mm, 278*mm, 'Back to contents')
     canvas.setFillColor(muted)
     canvas.drawString(19*mm, 11*mm, 'Prime Laboratory System | User and training manual')
     canvas.drawRightString(A4[0]-19*mm, 11*mm, str(doc.page))
@@ -125,23 +129,57 @@ target=OUT/'primelabsys-operations-crm-billing-inventory-user-manual.pdf'
 doc=ManualDoc(str(target),pagesize=A4,leftMargin=19*mm,rightMargin=19*mm,topMargin=20*mm,bottomMargin=22*mm,title='Prime Laboratory System - Operations, CRM, Billing and Inventory User Manual',author='Prime Laboratory System')
 frame=Frame(doc.leftMargin,doc.bottomMargin,doc.width,doc.height,id='normal',leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
 doc.addPageTemplates(PageTemplate(id='manual',frames=[frame],onPage=footer))
-story=[Spacer(1,35*mm),para('PRIME LABORATORY SYSTEM','ManualH2'),para('Operations, CRM,\nBilling and Inventory\nUser Manual'.replace('\n',' '),'ManualTitle'),para('Administrator and trainer edition','ManualH1'),para('Detailed operating procedures, responsibilities, controls, worked examples and recovery.'),Spacer(1,12*mm),para('Source reviewed 4 November 2026'),para('This trainer edition includes the documented procedures for all four modules. Staff use the in-application edition filtered to their active role and enabled modules. The manual does not grant permission to perform an action.','ManualSmall'),PageBreakIfNotEmpty(),para('Contents','ManualH1')]
-toc=TableOfContents();toc.levelStyles=[ParagraphStyle(name='TOC0',fontName='Manual-Bold',fontSize=10.5,leading=16,spaceBefore=10,textColor=green),ParagraphStyle(name='TOC1',fontName='Manual',fontSize=9.5,leading=14,leftIndent=14,spaceBefore=4,textColor=ink)]
+story=[Spacer(1,35*mm),para('PRIME LABORATORY SYSTEM','ManualH2'),para('Operations, CRM,\nBilling and Inventory\nUser Manual'.replace('\n',' '),'ManualTitle'),para('Administrator and trainer edition','ManualH1'),para('Detailed operating procedures, responsibilities, controls, worked examples and recovery.'),Spacer(1,12*mm),para('Source reviewed 4 November 2026 | Training edition revised 5 November 2026'),para('This trainer edition includes the documented procedures for all four modules. Staff use the in-application edition filtered to their active role and enabled modules. The manual does not grant permission to perform an action.','ManualSmall'),PageBreakIfNotEmpty(),heading('Contents',0,'contents')]
+toc=TableOfContents();toc.levelStyles=[ParagraphStyle(name='TOC0',fontName='Manual-Bold',fontSize=10.5,leading=16,spaceBefore=10,textColor=green),ParagraphStyle(name='TOC1',fontName='Manual',fontSize=9.5,leading=14,leftIndent=14,spaceBefore=4,textColor=ink),ParagraphStyle(name='TOC2',fontName='Manual',fontSize=9,leading=13,leftIndent=28,spaceBefore=3,textColor=ink)]
 story.extend([toc,PageBreakIfNotEmpty(),heading('How to use this manual',0,'how-to-use'),para('Begin with the relevant module introduction, its roles and operating rules. Use the numbered procedures to prepare, perform and verify each task. The controls listed in a procedure explain the screen information that must be reviewed. Worked examples are illustrative training scenarios. Use a training environment when practising transactions.'),para('This document is generated from the same procedure content used by the application manuals. The task route identifies the application page. Record-specific pages are opened from the selected record rather than by entering an invented patient or transaction reference.'),para('Procedures describe the source-reviewed implementation. Site configuration, active role, assigned record scope and financial controls affect the actions available. Live representative-user acceptance remains a separate activity.'),para('Reading conventions','ManualH2'),*definitions([('Preparation','Information and access to review before starting.'),('Controls and fields','The purpose of the relevant screen controls.'),('Steps','Actions to perform in the stated order.'),('Verification','Evidence to inspect after the save or transition.'),('Recovery','What to check before retrying or escalating an exception.')]),PageBreakIfNotEmpty()])
+story.extend([para('First sign-in and finding your workspace','ManualH2'),*steps([
+    'Open the facility application address supplied by your administrator and sign in using your assigned credentials. Confirm the facility, branch and active role shown in the application.',
+    'Open the relevant module from the sidebar. Open its Learning Center to find the online manual and searchable guides. If a module or action is missing, ask an authorized administrator to review your access and the enabled facility modules.',
+    'The task paths printed in this manual are relative to your own facility application address. Use the sidebar and selected record to reach the page. The PDF does not assume a shared production address.',
+    'For practice, use a designated training environment and fictional patient or document data. Confirm that you are in that environment before saving or collecting money.'
+]),para('When an action fails','ManualH2'),*steps([
+    'Read the message and check the current patient, document, branch, active role and required fields.',
+    'After an uncertain response, reopen or reload the saved record and inspect its history or reference before retrying. A repeated payment, stock issue or clinical save can create conflicting work.',
+    'If another user changed the record, reload it and review the current values before submitting again.',
+    'If the problem persists, give support the page, document reference, action, time and exact error. Use your approved support channel for patient details and omit passwords, session tokens and API keys.'
+]),PageBreakIfNotEmpty()])
 procedure_count=0
 for part,module in enumerate(modules,1):
     intro=introductions[module['id']]
     story.extend([heading(f'Part {part}. {module["title"]}',0,module['id']),para(module['description'],'ManualH2'),para(intro['overview']),para('Audience','ManualH3'),para(intro['audience']),para('Learning objectives','ManualH2'),*steps(intro['objectives'],False),para('Roles and responsibilities','ManualH2'),*definitions(intro['roles']),para('Before you start','ManualH2'),*steps(intro['readiness']),para('Rules and controls','ManualH2'),*steps(intro['rules'],False),para('Daily operating sequence','ManualH2'),*steps(intro['daily'])])
+    article_by_slug = {article['slug']: article for article in module['articles']}
+    story.append(para('Recommended learning order','ManualH2'))
+    for slug in module['startPath']:
+        article = article_by_slug[slug]
+        story.append(Paragraph(f'<link href="#{module["id"]}-{slug}" color="#1b5e20">{escape(clean(article["title"]))}</link>', styles['ManualBody']))
     groups=OrderedDict()
     for article in module['articles']:groups.setdefault(article['category'],[]).append(article)
     for chapter,(category,articles) in enumerate(groups.items(),1):
         story.extend([PageBreakIfNotEmpty(),heading(f'{part}.{chapter} {category}',1,f'{module["id"]}-chapter-{chapter}')])
         for number,article in enumerate(articles,1):
             procedure_count+=1
-            story.extend([para(f'{part}.{chapter}.{number} {article["title"]}','ManualH2'),para(article['concept']),para('Where to open it','ManualH3'),para(article['open']),para(article['route'],'ManualSmall')])
+            story.extend([heading(f'{part}.{chapter}.{number} {article["title"]}',2,f'{module["id"]}-{article["slug"]}'),para(article['concept']),para('Where to open it','ManualH3'),para(article['open']),para(article['route'],'ManualSmall')])
             if article['kind']=='workflow':story.extend([diagram(module['id'])])
             story.extend([para('Before you begin','ManualH3'),*steps(article['before'],False),para('Controls and fields','ManualH3'),*definitions([(c['name'],c['description']) for c in article['controls']]),para('Step-by-step procedure','ManualH3'),*steps(article['steps']),para('Expected outcome and verification','ManualH3'),para(article['after']),para(article['verify']),para('Worked example','ManualH3'),para('Situation. '+article['example']['situation']+' Action. '+article['example']['action']+' Expected outcome. '+article['example']['expected'],'ManualExample'),para('Troubleshooting and recovery','ManualH3'),para(article['recovery'])])
-    story.extend([PageBreakIfNotEmpty(),heading(f'{part}. Glossary',1,module['id']+'-glossary'),*definitions([(entry['term'],entry['meaning']) for entry in module['glossary']]),PageBreakIfNotEmpty()])
+            if article['related']:
+                story.append(para('Related procedures','ManualH3'))
+                for slug in article['related']:
+                    related = article_by_slug[slug]
+                    story.append(Paragraph(f'<link href="#{module["id"]}-{slug}" color="#1b5e20">{escape(clean(related["title"]))}</link>', styles['ManualBody']))
+    story.extend([PageBreakIfNotEmpty(),heading(f'{part}. Practice and competency check',1,module['id']+'-practice'),para('Work through the recommended learning order in the training environment. Use the worked examples in each procedure and record the saved references so that you can verify each handoff.'),para('Independent practice','ManualH2'),*steps([
+        'Confirm the correct branch and active role, then locate the relevant record and identify its current status.',
+        'Explain the prerequisites, required fields and responsible person before taking an action.',
+        'Follow the procedure and inspect its expected outcome and verification evidence.',
+        'Follow the next handoff with the appropriate authorized training account. Confirm that the same patient, bill or stock reference is carried forward.',
+        'Use the troubleshooting instructions for a missing prerequisite or changed record. Explain how you would check whether an uncertain save already succeeded.'
+    ]),para('Completion checklist','ManualH2'),*steps([
+        'I can locate each task required for my assigned duties using the sidebar and guide contents.',
+        'I can explain the distinction between saving, reviewing, approving and completing the relevant transaction.',
+        'I can demonstrate the recorded evidence described in the verification section.',
+        'I know when to stop, reload, seek authorized review or contact support.',
+        'I have recorded any unresolved training questions and the responsible person for follow-up.'
+    ],False)])
+    story.extend([PageBreakIfNotEmpty(),heading(f'{part}. Glossary' ,1,module['id']+'-glossary'),*definitions([(entry['term'],entry['meaning']) for entry in module['glossary']]),PageBreakIfNotEmpty()])
 doc.multiBuild(story)
 from pypdf import PdfReader
 reader=PdfReader(str(target));all_text='\n'.join(page.extract_text() or '' for page in reader.pages)

@@ -26,6 +26,8 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import mysql from 'mysql2/promise';
 import knex from 'knex';
+import { isolateReferenceDdl, safeDatabaseIdentifier } from '../src/models/Tenancy/FacilitySchema';
+import { TENANT_COLLATION } from '../src/database/legacy-upgrade/SchemaCollationPolicy';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
@@ -64,6 +66,8 @@ function parseArgs(argv: string[]): Options {
           console.error('--source and --target must be different databases.');
           process.exit(1);
      }
+     safeDatabaseIdentifier(source);
+     safeDatabaseIdentifier(target);
 
      return {
           host: get('--host') || process.env.DB_HOST || 'localhost',
@@ -79,7 +83,7 @@ function parseArgs(argv: string[]): Options {
      };
 }
 
-async function cloneSchema(options: Options): Promise<void> {
+export async function cloneSchema(options: Options): Promise<void> {
      const admin = await mysql.createConnection({
           host: options.host,
           port: options.port,
@@ -97,7 +101,7 @@ async function cloneSchema(options: Options): Promise<void> {
                throw new Error(`Source database "${options.source}" does not exist.`);
           }
 
-          await admin.query('CREATE DATABASE IF NOT EXISTS ??', [options.target]);
+          await admin.query(`CREATE DATABASE IF NOT EXISTS ?? CHARACTER SET utf8mb4 COLLATE ${TENANT_COLLATION}`, [options.target]);
 
           const [existingTargetTables] = await admin.query(
                'SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = ?',
@@ -115,11 +119,11 @@ async function cloneSchema(options: Options): Promise<void> {
                [options.source]
           );
 
+          const [sessionRows] = await admin.query<mysql.RowDataPacket[]>('SELECT @@SESSION.foreign_key_checks AS fk');
           await admin.query(`SET FOREIGN_KEY_CHECKS = 0`);
 
           let created = 0;
-          let skipped = 0;
-
+          try {
           for (const row of tables as Array<{ TABLE_NAME: string; TABLE_TYPE: string }>) {
                const tableName = row.TABLE_NAME;
                const isView = row.TABLE_TYPE === 'VIEW';
@@ -128,6 +132,7 @@ async function cloneSchema(options: Options): Promise<void> {
                     isView ? `SHOW CREATE VIEW \`${options.source}\`.\`${tableName}\`` : `SHOW CREATE TABLE \`${options.source}\`.\`${tableName}\``
                );
                let ddl: string = isView ? ddlRows[0]['Create View'] : ddlRows[0]['Create Table'];
+               ddl = isolateReferenceDdl(ddl, options.source, options.target);
 
                if (!isView) {
                     ddl = ddl.replace(/^CREATE TABLE/, 'CREATE TABLE IF NOT EXISTS');
@@ -135,19 +140,14 @@ async function cloneSchema(options: Options): Promise<void> {
                     ddl = ddl.replace(/^CREATE\s+/i, 'CREATE OR REPLACE ');
                }
 
-               try {
-                    await admin.query(`USE \`${options.target}\``);
-                    await admin.query(ddl);
-                    created += 1;
-               } catch (error: any) {
-                    skipped += 1;
-                    console.warn(`  ! Skipped "${tableName}": ${error.message}`);
-               }
+               await admin.query('USE ??', [options.target]);
+               await admin.query(ddl);
+               created += 1;
           }
-
-          await admin.query(`SET FOREIGN_KEY_CHECKS = 1`);
-
-          console.log(`Schema clone complete: ${created} table(s)/view(s) applied, ${skipped} skipped.`);
+          } finally {
+               await admin.query('SET FOREIGN_KEY_CHECKS = ?', [sessionRows[0].fk]);
+          }
+          console.log(`Schema clone complete: ${created} table(s)/view(s) applied. Existing tables are not converted; run tenant:audit-collation before activation.`);
      } finally {
           await admin.end();
      }
@@ -240,7 +240,9 @@ async function main() {
      printNextSteps(options);
 }
 
-main().catch((error) => {
-     console.error('New client setup failed:', error);
-     process.exit(1);
-});
+if (require.main === module) {
+     main().catch((error) => {
+          console.error('New client setup failed:', error);
+          process.exit(1);
+     });
+}
