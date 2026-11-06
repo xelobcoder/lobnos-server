@@ -10,6 +10,7 @@ vi.mock("./imaging/ImagingResultAuditRepository", () => ({
 import ResultSettings from "../application/appsettings/result-settings/resultSettings";
 import KnexConnection from "../../database/KnexConnections";
 import { ResultApprovalService, invalidateResultApprovals, applyResultValidationBypass } from "./ResultApprovalService";
+import ResultDeliveryClass from '../../controllers/result/resultDelivery';
 
 function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid: any = 0) {
      const store = transactionalDatabase({
@@ -123,7 +124,7 @@ describe("result validation integrity", () => {
                requires_revalidation: 1,
           });
      });
-     it("requires every configured validator again and only clears the flag at final approval", async () => {
+     it("requires every configured validator again, blocks delivery after amendment and releases only the current fully approved revision", async () => {
           const { store, service } = setup();
           await service.approve(1, 7, 4, 5);
           await service.approve(1, 8, 4, 5);
@@ -133,11 +134,18 @@ describe("result validation integrity", () => {
                await invalidateResultApprovals(trx, 1, 9);
           });
           expect(store.rows("test_results")[0].value).toBe("120");
+          const delivery=new ResultDeliveryClass(2,1,4);
+          const handoff={billingid:2,ascensionid:1,delivered_mode:'hardcopy',delivered_by_employeeid:7};
+          await expect(delivery.updateResultDeliveryLog(handoff)).rejects.toThrow();
+          expect(store.rows('result_delivery_attempts')).toHaveLength(0);
           await service.approve(1, 7, 4, 6);
           expect(store.rows("dbotestresultapproval")[0]).toMatchObject({ isapproved: 0, requires_revalidation: 1 });
+          await expect(delivery.updateResultDeliveryLog(handoff)).rejects.toThrow();
           await service.approve(1, 8, 4, 6);
           expect(store.rows("dbotestresultapproval")[0]).toMatchObject({ isapproved: 1, requires_revalidation: 0 });
           expect(store.rows("lab_result_approval_events").map((row) => row.revision)).toEqual([5, 5, 6, 6]);
+          await expect(delivery.updateResultDeliveryLog(handoff)).resolves.toBe(1);
+          expect(store.rows('result_delivery_attempts')).toHaveLength(1);
      });
      it("keeps revalidation required across repeated saves even after old validators are cleared", async () => {
           const { store, service } = setup();

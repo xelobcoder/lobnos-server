@@ -308,6 +308,7 @@ export default class Operations {
 							COALESCE(tp.name, CONCAT('Test-', ta.testid)) AS test_name,
 
 							ta.serviceid,
+							trx.paymentstatus,
 							ta.billingid,
 
 							ta.ascension_date,
@@ -347,6 +348,7 @@ export default class Operations {
 							-- 🧪 RESULT VALIDATION
 							ra.id AS result_approval_id,
 							ra.isapproved,
+							ra.requires_revalidation,
 							ra.approvedBy,
 							ra.printCount,
 							ra.minvalidation,
@@ -354,6 +356,7 @@ export default class Operations {
 							ra.lastupdatedon,
 
 							CASE
+								WHEN ra.requires_revalidation = 1 THEN 'Revalidation required'
 								WHEN ra.isapproved = 1 THEN 'Approved'
 								WHEN ra.id IS NOT NULL THEN 'Pending Approval'
 								ELSE 'No Result Yet'

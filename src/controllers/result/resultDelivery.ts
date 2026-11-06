@@ -44,6 +44,7 @@ export default class ResultDeliveryClass {
                .leftJoin('patient_result_delivery_preference as preference', 'preference.ascension', 'test.id')
                .leftJoin('result_delivery_log as delivery', 'delivery.ascensionid', 'test.id')
                .where('approval.isapproved', 1).whereNotNull('test.resultEntryEnd')
+               .andWhere(function () { this.whereNull('approval.requires_revalidation').orWhere('approval.requires_revalidation', 0); })
                .where(function () { this.whereNull('delivery.delivered_mode').orWhere('delivery.delivered_mode', 'not_delivered'); });
           if (this.branchid != null) query.where('bill.branchid', this.branchid);
           if (startDate) query.whereRaw('DATE(test.resultEntryEnd) >= ?', [startDate]);

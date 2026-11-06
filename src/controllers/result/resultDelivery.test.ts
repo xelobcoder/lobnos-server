@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import knex from 'knex';
 import { transactionalDatabase } from '../../testSupport/transactionalDatabase';
+import { accountingSqlDatabase } from '../../testSupport/accountingSqlDatabase';
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 import KnexConnection from '../../database/KnexConnections';
 import ResultDeliveryClass from './resultDelivery';
@@ -16,6 +17,26 @@ function setup() {
 const entry = (): any => ({ billingid: 2, ascensionid: 1, delivered_mode: 'email', delivered_by_employeeid: 7 });
 beforeEach(() => vi.clearAllMocks());
 describe('result delivery reconciliation', () => {
+     it('lists only completed current approvals in this branch, excluding amendments and delivered records', async () => {
+          const { db } = accountingSqlDatabase();
+          try {
+               await db.schema.createTable('test_ascension', t => { t.integer('id');t.integer('billingid');t.integer('testid');t.string('resultEntryEnd'); });
+               await db.schema.createTable('dbotestresultapproval', t => { t.integer('ascensionid');t.integer('isapproved');t.integer('requires_revalidation'); });
+               await db.schema.createTable('billing', t => { t.integer('billingid');t.integer('branchid');t.integer('patientid'); });
+               await db.schema.createTable('new_patients', t => { t.integer('patientid'); });
+               await db.schema.createTable('test_panels', t => { t.integer('id');t.string('name'); });
+               await db.schema.createTable('patient_result_delivery_preference', t => { t.integer('ascension');t.string('requested_mode');t.string('requested_mode_detail'); });
+               await db.schema.createTable('result_delivery_log', t => { t.integer('ascensionid');t.string('delivered_mode');t.string('delivered_at');t.integer('delivered_by_employeeid');t.string('failurenotes'); });
+               await db('billing').insert([{billingid:2,branchid:4,patientid:10},{billingid:3,branchid:5,patientid:10}]);
+               await db('new_patients').insert({patientid:10});await db('test_panels').insert({id:3,name:'Training test'});
+               await db('test_ascension').insert([1,2,3,4,5,6].map(id=>({id,billingid:id===5?3:2,testid:3,resultEntryEnd:id===4?null:'2026-11-06T12:00:00Z'})));
+               await db('dbotestresultapproval').insert([1,2,3,4,5,6].map(id=>({ascensionid:id,isapproved:id===3?0:1,requires_revalidation:id===2?1:0})));
+               await db('result_delivery_log').insert({ascensionid:6,delivered_mode:'hardcopy'});
+               vi.mocked(KnexConnection).mockResolvedValue(db);
+               const result=await new ResultDeliveryClass(2,1,4).getResultsUndelivered('', '', 1,20);
+               expect(result.totalcount).toBe(1);expect(result.dataset.map(row=>row.ascensionid)).toEqual([1]);
+          } finally {await db.destroy();}
+     });
      it('supports imaging deliveries without laboratory collection phases or delivery preferences', async () => {
           const { store, delivery } = setup();
           store.rows('test_ascension')[0].testid = 100221;

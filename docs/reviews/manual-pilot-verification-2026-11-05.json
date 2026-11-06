@@ -64,13 +64,16 @@
     {
       "module": "operations",
       "procedure": "result-entry",
-      "reviewedAt": "5 November 2026",
-      "status": "Source reviewed — live save and validation pending",
+      "reviewedAt": "6 November 2026",
+      "status": "Live entry and amendment invalidation verified; final reapproval pending",
       "checked": [
-        "Reviewed current-revision validation, payment warnings, review confirmation and conditional secure-PIN controls."
+        "Opened the paid fictional WIDAL request (ascension 171) through Completed stage, selected the single test and confirmed Open result form.",
+        "The user entered their own PIN and saved the two demonstration parameter values with an explicit training-only comment. The save recorded result-entry completion and initial approval under the configured validation bypass.",
+        "The user saved an amendment. Database verification showed revision 2, isapproved = 0 and requires_revalidation = 1: the earlier approval no longer releases the changed result. No PIN was copied into diagnostics."
       ],
       "pending": [
-        "The training visit has not reached a saved bill and accepted specimen, so live result save, revision invalidation and final release remain unverified."
+        "Final approval of the amended revision, physical printing and report delivery still need live acceptance.",
+        "The values in this training screenshot are fictional interface examples, not clinical findings, expected results or reference ranges."
       ],
       "exercise": "Use a fictional test visit with authorized training values. Save a result, reopen it, have an authorized validator review the current revision, then change a value through the permitted correction workflow and demonstrate that earlier approval does not validate the new revision.",
       "fields": [
@@ -100,7 +103,13 @@
           "mistake": "Saving and approving are different actions; one approval may not release the result."
         }
       ],
-      "screenshots": []
+      "screenshots": [
+        {
+          "file": "result-entry-demo.jpg",
+          "caption": "The actual WIDAL form for a fictional training visit, with demonstration-only comments. Enter your own PIN in the software when required; do not copy training values into a real patient result.",
+          "callouts": []
+        }
+      ]
     },
     {
       "module": "crm",
@@ -289,5 +298,6 @@
       ],
       "screenshots": []
     }
-  ]
+  ],
+  "liveBlocker": "Saved in-app browser origin permission denies localhost:2377 after user-confirmed retry. Final reapproval and current-facility inventory writes remain pending."
 }

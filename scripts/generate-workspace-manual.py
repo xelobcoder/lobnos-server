@@ -173,9 +173,11 @@ story.extend([toc,PageBreakIfNotEmpty()])
 story.extend([heading(software['title'],0,'software-purpose'),para(software['purpose']),para('Our operating philosophy','ManualH2'),*definitions(software['philosophy']),para('How PLS supports the organization','ManualH2'),*definitions(software['organizationalValue']),para('Modules and manual coverage','ManualH2'),para('Only enabled modules and permitted actions appear in your workspace. This overview does not grant access.')])
 for title, purpose, coverage in software['modules']:
     story.extend([para(title,'ManualH3'),para(purpose),para('Manual coverage: '+coverage,'ManualSmall')])
-story.append(para('Recognize the front-desk workspace','ManualH2'))
-for figure in software.get('figures', []):
-    story.append(KeepTogether([ManualScreenshot(figure),Spacer(1,3*mm),para(figure['caption'],'ManualSmall')]))
+for index, figure in enumerate(software.get('figures', [])):
+    captioned = [ManualScreenshot(figure),Spacer(1,3*mm),para(figure['caption'],'ManualSmall')]
+    if index == 0:
+        captioned.insert(0, para('Recognize the front-desk workspace','ManualH2'))
+    story.append(KeepTogether(captioned))
 story.append(para('How work moves between teams','ManualH2'))
 for actor,action,evidence in software['journey']:
     story.extend([para(actor,'ManualH3'),para(action),para('Handoff evidence: '+evidence,'ManualSmall')])

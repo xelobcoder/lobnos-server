@@ -13,7 +13,13 @@ describe('funding ledger availability',()=>{
    await db('acc_journal_lines').insert({journal_entry_id:1,account_id:1,direction:'debit',amount:1000});
    const row=(pk:number,direction:string,amount:number)=>({status:'failed',source_module:'inventory',source_table:'test',source_pk:pk,source_ref:'',transaction_type:'payment',payload:JSON.stringify({lines:[{accountCode:'cash',direction,amount}]})});
    await db('acc_posting_outbox').insert([row(1,'credit',100),row(2,'credit',250),row(3,'debit',500)]);
+   // A backlog of already-journaled payments must not cause one lookup per row.
+   await db('acc_posting_outbox').insert(Array.from({length:60},()=>row(1,'credit',100)));
+   await db('acc_journal_entries').insert({id:2,status:'voided',source_module:'inventory',source_table:'void',source_pk:2,source_ref:'',transaction_type:'payment'});
+   await db('acc_journal_lines').insert({journal_entry_id:2,account_id:1,direction:'credit',amount:999});
+   const queries: string[]=[];const record=(query:any)=>queries.push(query.sql);db.on('query',record);
    expect(await fundingAvailability(db,'cash')).toEqual({posted_balance:1000,committed_amount:250,available_balance:750});
+   db.off('query',record);expect(queries).toHaveLength(3);
    await expect(assertFundingAvailable(db,'cash',750.01)).rejects.toThrow('Insufficient funds');
    await expect(assertFundingAvailable(db,'cash',750)).resolves.toMatchObject({available_balance:750});
    const results=await Promise.allSettled([9,10].map(pk=>db.transaction(async trx=>{
