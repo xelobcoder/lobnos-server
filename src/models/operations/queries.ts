@@ -187,14 +187,15 @@ export enum OperationsStages {
   VALIDATED = 'VALIDATED'
 }
 
-export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string) {
+export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false) {
   let query = currentQuery;
   switch (stage) {
     case OperationsStages.PROCESSING:
+      if (bypassProcessing) return query + ` AND 1 = 0`;
       query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
       return query;
     case OperationsStages.COMPLETED:
-      query += ` AND (ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)       AND ta.resultEntryEnd IS NULL
+      query += ` AND ${bypassProcessing ? '1 = 1' : '(ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)'} AND ta.resultEntryEnd IS NULL
 AND (d.department <> 'ultrasound' OR d.department IS NULL)`
       return query;
     case OperationsStages.VALIDATION:

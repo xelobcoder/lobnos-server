@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createFacilitySchema, isolateReferenceDdl, safeDatabaseIdentifier } from './FacilitySchema';
 import { applyFacilityCatalogSeeds, loadFacilityCatalogSeeds, referenceInsertStatements } from './FacilityCatalogSeeds';
 import { exportedSqlStatements, loadFacilityStructureExports, structureFromExports } from './FacilityStructureExports';
+import { caseSensitiveCollation, TENANT_COLLATION } from '../../database/legacy-upgrade/SchemaCollationPolicy';
 
 describe('facility schema isolation', () => {
      it.each(['db; DROP DATABASE x', 'db`evil', '../tenant', '', 'x'.repeat(65)])('rejects unsafe DB name %s', value => {
@@ -37,6 +38,18 @@ describe('facility schema isolation', () => {
      });
 
      describe('authoritative structure exports', () => {
+          it('normalizes every real provisioning table to the standard while preserving exact-match columns', () => {
+               for (const table of loadFacilityStructureExports().tables) {
+                    const ddl = isolateReferenceDdl(table.ddl, 'primelabtestmig', 'PLS123456');
+                    expect(ddl, table.name).toMatch(/DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci/);
+                    for (const [, collation] of ddl.matchAll(/\bCOLLATE[ =]+(\w+)/gi)) {
+                         expect(collation === TENANT_COLLATION || caseSensitiveCollation(collation), table.name).toBe(true);
+                    }
+                    for (const line of table.ddl.split('\n').filter(line => /COLLATE[ =]+\w*(?:_bin|_as_cs)\b/i.test(line))) {
+                         expect(ddl, table.name).toContain(line);
+                    }
+               }
+          });
           it('loads all 288 files as structures and stored programs, never data or dump resets', () => {
                const structure = loadFacilityStructureExports();
                expect(structure.tables).toHaveLength(287);

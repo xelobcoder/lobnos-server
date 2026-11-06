@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { OperationsStages, q_get_all_test_ready_for_various_stages } from "./queries";
 
 describe("lab stage queries", () => {
+     it('routes processing-bypassed requests to result entry without fabricating timestamps', () => {
+          const completed = q_get_all_test_ready_for_various_stages('', OperationsStages.COMPLETED, true)!;
+          expect(completed).toContain('ta.resultEntryEnd IS NULL');
+          expect(completed).not.toContain('processingStartDate');
+          expect(completed).not.toContain('processingEndDATE');
+          expect(completed).toContain("d.department <> 'ultrasound'");
+          expect(q_get_all_test_ready_for_various_stages('', OperationsStages.PROCESSING, true)).toContain('AND 1 = 0');
+     });
+     it('still requires processing timestamps when processing is enabled', () => {
+          const sql = q_get_all_test_ready_for_various_stages('', OperationsStages.COMPLETED, false)!;
+          expect(sql).toContain('ta.processingStartDate IS NOT NULL');
+          expect(sql).toContain('ta.processingEndDATE IS NOT NULL');
+     });
      // Lab result saves record resultEntryEnd only; requiring resultEntryStart hid tests from validation.
      it.each([OperationsStages.VALIDATION, OperationsStages.VALIDATED])(
           "%s depends on resultEntryEnd, not resultEntryStart",

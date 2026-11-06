@@ -41,13 +41,16 @@ async function openAuthenticatedStream(filename, key, tenantId, keyId) {
     } finally { await handle.close(); }
 }
 async function main() {
-    for (const name of ['--database', '--tenant', '--output', '--verify-restore']) {
+    const databaseScope = args.includes('--database-scope');
+    if (databaseScope && args.includes('--tenant')) throw Error('Choose --tenant or --database-scope, not both');
+    for (const name of ['--database', '--output', '--verify-restore', ...(databaseScope ? [] : ['--tenant'])]) {
         if (!args.includes(name) || !option(name) || option(name).startsWith('--')) throw Error('Required option ' + name);
     }
-    const database = option('--database'), restore = option('--verify-restore'), tenantId = Number(option('--tenant'));
+    // Namespace 0 identifies a database-scoped maintenance snapshot, never a registered tenant backup.
+    const database = option('--database'), restore = option('--verify-restore'), tenantId = databaseScope ? 0 : Number(option('--tenant'));
     const directory = path.resolve(option('--output'));
     if (!/^[a-zA-Z0-9_]+$/.test(database) || !/^[a-zA-Z0-9_]+$/.test(restore) || database === restore || !restore.includes('_restore_')) throw Error('Invalid backup or fresh restore database name');
-    if (!Number.isSafeInteger(tenantId) || tenantId < 100000 || tenantId > 999999) throw Error('A registered tenant identity is required');
+    if (!databaseScope && (!Number.isSafeInteger(tenantId) || tenantId < 100000 || tenantId > 999999)) throw Error('A registered tenant identity is required');
     if (db.client.config.connection.database !== database) throw Error('Backup database must match this installation');
     const settings = db.client.config.connection;
     const connection = await mysql.createConnection({ ...settings, password: settings.password, database });
@@ -69,7 +72,7 @@ async function main() {
             const digest = crypto.createHash('sha256');
             for await (const chunk of fs.createReadStream(filename)) digest.update(chunk);
             const sha256 = digest.digest('hex');
-            const manifest = { database, tenantId, keyId, sealedKey, sha256, filename: path.basename(filename), createdAt: new Date().toISOString(), restoreDatabase: restore,
+            const manifest = { database, tenantId, backupScope: databaseScope ? 'database' : 'tenant', keyId, sealedKey, sha256, filename: path.basename(filename), createdAt: new Date().toISOString(), restoreDatabase: restore,
                 recoveryKey: 'Existing BACKUP_MASTER_KEY or BACKUP_MASTER_KEY_FILE is required; retain it separately.' };
             await fs.promises.writeFile(path.join(directory, 'manifest.json'), JSON.stringify(manifest, null, 2), { flag: 'wx', mode: 0o600 });
             // Authenticate the entire file before sending any SQL to MySQL.

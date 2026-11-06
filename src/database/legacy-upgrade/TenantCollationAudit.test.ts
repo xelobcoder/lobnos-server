@@ -1,6 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Knex } from 'knex';
-import { auditTenantCollation } from './TenantCollationAudit';
+import { assertTenantCollation, auditTenantCollation } from './TenantCollationAudit';
 
 function fixture(defaultCollation = 'utf8mb4_unicode_ci', tableCollation = defaultCollation, columnCollation = defaultCollation) {
     const raw = vi.fn()
@@ -11,7 +10,7 @@ function fixture(defaultCollation = 'utf8mb4_unicode_ci', tableCollation = defau
             { TABLE_NAME: 'records', COLUMN_NAME: 'token', CHARACTER_SET_NAME: 'ascii', COLLATION_NAME: 'ascii_bin' },
             { TABLE_NAME: 'records', COLUMN_NAME: 'identifier', CHARACTER_SET_NAME: 'utf8mb4', COLLATION_NAME: 'utf8mb4_0900_as_cs' },
         ]]);
-    return { db: { raw } as Pick<Knex, 'raw'> as Knex, raw };
+    return { db: { raw }, raw };
 }
 
 describe('read-only tenant collation audit', () => {
@@ -42,5 +41,12 @@ describe('read-only tenant collation audit', () => {
         await expect(auditTenantCollation(db)).rejects.toThrow('not visible');
         raw.mockReset().mockRejectedValueOnce(new Error('metadata denied'));
         await expect(auditTenantCollation(db)).rejects.toThrow('metadata denied');
+    });
+    it('blocks activation when ordinary-text or table drift remains', async () => {
+        await expect(assertTenantCollation(fixture().db)).resolves.toBeUndefined();
+        await expect(assertTenantCollation(fixture('utf8mb4_unicode_ci', 'utf8mb4_0900_ai_ci', 'utf8mb4_0900_ai_ci').db))
+            .rejects.toThrow(/1 nonstandard table\(s\).*1 nonstandard text column\(s\)/);
+        await expect(assertTenantCollation(fixture('utf8mb4_0900_ai_ci', 'utf8mb4_unicode_ci', 'utf8mb4_unicode_ci').db))
+            .rejects.toThrow(/database default utf8mb4_0900_ai_ci/);
     });
 });

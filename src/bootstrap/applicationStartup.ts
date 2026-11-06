@@ -141,6 +141,8 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false, 
 		console.error('[Bootstrap] Accounting module bootstrap failed (isolated, non-fatal):', error);
 	}
 
+	// Bootstrappers can add tables after the initial conversion. Gate maintenance/provisioning completion on the final schema.
+	if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
 	if (options.startWorkers !== false) startCrmReminderWorker(tenantId);
 	return { accountingReady };
 }

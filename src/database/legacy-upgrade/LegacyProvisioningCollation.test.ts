@@ -8,8 +8,11 @@ const options = { host: 'localhost', port: 3306, user: 'fixture', password: '', 
 afterEach(() => vi.restoreAllMocks());
 
 describe('legacy provisioning collation safeguards', () => {
-    function connection(failDdl = false) {
+    function connection(failDdl = false, drift = false) {
         const query = vi.fn().mockImplementation(async (sql: string) => {
+            if (sql.includes('SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME')) return [[{ SCHEMA_NAME: 'target', DEFAULT_CHARACTER_SET_NAME: 'utf8mb4', DEFAULT_COLLATION_NAME: 'utf8mb4_unicode_ci' }]];
+            if (sql.includes('SELECT TABLE_NAME, TABLE_COLLATION')) return [[{ TABLE_NAME: 'records', TABLE_COLLATION: drift ? 'utf8mb4_0900_ai_ci' : 'utf8mb4_unicode_ci' }]];
+            if (sql.includes('SELECT TABLE_NAME, COLUMN_NAME')) return [[{ TABLE_NAME: 'records', COLUMN_NAME: 'name', CHARACTER_SET_NAME: 'utf8mb4', COLLATION_NAME: 'utf8mb4_unicode_ci' }]];
             if (sql.includes('SCHEMA_NAME FROM')) return [[{ SCHEMA_NAME: 'source' }]];
             if (sql.includes('SELECT TABLE_NAME FROM')) return [[]];
             if (sql.includes('SELECT TABLE_NAME, TABLE_TYPE')) return [[{ TABLE_NAME: 'records', TABLE_TYPE: 'BASE TABLE' }]];
@@ -38,6 +41,13 @@ describe('legacy provisioning collation safeguards', () => {
         const { query, end } = connection(true);
         await expect(cloneSchema(options)).rejects.toThrow('DDL failure');
         expect(query).toHaveBeenCalledWith('SET FOREIGN_KEY_CHECKS = ?', [1]);
+        expect(end).toHaveBeenCalled();
+    });
+    it('refuses activation when --force has retained noncompliant tables', async () => {
+        const { end } = connection(false, true);
+        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+        await expect(cloneSchema({ ...options, force: true })).rejects.toThrow('Collation compliance failed for target');
+        expect(log).not.toHaveBeenCalled();
         expect(end).toHaveBeenCalled();
     });
 });

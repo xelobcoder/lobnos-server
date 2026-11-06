@@ -1,0 +1,293 @@
+{
+  "reviewedAt": "2026-11-06",
+  "pilots": [
+    {
+      "module": "operations",
+      "procedure": "sample-collection",
+      "reviewedAt": "6 November 2026",
+      "status": "Live simulated start, collection and specimen acceptance verified",
+      "checked": [
+        "Located paid Bill #67 in Sample Collection and opened Collect Samples.",
+        "Used Start collection to create S-20261106-52F1C902, then Complete collection. Confirmed Collected and linked ascensions 170 and 171.",
+        "Opened Sample Validation → Validate Sample, found the same UID and used Accept container. Verified that it appeared under accepted containers."
+      ],
+      "pending": [
+        "Clinical suitability, actual container configuration, physical barcode printer output, rejection/recollection and storage were not clinically validated.",
+        "The training catalogue proposed Unspecified container. That display is a configuration gap to review before clinical use, not a recommended collection plan."
+      ],
+      "exercise": "With an approved fictional visit, identify the intended tests and containers. Record collection once, note each sample UID and demonstrate that the linked tests and subsequent reception use those same samples.",
+      "fields": [
+        {
+          "name": "Tests sharing this physical sample",
+          "rule": "Keep only tests actually sharing the same specimen/container selected. At least one is required.",
+          "mistake": "Selecting every test can link an incompatible test to the wrong physical sample."
+        },
+        {
+          "name": "Start collection / Collect now",
+          "rule": "Start collection creates an in-progress specimen; Collect now records completed collection.",
+          "mistake": "Do not record collected before the specimen is physically obtained."
+        },
+        {
+          "name": "Combine / split / change proposed containers",
+          "rule": "Use only when the proposed specimen plan needs correction and you are authorized.",
+          "mistake": "Do not create a duplicate container to correct a recoverable planning issue."
+        },
+        {
+          "name": "Physical samples",
+          "rule": "Review sample UID, status, specimen/container type and linked tests.",
+          "mistake": "A printed barcode alone does not prove reception or acceptance."
+        },
+        {
+          "name": "Complete collection",
+          "rule": "Completes an existing collection_started sample.",
+          "mistake": "Do not create a second sample for an already started container."
+        }
+      ],
+      "screenshots": [
+        {
+          "file": "sample-plan.jpg",
+          "caption": "The actual training collection plan. Unspecified container indicates setup to review; this screenshot is not a clinical specimen recommendation.",
+          "callouts": []
+        },
+        {
+          "file": "sample-collected.jpg",
+          "caption": "The same simulated physical sample has Collected status, a UID/barcode and its linked tests. Collection does not itself mean specimen acceptance.",
+          "callouts": []
+        },
+        {
+          "file": "sample-accepted.jpg",
+          "caption": "Sample Validation recorded acceptance of the same UID. Storage is a separate available task.",
+          "callouts": []
+        }
+      ]
+    },
+    {
+      "module": "operations",
+      "procedure": "result-entry",
+      "reviewedAt": "5 November 2026",
+      "status": "Source reviewed — live save and validation pending",
+      "checked": [
+        "Reviewed current-revision validation, payment warnings, review confirmation and conditional secure-PIN controls."
+      ],
+      "pending": [
+        "The training visit has not reached a saved bill and accepted specimen, so live result save, revision invalidation and final release remain unverified."
+      ],
+      "exercise": "Use a fictional test visit with authorized training values. Save a result, reopen it, have an authorized validator review the current revision, then change a value through the permitted correction workflow and demonstrate that earlier approval does not validate the new revision.",
+      "fields": [
+        {
+          "name": "Result fields",
+          "rule": "Use the test’s configured fields, units, reference ranges and required format.",
+          "mistake": "A sample value from a manual is not a patient result."
+        },
+        {
+          "name": "Reload latest results",
+          "rule": "Refresh the current revision before approval after another edit or stale-result warning.",
+          "mistake": "Do not approve an older screen after the result has changed."
+        },
+        {
+          "name": "Review confirmation",
+          "rule": "Select I have reviewed the patient details and current results. only after checking them.",
+          "mistake": "The checkbox is an attestation, not a way around review."
+        },
+        {
+          "name": "Your secure PIN / Verify PIN",
+          "rule": "Shown where the facility requires secure validation. Enter your own PIN only in the software.",
+          "mistake": "Never use another validator’s PIN or include it in training screenshots."
+        },
+        {
+          "name": "Record approval",
+          "rule": "Records your approval of the current revision; final release still needs the configured validators.",
+          "mistake": "Saving and approving are different actions; one approval may not release the result."
+        }
+      ],
+      "screenshots": []
+    },
+    {
+      "module": "crm",
+      "procedure": "registration",
+      "reviewedAt": "5 November 2026",
+      "status": "Live registration completed",
+      "checked": [
+        "Created fictional patient TRAINING MANUAL PILOT NOV05; saved Basic Info, Address and Emergency Contact, then completed registration into billing.",
+        "Verified the four wizard stages and both Basic Info save paths in the signed-in application."
+      ],
+      "pending": [
+        "Duplicate-match reuse, optional photo upload and portal credential creation were not performed in this pilot."
+      ],
+      "exercise": "In a designated training facility, register a fictional patient with no real contact details. Record the generated patient ID, reopen the record and compare the saved name, age, gender and address. Pass only when the same patient opens in billing without a second registration.",
+      "fields": [
+        {
+          "name": "First Name / Last Name",
+          "rule": "Required. Enter the patient’s actual names; Middle Name is optional.",
+          "mistake": "Do not enter an identifier in place of the patient name."
+        },
+        {
+          "name": "Gender",
+          "rule": "Required. Choose the appropriate listed option.",
+          "mistake": "Do not leave a default selection unreviewed."
+        },
+        {
+          "name": "DOB & Age",
+          "rule": "Use DD/MM/YYYY for a known birth date, or enter age with Yrs, Mths or Days. Review the calculated value.",
+          "mistake": "An age in months entered as years changes clinical reference ranges."
+        },
+        {
+          "name": "Primary Mobile Contact",
+          "rule": "Required; the local mobile input expects 10 digits. Review the country selection.",
+          "mistake": "Do not publish real phone numbers in training screenshots."
+        },
+        {
+          "name": "Region / Area",
+          "rule": "Required when saving the Address stage, even if the current labels do not show an asterisk.",
+          "mistake": "An empty Area can prevent progression."
+        },
+        {
+          "name": "Photo & Credentials",
+          "rule": "Optional. JPEG, PNG or GIF photo, at most 5 MB. Leave both username and password empty when no portal account is needed.",
+          "mistake": "Do not enter only one credential or capture a password in a screenshot."
+        }
+      ],
+      "screenshots": [
+        {
+          "file": "registration-start.jpg",
+          "caption": "Basic Info: run the duplicate check before creating another patient.",
+          "callouts": [
+            {
+              "x": 37,
+              "y": 51,
+              "label": "Check Mobile: search before registering another patient."
+            },
+            {
+              "x": 17,
+              "y": 87,
+              "label": "Name fields: enter and review the patient identity."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "module": "billing",
+      "procedure": "billing-to-receipt",
+      "reviewedAt": "6 November 2026",
+      "status": "Live save, cashier lookup, partial payment, settlement and reprint verified",
+      "checked": [
+        "Saved fictional Bill #67 for NE-000005-MY with cashier code BBK6 and GH₵93.50 payable.",
+        "Retrieved the original bill by BBK6 in Cash Collection. Recorded GH₵30.00, then reopened and verified GH₵63.50 remaining.",
+        "Recorded the remaining GH₵63.50 against the same bill. Verified GH₵93.50 paid and zero outstanding; opened the existing receipt reprint link."
+      ],
+      "pending": [
+        "Printer output on physical 80 mm/A4 paper, direct-payment mode, staff-benefit approvals, insurance cases and restricted cashier-role acceptance are separate checks.",
+        "The first follow-up lookup was interrupted by a backend restart. Reopening after the server recovered displayed the saved balance; no payment was repeated."
+      ],
+      "exercise": "Prepare two services for a fictional patient. Record the reviewed total and save once. Pass the billing stage only after a saved Bill ID and cashier code are visible. An authorized cashier must retrieve that same bill and demonstrate a partial payment and its remaining balance in the designated training environment.",
+      "fields": [
+        {
+          "name": "Billing source",
+          "rule": "Select the actual payer, then Continue. General Billing is for the private/general example.",
+          "mistake": "NHIS needs configured services and claim/member details; do not substitute General merely to bypass a warning."
+        },
+        {
+          "name": "Urgency",
+          "rule": "Review Routine versus the configured urgent option before loading charges.",
+          "mistake": "The displayed default may be urgent; check it rather than assuming normal pricing."
+        },
+        {
+          "name": "Receiving laboratories",
+          "rule": "An outsourcing organization is optional for billing. Review charges again after changing it.",
+          "mistake": "Do not bill another test just because no organization has been assigned."
+        },
+        {
+          "name": "Bill totals",
+          "rule": "Compare selected services, subtotal, discount, surcharge, tax and Amount payable.",
+          "mistake": "Catalogue prices can differ from the final reviewed quote."
+        },
+        {
+          "name": "Save bill & generate cashier code",
+          "rule": "In separate-cashier mode, saves the bill without collecting payment.",
+          "mistake": "A payment slip or code is not a payment receipt."
+        },
+        {
+          "name": "Payment / Waive-off",
+          "rule": "Enter actual collection separately from any authorized waiver.",
+          "mistake": "Never use a waiver to represent money received."
+        }
+      ],
+      "screenshots": [
+        {
+          "file": "billing-source.jpg",
+          "caption": "Select the payer for the confirmed training patient before building the bill.",
+          "callouts": []
+        },
+        {
+          "file": "billing-review.jpg",
+          "caption": "Reviewed quote in this pilot: 85.00 + 8.50 tax = 93.50. Prices and tax are facility-specific.",
+          "callouts": []
+        },
+        {
+          "file": "billing-handoff.jpg",
+          "caption": "The separate-cashier handoff saves charges first; money is collected against the resulting bill.",
+          "callouts": []
+        },
+        {
+          "file": "billing-saved-code.jpg",
+          "caption": "Live saved bill #67 and cashier code BBK6. The unpaid balance remains GH₵93.50 until the cashier records payment.",
+          "callouts": []
+        },
+        {
+          "file": "billing-settled.jpg",
+          "caption": "After the two recorded collections, Bill #67 is SETTLED. Already paid is GH₵93.50, outstanding is zero and Reprint receipt uses the existing bill.",
+          "callouts": []
+        }
+      ]
+    },
+    {
+      "module": "inventory",
+      "procedure": "receive-delivery",
+      "reviewedAt": "5 November 2026",
+      "status": "Source reviewed — live purchase and receipt pending",
+      "checked": [
+        "Reviewed Create Purchase Order and Receive stock forms, received quantities, costs, automatic batch and receipt metadata.",
+        "Opened Create Order and Add Item in the live application; confirmed Create Order and Create & receive buttons. No order was saved."
+      ],
+      "pending": [
+        "Purchase creation, approval and stock receipt have not yet been performed in the current pilot facility. No stock increase is claimed.",
+        "The purchase-order capture was clipped during browser resizing and was excluded from the manual. A complete screenshot must be captured before this pilot is marked illustrated."
+      ],
+      "exercise": "In the training environment, create an order for 10 units. Receive only 6, reopen its receipt history and demonstrate 4 units remaining. Record the order and receipt references, batch and valuation; do not send supplier messages or record a real payment.",
+      "fields": [
+        {
+          "name": "Supplier",
+          "rule": "Required in Create Purchase Order. Choose the actual approved supplier.",
+          "mistake": "A similarly named supplier is not necessarily the correct payee."
+        },
+        {
+          "name": "Item / Qty / Unit / Cost",
+          "rule": "Select the inventory item and check its stock unit and positive ordered quantity; review the unit cost.",
+          "mistake": "A box and an individual unit are not interchangeable quantities."
+        },
+        {
+          "name": "Quantity received",
+          "rule": "Enter only actual accepted units for this receipt. Zero skips an item; do not exceed the displayed remaining order quantity.",
+          "mistake": "Receive all remaining must not be used for a partial delivery."
+        },
+        {
+          "name": "Unit cost",
+          "rule": "Non-negative, in the item’s displayed unit and company currency.",
+          "mistake": "A zero training cost is not appropriate for a real purchased item."
+        },
+        {
+          "name": "Automatic batch / Batch number",
+          "rule": "Keep automatic generation selected when no supplier batch is available; otherwise enter the genuine batch.",
+          "mistake": "Do not overwrite a genuine manufacturer batch merely for convenience."
+        },
+        {
+          "name": "Received date / Condition / Notes",
+          "rule": "Record the actual delivery context. Review damaged or expired stock through the relevant exception process.",
+          "mistake": "Selecting Condition alone is not proof that rejected units were excluded from stock."
+        }
+      ],
+      "screenshots": []
+    }
+  ]
+}

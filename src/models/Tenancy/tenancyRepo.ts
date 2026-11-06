@@ -1,5 +1,7 @@
 import { systemConfigConnection as tenancyConnection } from "../../database/connection";
 import { RegisteredTenant, TENANTS_TABLE, TenantRegistry } from "./TenantRegistry";
+import { safeDatabaseIdentifier } from "./FacilitySchema";
+import { TENANT_COLLATION } from "../../database/legacy-upgrade/SchemaCollationPolicy";
 
 function toLegacyTenant(tenant: RegisteredTenant): PrimeLimsTenant {
      return {
@@ -46,10 +48,12 @@ export class TenancyRepository {
      }
 
      async createDatabase(dbName: string): Promise<void> {
+          safeDatabaseIdentifier(dbName);
           try {
-               await tenancyConnection.raw(`CREATE DATABASE IF NOT EXISTS ??`, [dbName]);
+               await tenancyConnection.raw(`CREATE DATABASE IF NOT EXISTS ?? CHARACTER SET utf8mb4 COLLATE ${TENANT_COLLATION}`, [dbName]);
           } catch (err) {
                console.error(`Error creating database ${dbName}:`, err);
+               throw err;
           }
      }
 

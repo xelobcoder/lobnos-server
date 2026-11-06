@@ -77,7 +77,7 @@ async function main() {
      step('2/3 Running runtime bootstrappers against the new database');
      process.env.DATABASE = options.target;
      const { runApplicationBootstrappers } = await import('../src/bootstrap/applicationStartup');
-     const { accountingReady } = await runApplicationBootstrappers(1);
+     const { accountingReady } = await runApplicationBootstrappers(1, true, { startWorkers: false });
      console.log(`Bootstrappers completed (accountingReady=${accountingReady}).`);
 
      const KnexConnection = (await import('../src/database/KnexConnections')).default;

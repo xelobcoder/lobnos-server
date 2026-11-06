@@ -28,6 +28,7 @@ import mysql from 'mysql2/promise';
 import knex from 'knex';
 import { isolateReferenceDdl, safeDatabaseIdentifier } from '../src/models/Tenancy/FacilitySchema';
 import { TENANT_COLLATION } from '../src/database/legacy-upgrade/SchemaCollationPolicy';
+import { assertTenantCollation } from '../src/database/legacy-upgrade/TenantCollationAudit';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '.env') });
 
@@ -84,6 +85,9 @@ function parseArgs(argv: string[]): Options {
 }
 
 export async function cloneSchema(options: Options): Promise<void> {
+     safeDatabaseIdentifier(options.source);
+     safeDatabaseIdentifier(options.target);
+     if (options.source === options.target) throw new Error('Source and target databases must differ');
      const admin = await mysql.createConnection({
           host: options.host,
           port: options.port,
@@ -120,6 +124,8 @@ export async function cloneSchema(options: Options): Promise<void> {
           );
 
           const [sessionRows] = await admin.query<mysql.RowDataPacket[]>('SELECT @@SESSION.foreign_key_checks AS fk');
+          await admin.query(`ALTER DATABASE ?? CHARACTER SET utf8mb4 COLLATE ${TENANT_COLLATION}`, [options.target]);
+          await admin.query('USE ??', [options.target]);
           await admin.query(`SET FOREIGN_KEY_CHECKS = 0`);
 
           let created = 0;
@@ -147,7 +153,8 @@ export async function cloneSchema(options: Options): Promise<void> {
           } finally {
                await admin.query('SET FOREIGN_KEY_CHECKS = ?', [sessionRows[0].fk]);
           }
-          console.log(`Schema clone complete: ${created} table(s)/view(s) applied. Existing tables are not converted; run tenant:audit-collation before activation.`);
+          await assertTenantCollation({ raw: (sql, bindings) => admin.query<mysql.RowDataPacket[]>(sql, bindings ? [...bindings] : undefined) });
+          console.log(`Schema clone complete: ${created} table(s)/view(s) applied; database, table and text-column collations verified.`);
      } finally {
           await admin.end();
      }
@@ -171,6 +178,7 @@ async function runSeeds(options: Options): Promise<void> {
 
      try {
           const [executed] = await targetKnex.seed.run();
+          await assertTenantCollation(targetKnex);
           console.log(`Seeds applied: ${executed.map((f: string) => path.basename(f)).join(', ') || 'none'}`);
      } finally {
           await targetKnex.destroy();

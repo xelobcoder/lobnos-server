@@ -52,10 +52,29 @@ MySQL DDL is not transactionally reversible: a failure can leave partial changes
 Keep maintenance mode active, inspect the report and use the rehearsed recovery plan.
 Do not repeatedly run conversions against a writing production database.
 
-The legacy `setup:new-client` clone now normalizes copied DDL using the same policy
-as facility provisioning and stops on a DDL error instead of skipping it. Its
-`--force` mode still leaves pre-existing tables untouched; audit and, where needed,
-convert those tables through the maintenance path before activation.
+The legacy `setup:new-client` clone normalizes copied DDL using the same policy
+as facility provisioning, sets the database default explicitly, and stops on a DDL
+error instead of skipping it. It verifies database, table and text-column collation
+before reporting completion, and checks again after reference seeds. Its `--force`
+mode still leaves pre-existing tables untouched and now fails if they are not
+compliant; convert those tables through the maintenance path before activation.
+
+Strict facility provisioning and client migration bootstrap normalize and verify
+collation both before and after the runtime bootstrappers, before starting workers
+or reporting readiness. This includes tables introduced during that upgrade.
+Ordinary application startup does not rebuild existing tables automatically.
+Keep writes paused throughout strict migration bootstrap as well as conversion.
+The authoritative exported schema files remain historical source assets; their
+DDL is normalized before execution, and regression tests cover every exported table.
+
+Include provisioning-source and control databases in installation maintenance, not
+only active registered tenants. For an application database without a registered
+tenant identity, the encrypted backup command accepts `--database-scope` instead
+of `--tenant TENANT_NUMBER`. Such snapshots explicitly use the non-tenant namespace
+0 and a database-scoped manifest; do not invent a tenant number. Exact configured
+database matching, authenticated encryption, backup fingerprint and restore
+verification remain mandatory. Preserve historical backup/restore databases as
+recovery evidence rather than treating them as current application schemas.
 
 ## Tenant identity
 

@@ -19,6 +19,7 @@ import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper
 import { TestApprovalClass } from "./testApprovalClass";
 import ImagingResultAuditRepository from "./imaging/ImagingResultAuditRepository";
 import KnexConnection from "../../database/KnexConnections";
+import ApplicationSettings from "../application/appsettings/appset";
 
 export default class Operations {
      private billingid: number;
@@ -421,6 +422,7 @@ export default class Operations {
 
      private static async generateAscensionQuery(
           queryParams: ascensionStageRequestQueryTypes,
+          bypassProcessing = false,
      ): Promise<{ conditions: (string | Date)[]; finalQuery: string }> {
           const {
                from,
@@ -440,7 +442,7 @@ export default class Operations {
                const conditions: (string | Date)[] = [];
                finalQuery = replaceQueryValuesNonPartition(finalQuery);
                if (!isUltrasound) {
-                    finalQuery = q_get_all_test_ready_for_various_stages(finalQuery, stage);
+                    finalQuery = q_get_all_test_ready_for_various_stages(finalQuery, stage, bypassProcessing);
                } else {
                     finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
                }
@@ -671,6 +673,8 @@ export default class Operations {
                     billingid,
                     patientid,
                } = queryParams;
+               const settings = !isUltrasound && ['PROCESSING', 'COMPLETED'].includes(stage)
+                    ? await new ApplicationSettings().getAllAppSettings(tenantId) : null;
                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
                     sortby,
                     from: _dateFrom,
@@ -685,7 +689,7 @@ export default class Operations {
                     clinicianId,
                     organizationId,
                     grouped: queryParams.grouped || null,
-               });
+               }, Number(settings?.byPassProcessing) === 1);
                let query = finalQuery;
                let conditionValues = conditionx;
 

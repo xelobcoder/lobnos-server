@@ -1,7 +1,10 @@
-import type { Knex } from 'knex';
 import { caseSensitiveCollation, TENANT_COLLATION } from './SchemaCollationPolicy';
 
-export async function auditTenantCollation(db: Knex) {
+export interface CollationAuditConnection {
+    raw(sql: string, bindings?: readonly string[]): PromiseLike<[Record<string, string>[], unknown?]>;
+}
+
+export async function auditTenantCollation(db: CollationAuditConnection) {
     const [schemas] = await db.raw(
         'SELECT SCHEMA_NAME, DEFAULT_CHARACTER_SET_NAME, DEFAULT_COLLATION_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = DATABASE()',
     );
@@ -16,8 +19,8 @@ export async function auditTenantCollation(db: Knex) {
         [schema.SCHEMA_NAME],
     );
     const nonstandardTables: { table: string; collation: string }[] = tables
-        .filter((table: { TABLE_COLLATION: string }) => table.TABLE_COLLATION !== TENANT_COLLATION)
-        .map((table: { TABLE_NAME: string; TABLE_COLLATION: string }) => ({ table: table.TABLE_NAME, collation: table.TABLE_COLLATION }));
+        .filter(table => table.TABLE_COLLATION !== TENANT_COLLATION)
+        .map(table => ({ table: table.TABLE_NAME, collation: table.TABLE_COLLATION }));
     const nonstandardColumns: { table: string; column: string; collation: string }[] = [];
     let exactMatchColumns = 0;
     for (const column of columns) {
@@ -41,4 +44,15 @@ export async function auditTenantCollation(db: Knex) {
             && schema.DEFAULT_COLLATION_NAME === TENANT_COLLATION
             && nonstandardTables.length === 0 && nonstandardColumns.length === 0,
     };
+}
+
+export async function assertTenantCollation(db: CollationAuditConnection): Promise<void> {
+    const audit = await auditTenantCollation(db);
+    if (!audit.compliant) {
+        throw new Error(
+            `Collation compliance failed for ${audit.database}: expected ${TENANT_COLLATION}; ` +
+            `database default ${audit.defaultCollation}, ${audit.nonstandardTables.length} nonstandard table(s), ` +
+            `${audit.nonstandardColumns.length} nonstandard text column(s). Run the backed-up collation maintenance procedure before activation.`,
+        );
+    }
 }
