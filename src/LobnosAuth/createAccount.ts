@@ -556,8 +556,10 @@ const updateUserPermission = async (req: UserRequest, res: Response): Promise<vo
           if (!permissions || typeof permissions !== 'object' || Array.isArray(permissions)) return customError('Permissions must be an object', 400, res);
           if ('testPanels' in permissions) {
                const panel = permissions.testPanels;
-               if (!panel || typeof panel !== 'object' || !('manage' in panel) || typeof panel.manage !== 'boolean') {
-                    return customError('Test-panel management permission must be a boolean', 400, res);
+               if (!panel || typeof panel !== 'object' || Array.isArray(panel)
+                    || !['view', 'manage'].some(key => key in panel)
+                    || ['view', 'manage'].some(key => key in panel && typeof panel[key] !== 'boolean')) {
+                    return customError('Test-panel view and management permissions must be booleans', 400, res);
                }
           }
           const oldRow = await conn("roles")

@@ -27,12 +27,13 @@ import {
 } from "./testpanelHandlers";
 import { getCalculationFormulas, putCalculationFormula, previewCalculationFormula } from './CalculationFormulaController';
 import { getAuthUser, requireOwnerRole } from '../../middleware/authority';
-import { canManageTestPanels, requireTestPanelManagement } from '../../middleware/testPanelAuthority';
+import { canDelegateTestPanelAccess, canManageTestPanels, canViewTestPanels, requireSuperAdminTestPanelDeletion, requireTestPanelDelegation, requireTestPanelManagement, requireTestPanelView } from '../../middleware/testPanelAuthority';
 import { testpanel } from "../../testpanel/testpanelList";
 import { createFieldConstraintsHandler, getFieldConstraintsByFieldIdHandler, getFieldConstraintsByTestIdHandler, updateFieldConstraintHandler, deleteFieldConstraintHandler, deleteFieldConstraintsByFieldIdHandler } from "../testcreation/fieldConstraintsHandlers";
 import { getTestReportSettingsHandler, putTestReportSettingsHandler, deleteTestReportSettingsHandler } from "./testReportSettingsHandlers";
 import { handleOverLoad } from "../../hooks/helper";
 import { blockWhenMasterCatalogEnforced } from "../../testpanel/masterCatalog";
+import { getTestPanelStaffAccess, updateTestPanelStaffAccess } from "./testPanelStaffAccess";
 
 const router = express.Router();
 
@@ -40,19 +41,25 @@ router.get('/api/v1/testpanel/my-access', async (req, res) => {
     const actor = getAuthUser(req);
     if (!actor || Number(req.query.tenantId) !== actor.tenantId) return res.status(403).json({ status: 'error', message: 'Authenticated facility context required' });
     try {
-        return res.json({ success: true, employeeid: actor.employeeid, tenantId: actor.tenantId, branchid: actor.branch, can_manage: await canManageTestPanels(actor) });
+        const [can_view, can_manage, can_delegate] = await Promise.all([
+            canViewTestPanels(actor), canManageTestPanels(actor), canDelegateTestPanelAccess(actor)
+        ]);
+        return res.json({ success: true, employeeid: actor.employeeid, tenantId: actor.tenantId, branchid: actor.branch, can_view, can_manage, can_delegate });
     } catch (error) {
         console.error('Unable to load test-panel permissions:', error);
         return res.status(500).json({ status: 'error', message: 'Unable to load test-panel permissions' });
     }
 });
+router.get('/api/v1/testpanel/staff-access', requireTestPanelDelegation, handleOverLoad(getTestPanelStaffAccess));
+router.put('/api/v1/testpanel/staff-access', requireTestPanelDelegation, handleOverLoad(updateTestPanelStaffAccess));
 
 // Category Routes
-router.get("/api/v1/testpanel/categories", getCategories);
+router.get("/api/v1/testpanel/categories", requireTestPanelView, getCategories);
 router.post("/api/v1/testpanel/categories", requireTestPanelManagement, postCategories);
 
 // Test Panel Routes
-router.get("/api/v1/testpanel/list", getTestPanelList);
+router.get("/api/v1/testpanel/list", requireTestPanelView, handleOverLoad(getTestPanelList));
+router.get("/api/v1/testpanel/management/list", requireTestPanelView, handleOverLoad(getBulkTestPanelList));
 router.get("/api/v1/testpanel/list/bulk", getBulkTestPanelList);
 router.get("/api/v1/testpanel/master/list/import", requireTestPanelManagement, handleOverLoad(importMasterTestPanelToClientList));
 router.get("/api/v1/master/list/import", requireTestPanelManagement, handleOverLoad(importMasterTestPanelToClientList));
@@ -71,7 +78,7 @@ router.put("/api/v1/testpanel/qc-requirement", requireTestPanelManagement, putTe
 router.get("/api/v1/testpanel/calculations", requireTestPanelManagement, getCalculationFormulas);
 router.put("/api/v1/testpanel/calculations", requireTestPanelManagement, putCalculationFormula);
 router.post('/api/v1/testpanel/calculations/preview', requireTestPanelManagement, previewCalculationFormula);
-router.delete("/api/v1/testpanel/list", requireTestPanelManagement, handleOverLoad(deleteTestPanel));
+router.delete("/api/v1/testpanel/list", requireSuperAdminTestPanelDeletion, handleOverLoad(deleteTestPanel));
 router.get("/api/v1/testpanel/list/customtestrule", getTestPanelCreationRule);
 router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);
 router.get("/api/v1/", getTestPanelData);
