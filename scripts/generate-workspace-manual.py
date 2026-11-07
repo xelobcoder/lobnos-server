@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, PageBreakIfNotEmpty, KeepTogether, Flowable
+from reportlab.platypus import BaseDocTemplate, Frame, PageTemplate, Paragraph, Spacer, PageBreakIfNotEmpty, KeepTogether, Flowable, LongTable, TableStyle
 from reportlab.lib.utils import ImageReader
 from reportlab.platypus.tableofcontents import TableOfContents
 from reportlab.graphics.shapes import Drawing, Circle, Line, String, Rect, Polygon
@@ -52,7 +52,7 @@ styles.add(ParagraphStyle(name='ManualStep', parent=styles['ManualBody'], leftIn
 styles.add(ParagraphStyle(name='ManualExample', parent=styles['ManualBody'], backColor=colors.HexColor('#f1f6f2'), borderPadding=10, spaceBefore=5, spaceAfter=14))
 
 def clean(text):
-    return str(text).replace('→', ' / ').replace('–', '-').replace('—', '-').replace('\u2011', '-').replace('’', "'")
+    return str(text).replace('→', ' / ').replace('–', '-').replace('—', '-').replace('\u2011', '-').replace('’', "'").replace('“', '"').replace('”', '"')
 
 def para(text, style='ManualBody'):
     return Paragraph(escape(clean(text)), styles[style])
@@ -106,6 +106,98 @@ def definitions(values):
     for name, meaning in values:
         result.extend([para(name, 'ManualH3'), para(meaning)])
     return result
+
+def evidence_table(headers, rows, widths):
+    data = [[Paragraph(f'<b>{escape(clean(value))}</b>', styles['ManualSmall']) for value in headers]]
+    for row in rows:
+        data.append([Paragraph(escape(clean(str(value))), styles['ManualSmall']) for value in row])
+    table = LongTable(data, colWidths=widths, repeatRows=1, hAlign='LEFT')
+    table.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, 0), colors.HexColor('#e8f1e9')),
+        ('TEXTCOLOR', (0, 0), (-1, 0), green),
+        ('GRID', (0, 0), (-1, -1), 0.35, colors.HexColor('#b7c8bb')),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING', (0, 0), (-1, -1), 4),
+        ('RIGHTPADDING', (0, 0), (-1, -1), 4),
+        ('TOPPADDING', (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    return table
+
+def procedure_steps(values):
+    labels = [
+        'Save All Changes', 'Save Formula Version', 'Arrange parameters', 'Manage Test', 'Sample Container',
+        'Sample Quantity', 'Cost of Test', 'Test Price', 'Report Title',
+        'Device Interface Mapping', 'Sample Type', 'Test Details', 'Test Fields',
+        'Add Tests', 'Save Changes', 'Add Field', 'Add Row', 'Field Name',
+        'Specific Config', 'Category', 'Instrumentation', 'Calculations',
+        'Procedure Manual', 'Literature', 'Report Settings', 'Outsourcing',
+        'Critical-value actions', 'Apply order', 'Calculate preview', 'Revert to General',
+        'TAT Count', 'Pre Tat', 'Post Tat', 'Configuration', 'Test Panels', 'Preview',
+        'Plan', 'Units', 'Req?', 'Add', 'new test', 'Operations', 'Laboratory',
+        'Test Name', 'Unit', 'Short Text', 'Method', 'Description', 'Has Manual',
+        'Show Trend', 'Has Varied Gender', 'Has Children Limit', 'Outsourced Test',
+        'Use Drugs', 'Use Literature', 'Require QC', 'Procedure Code', 'Dropdown',
+        'Text', 'Reference', 'Range (M/F/Child/Neonate)', 'Fetal Biometry (Hadlock)',
+        'Compare (<=/>=)', 'Compare', 'Text Area', 'Time', 'Ultrasound', 'Date & Time',
+        'Date', 'Male', 'Female', 'Children', 'Neonate', 'Reset order',
+        'Alt+Arrow Up/Down', 'General', 'Company Info', 'Report Options', 'Comments',
+        'Configure thresholds and condition rules', 'Condition Name', 'Create Condition',
+        'Parameter selection', 'Constraints', 'Value to target', 'Create a Validator',
+        'Added Constraints', 'update Information', 'Require acknowledgement',
+        'Require clinician communication record', 'Hold final report printing',
+        'Hold electronic delivery and portal release', 'Require supervisor clearance',
+        'Reason for policy change', 'Save actions for this rule',
+        'Conditions Updated Successfully', 'Critical actions saved', 'Yes'
+    ]
+    tokens = sorted({escape(clean(label)) for label in labels}, key=len, reverse=True)
+    matcher = re.compile(r'(?<![\w])(?:' + '|'.join(re.escape(token) for token in tokens) + r')(?![\w])')
+    result = []
+    for index, value in enumerate(values, 1):
+        body = escape(clean(value))
+        body = matcher.sub(lambda match: f'<b>{match.group(0)}</b>', body)
+        result.append(Paragraph(f'{index}. {body}', styles['ManualStep']))
+    return result
+
+def test_panel_procedure_content(article):
+    procedure = article['procedure']
+    content = [
+        para(procedure['id']+' - '+article['title'], 'ManualH2'),
+        para('Purpose','ManualH3'), para(article['purpose']),
+        para('Who can do this?','ManualH3'),
+        evidence_table(['Role','Permission'], [(item['role'],item['permissions']) for item in procedure['roles']], [38*mm,134*mm]),
+        para('Before you begin','ManualH3'), *steps(article['before'], False),
+        para('Where to go','ManualH3'), para(article['open']),
+        para('Important','ManualH3'), *steps(procedure['warnings'], False),
+        para('Steps','ManualH3'), *procedure_steps(article['steps']),
+        para('Fields','ManualH3'),
+        evidence_table(
+            ['Field','Required?','What to enter','Validation / dependencies'],
+            [(item['field'],item['required'],item['entry'],item['validation']) for item in procedure['fields']],
+            [32*mm,27*mm,53*mm,60*mm]
+        ),
+        para('Expected result','ManualH3'), para(procedure['expectedResult']),
+        para('Other ways to proceed','ManualH3'), *steps(procedure['alternatives'] or ['None.'], False),
+        para('Common problems','ManualH3'),
+        evidence_table(
+            ['Message or symptom','Cause','What to do'],
+            [(item['symptom'],item['cause'],item['fix']) for item in procedure['commonErrors']],
+            [47*mm,57*mm,68*mm]
+        ),
+        para('Related procedures','ManualH3'), *steps(procedure['related'] or ['None.'], False),
+        para('Figures','ManualH3'),
+        *steps([f"{item['figure']} pending: {item['screen']}. State: {item['state']} Data/access needed: {item['dataNeeded']}" for item in procedure['screenshotsPending']], False),
+    ]
+    for section in article.get('sections', []):
+        content.extend([para(section['title'], 'ManualH3'), *[para(text) for text in section['paragraphs']]])
+        if section.get('steps'):
+            content.extend(procedure_steps(section['steps']))
+        for table in section.get('tables', []):
+            column_width = 172*mm / len(table['headers'])
+            content.extend([para(table['caption'], 'ManualH3'), evidence_table(table['headers'], table['rows'], [column_width] * len(table['headers']))])
+        if section.get('checklist'):
+            content.extend([para('Review checklist', 'ManualH3'), *steps(section['checklist'], False)])
+    return content
 
 class ManualDoc(BaseDocTemplate):
     def afterFlowable(self, flowable):
@@ -167,7 +259,7 @@ target=OUT/'primelabsys-operations-crm-billing-inventory-user-manual.pdf'
 doc=ManualDoc(str(target),pagesize=A4,leftMargin=19*mm,rightMargin=19*mm,topMargin=20*mm,bottomMargin=22*mm,title='Prime Laboratory Software - Front Desk, Billing, Laboratory and Inventory Manual',author='Prime Laboratory Software')
 frame=Frame(doc.leftMargin,doc.bottomMargin,doc.width,doc.height,id='normal',leftPadding=0,rightPadding=0,topPadding=0,bottomPadding=0)
 doc.addPageTemplates(PageTemplate(id='manual',frames=[frame],onPage=footer))
-story=[Spacer(1,35*mm),para('PRIME LABORATORY SOFTWARE (PLS)','ManualH2'),para('Front Desk, Billing, Laboratory and Inventory User Manual','ManualTitle'),para('Administrator and trainer edition','ManualH1'),para('Detailed operating procedures, responsibilities, controls, worked examples and recovery.'),Spacer(1,12*mm),para('Training edition revised 6 November 2026 | Live verification is labelled per procedure'),para('This trainer edition includes the documented procedures for all four modules. Staff use the in-application edition filtered to their active role and enabled modules. The manual does not grant permission to perform an action.','ManualSmall'),PageBreakIfNotEmpty(),heading('Contents',0,'contents')]
+story=[Spacer(1,35*mm),para('PRIME LABORATORY SOFTWARE (PLS)','ManualH2'),para('Front Desk, Billing, Laboratory and Inventory User Manual','ManualTitle'),para('Administrator and trainer edition','ManualH1'),para('Detailed operating procedures, responsibilities, controls, worked examples and recovery.'),Spacer(1,12*mm),para('Application version 1.0.0'),para('This trainer edition includes the documented procedures for all four modules. Staff use the in-application edition filtered to their active role and enabled modules. The manual does not grant permission to perform an action.','ManualSmall'),PageBreakIfNotEmpty(),heading('Contents',0,'contents')]
 toc=TableOfContents();toc.levelStyles=[ParagraphStyle(name='TOC0',fontName='Manual-Bold',fontSize=10.5,leading=16,spaceBefore=10,textColor=green),ParagraphStyle(name='TOC1',fontName='Manual',fontSize=9.5,leading=14,leftIndent=14,spaceBefore=4,textColor=ink),ParagraphStyle(name='TOC2',fontName='Manual',fontSize=9,leading=13,leftIndent=28,spaceBefore=3,textColor=ink)]
 story.extend([toc,PageBreakIfNotEmpty()])
 story.extend([heading(software['title'],0,'software-purpose'),para(software['purpose']),para('Our operating philosophy','ManualH2'),*definitions(software['philosophy']),para('How PLS supports the organization','ManualH2'),*definitions(software['organizationalValue']),para('Modules and manual coverage','ManualH2'),para('Only enabled modules and permitted actions appear in your workspace. This overview does not grant access.')])
@@ -211,15 +303,24 @@ for part,module in enumerate(modules,1):
         story.extend([PageBreakIfNotEmpty(),heading(f'{part}.{chapter} {category}',1,f'{module["id"]}-chapter-{chapter}')])
         for number,article in enumerate(articles,1):
             procedure_count+=1
-            story.extend([heading(f'{part}.{chapter}.{number} {article["title"]}',2,f'{module["id"]}-{article["slug"]}'),para(article['concept']),para('Where to open it','ManualH3'),para(article['open'])])
-            if article.get('pilot'):story.extend(pilot_content(article['pilot']))
-            if article['kind']=='workflow':story.extend([diagram(module['id'])])
-            story.extend([para('Before you begin','ManualH3'),*steps(article['before'],False),para('Controls and fields','ManualH3'),*definitions([(c['name'],c['description']) for c in article['controls']]),para('Step-by-step procedure','ManualH3'),*steps(article['steps']),para('Expected outcome and verification','ManualH3'),para(article['after']),para(article['verify']),para('Worked example','ManualH3'),para('Situation. '+article['example']['situation']+' Action. '+article['example']['action']+' Expected outcome. '+article['example']['expected'],'ManualExample'),para('Troubleshooting and recovery','ManualH3'),para(article['recovery'])])
-            if article['related']:
-                story.append(para('Related procedures','ManualH3'))
-                for slug in article['related']:
-                    related = article_by_slug[slug]
-                    story.append(Paragraph(f'<link href="#{module["id"]}-{slug}" color="#1b5e20">{escape(clean(related["title"]))}</link>', styles['ManualBody']))
+            if article.get('procedure'):
+                story.append(heading(f'{part}.{chapter}.{number} {article["title"]}',2,f'{module["id"]}-{article["slug"]}'))
+                story.extend(test_panel_procedure_content(article))
+            else:
+                story.extend([heading(f'{part}.{chapter}.{number} {article["title"]}',2,f'{module["id"]}-{article["slug"]}'),para(article['concept']),para('Where to open it','ManualH3'),para(article['open'])])
+                if article.get('pilot'):story.extend(pilot_content(article['pilot']))
+                if article['kind']=='workflow':story.extend([diagram(module['id'])])
+                story.extend([para('Before you begin','ManualH3'),*steps(article['before'],False),para('Controls and fields','ManualH3'),*definitions([(c['name'],c['description']) for c in article['controls']]),para('Step-by-step procedure','ManualH3'),*steps(article['steps'])])
+                for section in article.get('sections', []):
+                    story.extend([para(section['title'], 'ManualH3'), *[para(text) for text in section['paragraphs']]])
+                    if section.get('checklist'):
+                        story.extend([para('Review checklist', 'ManualH3'), *steps(section['checklist'], False)])
+                story.extend([para('Expected outcome and verification','ManualH3'),para(article['after']),para(article['verify']),para('Worked example','ManualH3'),para('Situation. '+article['example']['situation']+' Action. '+article['example']['action']+' Expected outcome. '+article['example']['expected'],'ManualExample'),para('Troubleshooting and recovery','ManualH3'),para(article['recovery'])])
+                if article['related']:
+                    story.append(para('Related procedures','ManualH3'))
+                    for slug in article['related']:
+                        related = article_by_slug[slug]
+                        story.append(Paragraph(f'<link href="#{module["id"]}-{slug}" color="#1b5e20">{escape(clean(related["title"]))}</link>', styles['ManualBody']))
     story.extend([PageBreakIfNotEmpty(),heading(f'{part}. Practice and competency check',1,module['id']+'-practice'),para('Work through the recommended learning order in the training environment. Use the worked examples in each procedure and record the saved references so that you can verify each handoff.'),para('Independent practice','ManualH2'),*steps([
         'Confirm the correct branch and active role, then locate the relevant record and identify its current status.',
         'Explain the prerequisites, required fields and responsible person before taking an action.',
@@ -237,9 +338,22 @@ for part,module in enumerate(modules,1):
 doc.multiBuild(story)
 from pypdf import PdfReader
 reader=PdfReader(str(target));all_text='\n'.join(page.extract_text() or '' for page in reader.pages)
+normalized_text=' '.join(all_text.split())
 assert len(reader.pages)>10
 assert all(article['title'] in all_text or clean(article['title']) in all_text for module in modules for article in module['articles'])
 assert '\ufffd' not in all_text
+panel_setup = next(article for module in modules for article in module['articles'] if article['slug'] == 'test-panel-setup')
+assert all(section['title'] in all_text for section in panel_setup['sections'])
+assert panel_setup['procedure']['id'] in all_text
+assert all(figure['figure']+' pending' in all_text for figure in panel_setup['procedure']['screenshotsPending'])
+assert 'P-OPS-001' in all_text
+assert 'Test Fields plans: purpose, configuration, and safe example' in normalized_text
+assert all(plan in normalized_text for plan in ['Dropdown', 'Reference', 'Range (M/F/Child/Neonate)', 'Fetal Biometry (Hadlock)', 'Compare (<=/>=)', 'Date & Time'])
+assert 'Critical-value actions and what each selection controls' in normalized_text
+assert 'Require acknowledgement' in normalized_text and 'Hold electronic delivery and portal release' in normalized_text
+assert 'Evidence register' not in all_text and 'server-side enforcement' not in all_text
+assert 'Application revision:' not in all_text and 'Verified (source)' not in all_text
+assert 'Save All Changes' in all_text and 'approved laboratory source' in all_text
 summary={'file':str(target),'pages':len(reader.pages),'procedures':procedure_count,'words':len(all_text.split()),'modules':{module['id']:len(module['articles']) for module in modules}}
 validation_dir = BASE / 'tmp/pdfs'
 validation_dir.mkdir(parents=True, exist_ok=True)
