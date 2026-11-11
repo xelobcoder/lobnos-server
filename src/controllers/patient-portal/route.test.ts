@@ -363,6 +363,16 @@ describe('patient portal authentication boundaries', () => {
           expect(res.send.mock.calls[0][0]).not.toHaveProperty('accessToken');
      });
 
+     it('returns the patient cooldown duration and Retry-After without a session token', async () => {
+          mocks.authenticate.mockResolvedValue({ ok: false, reason: 'LOCKED', retryAfter: 300 });
+          const res = response();
+          await authenticatePatientPortal({query:{tenantId:'4'},body:{username:'P21',password:'wrong'}} as any,res as any);
+          expect(res.status).toHaveBeenCalledWith(429);
+          expect(res.setHeader).toHaveBeenCalledWith('Retry-After','300');
+          expect(res.json).toHaveBeenCalledWith(expect.objectContaining({code:'LOGIN_COOLDOWN',retryAfter:300}));
+          expect(res.send).not.toHaveBeenCalled();
+     });
+
      it('allows a real HTTP login without a prior token and uses its cookie only on patient APIs', async () => {
           mocks.authenticate.mockResolvedValue({
                ok: true, account: { session_version: 2 },

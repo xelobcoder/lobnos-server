@@ -18,7 +18,9 @@ import { LoginEntityType, parseLoginUsername } from "../../models/auth/TenantLog
 import { TenantRegistry } from "../../models/Tenancy/TenantRegistry";
 import { PasswordRecoveryService } from "../../models/auth/PasswordRecoveryService";
 import { clinicianCredentialVersion, clinicianCredentialMatches, revokePasswordSessions } from "../../models/auth/passwordSessions";
-import { LOCKOUT_MINUTES, PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
+import { PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
+import { LoginCooldownError } from '../../models/auth/LoginAttemptSecurity';
+import { verifyPractitionerCredentials } from '../../models/auth/PractitionerLoginSecurity';
 import { recordPortalAudit } from "../../models/patient-portal/PatientPortalAudit";
 
 const recoveryResponse = "If the account and email address are registered, password recovery instructions will be sent.";
@@ -229,8 +231,10 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 		const access = await (await consultationDb(tenantId))('practitioner_access').where({clinicianid:clinician.clinicianid}).first();
 		if(!access || !Number(access.enabled) || access.staff_employeeid) return customError("Practitioner access is disabled or requires your staff login. Contact your facility.",403,res);
 
-		const matched = await passwordMatches(password, clinician.password, clinician.ispasswordUpdated);
-		if (!matched) return customError("Invalid credentials", 401, res);
+		const verified = await verifyPractitionerCredentials(connection, clinician.clinicianid,
+			credentials => passwordMatches(password, credentials.password, credentials.ispasswordUpdated));
+		if (!verified) return customError("Invalid credentials", 401, res);
+		Object.assign(clinician, verified);
 
 		const user = {
 			role: "clinician",
@@ -244,6 +248,10 @@ export const authenticateClinicianPortal = async (req: Request<{}, {}, { usernam
 		}, "12h");
 		res.send({ message: "Clinician authenticated", statusCode: 200, status: "success", accessToken: token, token, user: { ...user, tenantId: effectiveTenantId(tenantId) }, tenantId: effectiveTenantId(tenantId) });
 	} catch (err) {
+		if (err instanceof LoginCooldownError) {
+			res.setHeader('Retry-After', String(err.retryAfter));
+			return res.status(429).json({status:'error',statusCode:429,code:err.code,retryAfter:err.retryAfter,message:err.message});
+		}
 		logger.error(err);
 		customError("Something wrong has occurred", 500, res);
 	}
@@ -266,7 +274,9 @@ export const authenticatePatientPortal = async (req: Request<{}, {}, { username?
 		if (!outcome.ok) {
 			await recordPortalAudit(tenantId, { patientid: patientId, actorType: 'public', action: `login.failed.${String(outcome.reason).toLowerCase()}`, ipAddress: ip });
 			if (outcome.reason === 'LOCKED') {
-				return res.status(423).json({ status: 'error', statusCode: 423, code: 'ACCOUNT_LOCKED', message: `Too many failed attempts. Try again in ${LOCKOUT_MINUTES} minutes or reset your password.` });
+				const retryAfter = outcome.retryAfter || 60;
+				res.setHeader('Retry-After', String(retryAfter));
+				return res.status(429).json({ status: 'error', statusCode: 429, code: 'LOGIN_COOLDOWN', retryAfter, message: new LoginCooldownError(retryAfter).message });
 			}
 			if (outcome.reason === 'PORTAL_DISABLED') {
 				return res.status(403).json({ status: 'error', statusCode: 403, code: 'PORTAL_DISABLED', message: 'The patient portal is not available for this facility.' });

@@ -2,6 +2,7 @@ import KnexConnection from '../../database/KnexConnections';
 import bcrypt from 'bcrypt';
 import { pinAttemptLimit } from '../../models/security/StaffPinSecurity';
 import { AuthUser } from '../../middleware/authority';
+import { normalizeRole } from '../../middleware/roles';
 import {
      FinancialPinContext,
      FinancialPinVerificationResult,
@@ -28,7 +29,9 @@ export class FinancialPinVerificationService implements IFinancialPinVerificatio
      }
 
      private async verifyAndRecord(actor: AuthUser, pin: string, context: FinancialPinContext): Promise<FinancialPinVerificationResult> {
-          if (actor.tenantId !== this.tenantId) throw new FinancialPinError('Unable to validate PIN', 'INVALID_PIN');
+          if (actor.tenantId !== this.tenantId || !actor.role || ['patient', 'clinician', 'organization', 'outsourced'].includes(normalizeRole(actor.role))) {
+               throw new FinancialPinError('Staff authentication is required to validate a staff PIN', 'INVALID_PIN');
+          }
           // Deliberately independent of financial transactions: rejected actions must not roll
           // back failed attempts or their audit records.
           const connection = await KnexConnection(this.tenantId);

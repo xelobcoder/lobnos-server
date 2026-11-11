@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { clearLoginAttempts } from '../auth/LoginAttemptSecurity';
 import { createHash, randomBytes } from 'crypto';
 import { z } from 'zod';
 import { clinicalError, clinicalAudit } from './ConsultationSchema';
@@ -147,5 +148,7 @@ export class PractitionerAccessService {
     async accept(token: string, password: unknown) { const validPassword = validatePortalPassword(password); const verified = await this.verify(token); const hash = await bcrypt.hash(validPassword, 10); return this.db.transaction(async (trx: any) => { await trx('clinicianbasicinfo').where({ id: verified.invitation.clinicianid }).forUpdate().first(); const invitation = await trx('practitioner_invitations').where({ id: verified.invitation.id }).forUpdate().first(); if (invitation.used_at || invitation.revoked_at || new Date(invitation.expires_at).getTime() <= Date.now())
         clinicalError('This invitation is invalid, expired or already used'); const access = await trx('practitioner_access').where({ clinicianid: invitation.clinicianid }).first(); if (!access || access.staff_employeeid)
         clinicalError('Invitation is unavailable'); const credentials = { password: hash, ispasswordUpdated: 1, login_username: verified.username }; const updated = await trx('clinicianscredentials').where({ clinicianid: invitation.clinicianid }).update(credentials); if (!updated)
-        clinicalError('Practitioner credentials are unavailable'); await trx('practitioner_access').where({ clinicianid: invitation.clinicianid }).update({ enabled: true, version: Number(access.version) + 1, updated_at: new Date() }); await trx('practitioner_invitations').where({ id: invitation.id }).update({ used_at: new Date() }); await clinicalAudit(trx, { employeeid: invitation.clinicianid, role: 'clinician' }, 'practitioner', invitation.clinicianid, 'activated'); return { username: verified.username }; }); }
+        clinicalError('Practitioner credentials are unavailable');
+        await clearLoginAttempts(trx, 'clinician', Number(invitation.clinicianid));
+        await trx('practitioner_access').where({ clinicianid: invitation.clinicianid }).update({ enabled: true, version: Number(access.version) + 1, updated_at: new Date() }); await trx('practitioner_invitations').where({ id: invitation.id }).update({ used_at: new Date() }); await clinicalAudit(trx, { employeeid: invitation.clinicianid, role: 'clinician' }, 'practitioner', invitation.clinicianid, 'activated'); return { username: verified.username }; }); }
 }

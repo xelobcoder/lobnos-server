@@ -15,6 +15,7 @@ import { FinancialPinVerificationService } from "../../accountingModule/services
 import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
 import { PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
+import { LoginCooldownError } from '../../models/auth/LoginAttemptSecurity';
 export class AuthController {
 	private tokenValidator: TokenValidator;
 
@@ -102,7 +103,12 @@ export class AuthController {
 				}
 			});
 		} catch (error: any) {
-			res.status(400).json({ message: error.message });
+			if (error instanceof LoginCooldownError) {
+				res.setHeader('Retry-After', String(error.retryAfter));
+				res.status(429).json({ status: false, statusCode: 429, code: error.code, retryAfter: error.retryAfter, message: error.message });
+				return;
+			}
+			res.status(503).json({ status: false, message: 'Sign-in is temporarily unavailable. Please try again shortly.' });
 		}
 	}
 

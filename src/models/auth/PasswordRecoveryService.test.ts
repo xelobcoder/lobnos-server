@@ -33,7 +33,7 @@ vi.mock('../application/email/services/ProviderFactory', () => ({
 import { PasswordRecoveryService } from './PasswordRecoveryService';
 
 function database(accounts: Record<string, Row[]>) {
-     const tables: Record<string, Row[]> = { password_reset_otps: [], ...accounts };
+     const tables: Record<string, Row[]> = { password_reset_otps: [], login_attempt_security: [], portal_login_attempt_security: [], ...accounts };
      const failures = { revoke: false };
      const connection = (table: string) => {
           const name = table.split(' as ')[0];
@@ -202,11 +202,14 @@ describe('tenant-local password recovery', () => {
           ['clinician', 'clinicianscredentials', { ispasswordUpdated: 1 }],
      ] as const)('updates %s password flags without changing other accounts', async (type, table, flags) => {
           const { service, tables } = setup();
+          tables.portal_login_attempt_security.push({account_type:type,account_id:42,level:2}, {account_type:type,account_id:43,level:3}, {account_type:type==='patient'?'clinician':'patient',account_id:42,level:4});
           seed(tables, { entity_type: type, verified_at: new Date() });
           expect(await service.resetPassword(type, 42, '123456', 'new-password')).toBe(true);
           expect(tables[table][0]).toMatchObject({ password: 'hashed:new-password', ...flags });
           expect(tables.roles[0].password).toBe('old');
           expect(tables.patient_portal_accounts.map(row => row.session_version)).toEqual(type === 'patient' ? [4, 7] : [3, 7]);
+          expect(tables.portal_login_attempt_security).toHaveLength(2);
+          expect(tables.portal_login_attempt_security.some(row=>row.account_type===type&&row.account_id===42)).toBe(false);
      });
 
      it('rolls back the password and preserves the OTP if session revocation fails', async () => {

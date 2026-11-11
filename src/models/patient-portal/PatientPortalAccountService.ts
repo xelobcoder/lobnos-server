@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { clearLoginAttempts, ensurePortalLoginAttemptSecurity, verifyPortalPassword } from '../auth/LoginAttemptSecurity';
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { Knex } from 'knex';
 import logger from '../../hooks/logger';
@@ -111,6 +112,7 @@ export interface PortalLoginResult {
      reason?: 'INVALID' | 'LOCKED' | 'DISABLED' | 'PORTAL_DISABLED';
      account?: any;
      patient?: any;
+     retryAfter?: number;
 }
 
 export class PatientPortalAccountService {
@@ -163,6 +165,7 @@ export class PatientPortalAccountService {
                     failed_attempts: 0, activated_at: now, updated_at: now,
                });
           }
+          await clearLoginAttempts(trx, 'patient', patientid);
           return loginUsername;
      }
 
@@ -477,6 +480,7 @@ export class PatientPortalAccountService {
           const settings = await this.settings();
           if (!settings.portal_enabled || !/^\d{6}$/.test(String(input.code || ''))) throw invalid;
           const connection = await this.connection();
+          await ensurePortalLoginAttemptSecurity(connection);
           const patient = await this.matchPatient(connection, input);
           if (!patient) throw invalid;
 
@@ -499,6 +503,7 @@ export class PatientPortalAccountService {
                await trx('patient_portal_accounts').where({ patientid: patient.patientid }).update({
                     failed_attempts: 0, locked_until: null, session_version: Number(account.session_version || 1) + 1, updated_at: now,
                });
+               await clearLoginAttempts(trx, 'patient', Number(patient.patientid));
                return { patientid: Number(patient.patientid), loginUsername: await formatTenantLoginUsername(this.tenantId, 'patient', Number(patient.patientid)) };
           });
           if (!outcome || outcome === 'mismatch') throw invalid;
@@ -511,32 +516,31 @@ export class PatientPortalAccountService {
           const settings = await this.settings();
           if (!settings.portal_enabled) return { ok: false, reason: 'PORTAL_DISABLED' };
           const connection = await this.connection();
-          const account = await connection('patient_portal_accounts').where({ patientid }).first();
-          const credentials = await connection('patients_credentials as pc')
+          await ensurePortalLoginAttemptSecurity(connection);
+          return connection.transaction<PortalLoginResult>(async trx => {
+          const account = await trx('patient_portal_accounts').where({ patientid }).forUpdate().first();
+          const credentials = await trx('patients_credentials as pc')
                .leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')
                .select('pc.password', 'np.patientid', 'np.firstname', 'np.lastname', 'np.email', 'np.fullpatientid')
                .where('pc.patientid', patientid).first();
           // Compare a hash even when the account is missing so response timing does not reveal which IDs exist.
           const storedHash = account && credentials && String(credentials.password || '').startsWith('$2')
                ? String(credentials.password) : await dummyHash();
-          const matched = await bcrypt.compare(String(password || ''), storedHash);
-          if (!account || !credentials || !credentials.patientid) return { ok: false, reason: 'INVALID' };
-          if (account.status !== 'active') return { ok: false, reason: 'DISABLED' };
-          if (account.locked_until && new Date(account.locked_until).getTime() > Date.now()) return { ok: false, reason: 'LOCKED' };
-
-          if (!matched || storedHash !== credentials.password) {
-               const failures = Number(account.failed_attempts || 0) + 1;
-               const lock = failures >= MAX_FAILED_LOGINS;
-               await connection('patient_portal_accounts').where({ patientid }).update({
-                    failed_attempts: lock ? 0 : failures,
-                    locked_until: lock ? new Date(Date.now() + LOCKOUT_MINUTES * 60_000) : account.locked_until,
-                    updated_at: new Date(),
-               });
-               return { ok: false, reason: lock ? 'LOCKED' : 'INVALID' };
+          if (!account || !credentials || !credentials.patientid) {
+               await bcrypt.compare(String(password || ''), storedHash);
+               return { ok: false, reason: 'INVALID' };
           }
-          await connection('patient_portal_accounts').where({ patientid })
+          if (account.status !== 'active') return { ok: false, reason: 'DISABLED' };
+          const legacyRemaining = account.locked_until ? new Date(account.locked_until).getTime() - Date.now() : 0;
+          if (legacyRemaining > 0) return { ok: false, reason: 'LOCKED', retryAfter: Math.ceil(legacyRemaining / 1000) };
+          const attempt = await verifyPortalPassword(trx, 'patient', patientid,
+               async () => await bcrypt.compare(String(password || ''), storedHash) && storedHash === credentials.password);
+          if (attempt.retryAfter) return { ok: false, reason: 'LOCKED', retryAfter: attempt.retryAfter };
+          if (!attempt.matched) return { ok: false, reason: 'INVALID' };
+          await trx('patient_portal_accounts').where({ patientid })
                .update({ failed_attempts: 0, locked_until: null, last_login_at: new Date(), updated_at: new Date() });
           return { ok: true, account, patient: credentials };
+          });
      }
 
      /** Confirms a token still represents an active account; any logout or disable bumps the version. */

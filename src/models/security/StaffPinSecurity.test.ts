@@ -67,6 +67,13 @@ const context = { purpose: 'identity_confirmation', ipAddress: '127.0.0.1' };
 const verify = (pin: string, user = actor) => new FinancialPinVerificationService(user.tenantId).verify(user, pin, context);
 
 describe('staff authorization PIN counters', () => {
+     it.each(['clinician', 'patient', 'organization', 'outsourced'])('rejects %s identities before looking up overlapping staff IDs', async role => {
+          const data = database();
+          mocks.connection.mockResolvedValue(data.db);
+          await expect(new FinancialPinVerificationService(42).verify({ ...actor, role }, 'wrong', { purpose: 'generic' } as any)).rejects.toMatchObject({ code: 'INVALID_PIN' });
+          expect(data.tables.staff_pin_security).toHaveLength(0);
+          expect(data.tables.financial_authorization_attempts).toHaveLength(0);
+     });
      let data: ReturnType<typeof database>;
      beforeEach(() => {
           vi.clearAllMocks();

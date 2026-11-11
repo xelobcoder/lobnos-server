@@ -17,10 +17,10 @@ vi.mock('../../models/clinician-portal/ClinicianPortalResultService', async (imp
 import { clinicianPortalRouter } from './route';
 
 const clinician = { role: 'clinician', clinicianid: 7, employeeid: 7, tenantId: 4 };
-async function call(path: string, user: any = clinician) {
+async function call(path: string, user: any = clinician, practitioner?: any) {
      const app = express();
      // The real app sets authUser in checkTokenExists; this exercises the router's own boundary.
-     app.use((req, _res, next) => { (req as any).authUser = user; next(); });
+     app.use((req, _res, next) => { (req as any).authUser = user; (req as any).practitioner = practitioner; next(); });
      app.use(clinicianPortalRouter);
      const server = app.listen(0, '127.0.0.1');
      await once(server, 'listening');
@@ -39,6 +39,14 @@ beforeEach(() => {
 });
 
 describe('clinician portal results router', () => {
+     it('uses the same linked practitioner scope for staff request lists and result details', async () => {
+          const user={role:'doctor',employeeid:20,tenantId:4,branch:2};
+          const access={clinicianid:7,staff_employeeid:20,branchid:2};
+          expect((await call('requests?from=2026-11-01&to=2026-11-11',user,access)).status).toBe(200);
+          expect((await call('results/900',user,access)).status).toBe(200);
+          expect(mocks.results).toHaveBeenCalledWith(7,900,2);
+          expect((await call('results/900?clinicianid=8',user,access)).status).toBe(403);
+     });
      it('uses the session clinician and tenant', async () => {
           const response = await call('results/900?clinicianid=7&tenantId=99');
           expect(response.status).toBe(200);

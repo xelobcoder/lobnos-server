@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import KnexConnection from "../../../database/KnexConnections";
+import { ensureLoginAttemptSecurity, verifyStaffPassword, LoginCooldownError } from '../../auth/LoginAttemptSecurity';
 
 export default class AuthenticationRepository {
     private connection;
@@ -23,10 +24,19 @@ export default class AuthenticationRepository {
     }
 
     async validatePassword(identifier: string, password: string): Promise<any | null> {
-        const user = await this.getUserByLoginIdentifier(identifier);
-        if (!user) return null;
-        const passwordMatched = await bcrypt.compare(password, user.password);
-        return passwordMatched ? user : null;
+        const match = String(identifier || '').trim().match(/^S(\d+)$/i);
+        if (!match || !Number.isSafeInteger(Number(match[1])) || Number(match[1]) <= 0 || typeof password !== 'string' || !password) return null;
+        const connection = await this.connection;
+        await ensureLoginAttemptSecurity(connection);
+        const result = await connection.transaction(async trx => {
+            const user = await trx('roles').where({ employeeid: Number(match[1]) }).forUpdate().first();
+            if (!user) return { user: null, retryAfter: undefined };
+            const attempt = await verifyStaffPassword(trx, Number(user.employeeid), () => bcrypt.compare(password, user.password));
+            return { user: attempt.matched ? user : null, retryAfter: attempt.retryAfter };
+        });
+        // Throw after commit so failed attempts survive the rejected login.
+        if (result.retryAfter) throw new LoginCooldownError(result.retryAfter);
+        return result.user;
     }
 
     async generateAccessToken(email: string, claims: Record<string, unknown> = {}, expiresInSeconds?: number): Promise<string> {

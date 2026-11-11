@@ -16,6 +16,7 @@ import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker 
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
 import { bootstrapLoginAccountSchema } from '../models/auth/LoginUsernameBootstrapper';
+import { ensureLoginAttemptSecurity } from '../models/auth/LoginAttemptSecurity';
 import { ensureStaffAccessSchema } from '../models/auth/StaffAccessSchema';
 import KnexConnection from '../database/KnexConnections';
 import { ensureOrganizationDirectorySchema } from '../models/organization/OrganizationDirectorySchema';
@@ -89,6 +90,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false, 
 	await ensureTenantCollationDefault(await KnexConnection(tenantId));
 	if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
 	await bootstrapLoginAccountSchema(tenantId);
+	await ensureLoginAttemptSecurity(await KnexConnection(tenantId));
 	await ensureStaffAccessSchema(await KnexConnection(tenantId));
 	await ensureOrganizationDirectorySchema(await KnexConnection(tenantId));
 	await bootstrapInventoryDefaults(tenantId);

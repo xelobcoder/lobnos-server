@@ -4,6 +4,9 @@ import { ownsEncounter, patientScope, practitioner } from './ConsultationPolicy'
 import { clinicianRouteAllowed, staffPractitionerAccountRoute, practitionerBoundary } from '../../middleware/practitionerBoundary';
 import { vitalInput } from './ConsultationService';
 describe('Clinical identity and API boundary', () => {
+    it('denies external practitioners access to staff PIN verification', () => {
+        expect(clinicianRouteAllowed('POST', '/api/v1/prime/validate-user-pin', 7)).toBe(false);
+    });
     it('lets an already authenticated staff doctor validate their login and reach setup status without a practitioner profile',async()=>{
         for(const path of ['/api/v1/prime/validate-token','/api/v1/prime/my-roles','/api/v1/consultation/capabilities']){
             const next=vi.fn(),res={status:vi.fn().mockReturnThis(),json:vi.fn()};

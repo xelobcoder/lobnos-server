@@ -271,6 +271,7 @@ describe('patient portal accounts and invitation management', () => {
           await expect(service.acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure123'))
                .rejects.toMatchObject({ code: 'INVITATION_INVALID' });
           expect(queries.filter(query => query.sql.startsWith('insert into `patients_credentials`'))).toHaveLength(1);
+          expect(queries.some(query => query.sql.startsWith('delete from `portal_login_attempt_security`') && query.bindings.includes('patient') && query.bindings.includes(21))).toBe(true);
      });
 
      it.each(['expired', 'revoked'])('rejects %s invitation redemption without creating credentials', async state => {
@@ -301,6 +302,6 @@ describe('patient portal accounts and invitation management', () => {
                ok: true, account: { session_version: 2 }, patient: { patientid: 21 },
           });
           await expect(service.authenticate(21, 'wrong')).resolves.toEqual({ ok: false, reason: 'INVALID' });
-          expect(queries.some(query => query.sql.includes('`failed_attempts` = ?') && query.bindings.includes(1))).toBe(true);
+          expect(queries.some(query => query.sql.startsWith('insert into `portal_login_attempt_security`') && query.bindings.includes(1))).toBe(true);
      });
 });

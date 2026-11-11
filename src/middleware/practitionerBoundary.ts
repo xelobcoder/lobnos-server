@@ -13,7 +13,7 @@ export function clinicianRouteAllowed(method: string, path: string, clinicianid:
     const p = path.split('?')[0].replace(/\/$/, '');
     if (method === 'GET' && ['/api/v1/prime/validate-token', '/api/v1/settings/companyprofile/images', '/api/v1/notifications/inbox', '/api/v1/notifications/inbox/unread-count', '/api/v1/user/permissions'].includes(p))
         return true;
-    if (method === 'POST' && ['/api/v1/logins/logout', '/api/v1/logins/reset-password', '/api/v1/prime/validate-user-pin'].includes(p))
+    if (method === 'POST' && ['/api/v1/logins/logout', '/api/v1/logins/reset-password'].includes(p))
         return true;
     if (/^\/api\/v1\/consultation\/(?:capabilities|catalogue|pending|patients(?:\/\d+(?:\/vitals(?:\/\d+(?:\/history)?)?)?)?|encounters(?:\/\d+)?)$/.test(p))
         return true;

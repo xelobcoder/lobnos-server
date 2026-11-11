@@ -6,6 +6,7 @@ import { EmailProvidersRepo } from '../application/email/repositories/EmailProvi
 import { ProviderFactory } from '../application/email/services/ProviderFactory';
 import { LoginEntityType } from './TenantLoginDirectory';
 import { revokePasswordSessions } from './passwordSessions';
+import { clearLoginAttempts, ensureLoginAttemptSecurity } from './LoginAttemptSecurity';
 
 const OTP_TABLE = 'password_reset_otps';
 const OTP_EXPIRY_MINUTES = 10;
@@ -137,6 +138,7 @@ export class PasswordRecoveryService {
           if (password.length < 8) throw new Error('Password must be at least 8 characters long');
           if (!/^\d{6}$/.test(otp)) return false;
           const connection = await this.connection();
+          await ensureLoginAttemptSecurity(connection);
           const passwordHash = await bcrypt.hash(password, 10);
           return connection.transaction(async (trx) => {
                const row = await trx(OTP_TABLE)
@@ -174,6 +176,7 @@ export class PasswordRecoveryService {
 
                if (!updated) return false;
                await revokePasswordSessions(trx, entityType, entityId);
+               await clearLoginAttempts(trx, entityType, entityId);
                await trx(OTP_TABLE).where({ id: row.id }).del();
                return true;
           });

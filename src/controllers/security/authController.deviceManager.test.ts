@@ -27,15 +27,17 @@ vi.mock('../../accountingModule/services/FinancialPinVerificationService', () =>
 
 import AuthenticationRepository from '../../models/settings/users/AuthenticationRepository';
 import { AuthController } from './authController';
+import { LoginCooldownError } from '../../models/auth/LoginAttemptSecurity';
 
 const SECRET = 'device-manager-test-secret';
 beforeAll(() => { process.env.ACCESS_TOKEN_SECRET = SECRET; });
 afterEach(() => vi.restoreAllMocks());
 
-async function login(body: Record<string, unknown>, headers: Record<string, string> = {}) {
+async function login(body: Record<string, unknown>, headers: Record<string, string> = {}, failure?: Error) {
   vi.spyOn(AuthenticationRepository.prototype, 'validatePassword').mockResolvedValue({
     role: 'scientist', username: 'Ops User', employeeid: 7, activation: 1, email: 'ops@lab.test',
   });
+  if (failure) vi.mocked(AuthenticationRepository.prototype.validatePassword).mockRejectedValue(failure);
   mocks.initSession.mockResolvedValue({ loginSessionId: 'device-manager:abc', logoutTime: '2026-10-17 21:00:00' });
   const app = express();
   app.use(express.json());
@@ -48,7 +50,7 @@ async function login(body: Record<string, unknown>, headers: Record<string, stri
     const response = await fetch(`http://127.0.0.1:${port}/login?tenantId=3`, {
       method: 'POST', headers: { 'content-type': 'application/json', ...headers }, body: JSON.stringify(body),
     });
-    return { status: response.status, body: await response.json() };
+    return { status: response.status, retryAfter: response.headers.get('Retry-After'), body: await response.json() };
   } finally {
     server.closeAllConnections();
     await new Promise<void>((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -56,6 +58,17 @@ async function login(body: Record<string, unknown>, headers: Record<string, stri
 }
 
 describe('Device Manager login token expiry', () => {
+  it('returns an actionable cooldown over HTTP without creating a session', async () => {
+    mocks.initSession.mockClear();
+    const result=await login({username:'S7',password:'wrong'}, {}, new LoginCooldownError(60));
+    expect(result.status).toBe(429);expect(result.retryAfter).toBe('60');
+    expect(result.body).toMatchObject({status:false,code:'LOGIN_COOLDOWN',retryAfter:60});
+    expect(mocks.initSession).not.toHaveBeenCalled();
+  });
+  it('does not expose database errors in failed sign-in responses', async () => {
+    const result=await login({username:'S7',password:'wrong'}, {}, new Error('SELECT secret FROM credentials'));
+    expect(result.status).toBe(503);expect(JSON.stringify(result.body)).not.toContain('SELECT');
+  });
   it('returns accessTokenExpiresAt equal to the signed JWT exp (3h)', async () => {
     const before = Math.floor(Date.now() / 1000);
     const res = await login({ username: 'S7', password: 'pw', clientType: 'device-manager' }, { 'x-device-id': 'dev-1' });

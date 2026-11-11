@@ -42,7 +42,7 @@ clinicianPortalRouter.get(`${BASE}/requests`, async (req: Request, res: Response
 clinicianPortalRouter.get(`${BASE}/results/:billingid`, async (req: Request, res: Response) => {
      try {
           res.setHeader('Cache-Control', 'no-store');
-          const clinicianid = resolveClinicianScope((req as any).authUser, single(req.query.clinicianid));
+          const clinicianid = resolveClinicianScope(scopeActor(req), single(req.query.clinicianid));
           const tenantId = tenantOf(req);
           const raw = String(req.params.billingid || '');
           const billingid = /^\d+$/.test(raw) ? Number(raw) : NaN;

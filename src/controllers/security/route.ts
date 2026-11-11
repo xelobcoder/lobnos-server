@@ -9,6 +9,7 @@ import {
 	forceLogoutSession,
 } from "./handlers";
 import { AuthController } from "./authController";
+import { createRateLimiter } from '../../middleware/rateLimiter';
 import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { ResultAccessController } from "./result-acess-controller";
 import { AccessWindowsController } from "./access-windows-controller";
@@ -49,7 +50,7 @@ const checkLicenseAccess = async (req: express.Request, res: express.Response, n
 };
 
 
-router.post('/api/v1/prime/login', handleOverLoad(resolveLoginTenant('staff')), handleOverLoad(checkLicenseAccess), handleOverLoad((req: any, res: any) => authController.login(req, res)));
+router.post('/api/v1/prime/login', createRateLimiter({ windowMs: 60_000, max: 120 }), handleOverLoad(resolveLoginTenant('staff')), handleOverLoad(checkLicenseAccess), handleOverLoad((req: any, res: any) => authController.login(req, res)));
 router.post('/api/v1/prime/forgotpassword', handleOverLoad(requestPasswordResetOtp));
 router.post('/api/v1/prime/verify-reset-otp', handleOverLoad(verifyPasswordResetOtp));
 router.post('/api/v1/prime/resetpassword', handleOverLoad(resetPasswordWithOtp));

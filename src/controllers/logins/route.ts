@@ -17,6 +17,7 @@ import { checkTokenExists, isAuthorizedRoleAdmin } from "../../middleware/valida
 import { resolveLoginTenant } from "../../middleware/resolveLoginTenant";
 import { handleOverLoad } from "../../hooks/helper";
 import { requireOwnerRole } from "../../middleware/authority";
+import { createRateLimiter } from '../../middleware/rateLimiter';
 
 const router = express.Router();
 
@@ -31,8 +32,8 @@ router.put("/api/v1/user/authentication/activate", requireOwnerRole, activateUse
 router.get("/api/v1/user/permissions", checkTokenExists, requireOwnerRole, handleOverLoad(getUserPermissions));
 router.put("/api/v1/user/permissions", checkTokenExists, requireOwnerRole, updatePermissions);
 // Login is by username only; the tenant is resolved from the username (no email logins).
-router.post("/api/v1/login/clinician",  handleOverLoad(resolveLoginTenant('clinician')), handleOverLoad(authenticateClinicianPortal));
-router.post("/api/v1/login/patient", handleOverLoad(resolveLoginTenant('patient')), handleOverLoad(authenticatePatientPortal));
+router.post("/api/v1/login/clinician", createRateLimiter({windowMs:60_000,max:120}), handleOverLoad(resolveLoginTenant('clinician')), handleOverLoad(authenticateClinicianPortal));
+router.post("/api/v1/login/patient", createRateLimiter({windowMs:60_000,max:120}), handleOverLoad(resolveLoginTenant('patient')), handleOverLoad(authenticatePatientPortal));
 router.post("/api/v1/logins/logout", logoutUser);
 
 
