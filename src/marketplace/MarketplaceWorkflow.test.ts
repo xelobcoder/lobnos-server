@@ -206,11 +206,11 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
                name: 'New Laboratory', slug: 'new-lab', region: 'North', locality: 'Town',
                address: 'Street', phone: '12345678', contactEmail: 'public@example.invalid',
                description: 'Description', currency: 'GHS',
-               adminEmail: 'admin@example.invalid', adminPassword: 'a-strong-passphrase',
+               adminEmail: 'admin@example.invalid', adminPassword: 'a-strong-passphrase7',
           });
           expect((await service.listFacilities()).facilities).toHaveLength(0);
           expect(state.tables.marketplace_facilities[0].status).toBe('pending');
-          expect(state.tables.marketplace_staff[0].password_hash).not.toBe('a-strong-passphrase');
+          expect(state.tables.marketplace_staff[0].password_hash).not.toBe('a-strong-passphrase7');
           await service.approveFacility(10, { employeeId: 99 });
           expect(state.tables.marketplace_facilities[0].status).toBe('approved');
           expect((await service.listFacilities()).facilities).toHaveLength(1);
@@ -223,10 +223,10 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
                name: 'New Laboratory', slug: 'new-lab', region: 'North', locality: 'Town',
                address: 'Street', phone: '12345678', contactEmail: 'public@example.invalid',
                description: 'Description', currency: 'GHS',
-               adminEmail: 'admin@example.invalid', adminPassword: 'a-strong-passphrase',
+               adminEmail: 'admin@example.invalid', adminPassword: 'a-strong-passphrase7',
           });
           await service.approveFacility(10, { employeeId: 99 });
-          const login = await service.login({ facilitySlug: 'new-lab', email: 'admin@example.invalid', password: 'a-strong-passphrase' });
+          const login = await service.login({ facilitySlug: 'new-lab', email: 'admin@example.invalid', password: 'a-strong-passphrase7' });
           const session = state.tables.marketplace_sessions[0];
           expect(session.token_hash).toBe(createHash('sha256').update(login.accessToken).digest('hex'));
           expect(session.token_hash).not.toBe(login.accessToken);
@@ -237,7 +237,7 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
           await expect(service.login({ facilitySlug: 'sample-lab', email: 'admin@example.invalid', password: 'bad-password' }))
                .rejects.toMatchObject({ statusCode: 401 });
           const freshSession = await service.login({
-               facilitySlug: 'new-lab', email: 'admin@example.invalid', password: 'a-strong-passphrase',
+               facilitySlug: 'new-lab', email: 'admin@example.invalid', password: 'a-strong-passphrase7',
           });
           const storedFreshSession = state.tables.marketplace_sessions.find(row =>
                row.token_hash === createHash('sha256').update(freshSession.accessToken).digest('hex'));

@@ -171,14 +171,14 @@ describe('tenant-local password recovery', () => {
      it('requires verification before reset, then consumes the code exactly once', async () => {
           const { service, tables } = setup();
           seed(tables);
-          expect(await service.resetPassword('staff', 42, '123456', 'new-password')).toBe(false);
+          expect(await service.resetPassword('staff', 42, '123456', 'New-Password2026')).toBe(false);
           expect(await service.verifyOtp('staff', 42, '123456')).toBe(true);
           const results = await Promise.all([
-               service.resetPassword('staff', 42, '123456', 'new-password'),
-               service.resetPassword('staff', 42, '123456', 'other-password'),
+               service.resetPassword('staff', 42, '123456', 'New-Password2026'),
+               service.resetPassword('staff', 42, '123456', 'Other-Password2026'),
           ]);
           expect(results).toEqual([true, false]);
-          expect(tables.roles[0].password).toBe('hashed:new-password');
+          expect(tables.roles[0].password).toBe('hashed:New-Password2026');
           expect(tables.roles[0].refresh_token).toBeNull();
           expect(tables.loginlogs.map(row => row.loggedout)).toEqual([true, true, false]);
           expect(tables.loginlogs[0].actualLogout).toBeInstanceOf(Date);
@@ -194,7 +194,7 @@ describe('tenant-local password recovery', () => {
           tables.password_reset_otps[0].attempts = 0;
           tables.password_reset_otps[0].expires_at = new Date(Date.now() - 1);
           expect(await service.verifyOtp('staff', 42, '123456')).toBe(false);
-          await expect(service.resetPassword('staff', 42, '123456', 'short')).rejects.toThrow('at least 8');
+          await expect(service.resetPassword('staff', 42, '123456', 'short')).rejects.toThrow('at least 12');
      });
 
      it.each([
@@ -204,8 +204,8 @@ describe('tenant-local password recovery', () => {
           const { service, tables } = setup();
           tables.portal_login_attempt_security.push({account_type:type,account_id:42,level:2}, {account_type:type,account_id:43,level:3}, {account_type:type==='patient'?'clinician':'patient',account_id:42,level:4});
           seed(tables, { entity_type: type, verified_at: new Date() });
-          expect(await service.resetPassword(type, 42, '123456', 'new-password')).toBe(true);
-          expect(tables[table][0]).toMatchObject({ password: 'hashed:new-password', ...flags });
+          expect(await service.resetPassword(type, 42, '123456', 'New-Password2026')).toBe(true);
+          expect(tables[table][0]).toMatchObject({ password: 'hashed:New-Password2026', ...flags });
           expect(tables.roles[0].password).toBe('old');
           expect(tables.patient_portal_accounts.map(row => row.session_version)).toEqual(type === 'patient' ? [4, 7] : [3, 7]);
           expect(tables.portal_login_attempt_security).toHaveLength(2);
@@ -216,7 +216,7 @@ describe('tenant-local password recovery', () => {
           const { service, tables, failures } = setup();
           seed(tables, { verified_at: new Date() });
           failures.revoke = true;
-          await expect(service.resetPassword('staff', 42, '123456', 'new-password')).rejects.toThrow('Session storage unavailable');
+          await expect(service.resetPassword('staff', 42, '123456', 'New-Password2026')).rejects.toThrow('Session storage unavailable');
           expect(tables.roles[0].password).toBe('old');
           expect(tables.password_reset_otps).toHaveLength(1);
           expect(tables.loginlogs.every(row => row.loggedout === false)).toBe(true);
@@ -225,7 +225,7 @@ describe('tenant-local password recovery', () => {
      it('leaves sessions untouched for an invalid reset code', async () => {
           const { service, tables } = setup();
           seed(tables, { verified_at: new Date() });
-          expect(await service.resetPassword('staff', 42, '654321', 'new-password')).toBe(false);
+          expect(await service.resetPassword('staff', 42, '654321', 'New-Password2026')).toBe(false);
           expect(tables.loginlogs.every(row => row.loggedout === false)).toBe(true);
           expect(tables.roles[0].password).toBe('old');
      });

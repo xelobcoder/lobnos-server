@@ -1,4 +1,6 @@
 import type { Knex } from 'knex';
+import { ensureSecurityActivity, recordSecurityActivity } from './SecurityActivity';
+export { clearLoginAttempts } from './SecurityActivity';
 
 const waits = [60, 300, 900, 1800, 3600];
 
@@ -26,6 +28,7 @@ export async function ensureLoginAttemptSecurity(db: Knex): Promise<void> {
 }
 
 export async function ensurePortalLoginAttemptSecurity(db: Knex): Promise<void> {
+    await ensureSecurityActivity(db);
     if (await db.schema.hasTable('portal_login_attempt_security')) return;
     try {
         await db.schema.createTable('portal_login_attempt_security', table => {
@@ -46,14 +49,6 @@ export function nextFailedLogin(state: { failures: number; level: number }, now:
     const level = Number(state.level);
     if (failures < (level === 0 ? 5 : 3)) return { failures, level, locked_until: 0 };
     return { failures: 0, level: Math.min(level + 1, waits.length), locked_until: now + waits[Math.min(level, waits.length - 1)] * 1000 };
-}
-
-export async function clearLoginAttempts(trx: Knex.Transaction, accountType: 'staff' | 'patient' | 'clinician', accountId: number): Promise<void> {
-    if (accountType === 'staff') {
-        await trx('login_attempt_security').where({ employeeid: accountId }).del();
-        return;
-    }
-    await trx('portal_login_attempt_security').where({ account_type: accountType, account_id: accountId }).del();
 }
 
 /** Caller holds the account row lock so aliases and concurrent processes share one counter. */
@@ -77,10 +72,17 @@ async function verifyPasswordAttempt(
 ): Promise<{ matched: boolean; retryAfter?: number }> {
     const state = await trx(table).where(identity).first() || { failures: 0, level: 0, locked_until: 0 };
     const remaining = Number(state.locked_until) - now;
-    if (remaining > 0) return { matched: false, retryAfter: Math.ceil(remaining / 1000) };
+    const type = String(identity.account_type || 'staff');
+    const id = Number(identity.account_id ?? identity.employeeid);
+    if (remaining > 0) {
+        await recordSecurityActivity(trx, type, id, 'login_blocked', Number(state.level), Number(state.locked_until));
+        return { matched: false, retryAfter: Math.ceil(remaining / 1000) };
+    }
     const matched = await verify();
     const next = matched ? { failures: 0, level: 0, locked_until: 0 } : nextFailedLogin(state, now);
     await trx(table).insert({ ...identity, ...next }).onConflict(Object.keys(identity)).merge(next);
+    const action = matched ? 'login_success' : next.locked_until ? 'login_locked' : 'login_failed';
+    await recordSecurityActivity(trx, type, id, action, next.level, Number(next.locked_until));
     const retryAfter = Number(next.locked_until) > now ? Math.ceil((Number(next.locked_until) - now) / 1000) : undefined;
     return { matched, retryAfter };
 }

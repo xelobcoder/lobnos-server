@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { passwordProblem } from '../auth/PasswordPolicy';
 import { clearLoginAttempts, ensurePortalLoginAttemptSecurity, verifyPortalPassword } from '../auth/LoginAttemptSecurity';
+import { recordSecurityActivity } from '../auth/SecurityActivity';
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { Knex } from 'knex';
 import logger from '../../hooks/logger';
@@ -531,7 +532,10 @@ export class PatientPortalAccountService {
           }
           if (account.status !== 'active') return { ok: false, reason: 'DISABLED' };
           const legacyRemaining = account.locked_until ? new Date(account.locked_until).getTime() - Date.now() : 0;
-          if (legacyRemaining > 0) return { ok: false, reason: 'LOCKED', retryAfter: Math.ceil(legacyRemaining / 1000) };
+          if (legacyRemaining > 0) {
+               await recordSecurityActivity(trx, 'patient', patientid, 'login_blocked', 0, new Date(account.locked_until).getTime());
+               return { ok: false, reason: 'LOCKED', retryAfter: Math.ceil(legacyRemaining / 1000) };
+          }
           const attempt = await verifyPortalPassword(trx, 'patient', patientid,
                async () => await bcrypt.compare(String(password || ''), storedHash) && storedHash === credentials.password);
           if (attempt.retryAfter) return { ok: false, reason: 'LOCKED', retryAfter: attempt.retryAfter };

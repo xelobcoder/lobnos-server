@@ -26,9 +26,12 @@ import { customError } from "../../hooks/helper";
 import {staffAccessOperation as staffAccess,switchStaffRole,refreshStaffRoleSession} from './StaffAccessController';
 import {TenantRegistry} from '../../models/Tenancy/TenantRegistry';
 import {getAuthUser} from '../../middleware/authority';
+import { securityActivity } from './SecurityActivityController';
 
 
 const router: Router = express.Router();
+router.get('/api/v1/security/activity', checkTokenExists, securityActivity);
+router.post('/api/v1/security/cooldowns/clear', checkTokenExists, securityActivity);
 
 const authController = new AuthController();
 

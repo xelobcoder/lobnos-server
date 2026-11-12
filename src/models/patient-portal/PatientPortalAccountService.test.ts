@@ -263,12 +263,12 @@ describe('patient portal accounts and invitation management', () => {
                return [];
           };
           const service = new PatientPortalAccountService(4);
-          await expect(service.acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure123'))
+          await expect(service.acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure-Example123'))
                .resolves.toMatchObject({ patientid: 21, loginUsername: 'PLS123-P21' });
           const locks = queries.filter(query => query.sql.includes('for update'));
           expect(locks[0].sql).toContain('`new_patients`');
           expect(locks[1].sql).toContain('`patient_portal_invitations`');
-          await expect(service.acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure123'))
+          await expect(service.acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure-Example123'))
                .rejects.toMatchObject({ code: 'INVITATION_INVALID' });
           expect(queries.filter(query => query.sql.startsWith('insert into `patients_credentials`'))).toHaveLength(1);
           expect(queries.some(query => query.sql.startsWith('delete from `portal_login_attempt_security`') && query.bindings.includes('patient') && query.bindings.includes(21))).toBe(true);
@@ -280,13 +280,13 @@ describe('patient portal accounts and invitation management', () => {
                revoked_at: state === 'revoked' ? new Date() : null,
                expires_at: new Date(Date.now() + (state === 'expired' ? -60_000 : 60_000)),
           }] : [];
-          await expect(new PatientPortalAccountService(4).acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure123'))
+          await expect(new PatientPortalAccountService(4).acceptInvitation(`PLS123.${'a'.repeat(43)}`, 'Secure-Example123'))
                .rejects.toMatchObject({ code: 'INVITATION_INVALID' });
           expect(queries.some(query => query.sql.startsWith('insert'))).toBe(false);
      });
 
      it('authenticates an activated patient using their actual bcrypt password and rejects a wrong password', async () => {
-          const password = await bcrypt.hash('Secure123', 10);
+          const password = await bcrypt.hash('Secure-Example123', 10);
           respond = query => {
                if (query.sql.startsWith('select') && query.sql.includes('from `patient_portal_accounts`')) {
                     return [{ patientid: 21, status: 'active', session_version: 2, failed_attempts: 0 }];
@@ -298,7 +298,7 @@ describe('patient portal accounts and invitation management', () => {
                return [];
           };
           const service = new PatientPortalAccountService(4);
-          await expect(service.authenticate(21, 'Secure123')).resolves.toMatchObject({
+          await expect(service.authenticate(21, 'Secure-Example123')).resolves.toMatchObject({
                ok: true, account: { session_version: 2 }, patient: { patientid: 21 },
           });
           await expect(service.authenticate(21, 'wrong')).resolves.toEqual({ ok: false, reason: 'INVALID' });

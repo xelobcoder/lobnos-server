@@ -82,7 +82,7 @@ describe('patient portal credentials and tokens', () => {
           for (const weak of ['', 'short1', 'allletters', '12345678', 'a1'.repeat(65), undefined]) {
                expect(() => validatePortalPassword(weak)).toThrow();
           }
-          expect(validatePortalPassword('Secure123')).toBe('Secure123');
+          expect(validatePortalPassword('Secure-Example123')).toBe('Secure-Example123');
      });
 
      it('parses only well-formed invitation tokens and stores them hashed', () => {

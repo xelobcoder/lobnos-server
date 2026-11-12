@@ -63,7 +63,7 @@ import { validateFacilityInput } from './FacilityInput';
 const input = validateFacilityInput({
      companyName: 'Example Lab', email: 'lab@example.test', phone: '0201234567', address: 'Example Street',
      countryId: 1, stateId: 2, districtId: 3, adminName: 'Administrator',
-     adminEmail: 'admin@example.test', adminPassword: 'a-long-test-password',
+     adminEmail: 'admin@example.test', adminPassword: 'a-long-test-password7',
 });
 const actor = { tenantId: 123456, employeeId: 9 };
 
