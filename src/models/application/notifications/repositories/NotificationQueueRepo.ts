@@ -67,6 +67,7 @@ export class NotificationQueueRepo {
           const connection = await this.connection;
           const query = connection('email_logs as el')
                .leftJoin('notification_queue as nq', 'nq.email_queue_id', 'el.queue_id')
+               .whereNotNull('nq.id')
                .select(
                     'el.id',
                     'el.queue_id as email_queue_id',

@@ -203,7 +203,7 @@ router.put('/api/v1/notifications/settings/:eventCode', handleOverLoad(async (re
 
 router.get('/api/v1/notifications/templates', handleOverLoad(async (req: NotificationRequest, res: Response) => {
      const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
-     const result = await req.notificationServices.templates.getTemplates(page, count);
+     const result = await req.notificationServices.templates.getTemplates(page, count, req.query.includeInactive === 'true');
      res.send({ status: 'success', statusCode: 200, result });
 }));
 

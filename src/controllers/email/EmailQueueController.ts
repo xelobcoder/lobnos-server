@@ -83,7 +83,10 @@ export class EmailQueueController {
 
      async getAnalytics(req: Request, res: Response) {
           try {
-               const days = req.query.days ? parseInt(req.query.days as string, 10) : 30;
+               const days = Number(req.query.days || 30);
+               if (!Number.isInteger(days) || days < 1 || days > 366) {
+                    return this.badRequest(res, new Error('Select a period between 1 and 366 days'));
+               }
                const { page, count } = parsePagination(req.query, { defaultCount: 50, maxCount: 200 });
                const result = await this.service.getAnalytics(days, page, count);
                res.send({ status: 'success', statusCode: 200, result });

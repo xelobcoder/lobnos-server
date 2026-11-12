@@ -22,6 +22,10 @@ import { verifyPractitionerCredentials } from "./PractitionerLoginSecurity";
 import { clearLoginAttempts, ensureLoginAttemptSecurity, LoginCooldownError } from "./LoginAttemptSecurity";
 import { clearAccountCooldown } from './SecurityActivity';
 import { securityActivity } from '../../controllers/security/SecurityActivityController';
+import { NotificationTemplatesRepo } from '../application/notifications/repositories/NotificationTemplatesRepo';
+import { EmailLogsRepo } from '../application/email/repositories/EmailLogsRepo';
+import { EmailQueueRepo } from '../application/email/repositories/EmailQueueRepo';
+import { NotificationQueueRepo } from '../application/notifications/repositories/NotificationQueueRepo';
 
 describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown and identity isolation", () => {
      let admin: mysql.Connection;
@@ -57,7 +61,9 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
                await db.schema.createTable("clinicianscredentials", (t) => {
                     t.integer("clinicianid").primary();
                     t.string("password");
+                    t.string('login_username');
                });
+               await db.schema.createTable('clinicianbasicinfo', t => { t.integer('id').primary(); t.string('name'); });
                await db.schema.createTable("patient_portal_accounts", (t) => {
                     t.integer("patientid").primary();
                     t.string("status");
@@ -70,6 +76,7 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
                await db.schema.createTable("patients_credentials", (t) => {
                     t.integer("patientid").primary();
                     t.string("password");
+                    t.string('login_username');
                });
                await db.schema.createTable("new_patients", (t) => {
                     t.integer("patientid").primary();
@@ -83,9 +90,10 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
                     { employeeid: 7, password: hash, username: `Facility ${index + 1} Training Staff`, login_username: 'S0007' },
                     { employeeid: 99, password: hash, username: `Facility ${index + 1} Administrator`, login_username: 'S0099' },
                ]);
-               await db("clinicianscredentials").insert({ clinicianid: 7, password: hash });
+               await db("clinicianscredentials").insert({ clinicianid: 7, password: hash, login_username:'C0007' });
+               await db('clinicianbasicinfo').insert({id:7,name:`Facility ${index + 1} Practitioner`});
                await db("patient_portal_accounts").insert({ patientid: 7, status: "active", session_version: 3 });
-               await db("patients_credentials").insert({ patientid: 7, password: hash });
+               await db("patients_credentials").insert({ patientid: 7, password: hash, login_username:'P0007' });
                await db("new_patients").insert({ patientid: 7, firstname: "Training" });
           }
           mocks.connection.mockImplementation(async (tenant: number) => databases[tenant - 1].db);

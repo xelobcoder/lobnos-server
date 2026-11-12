@@ -18,23 +18,33 @@ export async function securityActivity(req: Request, res: Response) {
             return res.json({ success: true, data: result });
         }
         const page = Number(req.query.page || 1);
-        if (!Number.isSafeInteger(page) || page < 1 || page > 1000000) {
+        const cooldownPage = Number(req.query.cooldownPage || 1);
+        if (![page, cooldownPage].every(value => Number.isSafeInteger(value) && value >= 1 && value <= 1000000)) {
             return res.status(400).json({ success: false, error: { message: 'Invalid page' } });
         }
         const sources = [
-            { type: 'staff', table: 'roles', column: 'employeeid', nameFields: ['username'], loginField: 'login_username' },
-            { type: 'patient', table: 'new_patients', column: 'patientid', nameFields: ['firstname', 'lastname'], loginField: '' },
-            { type: 'clinician', table: 'clinicianbasicinfo', column: 'id', nameFields: ['name'], loginField: '' },
+            { type: 'staff', table: 'roles', column: 'employeeid', nameFields: ['username'], loginTable: 'roles', loginColumn: 'employeeid' },
+            { type: 'patient', table: 'new_patients', column: 'patientid', nameFields: ['firstname', 'lastname'], loginTable: 'patients_credentials', loginColumn: 'patientid' },
+            { type: 'clinician', table: 'clinicianbasicinfo', column: 'id', nameFields: ['name'], loginTable: 'clinicianscredentials', loginColumn: 'clinicianid' },
         ];
         const availableSources = [];
         for (const source of sources) {
             if (!await db.schema.hasTable(source.table)) continue;
             const fields: string[] = [];
-            for (const field of [...source.nameFields, source.loginField].filter(Boolean)) {
-                if (await db.schema.hasColumn(source.table, field)) fields.push(field);
+            for (const field of source.nameFields) {
+                if (await db.schema.hasColumn(source.table, field)) fields.push(`${source.table}.${field}`);
             }
-            if (fields.length) availableSources.push({ ...source, fields });
+            const hasLogin = await db.schema.hasTable(source.loginTable) && await db.schema.hasColumn(source.loginTable, 'login_username');
+            if (hasLogin) fields.push(`${source.loginTable}.login_username`);
+            if (fields.length) availableSources.push({ ...source, fields, hasLogin });
         }
+        const accountQuery = (source: typeof availableSources[number]) => {
+            const account = db(source.table);
+            if (source.hasLogin && source.loginTable !== source.table) {
+                account.leftJoin(source.loginTable, `${source.loginTable}.${source.loginColumn}`, `${source.table}.${source.column}`);
+            }
+            return account;
+        };
         const query = db('security_activity');
         const search = String(req.query.search || '').trim();
         if (search.length > 100) return res.status(400).json({ success: false, error: { message: 'Search must be 100 characters or fewer' } });
@@ -43,7 +53,7 @@ export async function securityActivity(req: Request, res: Response) {
                 for (const source of availableSources) {
                     this.orWhere(function () {
                         this.where('account_type', source.type).whereExists(
-                            db(source.table).select(db.raw('1'))
+                            accountQuery(source).select(db.raw('1'))
                                 .whereRaw('?? = ??', [`${source.table}.${source.column}`, `${outerTable}.account_id`])
                                 .where(function () {
                                     for (const field of source.fields) this.orWhere(field, 'like', `%${search}%`);
@@ -88,18 +98,18 @@ export async function securityActivity(req: Request, res: Response) {
         if (req.query.accountId) active.where('account_id', Number(req.query.accountId));
         if (search) active.where(matchAccount('active_cooldowns'));
         const activeCount = await active.clone().count({ total: '*' }).first();
-        const cooldowns = await active.select('*').orderBy('locked_until', 'desc').limit(50).offset((page - 1) * 50);
+        const cooldowns = await active.select('*').orderBy('locked_until', 'desc').orderBy('account_type').orderBy('account_id').limit(50).offset((cooldownPage - 1) * 50);
         const names = new Map<string, string>();
         const usernames = new Map<string, string>();
         for (const source of availableSources) {
             const ids = [...new Set([...events, ...cooldowns].filter(row => row.account_type === source.type).map(row => row.account_id))];
             if (source.type === 'staff') ids.push(...events.map(row => row.actor_id).filter((id): id is number => Number(id) > 0));
             if (!ids.length) continue;
-            const people = await db(source.table).select(source.column, ...source.fields).whereIn(source.column, ids);
+            const people: Record<string, unknown>[] = await accountQuery(source).select({ identity_id: `${source.table}.${source.column}` }).select(...source.fields).whereIn(`${source.table}.${source.column}`, ids);
             for (const person of people) {
-                const key = `${source.type}-${person[source.column]}`;
+                const key = `${source.type}-${person.identity_id}`;
                 names.set(key, source.nameFields.map(field => person[field] || '').join(' ').trim());
-                usernames.set(key, person[source.loginField] || '');
+                usernames.set(key, String(person.login_username || ''));
             }
         }
         const display = (row: typeof events[number]) => ({

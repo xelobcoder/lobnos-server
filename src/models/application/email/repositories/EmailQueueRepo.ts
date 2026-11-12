@@ -66,6 +66,7 @@ export class EmailQueueRepo {
                     connection.raw('COUNT(*) AS total'),
                     connection.raw("SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) AS pending"),
                     connection.raw("SUM(CASE WHEN status = 'processing' THEN 1 ELSE 0 END) AS processing"),
+                    connection.raw("SUM(CASE WHEN status = 'scheduled' THEN 1 ELSE 0 END) AS scheduled"),
                     connection.raw("SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) AS failed"),
                     connection.raw("SUM(CASE WHEN status = 'cancelled' THEN 1 ELSE 0 END) AS cancelled"),
                     connection.raw("SUM(CASE WHEN status = 'sent' THEN 1 ELSE 0 END) AS sent"),
