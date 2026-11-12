@@ -55,7 +55,7 @@ export class EmailLogsRepo {
           const connection = await this.connection;
           const query = connection('email_logs as el')
                .leftJoin('email_queue as eq', 'eq.id', 'el.queue_id')
-               .leftJoin('notification_queue as nq', 'nq.id', connection.raw('CAST(eq.reference_id AS UNSIGNED)'))
+               .leftJoin('notification_queue as nq', 'nq.email_queue_id', 'eq.id')
                .select(connection.raw('COALESCE(nq.event_code, eq.reference_type, "UNKNOWN") AS event_code'))
                .count('* AS total')
                .sum({ sent: connection.raw("CASE WHEN el.status = 'sent' THEN 1 ELSE 0 END") })
@@ -103,7 +103,7 @@ export class EmailLogsRepo {
                .select('failure_reason')
                .count('* AS total')
                .whereRaw('created_at >= DATE_SUB(NOW(), INTERVAL ? DAY)', [days])
-               .andWhereNotNull('failure_reason')
+               .whereNotNull('failure_reason')
                .groupBy('failure_reason')
                .orderBy('total', 'desc');
 

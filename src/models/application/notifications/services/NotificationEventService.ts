@@ -1,3 +1,5 @@
+import { NotificationTemplatesRepo } from '../repositories/NotificationTemplatesRepo';
+import { bootstrapNotificationDefinitions } from './NotificationBootstrapService';
 import { NotificationEventSettingsRepo } from '../repositories/NotificationEventSettingsRepo';
 import { NotificationEventsRepo } from '../repositories/NotificationEventsRepo';
 import { NotificationTemplateVariablesRepo } from '../repositories/NotificationTemplateVariablesRepo';
@@ -43,6 +45,13 @@ export class NotificationEventService {
           const event = await this.eventsRepo.findByCode(eventCode);
           if (!event) throw new Error('Notification event not found');
 
+          if (data.defaultTemplateId != null) {
+               const template = await new NotificationTemplatesRepo(this.tenantId).findById(data.defaultTemplateId);
+               if (!template || Number(template.event_id) !== Number(event.id) || !Number(template.is_active)) {
+                    throw new Error('Select an active template belonging to this event.');
+               }
+          }
+
           await this.settingsRepo.upsert(event.id as number, {
                ...(data.emailEnabled !== undefined ? { email_enabled: data.emailEnabled } : {}),
                ...(data.smsEnabled !== undefined ? { sms_enabled: data.smsEnabled } : {}),
@@ -59,6 +68,7 @@ export class NotificationEventService {
      }
 
      async syncEventCatalog() {
-          return this.eventContextService.ensureSystemDefinitions();
+          const result = await bootstrapNotificationDefinitions(this.tenantId);
+          return result.events;
      }
 }

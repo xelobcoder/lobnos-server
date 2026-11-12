@@ -70,7 +70,9 @@ export class NotificationQueueRepo {
                .whereNotNull('nq.id')
                .select(
                     'el.id',
+                    'el.queue_id',
                     'el.queue_id as email_queue_id',
+                    'el.provider_id',
                     'nq.id as notification_queue_id',
                     'nq.event_code',
                     'el.status',

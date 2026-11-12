@@ -6,50 +6,12 @@ import { NotificationTemplateVariablesRepo } from '../repositories/NotificationT
 import { NotificationTemplateVersionsRepo } from '../repositories/NotificationTemplateVersionsRepo';
 import { NotificationEventContextService } from './NotificationEventContextService';
 
-const EVENT_CODES = [
-     'PATIENT_CREATED',
-     'PATIENT_UPDATED',
-     'APPOINTMENT_CREATED',
-     'APPOINTMENT_CONFIRMED',
-     'APPOINTMENT_RESCHEDULED',
-     'APPOINTMENT_CANCELLED',
-     'APPOINTMENT_REMINDER',
-     'SAMPLE_COLLECTED',
-     'SAMPLE_RECEIVED',
-     'SAMPLE_ACCEPTED',
-     'SAMPLE_REJECTED',
-     'SAMPLE_RECALL_REQUIRED',
-     'SAMPLE_RECOLLECTED',
-     'SAMPLE_PROCESSED',
-     'RESULT_VERIFIED',
-     'RESULT_READY',
-     'RESULT_RELEASED',
-     'RESULT_AMENDED',
-     'RESULT_CORRECTED',
-     'CRITICAL_RESULT',
-     'INVOICE_CREATED',
-     'INVOICE_SENT',
-     'PAYMENT_RECEIVED',
-     'PAYMENT_FAILED',
-     'REPORT_READY',
-     'USER_CREATED',
-     'USER_ACTIVATED',
-     'PASSWORD_RESET',
+// Home-collection events predate the domain catalog and remain supported.
+const LEGACY_EVENT_CODES = [
      'HOME_COLLECTION_SCHEDULED',
      'HOME_COLLECTION_ASSIGNED',
      'HOME_COLLECTION_STATUS_UPDATED',
 ];
-
-function moduleFromEventCode(eventCode: string): string {
-     if (eventCode.startsWith('PATIENT')) return 'patient';
-     if (eventCode.startsWith('APPOINTMENT')) return 'appointment';
-     if (eventCode.startsWith('SAMPLE')) return 'sample';
-     if (eventCode.startsWith('RESULT') || eventCode === 'CRITICAL_RESULT') return 'result';
-     if (eventCode.startsWith('INVOICE') || eventCode.startsWith('PAYMENT')) return 'billing';
-     if (eventCode.startsWith('HOME_COLLECTION')) return 'sample';
-     if (eventCode.startsWith('REPORT')) return 'report';
-     return 'security';
-}
 
 async function ensureCoreTables(tenantId: number) {
      const connection = await KnexConnection(tenantId);
@@ -150,7 +112,7 @@ async function ensureCoreTables(tenantId: number) {
 async function seedEvents(tenantId: number) {
      const connection = await KnexConnection(tenantId);
 
-     for (const eventCode of EVENT_CODES) {
+     for (const eventCode of LEGACY_EVENT_CODES) {
           const exists = await connection('notification_events').where({ event_code: eventCode }).first();
           if (exists) continue;
 
@@ -158,7 +120,7 @@ async function seedEvents(tenantId: number) {
                event_code: eventCode,
                event_name: eventCode.replace(/_/g, ' '),
                description: `${eventCode.replace(/_/g, ' ')} notification event`,
-               module: moduleFromEventCode(eventCode),
+               module: 'sample',
                is_system: true,
                is_active: true,
           });
@@ -200,9 +162,6 @@ async function seedDefaultEventSettings(tenantId: number) {
           const updates: Record<string, any> = {};
           if (!exists.default_template_id && defaultTemplateId) {
                updates.default_template_id = defaultTemplateId;
-          }
-          if (exists.email_enabled === false || exists.email_enabled === 0) {
-               updates.email_enabled = true;
           }
           if (Object.keys(updates).length > 0) {
                updates.updated_at = connection.fn.now();
@@ -298,5 +257,6 @@ export async function bootstrapNotificationDefinitions(tenantId = 1) {
           insertedVariables,
           createdTemplates,
           backfilledTemplates,
+          events: syncResult,
      };
 }

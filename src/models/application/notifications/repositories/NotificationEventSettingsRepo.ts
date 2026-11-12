@@ -22,20 +22,13 @@ export class NotificationEventSettingsRepo {
 
      async upsert(eventId: number, data: Partial<NotificationEventSettingRecord>): Promise<void> {
           const connection = await this.connection;
-          const existing = await connection(this.tableName).where({ event_id: eventId }).first();
-
-          if (!existing) {
-               await connection(this.tableName).insert({
-                    event_id: eventId,
-                    email_enabled: data.email_enabled ?? true,
-                    sms_enabled: data.sms_enabled ?? false,
-                    whatsapp_enabled: data.whatsapp_enabled ?? false,
-                    in_app_enabled: data.in_app_enabled ?? true,
-                    default_template_id: data.default_template_id ?? null,
-               });
-               return;
-          }
-
-          await connection(this.tableName).where({ id: existing.id }).update(data);
+          await connection(this.tableName).insert({
+               event_id: eventId,
+               email_enabled: data.email_enabled ?? true,
+               sms_enabled: data.sms_enabled ?? false,
+               whatsapp_enabled: data.whatsapp_enabled ?? false,
+               in_app_enabled: data.in_app_enabled ?? true,
+               default_template_id: data.default_template_id ?? null,
+          }).onConflict('event_id').merge({ ...data, updated_at: connection.fn.now() });
      }
 }

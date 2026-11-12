@@ -26,6 +26,21 @@ import { NotificationTemplatesRepo } from '../application/notifications/reposito
 import { EmailLogsRepo } from '../application/email/repositories/EmailLogsRepo';
 import { EmailQueueRepo } from '../application/email/repositories/EmailQueueRepo';
 import { NotificationQueueRepo } from '../application/notifications/repositories/NotificationQueueRepo';
+import { EmailQueueService } from '../application/email/services/EmailQueueService';
+import { EmailTemplatesRepo } from '../application/email/repositories/EmailTemplatesRepo';
+import { EmailProvidersRepo } from '../application/email/repositories/EmailProvidersRepo';
+import { EmailSettingsRepo } from '../application/email/repositories/EmailSettingsRepo';
+import { ProviderFactory } from '../application/email/services/ProviderFactory';
+import { TemplateRenderer } from '../application/email/services/TemplateRenderer';
+import { EmailQueueController } from '../../controllers/email/EmailQueueController';
+import { NotificationEventsRepo } from '../application/notifications/repositories/NotificationEventsRepo';
+import { NOTIFICATION_EVENT_CATALOG } from '../application/notifications/context/providers/NotificationEventCatalog';
+import { bootstrapNotificationDefinitions } from '../application/notifications/services/NotificationBootstrapService';
+import { NotificationEventService } from '../application/notifications/services/NotificationEventService';
+import { NotificationEventSettingsRepo } from '../application/notifications/repositories/NotificationEventSettingsRepo';
+import { NotificationTemplateVariablesRepo } from '../application/notifications/repositories/NotificationTemplateVariablesRepo';
+import { NotificationTemplateVersionsRepo } from '../application/notifications/repositories/NotificationTemplateVersionsRepo';
+import { NotificationEventContextService } from '../application/notifications/services/NotificationEventContextService';
 
 describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown and identity isolation", () => {
      let admin: mysql.Connection;
@@ -43,7 +58,7 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
           };
           admin = await mysql.createConnection(connection);
           const hash = await bcrypt.hash("Training123", 4);
-          for (let index = 0; index < 2; index++) {
+          for (let index = 0; index < 3; index++) {
                const name = `codex_login_${Date.now()}_${randomBytes(4).toString("hex")}`;
                await admin.query("CREATE DATABASE ??", [name]);
                const db = knex({
@@ -204,6 +219,14 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
           const search = await request(actor, 'GET', {search:'S0007'});
           expect(search.json.mock.calls[0][0].data.events.length).toBeGreaterThan(0);
           expect(search.json.mock.calls[0][0].data.events.every((event:any) => event.account_type === 'staff' && event.account_id === 7)).toBe(true);
+          for (const [username, type] of [['P0007', 'patient'], ['C0007', 'clinician']]) {
+               const found = await request(actor, 'GET', {search:username});
+               expect(found.json.mock.calls[0][0].data.events.length).toBeGreaterThan(0);
+               expect(found.json.mock.calls[0][0].data.events.every((event:any) => event.account_type === type && event.account_username === username)).toBe(true);
+          }
+          const historyPage = await request(actor, 'GET', {page:2, cooldownPage:1,search:'S0007'});
+          expect(historyPage.json.mock.calls[0][0].data.activeTotal).toBe(0);
+          expect((await request(actor,'GET',{cooldownPage:'0'})).status).toHaveBeenCalledWith(400);
           const otherFacility = await request(actor, 'GET', {search:'Facility 2',tenantId:2});
           expect(otherFacility.json.mock.calls[0][0].data.events).toHaveLength(0);
           expect(await attempt('staff',2,'Training123')).toBe(60);
@@ -235,6 +258,111 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
                reason: "DISABLED",
           });
      });
+     it('lists inactive templates only for management and reconciles tenant-local email metrics and notification logs', async () => {
+          for (const [index, {db}] of databases.slice(0, 2).entries()) {
+               await db.schema.createTable('notification_events', t => {
+                    t.increments('id'); t.string('event_code').unique(); t.string('event_name'); t.text('description'); t.string('module'); t.boolean('is_system'); t.boolean('is_active');
+               });
+               await db.schema.createTable('notification_templates', t => {
+                    t.increments('id'); t.integer('event_id'); t.boolean('is_system'); t.boolean('is_default'); t.boolean('is_active'); t.string('template_name'); t.dateTime('updated_at');
+               });
+               await db('notification_templates').insert([
+                    {id:1,event_id:1,is_system:true,is_default:true,is_active:true,template_name:`Facility ${index+1} default`,updated_at:new Date()},
+                    {id:2,event_id:1,is_system:false,is_default:false,is_active:false,template_name:'Archived',updated_at:new Date()},
+               ]);
+               await db.schema.createTable('email_queue', t => {t.increments('id'); t.string('status'); t.string('reference_type'); t.dateTime('created_at'); t.dateTime('sent_at');});
+               await db.schema.createTable('email_providers', t => {t.increments('id');t.string('name');});
+               await db.schema.createTable('email_logs', t => {
+                    t.increments('id'); t.integer('queue_id'); t.integer('provider_id');t.string('status');t.string('subject');t.text('recipients_json');t.text('response_payload_json');t.string('failure_reason');t.integer('duration_ms');t.dateTime('created_at');
+               });
+               await db.schema.createTable('notification_queue', t => {t.increments('id');t.integer('email_queue_id');t.string('event_code');});
+          }
+          const db = databases[0].db;
+          await db('notification_events').insert({event_code:'PATIENT_CREATED',event_name:'Facility-specific name',is_active:false});
+          const events = new NotificationEventsRepo(1);
+          await Promise.all([events.ensureCatalogEvents(),events.ensureCatalogEvents()]);
+          expect(await events.findAll()).toHaveLength(NOTIFICATION_EVENT_CATALOG.length);
+          expect(await events.findByCode('PATIENT_CREATED')).toMatchObject({event_name:'Facility-specific name',is_active:0});
+          expect(await new NotificationEventsRepo(2).findAll()).toHaveLength(0);
+          await db('email_queue').insert(['pending','scheduled','sent','failed'].map((status,index) => ({id:index+1,status,created_at:new Date()})));
+          await db('email_providers').insert({id:1,name:'Training SMTP'});
+          await db('email_logs').insert([
+               {id:1,queue_id:3,provider_id:1,status:'sent',created_at:new Date(),duration_ms:20},
+               {id:2,queue_id:4,provider_id:1,status:'failed',created_at:new Date(),duration_ms:30,failure_reason:'Training provider failure'},
+          ]);
+          await db('notification_queue').insert({email_queue_id:3,event_code:'TRAINING_EVENT'});
+          const templates = new NotificationTemplatesRepo(1);
+          expect(await templates.findAll()).toHaveLength(1);
+          expect(await templates.findAll(undefined,undefined,true)).toHaveLength(2);
+          expect(await templates.findActiveForEvent(1)).toMatchObject({id:1,is_active:1});
+          expect(await new NotificationTemplatesRepo(2).findById(1)).toMatchObject({template_name:'Facility 2 default'});
+          expect(await templates.findAll(undefined,undefined,true)).toHaveLength(2);
+          const metrics = await new EmailQueueRepo(1).getQueueMetrics();
+          expect(Number(metrics.total)).toBe(4);
+          expect(Number(metrics.scheduled)).toBe(1);
+          expect(Number(metrics.pending)+Number(metrics.scheduled)+Number(metrics.sent)+Number(metrics.failed)).toBe(4);
+          const logs = new EmailLogsRepo(1);
+          const overview = await logs.getOverview(30);
+          expect(Number(overview?.total)).toBe(2);
+          expect(Number(overview?.sent)+Number(overview?.failed)).toBe(2);
+          expect((await logs.getDailyTrend(30)).reduce((sum,row)=>sum+Number(row.total),0)).toBe(2);
+          expect((await logs.getProviderPerformance(30)).reduce((sum,row)=>sum+Number(row.total),0)).toBe(2);
+          expect(await logs.getStatusBreakdown(30)).toEqual(expect.arrayContaining([expect.objectContaining({status:'sent',total:1}),expect.objectContaining({status:'failed',total:1})]));
+          expect(await logs.getFailureReasons(30)).toMatchObject([{failure_reason:'Training provider failure',total:1}]);
+          expect(await new EmailLogsRepo(2).getFailureReasons(30)).toHaveLength(0);
+          expect(Number((await new EmailLogsRepo(2).getOverview(30))?.total)).toBe(0);
+          expect(await new NotificationQueueRepo(1).findLogs()).toMatchObject([{id:1,queue_id:3,provider_id:1,event_code:'TRAINING_EVENT'}]);
+          expect(await logs.getEventBreakdown(30)).toEqual(expect.arrayContaining([expect.objectContaining({event_code:'TRAINING_EVENT',total:1}),expect.objectContaining({event_code:'UNKNOWN',total:1})]));
+          expect(await new NotificationQueueRepo(2).findLogs()).toHaveLength(0);
+          const activationGuard = vi.fn().mockResolvedValue(undefined);
+          const service = new EmailQueueService(new EmailQueueRepo(1), logs, new EmailTemplatesRepo(1), new EmailProvidersRepo(1), new EmailSettingsRepo(1), new ProviderFactory(), new TemplateRenderer(), activationGuard);
+          const controller = new EmailQueueController(service);
+          const response: any = {status:vi.fn().mockReturnThis(),send:vi.fn().mockReturnThis()};
+          await controller.getAnalytics({query:{days:'30'}} as any,response);
+          expect(activationGuard).toHaveBeenCalledWith(1);
+          expect(response.send).toHaveBeenCalledWith(expect.objectContaining({status:'success',statusCode:200,result:expect.objectContaining({periodDays:30,failureReasons:[{failure_reason:'Training provider failure',total:1}]})}));
+     });
+     it('bootstraps the complete catalog and templates repeatedly without duplicate events or enabling disabled channels', async () => {
+          const db = databases[2].db;
+          const first = await bootstrapNotificationDefinitions(3);
+          const expectedCount = NOTIFICATION_EVENT_CATALOG.length + 3;
+          expect(first.seededEvents).toBe(expectedCount);
+          expect(first.createdTemplates).toBe(expectedCount);
+          const event = await db('notification_events').where({event_code:'PATIENT_CREATED'}).first();
+          await db('notification_event_settings').where({event_id:event.id}).update({email_enabled:false});
+          const systemTemplate = await db('notification_templates').where({event_id:event.id,is_system:true}).first();
+          await db('notification_templates').where({id:systemTemplate.id}).update({subject:'Facility-edited subject',html_body:'<p>Facility-edited content</p>',plain_body:'Facility-edited plain text'});
+          const preservedTemplate = await db('notification_templates').where({id:systemTemplate.id}).first();
+          const second = await bootstrapNotificationDefinitions(3);
+          expect(second.seededEvents).toBe(expectedCount);
+          expect(second.createdTemplates).toBe(0);
+          expect(Number((await db('notification_events').count({total:'*'}).first())?.total)).toBe(expectedCount);
+          expect(Number((await db('notification_templates').count({total:'*'}).first())?.total)).toBe(expectedCount);
+          expect(await db('notification_event_settings').where({event_id:event.id}).first()).toMatchObject({email_enabled:0});
+          expect(await db('notification_templates').where({id:systemTemplate.id}).first()).toEqual(preservedTemplate);
+          const events = new NotificationEventsRepo(3);
+          const templates = new NotificationTemplatesRepo(3);
+          const settings = new NotificationEventSettingsRepo(3);
+          const variables = new NotificationTemplateVariablesRepo(3);
+          const context = new NotificationEventContextService(events,templates,variables,new NotificationTemplateVersionsRepo(3),3);
+          const service = new NotificationEventService(events,settings,variables,context,3);
+          const customId = await templates.create({event_id:event.id,template_name:'Facility custom template',subject:'Custom subject',html_body:'<p>Custom</p>',plain_body:'Custom',is_system:false,is_default:false,is_active:true});
+          expect(await service.updateEventSettings('PATIENT_CREATED',{emailEnabled:false,smsEnabled:true,defaultTemplateId:customId})).toMatchObject({email_enabled:0,sms_enabled:1,default_template_id:customId});
+          expect(await service.getEventSettings('PATIENT_CREATED')).toMatchObject({email_enabled:0,sms_enabled:1,default_template_id:customId});
+          const otherTemplate = await db('notification_templates').whereNot({event_id:event.id}).first();
+          await expect(service.updateEventSettings('PATIENT_CREATED',{defaultTemplateId:otherTemplate.id})).rejects.toThrow('belonging to this event');
+          await expect(service.updateEventSettings('PATIENT_CREATED',{defaultTemplateId:999999})).rejects.toThrow('belonging to this event');
+          await Promise.all([settings.upsert(event.id,{whatsapp_enabled:false}),settings.upsert(event.id,{in_app_enabled:false})]);
+          expect(await service.getEventSettings('PATIENT_CREATED')).toMatchObject({email_enabled:0,sms_enabled:1,whatsapp_enabled:0,in_app_enabled:0,default_template_id:customId});
+          const sync = await service.syncEventCatalog();
+          expect(sync).toHaveLength(expectedCount);
+          expect(sync.every(row => !row.templateCreated && !row.templateBackfilled)).toBe(true);
+          expect(await templates.findById(customId)).toMatchObject({subject:'Custom subject',html_body:'<p>Custom</p>'});
+          expect(await service.getEventSettings('PATIENT_CREATED')).toMatchObject({email_enabled:0,default_template_id:customId});
+          const catalog = await service.getEventCatalog() as Array<{event:{event_code:string};template:unknown}>;
+          expect(catalog).toHaveLength(expectedCount);
+          expect(catalog.every(item=>item.template)).toBe(true);
+     }, 30000);
      it('clears a legacy patient cooldown without reactivating the patient or revoking sessions', async () => {
           const db = databases[0].db;
           await db('patient_portal_accounts').where({patientid:7}).update({locked_until:new Date(now + 120000)});
@@ -242,6 +370,10 @@ describe.runIf(process.env.LOGIN_MYSQL_TEST === "1")("real MySQL login cooldown 
           const actor = {employeeid:99,email:'training@example.invalid',role:'admin',tenantId:1,branch:null};
           await securityActivity({authUser:actor,method:'GET',query:{accountType:'patient',accountId:7}} as any,res);
           expect(res.json.mock.calls[0][0].data.cooldowns).toMatchObject([{account_type:'patient',account_id:7}]);
+          const paged: any = {setHeader:vi.fn(),status:vi.fn().mockReturnThis(),json:vi.fn().mockReturnThis()};
+          await securityActivity({authUser:actor,method:'GET',query:{accountType:'patient',search:'P0007',page:2,cooldownPage:1}} as any,paged);
+          expect(paged.json.mock.calls[0][0].data.cooldowns).toMatchObject([{account_type:'patient',account_id:7,account_username:'P0007'}]);
+
           const results = await Promise.all(Array.from({length:4},() => clearAccountCooldown(db,actor,'patient',7,'Verified patient identity')));
           expect(results.filter(result => result.cleared)).toHaveLength(1);
           expect(await db('patient_portal_accounts').where({patientid:7}).first()).toMatchObject({status:'disabled',session_version:3,locked_until:null,failed_attempts:0});

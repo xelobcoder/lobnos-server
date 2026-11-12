@@ -142,6 +142,12 @@ router.get('/api/v1/notifications/events', handleOverLoad(async (req: Notificati
      res.send({ status: 'success', statusCode: 200, result });
 }));
 
+router.get('/api/v1/notifications/events/catalog', handleOverLoad(async (req: NotificationRequest, res: Response) => {
+     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
+     const result = await req.notificationServices.events.getEventCatalog(undefined, page, count);
+     res.send({ status: 'success', statusCode: 200, result });
+}));
+
 router.get('/api/v1/notifications/events/:eventCode', handleOverLoad(async (req: NotificationRequest, res: Response) => {
      const result = await req.notificationServices.events.getEventByCode(firstParam(req.params.eventCode));
      if (!result) return customError('Notification event not found', 404, res);
@@ -156,12 +162,6 @@ router.get('/api/v1/notifications/events/:eventCode/variables', handleOverLoad(a
      } catch (error) {
           responseError(res, error, 400);
      }
-}));
-
-router.get('/api/v1/notifications/events/catalog', handleOverLoad(async (req: NotificationRequest, res: Response) => {
-     const { page, count } = parsePagination(req.query, { defaultCount: 20, maxCount: 100 });
-     const result = await req.notificationServices.events.getEventCatalog(undefined, page, count);
-     res.send({ status: 'success', statusCode: 200, result });
 }));
 
 router.get('/api/v1/notifications/events/:eventCode/catalog', handleOverLoad(async (req: NotificationRequest, res: Response) => {

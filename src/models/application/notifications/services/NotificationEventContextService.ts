@@ -372,6 +372,7 @@ export class NotificationEventContextService {
      }
 
      async ensureSystemDefinitions() {
+          await this.eventsRepo.ensureCatalogEvents();
           const events = await this.eventsRepo.findAll();
           const results: Array<{ eventCode: string; variablesInserted: number; templateCreated: boolean; templateBackfilled: boolean }> = [];
 
@@ -395,7 +396,7 @@ export class NotificationEventContextService {
                }
 
                let templateCreated = false;
-               let templateBackfilled = false;
+               const templateBackfilled = false;
                const existingTemplate = await this.templatesRepo.findSystemDefaultForEvent(event.id as number);
                if (!existingTemplate) {
                     const templateId = await this.templatesRepo.create({
@@ -421,50 +422,6 @@ export class NotificationEventContextService {
                     });
 
                     templateCreated = true;
-               } else {
-                    const shouldBackfill = !existingTemplate.subject
-                         || !existingTemplate.html_body
-                         || !existingTemplate.plain_body;
-
-                    const shouldStandardize = !!existingTemplate.is_system
-                         && !!existingTemplate.is_default
-                         && (
-                              existingTemplate.subject !== definition.template.subject
-                              || existingTemplate.html_body !== definition.template.html_body
-                              || existingTemplate.plain_body !== definition.template.plain_body
-                         );
-
-                    if (shouldBackfill || shouldStandardize) {
-                         const updatedSubject = shouldStandardize
-                              ? definition.template.subject
-                              : existingTemplate.subject || definition.template.subject;
-                         const updatedHtml = shouldStandardize
-                              ? definition.template.html_body
-                              : existingTemplate.html_body || definition.template.html_body;
-                         const updatedPlain = shouldStandardize
-                              ? definition.template.plain_body
-                              : existingTemplate.plain_body || definition.template.plain_body;
-
-                         await this.templatesRepo.update(existingTemplate.id as number, {
-                              template_name: existingTemplate.template_name || definition.template.template_name,
-                              subject: updatedSubject,
-                              html_body: updatedHtml,
-                              plain_body: updatedPlain,
-                              updated_by: null,
-                         });
-
-                         const version = (await this.versionsRepo.findLatestVersion(existingTemplate.id as number)) + 1;
-                         await this.versionsRepo.create({
-                              template_id: existingTemplate.id as number,
-                              version,
-                              subject: updatedSubject,
-                              html_body: updatedHtml,
-                              plain_body: updatedPlain,
-                              changed_by: null,
-                         });
-
-                         templateBackfilled = true;
-                    }
                }
 
                results.push({

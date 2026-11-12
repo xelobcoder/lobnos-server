@@ -1,5 +1,6 @@
 import KnexConnection from '../../../../database/KnexConnections';
 import { NotificationEventRecord } from '../types/NotificationModels';
+import { NOTIFICATION_EVENT_CATALOG } from '../context/providers/NotificationEventCatalog';
 
 export class NotificationEventsRepo {
      private connection;
@@ -7,6 +8,19 @@ export class NotificationEventsRepo {
 
      constructor(private tenantId: number) {
           this.connection = KnexConnection(tenantId);
+     }
+
+     async ensureCatalogEvents(): Promise<void> {
+          const connection = await this.connection;
+          const events = NOTIFICATION_EVENT_CATALOG.map(event => ({
+               event_code: event.eventCode,
+               event_name: event.title,
+               description: event.intro,
+               module: event.module,
+               is_system: true,
+               is_active: true,
+          }));
+          await connection(this.tableName).insert(events).onConflict('event_code').ignore();
      }
 
      async findAll(page?: number, count?: number): Promise<NotificationEventRecord[]> {
