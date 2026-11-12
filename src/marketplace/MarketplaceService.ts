@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../models/auth/PasswordPolicy';
 import bcrypt from 'bcrypt';
 import { createHash, randomBytes, randomUUID } from 'crypto';
 import Decimal from 'decimal.js';
@@ -326,7 +327,7 @@ export class MarketplaceService {
           const email = cleanText(input.adminEmail, 'adminEmail', 254)!.toLowerCase();
           if (!emailPattern.test(email)) throw new MarketplaceError('Invalid adminEmail', 400);
           const password = passwordValue(input.adminPassword);
-          const passwordHash = await bcrypt.hash(password, 12);
+          const passwordHash = await bcrypt.hash(requireStrongPassword(password), 12);
           try {
                await db.transaction(async trx => {
                     const [facilityId] = await trx('marketplace_facilities').insert({
@@ -573,7 +574,7 @@ export class MarketplaceService {
           const password = passwordValue(input.password);
           if (!emailPattern.test(email)) throw new MarketplaceError('Invalid email', 400);
           if (input.role !== undefined && input.role !== 'staff') throw new MarketplaceError('Only facility administrators may create administrator accounts', 403);
-          const passwordHash = await bcrypt.hash(password, 12);
+          const passwordHash = await bcrypt.hash(requireStrongPassword(password), 12);
           try {
                return await db.transaction(async trx => {
                     const [id] = await trx('marketplace_staff').insert({

@@ -187,7 +187,7 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 			return customError("Only admin or manager can reset staff passwords", 403, res);
 		}
 
-		const temporaryPassword = crypto.randomBytes(5).toString("hex");
+		const temporaryPassword = 'Aa7!' + crypto.randomBytes(16).toString("hex");
 		const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 		const updated = await connection.transaction(async trx => {
 			const target = await trx('roles').where({ employeeid: targetEmployeeid }).forUpdate().first('employeeid');

@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { passwordProblem } from '../auth/PasswordPolicy';
 import { clearLoginAttempts, ensurePortalLoginAttemptSecurity, verifyPortalPassword } from '../auth/LoginAttemptSecurity';
 import { createHash, createHmac, randomBytes, randomInt, timingSafeEqual } from 'crypto';
 import { Knex } from 'knex';
@@ -26,11 +27,9 @@ export class PatientPortalError extends Error {
 
 /** Patients choose their own password; require enough length and variety to resist guessing. */
 export function validatePortalPassword(password: unknown): string {
-     const value = typeof password === 'string' ? password : '';
-     if (value.length < 8 || value.length > 128 || !/[A-Za-z]/.test(value) || !/\d/.test(value)) {
-          throw new PatientPortalError('Password must be 8-128 characters and include at least one letter and one number', 400, 'WEAK_PASSWORD');
-     }
-     return value;
+     const problem = passwordProblem(password);
+     if (problem) throw new PatientPortalError(problem, 400, 'WEAK_PASSWORD');
+     return password as string;
 }
 
 export const hashInvitationToken = (token: string) => createHash('sha256').update(token).digest('hex');

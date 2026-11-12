@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { requireStrongPassword } from './PasswordPolicy';
 import { createHmac, randomInt, timingSafeEqual } from 'crypto';
 import KnexConnection from '../../database/KnexConnections';
 import logger from '../../hooks/logger';
@@ -135,7 +136,7 @@ export class PasswordRecoveryService {
      }
 
      async resetPassword(entityType: LoginEntityType, entityId: number, otp: string, password: string): Promise<boolean> {
-          if (password.length < 8) throw new Error('Password must be at least 8 characters long');
+          requireStrongPassword(password);
           if (!/^\d{6}$/.test(otp)) return false;
           const connection = await this.connection();
           await ensureLoginAttemptSecurity(connection);

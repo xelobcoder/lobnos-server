@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../auth/PasswordPolicy';
 import { databaseTlsOptions } from '../../database/tls';
 import { randomInt } from 'crypto';
 import bcrypt from 'bcrypt';
@@ -357,7 +358,7 @@ export class FacilityProvisioningService {
                await this.event(this.master, reservation, actor, 'runtime_bootstrapped');
                stage = 'initialization';
                const adminUsername = formatLoginUsername(reservation.organizationIdentifier, 'staff', 1);
-               const passwordHash = await bcrypt.hash(input.adminPassword, 10);
+               const passwordHash = await bcrypt.hash(requireStrongPassword(input.adminPassword), 10);
                await db.transaction(async trx => {
                     await trx('departments').update({ departmentManager: input.adminName, employeeid: 1 });
                     // Replace seed location defaults with the selected registry location.

@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../../auth/PasswordPolicy';
 import bcrypt from "bcrypt";
 export interface IEmployee {
 	employeeid?: number;
@@ -38,6 +39,7 @@ export default class RolesRepository {
 		this.tablename = "roles";
 	}
 	public async hashPassword(password: string): Promise<string> {
+		requireStrongPassword(password);
 		const salt = await bcrypt.genSalt(10);
 		const hashed = await bcrypt.hash(password, salt);
 		return hashed;

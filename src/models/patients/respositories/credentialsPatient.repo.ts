@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../../auth/PasswordPolicy';
 import KnexConnection from "../../../database/KnexConnections";
 import { IPatientCredentials } from "../interfaces";
 import bcrypt from "bcrypt";
@@ -15,7 +16,7 @@ export default class CredentialsPatientRepository {
      create = async (credentials: IPatientCredentials): Promise<void> => {
           try {
                const connection = await this.connection;
-               const hashedPassword = await bcrypt.hash(credentials.password, 10);
+               const hashedPassword = await bcrypt.hash(requireStrongPassword(credentials.password), 10);
                await connection(this.tableName).insert({
                     ...credentials, password: hashedPassword,
                     login_username: await formatTenantLoginUsername(this.tenantId, 'patient', Number(credentials.patientid)),
@@ -33,7 +34,7 @@ export default class CredentialsPatientRepository {
                if (!credentials.username || !credentials.password) {
                     throw new Error("At least one of username or password must be provided for update");
                }
-               const hashedPassword = await bcrypt.hash(credentials.password, 10)
+               const hashedPassword = await bcrypt.hash(requireStrongPassword(credentials.password), 10)
                const result = await connection(this.tableName)
                     .where({ patientid })
                     .update({

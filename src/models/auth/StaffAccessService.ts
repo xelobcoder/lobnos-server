@@ -1,3 +1,4 @@
+import { requireStrongPassword } from './PasswordPolicy';
 import { randomUUID } from 'crypto';
 import bcrypt from 'bcrypt';
 import { isSuperAdminRole, roleAllowed } from '../../middleware/roles';
@@ -129,7 +130,7 @@ export class StaffAccessService {
           const username=text(input.name,'full name'),email=text(input.email,'email',200).toLowerCase(),mobile=text(input.mobile,'mobile number',10);
           if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))throw Error('Enter a valid email address');
           if(!/^\+?\d{7,10}$/.test(mobile))throw Error('Enter a mobile number of 7–10 digits');
-          if(typeof input.password!=='string'||input.password.length<10||Buffer.byteLength(input.password)>72)throw Error('Use a password of at least 10 characters and at most 72 bytes');
+          requireStrongPassword(input.password);
           if(!/^\d{4}$/.test(String(input.pin||'')))throw Error('Enter a four-digit financial PIN');
           const password=await bcrypt.hash(input.password,10),pin_hash=await bcrypt.hash(String(input.pin),10);
           return this.db.transaction(async(trx:any)=>{

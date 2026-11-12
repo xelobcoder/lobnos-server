@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../../auth/PasswordPolicy';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import KnexConnection from "../../../database/KnexConnections";
@@ -12,6 +13,7 @@ export default class AuthenticationRepository {
     }
 
     async hashPassword(password: string): Promise<string> {
+        requireStrongPassword(password);
         const saltRounds = 10;
         return await bcrypt.hash(password, saltRounds);
     }

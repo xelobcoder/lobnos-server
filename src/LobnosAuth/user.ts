@@ -1,3 +1,4 @@
+import { requireStrongPassword } from '../models/auth/PasswordPolicy';
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import logger from "../hooks/logger";
@@ -41,6 +42,7 @@ class User {
 
 	public async hashPassword(): Promise<string> {
 		this.makeCompulsoryKeysExist("password");
+		requireStrongPassword(this.password);
 		const salt = await bcrypt.genSalt(10);
 		const password = await bcrypt.hash(this.password as string, salt);
 		return password
