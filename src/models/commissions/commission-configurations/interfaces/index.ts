@@ -10,6 +10,8 @@ export interface CommissionInput {
      quota_value?: number;
      performance_amount?: number;
      service_category: string;
+     /** Persisted dboservices.categoryTrackId. Omitted only by legacy callers. */
+     billing_source?: number;
      organization_id: number;
      clinician_id?: number | null;
      clinician_organization_id?: number | null;

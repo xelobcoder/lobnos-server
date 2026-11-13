@@ -4,6 +4,7 @@ import ApplicationSettings from "../application/appsettings/appset";
 import { CommissionBatchPaymentServicesRepo } from "./CommissionBatchPaymentServicesRepo";
 import { CommissionServiceFactory } from "./commission-configurations/services/CommissionServiceFactory";
 import { CommissionInput } from "./commission-configurations/interfaces";
+import { resolveCommissionRecipient } from "./commission-configurations/services/CommissionRecipientPolicy";
 import { joinReferralClinicianOrganization, REFERRAL_CLINICIAN_ORGANIZATION_SQL } from "../referral/clinicianReferralOrganization";
 
 interface CommissionTracking {
@@ -101,10 +102,6 @@ export class CommissionTrackingRepo {
                     .leftJoin('dboservices as ds', 'ct.service_id', 'ds.serviceid')
                     .leftJoin('test_panels as tp', 'ds.trackId', 'tp.id')
                     .leftJoin('commission_batch_payment_services as cbps', 'ct.service_id', 'cbps.serviceid')
-                    .where(conn.raw("ds.serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
-                    .andWhere((builder: any) => {
-                         builder.whereRaw('ds.clinicianId IS NOT NULL').orWhereRaw('ds.organizationId IS NOT NULL');
-                    })
                     .whereNull('cbps.id');
                if (this.branchId != null) query.whereIn('ds.billingid', conn('billing').select('billingid').where({ branchid: this.branchId }));
 
@@ -185,12 +182,13 @@ export class CommissionTrackingRepo {
                     clinicianId: number | null;
                     organizationId: number | null;
                     clinicianOrganizationId: number | null;
+                    categoryTrackId: number;
                     serviceCategory?: string | null;
                     serviceAddedOn?: Date | string | null;
                }> = await joinReferralClinicianOrganization(conn('dboservices')
                     .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id'))
                     .whereIn('serviceid', servicesArray)
-                    .select('dboservices.serviceid', 'totalpayable', 'clinicianId', 'organizationId', conn.raw(REFERRAL_CLINICIAN_ORGANIZATION_SQL), 'serviceCategory', 'serviceAddedOn');
+                    .select('dboservices.serviceid', 'totalpayable', 'clinicianId', 'organizationId', conn.raw(REFERRAL_CLINICIAN_ORGANIZATION_SQL), 'categoryTrackId', 'serviceCategory', 'serviceAddedOn');
 
                if (services.length === 0) {
                     return 0;
@@ -212,6 +210,7 @@ export class CommissionTrackingRepo {
                          service_id: service.serviceid,
                          service_amount: parseFloat(String(service.totalpayable)) || 0,
                          service_category: service.serviceCategory || 'CLINICIAN_SPECIAL_BILLING',
+                         billing_source: service.categoryTrackId,
                          clinician_id: service.clinicianId ?? undefined,
                          clinician_organization_id: service.clinicianOrganizationId ?? undefined,
                          organization_id: service.organizationId ?? 0,
@@ -235,17 +234,7 @@ export class CommissionTrackingRepo {
      async getUntrackedServices(recipientType?: 'clinician' | 'organization', recipientId?: number, page?: number, count?: number, startDate?: Date, endDate?: Date, sortBy: 'ASC' | 'DESC' = 'ASC'): Promise<any[]> {
           try {
                const conn = await this.connection;
-               let trackedServiceIds: any[] = [];
-
-               if (recipientType && recipientId !== undefined) {
-                    trackedServiceIds = await conn('commission_tracking')
-                         .where('recipient_type', recipientType)
-                         .andWhere('recipient_id', recipientId)
-                         .select('service_id');
-               } else {
-                    trackedServiceIds = await conn('commission_tracking')
-                         .select('service_id');
-               }
+               const trackedServiceIds = await conn('commission_tracking').select('service_id');
 
                const trackedIds = trackedServiceIds.map((row: any) => row.service_id);
 
@@ -258,6 +247,7 @@ export class CommissionTrackingRepo {
                          'paymentstatus',
                          'serviceAddedOn',
                          'serviceCategory',
+                         'dboservices.categoryTrackId',
                          'clinicianId',
                          'organizationId',
                          'tp.name as test_name',
@@ -268,14 +258,29 @@ export class CommissionTrackingRepo {
                     .leftJoin('clinicianbasicinfo as cbi', 'dboservices.clinicianId', 'cbi.id')
                     .leftJoin('organization as org', 'dboservices.organizationId', 'org.id')
                     .whereNotIn('serviceid', trackedIds)
-                    .andWhere(conn.raw("serviceCategory IN ('CLINICIAN_SPECIAL_BILLING','ORGANIZATION')"))
+                    .whereIn('dboservices.categoryTrackId', [1, 2, 3, 4, 6])
+                    .andWhere((builder: any) => {
+                         builder.where('dboservices.clinicianId', '>', 0).orWhere('dboservices.organizationId', '>', 0);
+                    })
                     .whereNotIn('status', ['voided', 'cancelled', 'refunded', 'written-off']);
                if (this.branchId != null) query.whereIn('dboservices.billingid', conn('billing').select('billingid').where({ branchid: this.branchId }));
 
+               const settings = await new ApplicationSettings().getAllAppSettings(this.tenantId);
+               const policy = settings?.commissionRecipientPolicy === 'organization' ? 'organization' : 'clinician';
                if (recipientType === 'clinician' && recipientId !== undefined) {
-                    query = query.andWhere('clinicianId', recipientId);
+                    query = query.andWhere('clinicianId', recipientId).whereNot('dboservices.categoryTrackId', 2);
+                    if (policy === 'organization') {
+                         query.andWhere((builder: any) => {
+                              builder.where('dboservices.categoryTrackId', 6).orWhereNull('organizationId').orWhere('organizationId', 0);
+                         });
+                    }
                } else if (recipientType === 'organization' && recipientId !== undefined) {
-                    query = query.andWhere('organizationId', recipientId);
+                    query = query.andWhere('organizationId', recipientId).whereNot('dboservices.categoryTrackId', 6);
+                    if (policy === 'clinician') {
+                         query.andWhere((builder: any) => {
+                              builder.where('dboservices.categoryTrackId', 2).orWhereNull('clinicianId').orWhere('clinicianId', 0);
+                         });
+                    }
                }
 
                if (startDate && endDate) {
@@ -287,7 +292,20 @@ export class CommissionTrackingRepo {
                     query = query.offset(offset).limit(count);
                }
 
-               return await query;
+               const services = await query;
+               return services.map(service => {
+                    const recipient = resolveCommissionRecipient({
+                         billing_source: Number(service.categoryTrackId),
+                         clinician_id: service.clinicianId,
+                         organization_id: service.organizationId || 0,
+                    }, policy);
+                    return {
+                         ...service,
+                         commission_recipient_type: recipient.recipientType,
+                         commission_recipient_id: recipient.recipientId,
+                         commission_recipient_name: recipient.recipientType === 'clinician' ? service.clinician_name : service.organization_name,
+                    };
+               });
           } catch (error) {
                logger.error('Error fetching untracked services:', error);
                throw error;
@@ -301,8 +319,10 @@ export class CommissionTrackingRepo {
      ): Promise<any> {
           try {
                const conn = await this.connection;
-               const service = await conn('dboservices')
+               const service = await joinReferralClinicianOrganization(conn('dboservices')
+                    .leftJoin('clinicianbasicinfo as commission_clinician', 'dboservices.clinicianId', 'commission_clinician.id'))
                     .where('serviceid', serviceId)
+                    .select('dboservices.*', conn.raw(REFERRAL_CLINICIAN_ORGANIZATION_SQL))
                     .first();
 
                if (!service) {
@@ -325,10 +345,19 @@ export class CommissionTrackingRepo {
                     service_id: serviceId,
                     service_amount: parseFloat(String(service.totalpayable)) || 0,
                     service_category: service.serviceCategory || 'CLINICIAN_SPECIAL_BILLING',
-                    clinician_id: recipientType === 'clinician' ? recipientId : undefined,
-                    organization_id: recipientType === 'organization' ? recipientId : 0,
+                    billing_source: service.categoryTrackId,
+                    clinician_id: service.clinicianId,
+                    clinician_organization_id: service.clinicianOrganizationId,
+                    organization_id: service.organizationId ?? 0,
                     completion_date: service.serviceAddedOn ? new Date(service.serviceAddedOn) : new Date(),
                };
+
+               const settings = await new ApplicationSettings().getAllAppSettings(this.tenantId);
+               const policy = settings?.commissionRecipientPolicy === 'organization' ? 'organization' : 'clinician';
+               const recipient = resolveCommissionRecipient(input, policy);
+               if (recipient.recipientType !== recipientType || recipient.recipientId !== recipientId) {
+                    throw new Error('Selected recipient does not match the billing source and commission recipient setting');
+               }
 
                const engine = CommissionServiceFactory.createEngine(this.tenantId);
                return await engine.executeCommissionCalculation(input);

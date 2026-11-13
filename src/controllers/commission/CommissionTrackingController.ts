@@ -194,6 +194,10 @@ export class CommissionTrackingController {
                     recipientId
                );
 
+               if (result.reason !== 'SUCCESS' || !result.tracking_id) {
+                    return customError(result.error || 'Commission could not be calculated for this service.', 409, response);
+               }
+
                return response.send({
                     status: true,
                     message: "Untracked service inserted successfully",

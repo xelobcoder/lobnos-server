@@ -40,4 +40,8 @@ pharmacyReceivingRouter.post('/prices/preview', pharmacyStockAccess, operation(a
      ? s.receiving.previewReceivePrice(r.body) : r.body.deliveryId
           ? s.receiving.previewPrice(r.body) : calculatePharmacyPrice(r.body.cost, r.body, r.body.increment)));
 pharmacyReceivingRouter.get('/invoices', pharmacyFinanceAccess, operation(s => s.receiving.invoices()));
+pharmacyReceivingRouter.get('/uninvoiced', pharmacyFinanceAccess, operation(s => s.receiving.uninvoiced()));
+pharmacyReceivingRouter.get('/invoices/:id', pharmacyFinanceAccess, operation((s, r) => s.invoices.detail(String(r.params.id))));
+pharmacyReceivingRouter.post('/invoices/:id/copies', pharmacyReversalAccess, operation((s, r) => s.invoices.attachCopy(String(r.params.id), r.body)));
+pharmacyReceivingRouter.get('/invoices/:id/copies/:fileId', pharmacyFinanceAccess, operation((s, r) => s.invoices.copy(String(r.params.id), String(r.params.fileId))));
 pharmacyReceivingRouter.post('/invoices', pharmacyReversalAccess, operation((s, r) => s.invoices.record(r.body)));

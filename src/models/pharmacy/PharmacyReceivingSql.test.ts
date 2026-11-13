@@ -26,6 +26,9 @@ describe('physical receiving to supplier invoice with real SQL storage', () => {
           await ensurePharmacyProcurementSchema(db);
           await db('pharmacy_inventory_items').insert({ id: 'medicine', branchid: 2, name: 'Medicine', sku: 'MED', is_active: 1, current_stock: 0, cost_price: 0, min_stock: 1, sale_price: 30, wholesale_price: 25, pharmacy_batch_tracking: 1, consumption_unit: 'tablet' });
           const actor: AuthUser = { employeeid: 3, branch: 2, tenantId: 1, role: 'pharmacy_manager', email: 'manager@example.invalid' };
+          const today = new Date().toISOString().slice(0,10);
+          if (!await db('pharmacy_financial_days').where({branchid:2,financial_date:today}).first())
+               await db('pharmacy_financial_days').insert({branchid:2,financial_date:today,status:'open'});
           const receiving = new PharmacyReceiving(db, actor), invoices = new PharmacySupplierInvoices(db, actor);
           const physical = await receiving.record({ idempotencyKey: 'sql-physical-delivery', supplierId: 's1', reference: 'DELIVERY-SQL',
                lines: [{ itemId: 'medicine', quantity: 100, unitCost: 20, batchNumber: 'MANUFACTURER-1', expiryDate: '2099-12-31' }] });
@@ -35,7 +38,7 @@ describe('physical receiving to supplier invoice with real SQL storage', () => {
           expect(await db('pharmacy_accounting_bills')).toHaveLength(0);
           const firstInput = { idempotencyKey: 'sql-first-invoice', supplierId: 's1', reference: 'INV-SQL-1', invoiceDate: new Date().toISOString().slice(0, 10), reason: 'Supplier invoice for first delivery portion',
                lines: [{ deliveryId: physical.id, lineId: physical.details.lines[0].id, quantity: 40, amount: 800 }] };
-          await invoices.record(firstInput);
+          const firstInvoice = await invoices.record(firstInput);
           await invoices.record(firstInput);
           await invoices.record({ ...firstInput, idempotencyKey: 'sql-final-invoice', reference: 'INV-SQL-2', lines: [{ ...firstInput.lines[0], quantity: 60, amount: 1200 }] });
           const journals = await db('pharmacy_journal_lines');
@@ -46,6 +49,22 @@ describe('physical receiving to supplier invoice with real SQL storage', () => {
           expect(await db('pharmacy_accounting_bills')).toHaveLength(2);
           expect(await db('pharmacy_documents').where({ kind: 'supplier_invoice' })).toHaveLength(2);
           expect(await db('pharmacy_stock_movements')).toHaveLength(1);
+          expect((await db('pharmacy_inventory_items').first()).current_stock).toBe(100);
+          const detail = await invoices.detail(firstInvoice.id);
+          expect(detail.supplier.name).toBe('Supplier one');
+          expect(detail.details.lines[0]).toMatchObject({name:'Medicine', batchNumber:'MANUFACTURER-1', deliveryReference:'DELIVERY-SQL', quantity:40, amount:'800.00'});
+          const copy = {idempotencyKey:'sql-original-invoice-copy', filename:'original-invoice.pdf', mimeType:'application/pdf', contentBase64:Buffer.from('%PDF-1.4\nTest supplier original').toString('base64')};
+          const savedCopy = await invoices.attachCopy(firstInvoice.id, copy);
+          expect(await invoices.attachCopy(firstInvoice.id, copy)).toMatchObject({id:savedCopy.id});
+          expect(await db('pharmacy_supplier_invoice_files')).toHaveLength(1);
+          expect(await invoices.copy(firstInvoice.id, savedCopy.id)).toMatchObject({filename:copy.filename, mimeType:copy.mimeType, content:copy.contentBase64});
+          expect((await invoices.detail(firstInvoice.id)).files).toHaveLength(1);
+          await expect(invoices.attachCopy(firstInvoice.id,{...copy,idempotencyKey:'sql-spoofed-invoice-copy',mimeType:'image/png'})).rejects.toThrow('signature');
+          const foreign = new PharmacySupplierInvoices(db,{...actor,branch:9});
+          await expect(foreign.detail(firstInvoice.id)).rejects.toThrow('not found in this branch');
+          await expect(foreign.copy(firstInvoice.id,savedCopy.id)).rejects.toThrow('not found in this branch');
+          await expect(new PharmacySupplierInvoices(db,{...actor,role:'pharmacy_accountant'}).attachCopy(firstInvoice.id,copy)).rejects.toThrow('manager authority');
+          expect(await db('pharmacy_accounting_bills')).toHaveLength(2);
           expect((await db('pharmacy_inventory_items').first()).current_stock).toBe(100);
      });
 });

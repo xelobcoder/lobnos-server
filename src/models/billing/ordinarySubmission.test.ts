@@ -60,9 +60,16 @@ beforeEach(async () => {
         compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2020, esModuleInterop: true }
     }).outputText, { exports, console, Date, require: (name: string) => mocks[name] || {} });
     Submit = exports.SubmitCustomerBilling;
+    vi.spyOn(Submit, 'triggerCommissionCalculation').mockResolvedValue(undefined);
 });
 afterEach(async () => { await db.destroy(); });
 describe('ordinary route SubmitCustomerBilling production writer with synthetic authoritative checkout', () => {
+    it.each([1, 3])('triggers automatic commission calculation after source %i commits', async billingSource => {
+        const result = await new Submit(request({ billingSource, clinicianId: 12, organizationId: 34 }), 1).submit();
+        expect(result.status).toBe(true);
+        expect(Submit.triggerCommissionCalculation).toHaveBeenCalledExactlyOnceWith(1, result.billingid);
+        expect(await db('billing').where({ billingid: result.billingid }).first()).toBeDefined();
+    });
     it('does not persist forged browser prices or paid flags and binds the receipt actor', async () => {
         await new Submit(request(), 1).submit();
         expect(await db('billing').first()).toMatchObject({ paid: 100, payable: 100, outstanding: 0, status: 'paid' });

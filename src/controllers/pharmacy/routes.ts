@@ -80,6 +80,8 @@ router.get('/nhis/claims/:id',pharmacyFinanceAccess,enterprise((s,r)=>s.stock.de
 router.post('/nhis/claims',pharmacyFinanceAccess,enterprise((s,r)=>s.claims.create(r.body)));
 router.post('/nhis/claims/:id/action',pharmacyFinanceAccess,enterprise((s,r)=>s.claims.action(String(r.params.id),r.body)));
 router.get('/analytics', pharmacyAnalyticsAccess, PharmacyAnalyticsController.report);
+router.get('/analytics/items/:itemId/:section', PharmacyAnalyticsController.item);
+router.get('/analytics/items/:itemId', PharmacyAnalyticsController.item);
 router.get('/accounting/reports', pharmacyAccountingAccess, PharmacyAnalyticsController.accountingReport);
 router.get('/counter/settings',counterReadAccess,counter(s=>s.settings()));
 router.post('/counter/settings',pharmacyReversalAccess,counter((s,r)=>s.saveSettings(r.body)));

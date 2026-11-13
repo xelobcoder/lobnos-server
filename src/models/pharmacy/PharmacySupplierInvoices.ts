@@ -5,6 +5,7 @@ import { amount } from './accounting/PharmacyAccountingCore';
 import { PharmacyAccountingCore } from './accounting/PharmacyAccountingCore';
 import { pharmacyAccount } from './accounting/PharmacyAccountingCatalogue';
 import { PharmacyJournalLine, postPharmacyJournal } from './PharmacyLedger';
+import { PharmacyAccountingEvidence } from './accounting/PharmacyAccountingEvidence';
 
 export interface PharmacySupplierInvoiceInput {
      idempotencyKey: string;
@@ -19,6 +20,49 @@ export interface PharmacySupplierInvoiceInput {
 
 /** New GRNI-recognized deliveries only; legacy receipt invoice matching remains evidence-only. */
 export class PharmacySupplierInvoices extends PharmacyEnterpriseCore {
+     private async invoice(db: any, id: string) {
+          const row = await db('pharmacy_documents').where({id, branchid: this.branch, kind: 'supplier_invoice'}).first();
+          if (!row) throw new Error('Supplier invoice not found in this branch');
+          return {...row, details: json(row.details)};
+     }
+     async detail(id: string) {
+          const invoice = await this.invoice(this.db, id), detail = invoice.details;
+          const supplier = await this.db('pharmacy_suppliers').where({id: detail.supplierId || invoice.supplier_id, branchid: this.branch}).first();
+          const allocations: any[] = detail.lines || [];
+          const deliveryIds = [...new Set(allocations.map(line => line.deliveryId).filter(Boolean))];
+          const deliveries = deliveryIds.length ? await this.db('pharmacy_workflows').where({branchid: this.branch, kind: 'goods_delivery'}).whereIn('id', deliveryIds) : [];
+          const lines = allocations.map(allocation => {
+               const delivery = deliveries.find((row: any) => row.id === allocation.deliveryId);
+               const deliveryDetail = json(delivery?.details), line = deliveryDetail.lines?.find((row: any) => row.id === allocation.lineId);
+               return {...allocation, name: line?.name || allocation.name || 'Medicine ' + allocation.itemId,
+                    sku: line?.sku || '', batchNumber: line?.batchNumber || '', expiryDate: line?.expiryDate || null,
+                    deliveryReference: deliveryDetail.reference || allocation.deliveryId};
+          });
+          const files = await this.db('pharmacy_supplier_invoice_files as f').join('pharmacy_accounting_uploads as u', 'u.id', 'f.upload_id')
+               .where({'f.branchid': this.branch, 'u.branchid': this.branch, 'f.invoice_id': id})
+               .select('f.id', 'u.filename', 'u.mime_type', 'u.byte_length', 'f.created_at').orderBy('f.created_at');
+          return {...invoice, details: {...detail, lines}, supplier: supplier || {name: detail.supplierName || 'Supplier'}, files};
+     }
+     async attachCopy(id: string, input: any) {
+          requireManager(this.user);
+          return this.atomic(input, 'supplier_invoice:copy:' + id, async trx => {
+               await this.invoice(trx, id);
+               const evidence = new PharmacyAccountingEvidence(trx, {tenantId: this.user.tenantId, branch: this.branch, actor: this.actor, role: this.user.role});
+               const upload = await evidence.upload({...input, idempotencyKey: 'supplier-copy:' + fingerprint(input.idempotencyKey)});
+               const file = {id: randomUUID(), branchid: this.branch, invoice_id: id, upload_id: upload.id, created_by: this.actor};
+               await trx('pharmacy_supplier_invoice_files').insert(file);
+               await this.event(trx, 'supplier_invoice_copy_attached', {invoiceId: id, fileId: file.id, filename: upload.filename, sha256: upload.sha256}, id);
+               return {...file, filename: upload.filename};
+          });
+     }
+     async copy(id: string, fileId: string) {
+          await this.invoice(this.db, id);
+          const file = await this.db('pharmacy_supplier_invoice_files as f').join('pharmacy_accounting_uploads as u', 'u.id', 'f.upload_id')
+               .where({'f.id': fileId, 'f.invoice_id': id, 'f.branchid': this.branch, 'u.branchid': this.branch})
+               .select('u.filename', 'u.mime_type', 'u.content_base64').first();
+          if (!file) throw new Error('Supplier invoice copy not found in this branch');
+          return {filename: file.filename, mimeType: file.mime_type, content: file.content_base64};
+     }
      async record(input: PharmacySupplierInvoiceInput): Promise<any> {
           return this.post(input);
      }

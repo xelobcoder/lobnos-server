@@ -1,6 +1,12 @@
 import { Knex } from 'knex';
 
 export async function ensurePharmacyProcurementSchema(db: Knex): Promise<void> {
+     if (!await db.schema.hasTable('pharmacy_supplier_invoice_files')) await db.schema.createTable('pharmacy_supplier_invoice_files', t => {
+          t.string('id', 36).primary(); t.integer('branchid').unsigned().notNullable();
+          t.string('invoice_id', 36).notNullable(); t.string('upload_id', 36).notNullable().unique();
+          t.integer('created_by').unsigned().notNullable(); t.timestamp('created_at').notNullable().defaultTo(db.fn.now());
+          t.index(['branchid', 'invoice_id']);
+     });
      for (const [table, column] of [['pharmacy_purchase_orders', 'total_amount'], ['pharmacy_purchase_order_lines', 'unit_cost']]) {
           if (await db.schema.hasTable(table)) {
                const info = await db(table).columnInfo(column);

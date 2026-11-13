@@ -132,6 +132,13 @@ export class PharmacyReceiving extends PharmacyEnterpriseCore {
      async invoices() {
           return this.db.transaction(async trx => (await trx('pharmacy_documents').where({ branchid: this.branch, kind: 'supplier_invoice' }).orderBy('created_at', 'desc').limit(200)).map(row => ({ ...row, details: json(row.details) })));
      }
+     async uninvoiced() {
+          const rows = await this.db('pharmacy_workflows').where({branchid: this.branch, kind: 'goods_delivery'}).orderBy('created_at', 'desc');
+          const deliveries = rows.map(row => ({...row, details: json(row.details)})).filter(row =>
+               (row.details.lines || []).some((line: DeliveryLine) => Number(line.acceptedQuantity) > Number(line.invoiceQuantity || 0)));
+          const suppliers = await this.db('pharmacy_suppliers').where({branchid: this.branch}).select('id', 'name');
+          return {deliveries, suppliers};
+     }
      async previewPrice(input: { deliveryId: string; itemId: string; lines: AcceptanceInput['lines']; method: PharmacyPriceChoice['method']; value?: number; wholesale?: boolean }) {
           distinctLines(input.lines);
           return this.db.transaction(async trx => {

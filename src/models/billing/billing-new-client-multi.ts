@@ -638,7 +638,7 @@ export class SubmitCustomerBilling {
                     }
                 }
 
-                shouldTriggerCommission = [2, 4, 6].includes(billingSource);
+                shouldTriggerCommission = [1, 2, 3, 4, 6].includes(Number(billingSource));
                 await this.writeHooks?.afterWrite(trx, billingID);
                 if (separateCashier && !hasRelatedBilling) {
                     const saved = await trx('billing').where({billingid: billingID}).first();
@@ -715,38 +715,17 @@ export class SubmitCustomerBilling {
                     const organizationId = service.organizationId ? Number(service.organizationId) : null;
 
                     // Only these sources are commission-eligible in automatic billing flow.
-                    if (![2, 4, 6].includes(source)) {
+                    if (![1, 2, 3, 4, 6].includes(source) || (!clinicianId && !organizationId)) {
                         continue;
-                    }
-
-                    let selectedClinicianId: number | null = null;
-                    let selectedOrganizationId: number | null = null;
-
-                    // Source 2 (organization): use organization.
-                    if (source === 2) {
-                        selectedOrganizationId = organizationId;
-                    }
-
-                    // Source 6 (clinician special): use clinician.
-                    if (source === 6) {
-                        selectedClinicianId = clinicianId;
-                    }
-
-                    // Source 4 (NHIS): preserve clinician-first behavior; linked clinician affiliation is passed separately.
-                    if (source === 4) {
-                        if (clinicianId) {
-                            selectedClinicianId = clinicianId;
-                        } else if (organizationId) {
-                            selectedOrganizationId = organizationId;
-                        }
                     }
 
                     const result = await engine.executeCommissionCalculation({
                         service_id: service.serviceid,
                         service_amount: Number(service.paidamount ?? service.totalpayable ?? 0),
-                        clinician_id: selectedClinicianId,
-                        clinician_organization_id: selectedClinicianId ? Number(service.clinicianOrganizationId) || null : null,
-                        organization_id: selectedOrganizationId ?? 0,
+                        billing_source: source,
+                        clinician_id: clinicianId,
+                        clinician_organization_id: Number(service.clinicianOrganizationId) || null,
+                        organization_id: organizationId ?? 0,
                         service_category: service.serviceCategory || '',
                         completion_date: service.serviceAddedOn || new Date(),
                         outsourced_lab_cost: service.isoutsourced ? Number(service.outsourceprice || 0) : 0,

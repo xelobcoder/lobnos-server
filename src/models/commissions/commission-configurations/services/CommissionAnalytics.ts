@@ -154,6 +154,7 @@ export class CommissionAnalytics {
                summary: {
                     totalPaid,
                     totalDue,
+                    totalOutstanding: Math.max(0, Number(balance?.total_due || 0) - Number(balance?.total_paid || 0) - Number(balance?.total_waived || 0)),
                     totalWaived: summary?.total_waived || 0,
                     averagePaid: summary?.average_paid || 0,
                     batchCount: summary?.batch_count || 0,
