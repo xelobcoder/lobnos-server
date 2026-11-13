@@ -1,6 +1,7 @@
 import Decimal from 'decimal.js';
 import { Knex } from 'knex';
 import KnexConnection from '../../../database/KnexConnections';
+import { salesClosurePredicate } from './SalesClosure';
 
 export class SalesReportError extends Error {
      constructor(public readonly statusCode: number, message: string) { super(message); }
@@ -104,7 +105,7 @@ function periodBills(query: Knex.QueryBuilder, filters: SalesReportFilters) {
 }
 
 /** Separate detail queries: never join service, receipt and expense details into one aggregate. */
-export function salesReportQueries(db: Knex, filters: SalesReportFilters, organizationPayments: boolean) {
+export function salesReportQueries(db: Knex, filters: SalesReportFilters, organizationPayments: boolean, closure = '1=1') {
      const bills = periodBills(db('billing as bill'), filters)
           .leftJoin('new_patients as patient', 'patient.patientid', 'bill.patientid')
           .select('bill.billingid', 'bill.patientid', 'bill.totalcost', 'bill.discount', 'bill.payable', 'bill.paid', 'bill.outstanding',
@@ -115,6 +116,8 @@ export function salesReportQueries(db: Knex, filters: SalesReportFilters, organi
           .leftJoin('organization as organization', 'organization.id', 'service.organizationId')
           .select('bill.billingid', 'service.registrationType', 'organization.name as organizationName').distinct();
      validService(services, 'service');
+     bills.whereRaw(closure);
+     services.whereRaw(closure);
 
      const receipts = db('billinghx as receipt')
           .join('billing as bill', 'bill.billingid', 'receipt.Billingid')
@@ -126,6 +129,7 @@ export function salesReportQueries(db: Knex, filters: SalesReportFilters, organi
           .select('receipt.KeyID as id', 'bill.billingid', 'receipt.type', 'receipt.Amount as amount',
                'mode.PaymentMode as method', db.raw(`${patientName} as patientName`));
      // Invoice allocations can have multiple service lines per history row. Collapse BEFORE joining.
+     receipts.whereRaw(closure);
      // billinghx.Date is recording time for this workflow, NOT the supplied actual payment date.
      if (organizationPayments) {
           const dates = db('org_invoice_payment_allocations as allocation')
@@ -259,7 +263,8 @@ export class SalesExpensesReportService {
                ).orderBy('ID').first();
                const organizationPayments = await trx.schema.hasTable('org_invoice_payment_allocations') &&
                     await trx.schema.hasTable('org_invoice_payments');
-               const queries = salesReportQueries(trx, filters, organizationPayments);
+               const closure = await salesClosurePredicate(trx);
+               const queries = salesReportQueries(trx, filters, organizationPayments, closure);
                // Sequential reads intentionally use the same transaction connection.
                const bills = await queries.bills;
                const services = await queries.services;
@@ -267,6 +272,7 @@ export class SalesExpensesReportService {
                const receipts = await queries.receipts;
                const expenses = await queries.expenses;
                const report=assembleSalesReport(filters, branch, company, bills, services, receipts, expenses);
+               report.notes.push(closure === '1=1' ? 'Legacy reporting: this database has no billing closure infrastructure.' : 'Only closed billing records are included in sales and receipts.');
                if(query.inlineDetails==='true'){
                     const serviceQuery=periodBills(trx('billing as bill'),filters).join('dboservices as service','service.billingid','bill.billingid')
                          .leftJoin('test_panels as panel',function(){this.on('panel.id','=','service.trackId').andOnVal('service.serviceCategory','<>','SERVICES');})
@@ -274,6 +280,7 @@ export class SalesExpensesReportService {
                          .leftJoin('departments as department','department.id','panel.category')
                          .select('bill.billingid','service.serviceid','service.totalpayable','service.paidamount','service.outstanding','panel.name as panelName','additional.serviceName','department.department');
                     validService(serviceQuery,'service');
+                    serviceQuery.whereRaw(closure);
                     report.inlineServices=(await serviceQuery).map((row:any)=>({billingId:Number(row.billingid),serviceId:Number(row.serviceid),name:row.serviceName||row.panelName||'Unnamed service',department:row.department||'Other services',amount:number(money(row.totalpayable)),paid:number(money(row.paidamount)),outstanding:number(money(row.outstanding))}));
                }
                return report;

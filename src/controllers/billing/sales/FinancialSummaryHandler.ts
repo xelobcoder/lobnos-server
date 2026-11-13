@@ -1,6 +1,7 @@
+import KnexConnection from '../../../database/KnexConnections';
 import { Request, Response } from "express";
 import { TiifuWorkingClass } from "../../../database/TiifuWorkingClass";
-import { UtilityFinancial } from "../../../models/billing/sales/AnalyticsBilling";
+import { UtilityFinancial, scopeClosedFinancialQuery, financialTrendQuery } from "../../../models/billing/sales/AnalyticsBilling";
 import { OutsourcingAnalytics, OutsourcingAnalyticsWithDate } from "../../../models/billing/outsourcingAnalqueries";
 import { getDailyAnalyticsDashboard } from "./Extensive/extensive-daily-sales-breakdown";
 import { promisifyQuery } from '../../../hooks/helper';
@@ -47,51 +48,57 @@ export async function UtilityOutsourcing(tenantId: number, key: string, branchid
 	return await promisifyQuery(tenantId, OutsourcingAnalytics[key], params);
 }
 
+async function loadFinancialTrend(tenantId: number, branchid: number | null, startDate: string | null, endDate: string | null, period: 'daily' | 'weekly' | 'monthly' | 'yearly', year?: number | null) {
+     const selectedYear = year || new Date().getFullYear();
+     const from = startDate || (period === 'yearly' ? '1000-01-01' : selectedYear + '-01-01');
+     const to = endDate || selectedYear + '-12-31';
+     if (!/^\d{4}-\d{2}-\d{2}$/.test(from) || !/^\d{4}-\d{2}-\d{2}$/.test(to) || from > to) throw new Error('Invalid report dates');
+     const db = await KnexConnection(tenantId);
+     const organizationPayments = await db.schema.hasTable('org_invoice_payment_allocations') && await db.schema.hasTable('org_invoice_payments');
+     const rows = await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, financialTrendQuery(period, organizationPayments), branchid), [from, to, from, to, from, to]);
+     if (period === 'monthly') for (const row of rows) row.month = new Date(row.month + '-01T00:00:00Z').toLocaleString('en', {month: 'long', timeZone: 'UTC'});
+     return rows;
+}
+
 const analyticsFunctions: { [key: string]: Function } = {
 	totalSalesByBranch: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranch'], [startdate, enddate]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranch'], branchid), [startdate, enddate, startdate, enddate, startdate, enddate]);
 	},
 
 	totalSalesByClinician: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], [startdate, enddate]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['totalSalesByClinician'], branchid), [startdate, enddate]);
 	},
 
 	clinicianServiceDetails: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, clinicianId: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['clinicianServiceDetails'], [startdate, enddate, clinicianId]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['clinicianServiceDetails'], branchid), [startdate, enddate, clinicianId]);
 	},
 
 	totalSalesByOrganization: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByOrganization'], [startdate, enddate]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['totalSalesByOrganization'], branchid), [startdate, enddate]);
 	},
 
 	totalSalesByOutsourcedStatus: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalSalesByOutsourcedStatus', branchid, startdate, enddate),
 
 	totalSalesByBranchAndCategory: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranchAndCategory'], [startdate, enddate]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['totalSalesByBranchAndCategory'], branchid), [startdate, enddate]);
 	},
 
 	totalSalesByEmployee: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['totalSalesByEmployee'], [startdate, enddate]);
+		return await promisifyQuery(tenantId, await scopeClosedFinancialQuery(tenantId, BillingAnalyticsWithDate['totalSalesByEmployee'], branchid), [startdate, enddate]);
 	},
 
-	monthlySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['monthlySalesTrend'], [year, year]);
-	},
+	monthlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number) => loadFinancialTrend(tenantId, branchid, startdate, enddate, 'monthly', year),
 
 	dailySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
-		UtilityFinancial(tenantId, 'dailySalesTrend', branchid, startdate, enddate),
+		loadFinancialTrend(tenantId, branchid, startdate, enddate, 'daily', year),
 
-	weeklySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) => {
-		return await promisifyQuery(tenantId, BillingAnalytics['weeklySalesTrend'], [year, year]);
-	},
+	weeklySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number) => loadFinancialTrend(tenantId, branchid, startdate, enddate, 'weekly', year),
 
 	salesByWeekAndBranch: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'salesByWeekAndBranch', branchid, startdate, enddate),
 
-	yearlySalesTrend: async (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year: number) => {
-		return await promisifyQuery(tenantId, BillingAnalyticsWithDate['yearlySalesTrend'], [year, year]);
-	},
+	yearlySalesTrend: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number) => loadFinancialTrend(tenantId, branchid, startdate, enddate, 'yearly', year),
 
 	totalAmountRefunded: (tenantId: number, branchid: number, startdate: string | null, enddate: string | null, year?: number, outsourceId?: number) =>
 		UtilityFinancial(tenantId, 'totalAmountRefunded', branchid, startdate, enddate),
@@ -188,14 +195,28 @@ export const handleFinancialAnalytics = async function (request: Request<{}, {},
 	const { key, startDate = null, endDate = null, branchid, tenantId, targetDate, year, outsourceId } = request.query;
 	const tenantIdP = parseInt(tenantId.toString(), 10);
 	const analyticsKey = key?.toString();
-	const branchIdNum = branchid ? parseInt(branchid.toString(), 10) : null;
+	const actor = (request as any).authUser;
+     const requestedBranch = branchid ? Number(branchid) : null;
+     const superAdmin = String(actor?.role || '').toLowerCase().replace(/[ _-]/g, '') === 'superadmin';
+     const branchIdNum = superAdmin ? requestedBranch : Number(actor?.branch);
+     if ((!superAdmin && !branchIdNum) || (branchIdNum !== null && (!Number.isSafeInteger(branchIdNum) || branchIdNum <= 0))) return response.status(400).json({message: 'A valid operating branch is required'});
 	const yearNum = year ? parseInt(year.toString(), 10) : null;
 
 	// Convert outsourceId to number or null
 	const outsourceIdNum = outsourceId ? parseInt(outsourceId.toString(), 10) : null;
 
 
-	if (analyticsKey === 'all') {
+	const trendPeriods = { dailySalesTrend: 'daily', weeklySalesTrend: 'weekly', monthlySalesTrend: 'monthly', yearlySalesTrend: 'yearly' } as const;
+     if (analyticsKey in trendPeriods) {
+          const period = trendPeriods[analyticsKey as keyof typeof trendPeriods];
+          const selectedYear = Number(year) || new Date().getFullYear();
+          const from = startDate || (period === 'yearly' ? '1000-01-01' : selectedYear + '-01-01');
+          const to = endDate || selectedYear + '-12-31';
+          if (!/^\d{4}-\d{2}-\d{2}$/.test(String(from)) || !/^\d{4}-\d{2}-\d{2}$/.test(String(to)) || from > to) return response.status(400).json({message: 'Invalid report dates'});
+          const rows = await loadFinancialTrend(tenantIdP, branchIdNum, String(from), String(to), period, selectedYear);
+          return response.json(rows);
+     }
+     if (analyticsKey === 'all') {
 		try {
 			const allResults: { [key: string]: any } = {};
 			for (const funcKey in analyticsFunctions) {

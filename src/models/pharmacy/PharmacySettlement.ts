@@ -36,7 +36,18 @@ export class PharmacyCustomerAccounts extends PharmacyEnterpriseCore{
           const account=await trx('pharmacy_customer_accounts').where({branchid:this.branch,patient_id:input.patientId}).forUpdate().first(),reason=requiredText(input.reason,'credit approval reason');if(account){const balance=await trx('pharmacy_sales').where({customer_account_id:account.id}).sum('outstanding_amount as amount').first();if(Number(balance?.amount||0)>input.creditLimit)throw new Error('Credit limit cannot be below the outstanding balance');await trx('pharmacy_customer_accounts').where({id:account.id}).update({credit_limit:input.creditLimit,is_active:input.active!==false,approved_by:this.actor,reason});await this.event(trx,'credit_limit_updated',{accountId:account.id,creditLimit:input.creditLimit,reason});return {id:account.id};}
           const [id]=await trx('pharmacy_customer_accounts').insert({branchid:this.branch,patient_id:input.patientId,credit_limit:input.creditLimit,is_active:true,approved_by:this.actor,reason,created_at:new Date()});await this.event(trx,'credit_account_created',{accountId:id,creditLimit:input.creditLimit,reason});return {id};
      });}
-     async invoices(accountId:number){if(!await this.db('pharmacy_customer_accounts').where({id:accountId,branchid:this.branch}).first())throw new Error('Account not found');return this.db('pharmacy_sales').where({branchid:this.branch,customer_account_id:accountId}).orderBy('completed_at','desc').limit(200);}
+     async invoices(accountId: number, input: any = {}) {
+          if (!await this.db('pharmacy_customer_accounts').where({id: accountId, branchid: this.branch}).first()) throw new Error('Account not found');
+          const query = this.db('pharmacy_sales').where({branchid: this.branch, customer_account_id: accountId});
+          if (input.page == null) return query.orderBy('completed_at', 'desc').limit(200);
+          if (input.status === 'outstanding') query.where({status: 'completed'}).where('outstanding_amount', '>', 0);
+          const totalRow = await query.clone().count('* as total').first();
+          const total = Number(totalRow?.total || 0), totalPages = Math.max(1, Math.ceil(total / 20));
+          const requestedPage = Number(input.page);
+          const page = Number.isFinite(requestedPage) ? Math.min(totalPages, Math.max(1, Math.floor(requestedPage))) : 1;
+          const items = await query.orderBy('completed_at', 'desc').orderBy('id', 'desc').limit(20).offset((page - 1) * 20);
+          return {items, total, page, totalPages};
+     }
      async receive(saleId:string,input:any){return this.atomic(input,'credit_payment:'+saleId,async trx=>{
           const sale=await trx('pharmacy_sales').where({id:saleId,branchid:this.branch,accounting_version:3,status:'completed'}).forUpdate().first();if(!sale||!sale.customer_account_id)throw new Error('Open patient invoice not found');await trx('pharmacy_customer_accounts').where({id:sale.customer_account_id,branchid:this.branch}).forUpdate().first();
           if(typeof input.amount!=='number'||!Number.isFinite(input.amount)||input.amount<=0||money(input.amount)!==input.amount||input.amount>Number(sale.outstanding_amount))throw new Error('Enter an amount within the outstanding balance');if(!['cash','mobile_money','card'].includes(input.method))throw new Error('Select a valid collection method');const reference=String(input.reference||'').trim();if(input.method!=='cash'&&reference.length<3)throw new Error('Enter the payment reference');

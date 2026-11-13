@@ -1,3 +1,4 @@
+import { isAuthorizedRoleAdmin as requireAnalyticsAdmin } from '../../../middleware/validateTenancy';
 import { Router } from 'express';
 import {
      getAgeDistributionHandler,
@@ -19,6 +20,7 @@ import {
 } from './patient-analytics-handlers';
 
 const router = Router();
+router.use('/api/v1/patient-analytics', requireAnalyticsAdmin);
 
 router.get('/api/v1/patient-analytics/age-distribution', getAgeDistributionHandler);
 router.get('/api/v1/patient-analytics/gender-distribution', getGenderDistributionHandler);

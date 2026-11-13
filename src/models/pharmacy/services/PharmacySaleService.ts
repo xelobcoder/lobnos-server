@@ -389,6 +389,9 @@ export class PharmacySaleService implements IPharmacySaleService {
                status: sale.status,
                completedAt: sale.completedAt,
                cashierId: sale.cashierId,
+               cashierName: sale.cashierName || null,
+               reversedBy: sale.reversedBy,
+               reversedByName: sale.reversedByName || null,
                reversalType: (sale.reversalType as PharmacySaleReversalType) || null,
                reversalReason: sale.reversalReason,
                reversedAt: sale.reversedAt

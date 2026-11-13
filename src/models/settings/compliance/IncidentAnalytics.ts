@@ -9,7 +9,7 @@ export class IncidentAnalytics {
           const incidentsByStatusResult = await analyticsInstance.incidentsByStatus(startDate, endDate);
           const monthlyIncidentTrendResult = await analyticsInstance.monthlyIncidentTrend(startDate, endDate);
           const resolutionTimeAverageResult = await analyticsInstance.resolutionTimeAverage(startDate, endDate);
-          const openIncidentsResult = await analyticsInstance.openIncidents();
+          const openIncidentsResult = await analyticsInstance.openIncidents(startDate, endDate);
           const incidentsByLocationResult = await analyticsInstance.incidentsByLocation(startDate, endDate);
           const incidentsByEmployeeResult = await analyticsInstance.incidentsByEmployee(startDate, endDate);
           const regulatoryReportingIncidentsResult = await analyticsInstance.regulatoryReportingIncidents(startDate, endDate);

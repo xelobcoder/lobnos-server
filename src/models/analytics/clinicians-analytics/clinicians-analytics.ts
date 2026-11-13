@@ -30,8 +30,8 @@ type monthly_case_summary_rate = {
      period: string;
      total_clinician_cases: number;
      clinicians_total_cases: number;
-     clinicians_revenue_generated: string;
-     clinician_revenue_generated: string;
+     earned_revenue: string;
+     clinician_earned_revenue: string;
 }
 
 class ClinicianAnalytics {
@@ -79,8 +79,8 @@ class ClinicianAnalytics {
                     return {
                          ...item,
                          percentage_revenue: this.percentage_of_revenue_by_clinician(
-                              Number(item.clinician_revenue_generated),
-                              Number(item.clinicians_revenue_generated)
+                              Number(item.clinician_earned_revenue),
+                              Number(item.earned_revenue)
                          )
                     };
                })

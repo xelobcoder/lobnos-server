@@ -1,5 +1,7 @@
 import { Knex } from "knex";
 import KnexConnection from "../../../database/KnexConnections";
+import { billingPayerClassificationSql } from "../../../accountingModule/services/BillingPayer";
+import { salesClosurePredicate } from "../sales/SalesClosure";
 
 interface OutstandingReport {
      allOutstandings: any[],
@@ -30,13 +32,18 @@ interface SpecificCategoryOutstandingReport {
 
 export default class OutstandingClass {
      private tenantId: number;
+     private closure = '1=1';
+     private closureReady?: Promise<void>;
 
      constructor(tenantId: number) {
           this.tenantId = tenantId;
      }
 
      private async getKnex(): Promise<Knex> {
-          return await KnexConnection(this.tenantId);
+          const db = await KnexConnection(this.tenantId);
+          this.closureReady ||= salesClosurePredicate(db).then(predicate => { this.closure = predicate; });
+          await this.closureReady;
+          return db;
      }
 
      private validateDateRange(startdate: string, enddate: string): boolean {
@@ -48,6 +55,10 @@ export default class OutstandingClass {
 
      private applyCommonFilters(query: Knex.QueryBuilder, startdate: string, enddate: string, organizationId?: number | string) {
           query
+               // NHIS settlements use the accounting ledger. Never present their legacy
+               // service balances (or part of a mixed bill) as patient collection debt.
+               .whereRaw(`${billingPayerClassificationSql('dboservices.billingid')} = 'patient'`)
+               .whereRaw(`EXISTS (SELECT 1 FROM billing bill WHERE bill.billingid = dboservices.billingid AND ${this.closure})`)
                .whereIn('dboservices.status', ['active', 'refunded'])
                .where(function () {
                     this.where('dboservices.isDeleted', 0).orWhereNull('dboservices.isDeleted');

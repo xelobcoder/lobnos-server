@@ -19,6 +19,8 @@ export interface PharmacySellableItemRow {
 }
 
 export interface PharmacySaleRow {
+     cashierName?: string | null;
+     reversedByName?: string | null;
      settlementJson?:string|null;
      customerAccountId?:number|null;
      paidAmount?:number;

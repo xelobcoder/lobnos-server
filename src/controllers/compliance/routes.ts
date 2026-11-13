@@ -1,8 +1,10 @@
+import { isAuthorizedRoleAdmin as requireAnalyticsAdmin } from '../../middleware/validateTenancy';
 import { Router } from 'express';
 import { IncidentController } from './IncidentController';
 import IncidentAnalyticsController from './IncidentAnalyticsController';
 
 const router = Router();
+router.use('/api/v1/compliance/incidents/analytics', requireAnalyticsAdmin);
 const incidentController = new IncidentController();
 
 router.get('/api/v1/compliance/incidents', (req, res) => incidentController.getIncidents(req, res));

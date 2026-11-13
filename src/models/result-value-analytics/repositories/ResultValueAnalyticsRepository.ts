@@ -11,7 +11,23 @@ import {
 export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepository {
 	constructor(private tenantId: number) { }
 
-	async ensureAnalyticsProcessedColumn(): Promise<void> {
+	async getSourceResultId(testid: number, ascensionid: number, fieldid: number): Promise<number> {
+        const connection = await KnexConnection(this.tenantId);
+        const row = await connection('test_results').where({ testid, ascensionid, fieldid }).orderBy('id', 'desc').first('id');
+        if (!row) throw new Error('Committed result record is unavailable');
+        return Number(row.id);
+    }
+
+    async removeResultObservation(testid: number, ascensionid: number, fieldid: number): Promise<void> {
+        const connection = await KnexConnection(this.tenantId);
+        await connection.transaction(async trx => {
+            const previous = await trx('result_value_analytics_observations').where({ testid, ascensionid, fieldid }).forUpdate();
+            await trx('result_value_analytics_observations').where({ testid, ascensionid, fieldid }).del();
+            for (const row of previous) await this.rebuildTotalAggregate(trx, testid, fieldid, row.range_version, row.bucket_key);
+        });
+    }
+
+    async ensureAnalyticsProcessedColumn(): Promise<void> {
 		const connection = await KnexConnection(this.tenantId);
 		if (await connection.schema.hasTable('test_results')) {
 			const hasCol = await connection.schema.hasColumn('test_results', 'analytics_processed');
@@ -322,7 +338,7 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 	): Promise<DailyAggregate[]> {
 		const connection = await KnexConnection(this.tenantId);
 
-		let query = connection('result_value_analytics_totals')
+		let query = connection('result_value_analytics_observations as observation')
 			.select(
 				'testid',
 				'fieldid',
@@ -330,17 +346,23 @@ export class ResultValueAnalyticsRepository implements IResultValueAnalyticsRepo
 				'bucket_key',
 				'value_kind',
 				'categorical_value',
-				'observation_count',
-				'value_sum',
-				'value_sum_squares',
-				'min_value',
-				'max_value',
+				connection.raw('COUNT(*) AS observation_count'),
+                connection.raw('SUM(numeric_value) AS value_sum'),
+                connection.raw('SUM(numeric_value * numeric_value) AS value_sum_squares'),
+                connection.raw('MIN(numeric_value) AS min_value'),
+                connection.raw('MAX(numeric_value) AS max_value'),
 			)
 			.where('testid', testid)
 			.where('fieldid', fieldid)
 			.where('range_version', 'exact_value');
 
-		const rows = await query.orderBy('observation_count', 'desc');
+		if (startDate) query.where('observed_date', '>=', startDate);
+        if (endDate) query.where('observed_date', '<=', endDate);
+        query.whereNotExists(function () {
+            this.select(connection.raw('1')).from('result_value_analytics_observations as newer')
+                .whereRaw('newer.testid = observation.testid AND newer.ascensionid = observation.ascensionid AND newer.fieldid = observation.fieldid AND (newer.processed_at > observation.processed_at OR (newer.processed_at = observation.processed_at AND newer.id > observation.id))');
+        });
+        const rows = await query.groupBy('testid', 'fieldid', 'range_version', 'bucket_key', 'value_kind', 'categorical_value').orderBy('observation_count', 'desc');
 
 		return rows.map((row: any) => ({
 			observedDate: null,

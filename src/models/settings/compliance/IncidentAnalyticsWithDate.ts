@@ -51,11 +51,11 @@ export default class IncidentAnalyticsWithDate {
      public async monthlyIncidentTrend(startDate: string, endDate: string) {
           const connection = await this.connection;
           return connection('incidents')
-               .select(connection.raw('DATE_FORMAT(reported_at, \'%b\') AS month'))
+               .select(connection.raw('DATE_FORMAT(reported_at, \'%Y-%m\') AS month'))
                .count('* as incidents')
                .whereRaw('DATE(reported_at) BETWEEN ? AND ?', [startDate, endDate])
-               .groupByRaw('MONTH(reported_at), DATE_FORMAT(reported_at, \'%b\')')
-               .orderByRaw('MONTH(reported_at)');
+               .groupByRaw("DATE_FORMAT(reported_at, '%Y-%m')")
+               .orderBy('month');
      }
 
      public async resolutionTimeAverage(startDate: string, endDate: string) {
@@ -66,11 +66,11 @@ export default class IncidentAnalyticsWithDate {
                .whereRaw('DATE(reported_at) BETWEEN ? AND ?', [startDate, endDate]);
      }
 
-     public async openIncidents() {
+     public async openIncidents(startDate?: string, endDate?: string) {
           const connection = await this.connection;
           return connection('incidents')
                .count('* as openIncidents')
-               .whereNotIn('status', ['resolved', 'closed']);
+               .whereNotIn('status', ['resolved', 'closed']).modify(builder => { if (startDate && endDate) builder.whereRaw('DATE(reported_at) BETWEEN ? AND ?', [startDate, endDate]); });
      }
 
      public async incidentsByLocation(startDate: string, endDate: string) {

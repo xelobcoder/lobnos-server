@@ -11,8 +11,8 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
-               const result = await analytics.getDailyExpenseAnalytics(startDate as string, endDate as string);
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
+               const result = await analytics.getDailyExpenseAnalytics(startDate as string, endDate as string, Number(req.query.branchid) || undefined);
 
                res.status(200).json({
                     status: 'success',
@@ -34,7 +34,7 @@ export class ExpenseAnalyticsController {
                     return customError('All date parameters and tenantId are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseComparisonByPeriod(
                     currentStart as string,
                     currentEnd as string,
@@ -63,7 +63,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseTrendsByCategory(startDate as string, endDate as string);
 
                res.status(200).json({
@@ -86,7 +86,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseTrendsByEmployee(startDate as string, endDate as string, branchid ? parseInt(branchid as string) : undefined);
 
                res.status(200).json({
@@ -109,7 +109,7 @@ export class ExpenseAnalyticsController {
                     return customError('startDate and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseTrendsByMerchant(startDate as string, endDate as string);
 
                res.status(200).json({
@@ -132,7 +132,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId and date are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getHourlyExpenseAnalytics(date as string);
 
                res.status(200).json({
@@ -155,7 +155,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId and year are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getMonthlyExpenseAnalytics(parseInt(year as string));
 
                res.status(200).json({
@@ -178,7 +178,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId and year are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getWeeklyExpenseAnalytics(parseInt(year as string));
 
                res.status(200).json({
@@ -201,7 +201,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId and year are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getQuarterlyExpenseAnalytics(parseInt(year as string));
 
                res.status(200).json({
@@ -224,7 +224,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startYear, and endYear are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getYearlyExpenseAnalytics(
                     parseInt(startYear as string),
                     parseInt(endYear as string)
@@ -250,7 +250,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseAnalyticsByBranch(startDate as string, endDate as string);
 
                res.status(200).json({
@@ -273,7 +273,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getTopExpenseCategories(
                     startDate as string,
                     endDate as string,
@@ -300,7 +300,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpensePaymentStatusAnalytics(startDate as string, endDate as string);
 
                res.status(200).json({
@@ -323,7 +323,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getRejectedExpenseAnalytics(
                     startDate as string,
                     endDate as string,
@@ -350,7 +350,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getRejectedExpenseAnalyticsByMonth(
                     startDate as string,
                     endDate as string,
@@ -380,7 +380,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, year, and month are required; month must be between 1 and 12', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getRejectedExpenseDetailsByMonth(
                     yearNumber,
                     monthNumber,
@@ -407,7 +407,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, endDate, and branchid are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getBranchMonthlyExpenseAnalytics(
                     startDate as string,
                     endDate as string,
@@ -434,7 +434,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseBuckets(startDate as string, endDate as string, branchid ? parseInt(branchid as string) : undefined);
 
                res.status(200).json({
@@ -457,7 +457,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId and year are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseGrowthRateAnalytics(parseInt(year as string), branchid ? parseInt(branchid as string) : undefined);
 
                res.status(200).json({
@@ -480,7 +480,7 @@ export class ExpenseAnalyticsController {
                     return customError('tenantId, startDate, and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseApprovalTimelineAnalytics(startDate as string, endDate as string, branchid ? parseInt(branchid as string) : undefined);
 
                res.status(200).json({
@@ -504,7 +504,7 @@ export class ExpenseAnalyticsController {
                     return customError('startDate and endDate are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getExpenseBreakdownWithPayments(startDate as string, endDate as string, branchid ? parseInt(branchid as string) : undefined);
 
                res.status(200).json({
@@ -529,7 +529,7 @@ export class ExpenseAnalyticsController {
                     return customError(' merchantId, page, and count are required', 400, res);
                }
 
-               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string));
+               const analytics = new ExpenseAnalyticsQueries(parseInt(tenantId as string), Number(req.query.branchid) || undefined);
                const result = await analytics.getPaymentsByMerchant(
                     parseInt(merchantId as string),
                     parseInt(page as string),

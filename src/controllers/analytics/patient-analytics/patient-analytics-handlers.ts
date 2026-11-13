@@ -6,6 +6,11 @@ const analytics = new PatientAnalytics();
 export const getAgeDistributionHandler = async (req: Request<{}, {}, {}, { tenantId: string | number, interval: number, min_age: number, max_age: number }>, res: Response): Promise<void> => {
      try {
           const { tenantId, interval, min_age, max_age } = req.query;
+          const size = Number(interval ?? 10), minimum = Number(min_age ?? 0), maximum = Number(max_age ?? 120);
+          if (!Number.isInteger(size) || size <= 0 || size > 120 || !Number.isFinite(minimum) || !Number.isFinite(maximum) || minimum < 0 || minimum > maximum) {
+               res.status(400).json({message: 'Invalid age distribution limits'});
+               return;
+          }
           const result = await analytics.getAgeDistribution(
                parseInt(tenantId.toString()),
                parseInt(interval?.toString() || '10'),

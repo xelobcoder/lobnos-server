@@ -7,7 +7,7 @@ SELECT
         FLOOR(age / p.unit_size) * p.unit_size + p.unit_size - 1
     ) AS age_range,
     COUNT(*) AS patient_count
-FROM new_patients
+FROM (SELECT CASE WHEN dob IS NOT NULL THEN TIMESTAMPDIFF(YEAR, dob, CURRENT_DATE) WHEN agetype IN ('day','days') THEN FLOOR(age / 365.25) WHEN agetype = 'months' THEN FLOOR(age / 12) ELSE age END AS age FROM new_patients) patients
 CROSS JOIN params p
 WHERE age IS NOT NULL AND age >= p.min_age AND age <= p.max_age
 GROUP BY age_range
@@ -62,9 +62,9 @@ GROUP BY occupation;
 
 export const q_patient_analytics_missing_data_analysis = `
 SELECT
-    COUNT(*) - COUNT(email) AS missing_emails,
-    COUNT(*) - COUNT(mobile_number) AS missing_mobile_numbers,
-    COUNT(*) - COUNT(middlename) AS missing_middlenames
+    COUNT(*) - COUNT(NULLIF(TRIM(email), '')) AS missing_emails,
+    COUNT(*) - COUNT(NULLIF(TRIM(mobile_number), '')) AS missing_mobile_numbers,
+    COUNT(*) - COUNT(NULLIF(TRIM(middlename), '')) AS missing_middlenames
 FROM new_patients;
 `;
 
@@ -105,7 +105,7 @@ ORDER BY registration_year, registration_month;
 
 
 
-export const q_patient_analytics_day_registered_client = `SELECT COUNT(*) AS count FROM new_patients WHERE date = CURRENT_DATE`;
+export const q_patient_analytics_day_registered_client = `SELECT COUNT(*) AS count FROM new_patients WHERE date >= CURRENT_DATE AND date < CURRENT_DATE + INTERVAL 1 DAY`;
 
 export const q_patient_analytics_registration_by_day_of_week = `
 SELECT DAYNAME(date) as day, COUNT(*) as registrations
@@ -117,7 +117,7 @@ ORDER BY DAYOFWEEK(date);
 export const q_patient_analytics_contact_completeness = `
 SELECT
     COUNT(*) as total,
-    SUM(CASE WHEN email IS NOT NULL AND mobile_number IS NOT NULL THEN 1 ELSE 0 END) as complete_contact
+    SUM(CASE WHEN NULLIF(TRIM(email), '') IS NOT NULL AND NULLIF(TRIM(mobile_number), '') IS NOT NULL THEN 1 ELSE 0 END) as complete_contact
 FROM new_patients;
 `;
 

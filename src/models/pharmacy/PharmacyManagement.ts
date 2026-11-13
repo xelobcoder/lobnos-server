@@ -258,6 +258,33 @@ export class PharmacyManagement {
                .select(this.db.raw("SUM(new_stock - previous_stock) AS available"))
                .groupBy("batch_number");
      }
+     async batchBalances(id: string, input: any = {}) {
+          const item = await this.db('pharmacy_inventory_items').where({ id, branchid: this.branch }).first();
+          if (!item) throw new Error('Pharmacy item not found in this branch');
+          const requestedPage = Number(input.page);
+          const count = 25;
+          const today = new Date().toISOString().slice(0, 10);
+          const balances = this.db('pharmacy_stock_movements')
+               .where({ item_id: id, branchid: this.branch })
+               .select('batch_number').min('expiry_date as expiry_date')
+               .select(this.db.raw('SUM(new_stock - previous_stock) AS available'))
+               .groupBy('batch_number');
+          const query = this.db.from(balances.as('balances')).select('*');
+          const search = String(input.search || '').trim();
+          if (search) query.whereRaw('INSTR(LOWER(COALESCE(batch_number, ?)), LOWER(?)) > 0', ['Unbatched', search]);
+          if (input.status === 'remaining') query.where('available', '>', 0);
+          if (input.status === 'depleted') query.where('available', '<=', 0);
+          if (input.status === 'expired') query.where('available', '>', 0).where('expiry_date', '<', today);
+          const totalRow = await this.db.from(query.clone().as('filtered')).count('* as total').first();
+          const total = Number(totalRow?.total || 0);
+          const totalPages = Math.max(1, Math.ceil(total / count));
+          const page = Number.isFinite(requestedPage) ? Math.min(totalPages, Math.max(1, Math.floor(requestedPage))) : 1;
+          const rows = await query.orderBy('expiry_date', 'asc').orderBy('batch_number', 'asc').limit(count).offset((page - 1) * count);
+          return {
+               item: { id: item.id, name: item.name, sku: item.sku, unit: item.consumption_unit, currentStock: Number(item.current_stock) },
+               items: rows, total, page, totalPages,
+          };
+     }
      async writeOff(id: string, input: any) {
           const count = input.quantity,
                reason = text(input.reason, "write-off reason", 500);

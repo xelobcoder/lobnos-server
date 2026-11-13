@@ -317,7 +317,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
           const query=connection('pharmacy_sales').where({id:saleId});
           this.scopeBranch(query);
           const row=await query.first();
-          return row ? this.toSaleRow(row) : null;
+          return row ? (await this.withStaffNames(connection, [this.toSaleRow(row)]))[0] : null;
      }
 
      async findSaleLines(saleId: string, unitOfWork?: PharmacyUnitOfWork): Promise<PharmacySaleLineRow[]> {
@@ -349,7 +349,20 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                query.clone().clearOrder().count('* as total').first()
           ]);
 
-          return { sales: rows.map((row: any) => this.toSaleRow(row)), total: Number((totalResult as any)?.total || 0) };
+          return { sales: await this.withStaffNames(connection, rows.map((row: any) => this.toSaleRow(row))), total: Number((totalResult as any)?.total || 0) };
+     }
+
+     private async withStaffNames(connection: Knex, sales: PharmacySaleRow[]): Promise<PharmacySaleRow[]> {
+          const ids = [...new Set(sales.flatMap(sale => [sale.cashierId, sale.reversedBy])
+               .filter((id): id is number => Number.isSafeInteger(id) && Number(id) > 0))];
+          if (!ids.length) return sales;
+          const staff = await connection('roles').select('employeeid', 'username').whereIn('employeeid', ids);
+          const names = new Map<number, string>(staff.map(row => [Number(row.employeeid), String(row.username || '').trim()]));
+          return sales.map(sale => ({
+               ...sale,
+               cashierName: names.get(sale.cashierId) || null,
+               reversedByName: sale.reversedBy ? names.get(sale.reversedBy) || null : null,
+          }));
      }
 
      private scope(unitOfWork: PharmacyUnitOfWork): Knex.Transaction {
@@ -391,7 +404,7 @@ export class PharmacySaleRepository implements IPharmacySaleRepository {
                completedAt: row.completed_at || null,
                reversalType: row.reversal_type || null,
                reversalReason: row.reversal_reason || null,
-               reversedBy: row.reversed_by ?? null,
+               reversedBy: row.reversed_by == null ? null : Number(row.reversed_by),
                reversedAt: row.reversed_at || null
           };
      }

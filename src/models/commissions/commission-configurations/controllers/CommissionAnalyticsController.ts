@@ -15,7 +15,7 @@ export class CommissionAnalyticsController {
                const endDate = new Date(req.query.endDate as string);
                const period = (req.query.period as string) || 'monthly';
 
-               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
                     res.status(400).json({
                          status: 'error',
                          statusCode: 400,
@@ -38,6 +38,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getCommissionsByPeriod(query);
 
@@ -88,6 +95,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getCommissionsByRecipient(query);
 
@@ -141,6 +155,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getRecipientCommissionsByPeriod(query);
 
@@ -169,7 +190,7 @@ export class CommissionAnalyticsController {
                const startDate = new Date(req.query.startDate as string);
                const endDate = new Date(req.query.endDate as string);
 
-               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
                     res.status(400).json({
                          status: 'error',
                          statusCode: 400,
@@ -192,6 +213,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getPaymentSummary(query);
 
@@ -220,7 +248,7 @@ export class CommissionAnalyticsController {
                const startDate = new Date(req.query.startDate as string);
                const endDate = new Date(req.query.endDate as string);
 
-               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
                     res.status(400).json({
                          status: 'error',
                          statusCode: 400,
@@ -241,6 +269,13 @@ export class CommissionAnalyticsController {
                     recipientId,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getPaymentsByStatus(query);
 
@@ -269,7 +304,7 @@ export class CommissionAnalyticsController {
                const startDate = new Date(req.query.startDate as string);
                const endDate = new Date(req.query.endDate as string);
 
-               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
                     res.status(400).json({
                          status: 'error',
                          statusCode: 400,
@@ -288,6 +323,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getRecipientPaymentEfficiency(query);
 
@@ -317,7 +359,7 @@ export class CommissionAnalyticsController {
                const endDate = new Date(req.query.endDate as string);
                const period = (req.query.period as string) || 'monthly';
 
-               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
+               if (!tenantId || isNaN(tenantId) || isNaN(startDate.getTime()) || isNaN(endDate.getTime()) || startDate > endDate) {
                     res.status(400).json({
                          status: 'error',
                          statusCode: 400,
@@ -340,6 +382,13 @@ export class CommissionAnalyticsController {
                     status: status as any,
                };
 
+               if (!['daily','weekly','monthly','quarterly','yearly'].includes(query.period) ||
+                    (query.recipientType && !['clinician','organization'].includes(query.recipientType)) ||
+                    (query.status && !['pending','completed','cancelled'].includes(query.status)) ||
+                    (query.recipientId !== undefined && (!Number.isSafeInteger(query.recipientId) || query.recipientId <= 0)) || query.startDate > query.endDate) {
+                    res.status(400).json({status: 'error', message: 'Invalid analytics filters'});
+                    return;
+               }
                const analytics = new CommissionAnalytics(tenantId);
                const result = await analytics.getComprehensiveDashboard(query);
 

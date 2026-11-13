@@ -17,7 +17,9 @@ export function bindExpenseIdentity(req: Request, res: Response, next: NextFunct
      if (!actor) return res.status(401).json({ message: 'Authentication required' });
      req.query.employeeid = String(actor.employeeid);
      req.query.tenantId = String(actor.tenantId);
-     if (actor.branch != null) req.query.branchid = String(actor.branch);
+     const analytics = String(req.originalUrl || req.path || '').includes('/expenses/analytics/');
+     const admin = ['admin', 'superadmin'].includes(String(actor.role).toLowerCase().replace(/[ _-]/g, ''));
+     if (actor.branch != null && !(analytics && admin && req.query.branchid)) req.query.branchid = String(actor.branch);
      if (req.body && typeof req.body === 'object' && !Array.isArray(req.body)) {
           req.body.employeeid = actor.employeeid;
           req.body.tenantId = actor.tenantId;

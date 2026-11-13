@@ -1,3 +1,4 @@
+import { SalesExpensesReportService } from '../billing/sales/SalesExpensesReport';
 
 import { queries } from "./queries";
 import { TransactionRecord, TransactionData, ClientDebtTransaction } from "./interfaces";
@@ -358,59 +359,32 @@ class Payment {
 
 
 	summaryRangeOfDates = async (tenantId: number, from: string, to: string, branchid: number): Promise<any> => {
-		try {
-			const summary = await promisifyQuery(
-				tenantId,
-				`
-				 WITH sales AS (
-        SELECT 
-        COALESCE(SUM(totalcost), 0) AS gross_revenue, 
-        COALESCE(SUM(paidamount), 0) AS cash_collected, 
-        COALESCE(SUM(totalpayable), 0) AS earned_revenue, 
-        COALESCE(SUM(discount), 0) AS discount, 
-        COALESCE(SUM(outstanding), 0) AS outstanding,
-        COALESCE(SUM(r.amountRefunded), 0) AS total_refunded,
-		COUNT(DISTINCT dboservices.billingid) AS total_billing,
-        COUNT(*) AS transactioncount
-        FROM dboservices
-        LEFT JOIN (SELECT serviceid,SUM(amountRefunded) AS amountRefunded FROM dbobillingrefundtable GROUP BY serviceid) r ON dboservices.serviceid = r.serviceid
-        WHERE DATE(serviceAddedOn) BETWEEN ? AND ? AND dboservices.branchid = ? AND (dboservices.status IN ('active','refunded','written-off')) AND (isDeleted = 0 OR isDeleted IS NULL)
-    ),
-    expenses AS (
-        SELECT  
-        COALESCE(SUM(amount), 0) AS expenses_paid
-        FROM expense_payments
-        WHERE DATE(payment_date) BETWEEN ? AND ? AND COALESCE(is_reversed, 0) = 0 AND status = 'Paid' AND EXISTS (SELECT 1 FROM expensesrecord branch_expense WHERE branch_expense.id=expense_payments.expense_id AND branch_expense.branchid=?)
-	),
-	patients AS (
-		SELECT
-		COUNT(DISTINCT new_patients.patientid) AS total_patients_registered
-		FROM new_patients
-		WHERE DATE(\`date\`) BETWEEN ? AND ? AND EXISTS (SELECT 1 FROM billing registered_bill WHERE registered_bill.patientid=new_patients.patientid AND registered_bill.branchid=?)
-    )
-            SELECT 
-            s.gross_revenue, 
-            s.cash_collected, 
-            s.earned_revenue, 
-            s.discount,
-            s.total_refunded,
-			s.total_billing,
-			p.total_patients_registered,
-            s.transactioncount,
-            COALESCE(e.expenses_paid, 0) AS expenses_paid,
-            (COALESCE(s.cash_collected, 0) - COALESCE(e.expenses_paid, 0)) AS net_operating_cash,
-            s.outstanding
-			FROM sales s, expenses e, patients p;
-				 `,
-				[from, to, branchid, from, to, branchid, from, to, branchid]
-			);
-			return summary;
-
-		} catch (err: any) {
-			logger.error(`Error in summaryRangeOfDates: ${err}`);
-			throw new Error(`Failed to get summary for date range: ${err.message}`);
-		}
-	}
+        const rangeFrom = from || '1000-01-01';
+        const rangeTo = to || '9999-12-30';
+        const report = await new SalesExpensesReportService(tenantId).generate({
+            branchid: String(branchid), from: rangeFrom, to: rangeTo,
+        });
+        const registered = await promisifyQuery(tenantId, `
+            SELECT COUNT(DISTINCT patient.patientid) AS total_patients_registered
+            FROM new_patients patient
+            WHERE DATE(patient.date) BETWEEN ? AND ?
+                AND EXISTS (SELECT 1 FROM billing bill WHERE bill.patientid = patient.patientid AND bill.branchid = ?)
+        `, [rangeFrom, rangeTo, branchid]);
+        const summary = report.summary;
+        return [{
+            gross_revenue: summary.grossSales,
+            cash_collected: summary.receipts,
+            earned_revenue: summary.netSales,
+            discount: summary.discounts,
+            total_refunded: summary.receiptRefunds || 0,
+            total_billing: summary.transactions,
+            total_patients_registered: Number(registered[0]?.total_patients_registered || 0),
+            transactioncount: summary.transactions,
+            expenses_paid: summary.expensePayments,
+            net_operating_cash: summary.netCashMovement,
+            outstanding: summary.outstanding,
+        }];
+    }
 
 }
 

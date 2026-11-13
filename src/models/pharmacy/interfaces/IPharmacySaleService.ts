@@ -65,6 +65,9 @@ export interface PharmacySaleReversal {
 }
 
 export interface PharmacySaleHistoryItem {
+     cashierName?: string | null;
+     reversedByName?: string | null;
+     reversedBy?: number | null;
      accountingVersion?: number;
      id: string;
      receiptNumber: string;

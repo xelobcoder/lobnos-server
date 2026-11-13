@@ -1,3 +1,4 @@
+import { isAuthorizedRoleAdmin as requireAnalyticsAdmin } from '../../middleware/validateTenancy';
 import express from "express";
 import multer from "multer";
 import {
@@ -38,6 +39,7 @@ import { bindExpenseIdentity } from '../../middleware/expenseIdentity';
 import { createExpenseMerchant, updateExpenseMerchant, getAllExpenseMerchants } from './ExpenseMerchantController';
 
 const router = express.Router();
+router.use('/api/v1/expenses/analytics', requireAnalyticsAdmin);
 router.use(['/api/v1/expenses', '/api/v1/expense', '/api/v1/supplier-payments', '/api/v1/outsourced/cases'], bindExpenseIdentity);
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024, files: 10, fields: 2 } });
 

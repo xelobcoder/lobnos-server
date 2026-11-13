@@ -138,11 +138,12 @@ export class CommissionAnalytics {
      }
 
      async getComprehensiveDashboard(query: CommissionAnalyticsQuery): Promise<any> {
-          const [periodData, statusData, efficiencyData, summary] = await Promise.all([
+          const [periodData, statusData, efficiencyData, summary, balance] = await Promise.all([
                this.analyticsWithDate.getCommissionsByPeriod(query),
                this.analyticsWithDate.getCommissionsByStatus(query),
                this.analyticsWithDate.getRecipientPaymentEfficiency(query),
                this.analyticsWithDate.getPeriodStatistics(query),
+               this.analyticsWithDate.getPeriodStatistics({ ...query, startDate: new Date('1000-01-01T00:00:00Z') }),
           ]);
 
           const totalPaid = summary?.total_paid || 0;

@@ -1,4 +1,4 @@
-const constraints = `dboservices.status IN ('active','refunded','written-off') AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND dboservices.categoryTrackId= 6 AND (isDeleted = 0 OR isDeleted IS NULL)`;
+const constraints = `dboservices.status IN ('active','refunded','written-off') AND dboservices.clinicianId IS NOT NULL AND (dboservices.serviceCategory IN ('NHIS','CLINICIAN_SPECIAL_BILLING','PHIS')) AND (isDeleted = 0 OR isDeleted IS NULL)`;
 
 
 export const q_can_overallTotals = `
@@ -474,17 +474,17 @@ export const q_get_clinician_commission = `
         COUNT(*) AS total_services,
         SUM(dboservices.totalpayable) AS earned_revenue,
         SUM(dboservices.paidamount) AS cash_collected,
-        COALESCE(ct.commission_due, 0) AS commission_earned
+        COALESCE(ct.final_commission, 0) AS commission_earned
     FROM dboservices 
     INNER JOIN clinicianbasicinfo c
         ON dboservices.clinicianId = c.id
-    LEFT JOIN commission_tracking ct
-        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
+    INNER JOIN commission_tracking ct
+        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id AND ct.status NOT IN ('voided', 'adjusted')
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = dboservices.serviceid
     WHERE
         dboservices.clinicianId = ?
-        AND dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        AND ct.recipient_type = 'clinician'
         AND dboservices.status = 'active'
         AND dboservices.isAdjustment = 0
         AND DATE(dboservices.serviceAddedOn) >= ?
@@ -510,16 +510,16 @@ export const q_get_clinicians_commission_by_date = `
         COUNT(*) AS total_services,
         SUM(dboservices.totalpayable) AS earned_revenue,
         SUM(dboservices.paidamount) AS cash_collected,
-        SUM(COALESCE(ct.commission_due, 0)) AS commission_earned_total
+        SUM(COALESCE(ct.final_commission, 0)) AS commission_earned_total
     FROM dboservices 
     INNER JOIN clinicianbasicinfo c
         ON dboservices.clinicianId = c.id
-    LEFT JOIN commission_tracking ct
-        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id
+    INNER JOIN commission_tracking ct
+        ON ct.service_id = dboservices.serviceid AND ct.recipient_type = 'clinician' AND ct.recipient_id = c.id AND ct.status NOT IN ('voided', 'adjusted')
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = dboservices.serviceid
     WHERE
-        dboservices.serviceCategory = 'CLINICIAN_SPECIAL_BILLING'
+        ct.recipient_type = 'clinician'
         AND dboservices.status = 'active'
         AND dboservices.isRefunded=0
         AND dboservices.paymentstatus !='pending'

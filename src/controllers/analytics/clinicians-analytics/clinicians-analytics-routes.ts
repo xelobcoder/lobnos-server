@@ -1,8 +1,17 @@
+import { roleAllowed } from '../../../middleware/roles';
+import { isAuthorizedRoleAdmin } from '../../../middleware/validateTenancy';
 import { Router } from 'express';
 import ClinicianAnalyticsHandlers from './clinicians-analytics';
 import { handleOverLoad } from '../../../hooks/helper';
 
 const router = Router();
+router.use('/api/v1/clinician/anal', (req, res, next) => {
+     if (/^\/commissions\/range(?:\/single)?\/?$/i.test(req.path)) {
+          if (roleAllowed((req as any).authUser?.role, ['admin', 'manager', 'accountant'])) return next();
+          return res.status(403).json({message: 'Commission report access denied'});
+     }
+     return isAuthorizedRoleAdmin(req, res, next);
+});
 const baseUrl = '/api/v1/clinician/anal';
 
 const clinicianAnalyticsHandlers = new ClinicianAnalyticsHandlers();

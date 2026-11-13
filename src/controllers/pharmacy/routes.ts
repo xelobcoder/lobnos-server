@@ -70,7 +70,7 @@ router.post('/clinical/repeats/:id/issue',pharmacyClinicalAccess,enterprise((s,r
 router.get('/nhis/settings',pharmacyFinanceAccess,enterprise(s=>s.claims.settings()));
 router.get('/credit/accounts',pharmacyShiftAccess,enterprise(s=>s.accounts.list()));
 router.post('/credit/accounts',pharmacyReversalAccess,enterprise((s,r)=>s.accounts.save(r.body)));
-router.get('/credit/accounts/:id/invoices',pharmacyShiftAccess,enterprise((s,r)=>s.accounts.invoices(Number(r.params.id))));
+router.get('/credit/accounts/:id/invoices',pharmacyShiftAccess,enterprise((s,r)=>s.accounts.invoices(Number(r.params.id),r.query)));
 router.post('/credit/invoices/:id/payment',pharmacyShiftAccess,enterprise((s,r)=>s.accounts.receive(String(r.params.id),r.body)));
 router.put('/nhis/settings',pharmacyReversalAccess,enterprise((s,r)=>s.claims.saveSettings(r.body)));
 router.post('/nhis/settings',pharmacyReversalAccess,enterprise((s,r)=>s.claims.saveSettings(r.body)));
@@ -113,6 +113,7 @@ router.post('/suppliers', pharmacyStockAccess, op((s, r) => s.createSupplier(r.b
 router.post('/items', pharmacyStockAccess, op((s, r) => s.createItem(r.body)));
 router.put('/items/:itemId', pharmacyReversalAccess, op((s, r) => s.updateItem(String(r.params.itemId), r.body)));
 router.get('/items/:itemId/batches', pharmacyStockAccess, op((s, r) => s.batches(String(r.params.itemId))));
+router.get('/items/:itemId/batch-balances', pharmacyStockAccess, op((s, r) => s.batchBalances(String(r.params.itemId), r.query)));
 router.post('/items/:itemId/write-off', pharmacyReversalAccess, op((s, r) => s.writeOff(String(r.params.itemId), r.body)));
 router.post('/items/:itemId/stock-up', pharmacyStockAccess, op((s, r) => s.receive(String(r.params.itemId), r.body)));
 router.get('/orders', pharmacyStockAccess, op(s => s.orders()));

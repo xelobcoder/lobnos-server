@@ -47,15 +47,6 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 		return normalizedValue.length > 0 ? normalizedValue : null;
 	}
 
-	private static createSourceResultId(testid: number, ascensionid: number, fieldid: number): number {
-		const sourceResultKey = `${testid}-${ascensionid}-${fieldid}`;
-		return Math.abs(
-			sourceResultKey
-				.split('')
-				.reduce((h, c) => ((h << 5) - h) + c.charCodeAt(0), 0)
-		) % 2147483647;
-	}
-
 	private static createValueBucketKey(value: string): string {
 		const normalizedKey = value.toLowerCase();
 		const hash = Math.abs(
@@ -140,7 +131,7 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 					const { fieldid } = field;
 					const rawValue = ResultValueAnalyticsService.getResultValue(field);
 
-					const sourceResultId = ResultValueAnalyticsService.createSourceResultId(testid, ascensionid, fieldid);
+					const sourceResultId = await this.analyticsRepo.getSourceResultId(testid, ascensionid, fieldid);
 					const observation = ResultValueAnalyticsService.buildExactValueObservation(
 						sourceResultId,
 						ascensionid,
@@ -151,6 +142,8 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 					);
 					if (observation) {
 						await this.analyticsRepo.upsertObservation(observation);
+					} else {
+						await this.analyticsRepo.removeResultObservation(testid, ascensionid, fieldid);
 					}
 				} catch (fieldError) {
 					logger.error(`Result value analytics processing failed for field ${field.fieldid}`, fieldError);
@@ -196,9 +189,12 @@ export class ResultValueAnalyticsService implements IResultValueAnalyticsService
 						);
 						if (observation) {
 							observationsToUpsert.push(observation);
-						}
+						} else {
+                            await this.analyticsRepo.removeResultObservation(row.testid, row.ascensionid, row.fieldid);
+                        }
 					} catch (rowError) {
 						logger.error(`[ResultValueAnalyticsService] Failed processing historical result id ${row.id}:`, rowError);
+                        throw rowError;
 					}
 				}
 

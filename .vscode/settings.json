@@ -1,13 +1,13 @@
 {
-	"editor.tabSize": 5,
-	"files.autoSave": "afterDelay",
-	"workbench.editor.pinnedTabSizing": "shrink",
-	"editor.fontSize": 14,
-	"editor.fontFamily": "JetBrains Mono",
-	"editor.lineHeight": 22,
-	"workbench.sideBar.location": "left",
-	"terminal.integrated.splitCwd": "workspaceRoot",
-	"editor.defaultFormatter": "esbenp.prettier-vscode",
-	"terminal.integrated.shellIntegration.enabled": true,
-	"editor.formatOnSave": true
+     "editor.tabSize": 5,
+     "files.autoSave": "afterDelay",
+     "workbench.editor.pinnedTabSizing": "shrink",
+     "editor.fontSize": 14,
+     "editor.fontFamily": "JetBrains Mono",
+     "editor.lineHeight": 22,
+     "workbench.sideBar.location": "left",
+     "terminal.integrated.splitCwd": "workspaceRoot",
+     "editor.defaultFormatter": "esbenp.prettier-vscode",
+     "terminal.integrated.shellIntegration.enabled": true,
+     "editor.formatOnSave": true
 }

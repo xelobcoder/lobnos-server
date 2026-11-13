@@ -16,22 +16,22 @@ export class OrganizationAnalyticsRepository {
         COUNT(*) AS total_services,
         SUM(s.totalpayable) AS total_payable,
         SUM(s.paidamount) AS total_paid,
-        SUM(COALESCE(ct.commission_due, 0)) AS commission_earned_total
+        SUM(COALESCE(ct.final_commission, 0)) AS commission_earned_total
     FROM dboservices s
     INNER JOIN organization o
-        ON s.organizationId = o.id
-    LEFT JOIN commission_tracking ct
-        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id
+        ON EXISTS (SELECT 1 FROM commission_tracking beneficiary WHERE beneficiary.service_id = s.serviceid AND beneficiary.recipient_type = 'organization' AND beneficiary.recipient_id = o.id AND beneficiary.status NOT IN ('voided', 'adjusted'))
+    INNER JOIN commission_tracking ct
+        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id AND ct.status NOT IN ('voided', 'adjusted')
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE
-        s.serviceCategory = 'ORGANIZATION'
+        ct.recipient_type = 'organization'
         AND s.status = 'active'
         AND s.isRefunded = 0
         AND s.paymentstatus != 'pending'
         AND DATE(s.serviceAddedOn) >= ?
         AND DATE(s.serviceAddedOn) <= ?
-        AND s.organizationId IS NOT NULL
+        AND ct.recipient_id IS NOT NULL
         AND cbps.serviceid IS NULL
     GROUP BY
         o.id
@@ -53,17 +53,17 @@ export class OrganizationAnalyticsRepository {
         COUNT(*) AS total_services,
         SUM(s.totalpayable) AS total_payable,
         SUM(s.paidamount) AS total_paid,
-        COALESCE(ct.commission_due, 0) AS commission_earned
+        COALESCE(ct.final_commission, 0) AS commission_earned
     FROM dboservices s
     INNER JOIN organization o
-        ON s.organizationId = o.id
-    LEFT JOIN commission_tracking ct
-        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id
+        ON EXISTS (SELECT 1 FROM commission_tracking beneficiary WHERE beneficiary.service_id = s.serviceid AND beneficiary.recipient_type = 'organization' AND beneficiary.recipient_id = o.id AND beneficiary.status NOT IN ('voided', 'adjusted'))
+    INNER JOIN commission_tracking ct
+        ON ct.service_id = s.serviceid AND ct.recipient_type = 'organization' AND ct.recipient_id = o.id AND ct.status NOT IN ('voided', 'adjusted')
     LEFT JOIN commission_batch_payment_services AS cbps
         ON cbps.serviceid = s.serviceid
     WHERE
-        s.organizationId = ?
-        AND s.serviceCategory = 'ORGANIZATION'
+        o.id = ?
+        AND ct.recipient_type = 'organization'
         AND s.status = 'active'
         AND DATE(s.serviceAddedOn) >= ?
         AND DATE(s.serviceAddedOn) <= ?
