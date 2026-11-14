@@ -24,7 +24,11 @@ export async function ExpenseNextActions(req: Request, res: Response) {
           if ((controls?.require_separate_payer ?? true) && Number(expense.approvedby) === actor.employeeid) {
                canPay = canPay && (await authority.can(actor.employeeid, 'expense.override_sod', Number(expense.amount), Number(expense.branchid))).allowed;
           }
-          const status = String(expense.workflow_status || (Number(expense.approved) === 1 ? 'approved' : Number(expense.approved) === 2 ? 'rejected' : 'pending_approval'));
+          const recordedStatus = String(expense.workflow_status || 'pending_approval');
+          const approved = Number(expense.approved);
+          const status = recordedStatus === 'pending_approval' && approved !== 0
+               ? (approved === 1 ? 'approved' : 'rejected')
+               : recordedStatus;
           res.json({ success: true, canApprove: canApprove && status === 'pending_approval', canPay: canPay && ['approved', 'payment_pending'].includes(status), canDeleteReceipts: ['draft', 'pending_approval', 'rejected'].includes(status), reason });
      } catch (error: any) { res.status(error.statusCode || 400).json({ success: false, message: error.message }); }
 }

@@ -236,7 +236,7 @@ export async function enqueueBillingPayment(
 
 export async function enqueueBillingWriteOff(
      tenantId: number,
-     billingId: number,
+     billingId: number | string,
      amount: number,
      employeeId?: number | null,
      trx?: any,
@@ -246,15 +246,17 @@ export async function enqueueBillingWriteOff(
           const written = round2(Number(amount));
           if (!isFinite(written) || written <= 0) return;
 
+          const id = Number(billingId);
+          if (!Number.isSafeInteger(id) || id <= 0) throw new Error('A valid billingId is required');
           const db = await resolveDb(tenantId, trx);
           const bill = await db('billing')
                .select('branchid', 'patientid')
-               .where({ billingid: billingId })
+               .where({ billingid: id })
                .first();
 
           const shared = {
                amount: written,
-               billingid: Number(billingId),
+               billingid: id,
                employeeid: employeeId ? Number(employeeId) : null,
                branchid: bill?.branchid ? Number(bill.branchid) : null,
           };
@@ -267,7 +269,7 @@ export async function enqueueBillingWriteOff(
                     sourceModule: SourceModule.BILLING,
                     sourceTable: 'billing_writeoff',
                     sourceRef,
-                    sourcePk: Number(billingId),
+                    sourcePk: id,
                     description: 'Outstanding balance written off',
                     occurredAt: new Date(),
                     createdBy: employeeId ? Number(employeeId) : null,
@@ -279,12 +281,12 @@ export async function enqueueBillingWriteOff(
                db
           );
 
-          const payer = await resolveBillingPayer(db, billingId, bill?.patientid);
+          const payer = await resolveBillingPayer(db, id, bill?.patientid);
           await recordSubledgerEntry(tenantId, db, {
                ledger: 'AR',
                ...payer,
                documentType: 'write_off',
-               documentRef: payer.partyType === 'nhis' ? `BILL-${billingId}` : `WO-${billingId}`,
+               documentRef: payer.partyType === 'nhis' ? `BILL-${id}` : `WO-${billingId}`,
                documentDate: new Date(),
                amount: -written,
                sourceModule: SourceModule.BILLING,

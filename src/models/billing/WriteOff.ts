@@ -57,6 +57,8 @@ export class WriteOff {
 
                          const alloutstandingServices = await conn('dboservices')
                               .where({ billingid })
+                              .where(function () { this.where('isDeleted', 0).orWhereNull('isDeleted'); })
+                              .whereNotIn('status', ['voided', 'cancelled', 'written-off'])
                               .andWhere('outstanding', '>', 0)
                               .select('serviceid', 'outstanding');
 

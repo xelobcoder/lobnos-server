@@ -29,7 +29,7 @@ export async function handleSalesExpensesReport(request: Request, response: Resp
      const actor = getAuthUser(request);
      if (!actor) return response.status(401).json({ status: 'error', statusCode: 401, message: 'Authentication required' });
      try {
-          const data = await new SalesExpensesReportService(actor.tenantId).generate(request.query);
+          const data = await new SalesExpensesReportService(actor.tenantId).generate(request.query, request.query.inlineDetails === 'true' ? 'operational' : 'closed');
           response.setHeader('Cache-Control', 'no-store');
           return response.status(200).json({ status: 'success', statusCode: 200, data });
      } catch (error) {

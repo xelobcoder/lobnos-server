@@ -56,7 +56,7 @@ export class ExpenseWorkflowService {
                     await finalizationGuard.assertDateOpen(Number(expense.branchid), expense.date);
 
                     const fromStatus = this.statusOf(expense);
-                    if (fromStatus !== 'pending_approval') {
+                    if (fromStatus !== 'pending_approval' || Number(expense.approved) !== 0) {
                          throw new Error(`Expense ${expense.id} is ${fromStatus} and cannot be ${decision.status}`);
                     }
 

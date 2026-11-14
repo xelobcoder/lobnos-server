@@ -64,7 +64,7 @@ export interface SalesExpensesReport {
      summary: {
           clients: number; transactions: number; grossSales: number; discounts: number; netSales: number;
           receipts: number; expensePayments: number; netCashMovement: number; outstanding: number;
-          receiptCredits?: number; receiptRefunds?: number;
+          receiptCredits: number; receiptRefunds: number;
      };
      inlineServices?: Array<{billingId:number;serviceId:number;name:string;department:string;amount:number;paid:number;outstanding:number}>;
      transactions: ReportTransaction[];
@@ -158,6 +158,10 @@ export function salesReportQueries(db: Knex, filters: SalesReportFilters, organi
           .where('expense.branchid', filters.branchid)
           .where('payment.payment_date', '>=', filters.start).where('payment.payment_date', '<', filters.end)
           .where('payment.status', 'Paid').where('payment.is_reversed', 0)
+          .whereNot(function () {
+               this.whereRaw("COALESCE(payment.method, '') = ?", ['SYSTEM_AUTO'])
+                    .whereRaw("COALESCE(LOWER(REPLACE(REPLACE(category.category, '_', ' '), '-', ' ')), '') = 'bad debt'");
+          })
           .select('payment.id', 'payment.amount', 'payment.method', 'expense.description', 'expense.name',
                'category.category', db.raw("COALESCE(merchant.name, expense.merchant, '') as payee"),
                db.raw("DATE_FORMAT(payment.payment_date, '%Y-%m-%d') as date"))
@@ -248,7 +252,7 @@ export function assembleSalesReport(
 export class SalesExpensesReportService {
      constructor(private readonly tenantId: number) { }
 
-     async generate(query: Record<string, unknown>): Promise<SalesExpensesReport> {
+     async generate(query: Record<string, unknown>, scope: 'closed' | 'operational' = 'closed'): Promise<SalesExpensesReport> {
           const filters = parseSalesReportFilters(query);
           if (!Number.isSafeInteger(this.tenantId) || this.tenantId <= 0) throw new SalesReportError(403, 'Invalid session organization');
           const db = await KnexConnection(this.tenantId);
@@ -263,7 +267,7 @@ export class SalesExpensesReportService {
                ).orderBy('ID').first();
                const organizationPayments = await trx.schema.hasTable('org_invoice_payment_allocations') &&
                     await trx.schema.hasTable('org_invoice_payments');
-               const closure = await salesClosurePredicate(trx);
+               const closure = scope === 'operational' ? '1=1' : await salesClosurePredicate(trx);
                const queries = salesReportQueries(trx, filters, organizationPayments, closure);
                // Sequential reads intentionally use the same transaction connection.
                const bills = await queries.bills;
@@ -272,7 +276,7 @@ export class SalesExpensesReportService {
                const receipts = await queries.receipts;
                const expenses = await queries.expenses;
                const report=assembleSalesReport(filters, branch, company, bills, services, receipts, expenses);
-               report.notes.push(closure === '1=1' ? 'Legacy reporting: this database has no billing closure infrastructure.' : 'Only closed billing records are included in sales and receipts.');
+               report.notes.push(scope === 'operational' ? 'Includes open and closed billing activity.' : closure === '1=1' ? 'Legacy reporting: this database has no billing closure infrastructure.' : 'Only closed billing records are included in sales and receipts.');
                if(query.inlineDetails==='true'){
                     const serviceQuery=periodBills(trx('billing as bill'),filters).join('dboservices as service','service.billingid','bill.billingid')
                          .leftJoin('test_panels as panel',function(){this.on('panel.id','=','service.trackId').andOnVal('service.serviceCategory','<>','SERVICES');})

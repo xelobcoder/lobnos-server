@@ -131,6 +131,13 @@ export default class AutomatedExpenseLifecycle {
                 status: 'Paid'
             }, useTransaction);
 
+            await useTransaction('expensesrecord').where({ id: expenseData.expenseIds[0] }).update({
+                workflow_status: 'paid',
+                workflow_version: useTransaction.raw('workflow_version + 1'),
+                paid_by: data.employeeid,
+                paid_at: new Date(),
+            });
+
             if (shouldCommit) await useTransaction.commit();
 
             return {

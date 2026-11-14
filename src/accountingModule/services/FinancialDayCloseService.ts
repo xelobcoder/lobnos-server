@@ -14,6 +14,7 @@ import { parsePaging } from '../utils/pagination';
 import { AuthorityService, OWNER_ONLY_ROLES } from './AuthorityService';
 import { isSuperAdminRole, roleAllowed } from '../../middleware/roles';
 import { FinancialPinVerificationService } from './FinancialPinVerificationService';
+import { SalesExpensesReportService } from '../../models/billing/sales/SalesExpensesReport';
 import { FinancialSnapshotService } from './FinancialSnapshotService';
 
 const CLOSE_TRANSITIONS: Record<FinancialDayCloseStatus, FinancialDayCloseStatus[]> = {
@@ -139,7 +140,14 @@ export class FinancialDayCloseService implements IFinancialDayCloseService {
           const authority = await new AuthorityService(this.tenantId).can(actor.employeeid, 'accounting.daily_close.view_audit', null, actor.branch);
           if (!authority.allowed) throw new AccountingError(authority.reason, 'DAILY_CLOSE_AUTHORITY_DENIED', 403);
           const db = this.connectionOverride || await KnexConnection(this.tenantId);
-          return this.detailIn(db, closureId);
+          const detail = await this.detailIn(db, closureId);
+          const branchId = Number(detail.closure.branchid);
+          this.assertActorBranch(actor, branchId);
+          const date = this.dateOnly(detail.closure.financial_date);
+          const { summary } = await new SalesExpensesReportService(this.tenantId).generate({
+               branchid: String(branchId), from: date, to: date,
+          }, 'operational');
+          return { ...detail, dailySales: summary };
      }
 
      private async detailIn(db: any, closureId: number): Promise<any> {

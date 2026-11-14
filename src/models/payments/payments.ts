@@ -162,6 +162,15 @@ class Payment {
 				.leftJoin(connection('dbobillingrefundtable').select('serviceid').sum('amountRefunded as amountRefunded').groupBy('serviceid').as('r'), 'r.serviceid', 's.serviceid')
                .where('s.branchid',Number(branchid))
                .where('b.branchid',Number(branchid))
+               .where(function () {
+                    this.where('s.isDeleted', 0).orWhereNull('s.isDeleted').orWhereNotExists(function () {
+                         this.select(connection.raw('1')).from('dboservices as live')
+                              .whereRaw('live.billingid = s.billingid AND live.branchid = s.branchid')
+                              .where(function () {
+                                   this.where('live.isDeleted', 0).orWhereNull('live.isDeleted');
+                              });
+                    });
+               })
 
 			if (patientid) {
 				query = query.where('np.patientid', parseInt(patientid.toString()));
@@ -363,7 +372,7 @@ class Payment {
         const rangeTo = to || '9999-12-30';
         const report = await new SalesExpensesReportService(tenantId).generate({
             branchid: String(branchid), from: rangeFrom, to: rangeTo,
-        });
+        }, 'operational');
         const registered = await promisifyQuery(tenantId, `
             SELECT COUNT(DISTINCT patient.patientid) AS total_patients_registered
             FROM new_patients patient
@@ -373,7 +382,7 @@ class Payment {
         const summary = report.summary;
         return [{
             gross_revenue: summary.grossSales,
-            cash_collected: summary.receipts,
+            cash_collected: summary.receiptCredits ?? summary.receipts,
             earned_revenue: summary.netSales,
             discount: summary.discounts,
             total_refunded: summary.receiptRefunds || 0,

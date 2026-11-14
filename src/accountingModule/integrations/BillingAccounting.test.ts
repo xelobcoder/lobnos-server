@@ -74,7 +74,7 @@ describe('billing accounting collection and refund postings', () => {
           const trx = makeDatabase({ receivable: true, services: [{ billingid: 42, registrationType: 'nhis' }] });
           await enqueueBillingReceivable(3, 42, 0, 0, trx);
           await enqueueBillingPayment(3, 77, 42, 25, 9, trx);
-          await enqueueBillingWriteOff(3, 42, 10, 9, trx, 'request-1');
+          await enqueueBillingWriteOff(3, '42', 10, 9, trx, 'request-1');
           await enqueueBillingRefund(3, 42, 15, 5, 9, trx, 91, 8);
           await enqueueStaffFocBenefit(3, 14, trx);
           await enqueueStaffFocBenefitReversal(3, 14, 'correction', makeDatabase({
