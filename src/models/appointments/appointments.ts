@@ -1,5 +1,7 @@
 
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
+import KnexConnection from '../../database/KnexConnections';
+import { resolveAppointmentSmsContact } from './AppointmentSmsContact';
 import { type TAppointment, type Tpagination, months, slots } from "./appointmentTypes";
 import { z } from "zod";
 import {
@@ -479,7 +481,13 @@ class Appointment {
 			WHERE (np.patientid IS NOT NULL OR a.lead_id IS NOT NULL)
 			ORDER BY refid ${direction} LIMIT ? OFFSET ?
 		`
-		return normalizeAppointmentRows(await this.connection(tenantId, query, [count, offset]));
+		const rows = normalizeAppointmentRows(await this.connection(tenantId, query, [count, offset]));
+		if (!Array.isArray(rows) || !rows.length) return rows;
+		const db = await KnexConnection(tenantId);
+		return Promise.all(rows.map(async row => {
+			const contact = row.patientid ? await resolveAppointmentSmsContact(db, row) : null;
+			return { ...row, appointment_sms_phone: contact?.phone ?? null, appointment_sms_shared: contact?.shared ?? false };
+		}));
 	}
 }
 

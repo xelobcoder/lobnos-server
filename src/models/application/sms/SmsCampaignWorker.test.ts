@@ -5,6 +5,7 @@ vi.mock('../integrations/Arkesel',()=>({SmsService:class{getMessageReport=mocks.
 vi.mock('./SmsActivation',()=>({isSmsActive:vi.fn(async()=>true)}));
 import {claimSmsDispatch,processSmsDispatch,recordSmsDelivery,reconcileSmsMessages} from './SmsCampaignWorker';
 import {memorySmsDb} from './testing/MemorySmsDb';
+import { MANUAL_APPOINTMENT_SMS } from '../../appointments/AppointmentSmsContact';
 const token='a'.repeat(64),now=new Date('2026-10-28T10:00:00Z');
 function harness(extra:any={}){
  const db=memorySmsDb({primesmsjobs:[{jobid:1,status:'pending'}],sms_campaign_dispatch:[{jobid:1,state:'queued',available_at:new Date(0),callback_token:token,...extra}],
@@ -12,6 +13,16 @@ function harness(extra:any={}){
  mocks.connect.mockResolvedValue(db);return db;
 }
 describe('durable SMS campaign processing',()=>{
+ it('fails an appointment reminder when the saved destination changed before dispatch',async()=>{
+  const db = harness();
+  await db('new_patients').insert({patientid:1, mobile_number:'0200000001'});
+  await db('primesmsjobrecipients').where({recid:1}).update({eventcode:MANUAL_APPOINTMENT_SMS});
+  const send = vi.fn();
+  await processSmsDispatch(7,db,await claimSmsDispatch(db),send);
+  expect(send).not.toHaveBeenCalled();
+  expect(db.snapshot().primesmsjobrecipients[0]).toMatchObject({deliverystatus:'failed',errorcode:expect.stringContaining('Appointment contact changed')});
+  expect(db.snapshot().sms_campaign_dispatch[0].state).toBe('completed');
+ });
  beforeEach(()=>{vi.clearAllMocks();mocks.config.mockResolvedValue({sandbox:false});mocks.reports.mockImplementation(async(ids:string[])=>({status:'success',data:Object.fromEntries(await Promise.all(ids.map(async id=>[id,(await mocks.report(id))?.data])))}));});
  it('does not claim a future campaign',async()=>{const db=harness({available_at:new Date(now.getTime()+60000)});expect(await claimSmsDispatch(db,now)).toBeNull();});
  it('lets only one competing worker claim a campaign',async()=>{const db=harness();const claims=await Promise.all([claimSmsDispatch(db,now),claimSmsDispatch(db,now)]);expect(claims.filter(Boolean)).toHaveLength(1);});

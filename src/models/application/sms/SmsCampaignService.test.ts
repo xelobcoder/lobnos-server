@@ -5,12 +5,30 @@ import {smsMessageMetrics,normalizeSmsPhone,smsProviderState} from './SmsMessage
 import {memorySmsDb} from './testing/MemorySmsDb';
 import knex from 'knex';
 import {scopeSmsAudience} from './SmsCampaignService';
+import { MANUAL_APPOINTMENT_SMS, SHARED_APPOINTMENT_SMS_BODY } from '../../appointments/AppointmentSmsContact';
 const actor={employeeid:7,tenantId:1,role:'admin',branch:2,email:'admin@example.test'};
 const input={category:'patient',recipientScope:'all',sendType:'immediate',customBody:'Reminder',createdBy:99};
 function harness(){const db=memorySmsDb({new_patients:[{patientid:1,firstname:'Ama',mobile_number:'0241234567'},
  {patientid:2,firstname:'Kojo',mobile_number:'+233241234567'},{patientid:3,firstname:'Invalid',mobile_number:'12'}],
  primesmsjobs:[],primesmsjobrecipients:[],sms_campaign_dispatch:[],sms_delivery_receipts:[],roles:[{employeeid:7,branch:2}]});return{db,service:new SmsCampaignService(1,db)};}
 describe('SMS campaign review and queue contract',()=>{
+ it('schedules a generic reminder for a child with only a named backup contact',async()=>{
+  const { db, service } = harness();
+  await db('new_patients').insert({ patientid:4, mobile_number:null, backup_phone:'0200000104', backup_relationship:'mother', backup_contact_name:'Synthetic Parent' });
+  const scheduledAt = new Date(Date.now() + 86_400_000).toISOString();
+  const jobid = await service.enqueueAppointmentReminder(4, 'Private appointment purpose', scheduledAt, actor);
+  expect(db.snapshot().primesmsjobs[0]).toMatchObject({ jobid, status:'scheduled', scheduledat:new Date(scheduledAt) });
+  expect(db.snapshot().primesmsjobrecipients[0]).toMatchObject({
+   jobid, refid:4, phonee164:'0200000104', personalizedbody:SHARED_APPOINTMENT_SMS_BODY, eventcode:MANUAL_APPOINTMENT_SMS,
+  });
+  const regularSms = await service.plan({...input, recipientScope:'single', targetIds:[{id:4}]},actor);
+  expect(regularSms.recipientCount).toBe(0);
+ });
+ it('creates no appointment job for a patient without a reachable saved contact',async()=>{
+  const { db, service } = harness();
+  await expect(service.enqueueAppointmentReminder(3, 'Reminder', undefined, actor)).rejects.toMatchObject({statusCode:400});
+  expect(db.snapshot().primesmsjobs).toHaveLength(0);
+ });
  it('previews the real audience, invalid contacts and normalized duplicate numbers',async()=>{
   const {service}=harness(),review=await service.preview(input,actor);
   expect(review).toMatchObject({recipientCount:1,excluded:1,duplicates:1,segmentCount:1});expect(review.sample[0].phone).toBe('••••4567');

@@ -2,6 +2,7 @@ import KnexConnection from '../../../../../database/KnexConnections';
 import { NotificationContextProvider } from './NotificationContextProvider';
 import { EventDefinition } from './NotificationEventDefinitions';
 import { buildEventDefinitionFromCatalog } from './NotificationEventCatalog';
+import { resolveAppointmentSmsContact } from '../../../../appointments/AppointmentSmsContact';
 
 export class AppointmentContextProvider implements NotificationContextProvider {
      private connection;
@@ -37,6 +38,8 @@ export class AppointmentContextProvider implements NotificationContextProvider {
                     'np.lastname',
                     'np.email as patient_email',
                     'np.mobile_number as patient_phone',
+                    'np.contactpointer', 'np.relativecontactnumber', 'np.relativecontactname',
+                    'np.backup_phone', 'np.backup_relationship', 'np.backup_contact_name', 'np.backup_patient_id',
                     'np.gender as patient_gender',
                );
           if (hasLeadsTable) {
@@ -52,6 +55,9 @@ export class AppointmentContextProvider implements NotificationContextProvider {
           const row = await appointmentQuery.where('a.refid', Number(referenceId)).first();
 
           if (!row) throw new Error('Appointment not found');
+          const smsContact = row.patient_id ? await resolveAppointmentSmsContact(connection, {
+               ...row, patientid: row.patient_id, mobile_number: row.patient_phone,
+          }) : null;
 
           const leadName = `${row.lead_firstname || ''} ${row.lead_lastname || ''}`.replace(/\s+/g, ' ').trim()
                || row.lead_contact_person
@@ -73,6 +79,8 @@ export class AppointmentContextProvider implements NotificationContextProvider {
                patient_name: `${row.firstname || ''} ${row.middlename || ''} ${row.lastname || ''}`.replace(/\s+/g, ' ').trim(),
                patient_email: row.patient_email,
                patient_phone: row.patient_phone,
+               appointment_sms_phone: smsContact?.phone ?? null,
+               appointment_sms_shared: smsContact?.shared ?? false,
                patient_gender: row.patient_gender,
                lead_id: row.lead_id ?? null,
                lead_name: leadName,

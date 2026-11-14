@@ -6,6 +6,7 @@ import type { NotificationEventContextService } from './NotificationEventContext
 import type { NotificationService } from './NotificationService';
 import type { SmsJobsService } from '../../sms/services/SmsJobsService';
 import { NotificationTemplateRenderer } from './NotificationTemplateRenderer';
+import { SHARED_APPOINTMENT_SMS_BODY } from '../../../appointments/AppointmentSmsContact';
 
 // inviteMethod is the delivery selection. Legacy free-text appointment preference
 // is not an opt-in; only explicit channel selections or opt-outs narrow routing.
@@ -100,7 +101,8 @@ export class AppointmentNotificationService {
                               result.channels!.sms = { status: 'skipped', reason: 'SMS module is not activated' };
                               continue;
                          }
-                         const phone = typeof payload.patient_phone === 'string' ? payload.patient_phone.trim() : '';
+                         const destination = 'appointment_sms_phone' in context ? context.appointment_sms_phone : context.patient_phone;
+                         const phone = typeof destination === 'string' ? destination.trim() : '';
                          if (!/^\+?\d{7,15}$/.test(phone)) {
                               result.channels!.sms = { status: 'skipped', reason: 'No valid SMS recipient' };
                               continue;
@@ -115,7 +117,8 @@ export class AppointmentNotificationService {
                          if (!template?.is_active || template.event_id !== event.id || !template.plain_body) {
                               throw new Error('No active SMS text template');
                          }
-                         const body = new NotificationTemplateRenderer().render('', '', template.plain_body, payload).plainBody;
+                         const body = context.appointment_sms_shared === true ? SHARED_APPOINTMENT_SMS_BODY
+                              : new NotificationTemplateRenderer().render('', '', template.plain_body, payload).plainBody;
                          if (!body.trim()) throw new Error('Empty SMS body');
                          result.smsJobId = await this.sms.createJob({
                               customBody: body, category: 'patient', recipientScope: 'single',

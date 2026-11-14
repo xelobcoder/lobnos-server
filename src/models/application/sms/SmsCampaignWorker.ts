@@ -8,6 +8,7 @@ import { smsProviderState } from './SmsMessageMetrics';
 import { verifyArkeselWebhook, callbackPayloadHash } from './ArkeselWebhook';
 import { decryptSmsSecret } from './SmsSecretCipher';
 import { normalizeSmsPhone } from './SmsMessageMetrics';
+import { MANUAL_APPOINTMENT_SMS, resolveAppointmentSmsContact, SHARED_APPOINTMENT_SMS_BODY } from '../../appointments/AppointmentSmsContact';
 
 const LEASE_MS = 120_000;
 export function deliveryCallbackUrl(tenantId: number, jobid: number, token: string): string | undefined {
@@ -122,15 +123,25 @@ export async function processSmsDispatch(tenantId: number, db: any, dispatch: an
         if(provider){const current=await db('sms_provider_settings').where({id:1}).first();if(current&&(!current.is_active||current.paused_reason||!dispatch.sandbox&&current.sandbox||decryptSmsSecret(current.api_key)!==configuredKey)){await block('Provider settings changed. Review account settings and resume the queue.');return;}}
 
         const first=pending.shift(), batch=[first];
-        if(!send)for(let i=0;i<pending.length&&batch.length<50;){if(!dispatch.sandbox || pending[i].personalizedbody===first.personalizedbody)batch.push(pending.splice(i,1)[0]);else i++;}
+        if(!send && first.eventcode !== MANUAL_APPOINTMENT_SMS)for(let i=0;i<pending.length&&batch.length<50;){if(!dispatch.sandbox || pending[i].personalizedbody===first.personalizedbody)batch.push(pending.splice(i,1)[0]);else i++;}
         const claimed=await db.transaction(async(trx:any)=>{
             const lease=await trx('sms_campaign_dispatch').where({jobid:dispatch.jobid}).forUpdate().first();
             if(lease?.state!=='processing'||lease.lease_token!==dispatch.lease_token)return false;
+            if (first.eventcode === MANUAL_APPOINTMENT_SMS) {
+                const patient = await trx('new_patients').where({ patientid: first.refid }).first();
+                const contact = patient ? await resolveAppointmentSmsContact(trx, patient) : null;
+                if (contact?.phone !== first.phonee164 || (contact.shared && first.personalizedbody !== SHARED_APPOINTMENT_SMS_BODY)) {
+                    await trx('primesmsjobrecipients').where({ recid: first.recid, deliverystatus: 'queued' })
+                        .update({ deliverystatus: 'failed', errorcode: 'Appointment contact changed. Review the contact and queue a new reminder.' });
+                    return 'contact_changed';
+                }
+            }
             await trx('sms_campaign_dispatch').where({jobid:dispatch.jobid}).update({lease_until:new Date(Date.now()+LEASE_MS),updated_at:new Date()});
             for(const row of batch)if(!await trx('primesmsjobrecipients').where({recid:row.recid,deliverystatus:'queued'}).update({deliverystatus:'submitting'}))throw new Error('Recipient claim changed');
             return true;
         });
         if(!claimed)break;
+        if (claimed === 'contact_changed') continue;
         let result:any;
         try{result=send?await send(first.phonee164,first.personalizedbody,callback):batch.some(row=>row.personalizedbody!==first.personalizedbody)?await provider!.sendTemplateSms('<%content%>',Object.fromEntries(batch.map(row=>[row.phonee164,{content:row.personalizedbody}])),{callbackUrl:callback}):await provider!.sendSms(batch.map(row=>row.phonee164),first.personalizedbody,{callbackUrl:callback,sandbox:!!dispatch.sandbox});}catch{result={status:'error',uncertain:true};}
         if([401,402,403,429].includes(Number(result?.code))&&!result?.uncertain){

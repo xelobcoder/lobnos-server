@@ -2,7 +2,8 @@ import { Request, response, Response } from "express";
 import { PhoneCallsTrackersRepo } from "../../models/appointments/PhoneCallsTrackers";
 import { customError } from "../../hooks/helper";
 import { SmsService } from "../../models/application/integrations/Arkesel";
-import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
+import KnexConnection from '../../database/KnexConnections';
+import { SHARED_APPOINTMENT_SMS_BODY } from '../../models/appointments/AppointmentSmsContact';
 import { getAuthUser } from '../../middleware/authority';
 import { SmsCampaignService } from '../../models/application/sms/SmsCampaignService';
 import { isSmsActive } from '../../models/application/sms/SmsActivation';
@@ -12,7 +13,7 @@ import { isSmsActive } from '../../models/application/sms/SmsActivation';
 export interface AppointmentSchedule {
      appointmentDetails: AppointmentDetails;
      scheduleDate: string;
-     type: "schedule";
+     type: "schedule" | "now";
 }
 
 export interface AppointmentDetails {
@@ -146,24 +147,29 @@ export class PhoneCallsTrackersController {
                const actor = getAuthUser(req as unknown as Request);
                if (!actor || Number(actor.tenantId) !== tenantId) return res.status(401).json({ error: 'Authentication required' });
                if (!(await isSmsActive(tenantId))) return res.status(403).json({ error: 'SMS is not activated for this facility' });
-               if (!appointmentDetails || !type) return res.status(400).json({ error: "Missing required fields in request body" });
-               if (type == "schedule" && !scheduleDate) return res.status(400).json({ error: "Missing scheduleDate for non-schedule type" });
-               const { purpose ,mobile_number} = appointmentDetails;
-               if (!purpose) return res.status(400).json({ error: "Missing purpose  or content of sms missing in appointmentDetails" });
-
-               const isMobileValid = TiifuWorkingClass.validatePhoneNumber(mobile_number);
-               if (!isMobileValid.isValid) {
-                    return res.status(400).json({ error: "Invalid mobile number format in appointmentDetails" });
+               const refid = Number(appointmentDetails?.refid);
+               if (!Number.isSafeInteger(refid) || refid < 1 || !['now', 'schedule'].includes(type)) {
+                    return res.status(400).json({ message: 'Select an appointment and a send option.' });
                }
-               const jobId = await new SmsCampaignService(tenantId).enqueue({ category: 'patient', recipientScope: 'single',
-                    targetIds: [{ id: Number(appointmentDetails.patientid) }], customBody: purpose,
-                    sendType: type === 'schedule' ? 'scheduled' : 'immediate', scheduledAt: type === 'schedule' ? scheduleDate : undefined,
-                    createdBy: actor.employeeid,
-               }, actor);
+               if (type === 'schedule' && (!scheduleDate || !(new Date(scheduleDate).getTime() > Date.now()))) {
+                    return res.status(400).json({ message: 'Choose a future date and time for the reminder.' });
+               }
+               const db = await KnexConnection(tenantId);
+               const appointment = await db('appointments').where({ refid }).first('patientid', 'purpose', 'status');
+               if (!appointment?.patientid || ['cancelled', 'completed', 'missed'].includes(String(appointment.status).toLowerCase())) {
+                    return res.status(400).json({ message: 'Select an active appointment linked to a patient.' });
+               }
+               const jobId = await new SmsCampaignService(tenantId, db).enqueueAppointmentReminder(
+                    Number(appointment.patientid), appointment.purpose?.trim() || SHARED_APPOINTMENT_SMS_BODY,
+                    type === 'schedule' ? scheduleDate : undefined, actor,
+               );
                res.json({ status: 'success', jobId, message: type === 'schedule' ? 'Appointment reminder scheduled' : 'Appointment reminder queued' });
                
           } catch (error: any) {
-               res.status(500).json({ error: error && error?.message ? error.message : "An error occurred" });
+               if (error?.statusCode === 400 || error?.statusCode === 403) {
+                    return res.status(error.statusCode).json({ message: error.message });
+               }
+               res.status(500).json({ message: 'The appointment reminder could not be queued.' });
           }
      }
 }

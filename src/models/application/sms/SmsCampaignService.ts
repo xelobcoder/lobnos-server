@@ -5,6 +5,7 @@ import { roleAllowed } from '../../../middleware/roles';
 import { CreateSmsJobDto, CreateSmsJobSchema } from './dtos/CreateSmsJobDto';
 import { SmsMessageParser } from './PrimeSms/SmsMessageParser';
 import { normalizeSmsPhone, smsMessageMetrics } from './SmsMessageMetrics';
+import { MANUAL_APPOINTMENT_SMS, resolveAppointmentSmsContact, SHARED_APPOINTMENT_SMS_BODY } from '../../appointments/AppointmentSmsContact';
 
 const sources = { patient: { table: 'new_patients', id: 'patientid', phone: 'mobile_number' },
     clinician: { table: 'clinicianbasicinfo', id: 'id', phone: 'phone' }, organization: { table: 'organization', id: 'id', phone: 'mobile' } };
@@ -37,7 +38,7 @@ export class SmsCampaignService {
         if (actor && Number(actor.tenantId) !== Number(this.tenantId)) smsFailure('SMS tenant mismatch', 403);
         return this.dbOverride || KnexConnection(this.tenantId);
     }
-    async plan(input: unknown, actor: AuthUser) {
+    async plan(input: unknown, actor: AuthUser, appointmentReminder = false) {
         if (Number(actor.tenantId) !== Number(this.tenantId)) smsFailure('SMS tenant mismatch', 403);
         const dto = CreateSmsJobSchema.parse({ ...(input as any), createdBy: actor.employeeid });
         const db = await this.db(actor), source = sources[dto.category];
@@ -58,9 +59,11 @@ export class SmsCampaignService {
         const recipients: Array<{ refid: number; phonee164: string; personalizedbody: string }> = [];
         const seen = new Set<string>(); let excluded = 0, duplicates = 0, segments = 0;
         for (const row of rows) {
-            const phone = normalizeSmsPhone(row[source.phone]);
+            const contact = appointmentReminder ? await resolveAppointmentSmsContact(db, row) : null;
+            const phone = appointmentReminder ? contact?.phone : normalizeSmsPhone(row[source.phone]);
             if (!phone) { excluded++; continue; }
             if (seen.has(phone)) { duplicates++; continue; }
+            if (contact?.shared) dto.customBody = body = SHARED_APPOINTMENT_SMS_BODY;
             const personalizedbody = dto.customBody ? body : SmsMessageParser.parse(body, row);
             if (!personalizedbody?.trim()) { excluded++; continue; }
             seen.add(phone); segments += smsMessageMetrics(personalizedbody).segments;
@@ -75,7 +78,14 @@ export class SmsCampaignService {
     async preview(input: unknown, actor: AuthUser) {
         const { dto, recipients, ...preview } = await this.plan(input, actor); return preview;
     }
-    async enqueue(input: any, actor: AuthUser): Promise<number> {
+    async enqueueAppointmentReminder(patientId: number, body: string, scheduledAt: string | undefined, actor: AuthUser) {
+        return this.enqueue({
+            category: 'patient', recipientScope: 'single', targetIds: [{ id: patientId }],
+            customBody: body, sendType: scheduledAt ? 'scheduled' : 'immediate', scheduledAt,
+        }, actor, true);
+    }
+
+    async enqueue(input: any, actor: AuthUser, appointmentReminder = false): Promise<number> {
         if (input.requestKey != null && (typeof input.requestKey !== 'string' || !/^[a-f0-9-]{36}$/i.test(input.requestKey))) smsFailure('Invalid campaign request key');
         if (input.reviewFingerprint != null && !/^[a-f0-9]{64}$/.test(input.reviewFingerprint)) smsFailure('Invalid campaign review');
         const db = await this.db(actor);
@@ -87,7 +97,7 @@ export class SmsCampaignService {
                 return Number(existing.jobid);
             }
         }
-        const plan = await this.plan(input, actor);
+        const plan = await this.plan(input, actor, appointmentReminder);
         if (!plan.recipientCount) smsFailure('No valid recipients remain. Correct their contact details before sending.');
         if (input.reviewFingerprint && input.reviewFingerprint !== plan.fingerprint) smsFailure('The message or audience changed. Review the latest campaign before sending.', 409);
         try {
@@ -97,7 +107,10 @@ export class SmsCampaignService {
                     sendtype: plan.dto.sendType, scheduledat: plan.dto.scheduledAt ? new Date(plan.dto.scheduledAt) : null,
                     createdby: actor.employeeid, status: plan.dto.sendType === 'scheduled' ? 'scheduled' : 'pending' });
                 for (let offset = 0; offset < plan.recipients.length; offset += 200) {
-                    await trx('primesmsjobrecipients').insert(plan.recipients.slice(offset, offset + 200).map(row => ({ ...row, jobid: id, deliverystatus: 'queued' })));
+                    await trx('primesmsjobrecipients').insert(plan.recipients.slice(offset, offset + 200).map(row => ({
+                        ...row, jobid: id, deliverystatus: 'queued',
+                        ...(appointmentReminder ? { isevent: 1, eventcode: MANUAL_APPOINTMENT_SMS } : {}),
+                    })));
                 }
                 await trx('sms_campaign_dispatch').insert({ jobid: id, request_key: input.requestKey || null,
                     review_hash: plan.fingerprint, sandbox:plan.dto.sandbox, branchid: actor.branch, callback_token: randomBytes(32).toString('hex'),

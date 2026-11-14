@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AppointmentNotificationService } from './AppointmentNotificationService';
+import { SHARED_APPOINTMENT_SMS_BODY } from '../../../appointments/AppointmentSmsContact';
 
 describe('appointment lifecycle routing', () => {
      let context: Record<string, unknown>;
@@ -29,6 +30,14 @@ describe('appointment lifecycle routing', () => {
      });
 
      const lifecycle = ['APPOINTMENT_CREATED', 'APPOINTMENT_CONFIRMED', 'APPOINTMENT_RESCHEDULED', 'APPOINTMENT_CANCELLED', 'APPOINTMENT_REMINDER', 'APPOINTMENT_MISSED'];
+     it('uses the resolved shared contact with a general appointment message', async () => {
+          Object.assign(context, { patient_phone: null, appointment_sms_phone: '0200000104', appointment_sms_shared: true });
+          const result = await service.dispatch('APPOINTMENT_REMINDER', { appointmentId: 31 }, 4, undefined, inApp);
+          expect(result.channels?.sms?.status).toBe('queued');
+          expect(sms.createJob).toHaveBeenCalledWith(expect.objectContaining({
+               customBody: SHARED_APPOINTMENT_SMS_BODY, targetIds: [{ id: 12, phone: '0200000104' }],
+          }), 7);
+     });
      it.each(lifecycle)('routes %s once per enabled channel using tenant context', async (eventCode) => {
           const result = await service.dispatch(eventCode, { patientId: 12, appointmentId: 31 }, 4, undefined, inApp);
           expect(contexts.resolveEventContext).toHaveBeenCalledWith(eventCode, { patientId: 12, appointmentId: 31 });
