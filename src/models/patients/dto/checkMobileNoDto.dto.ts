@@ -1,16 +1,17 @@
+import { normalizeSmsPhone } from '../../application/sms/SmsMessageMetrics';
 import { Transform } from "class-transformer";
-import { IsInt, IsNotEmpty, IsOptional, min, Min } from "class-validator";
+import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from "class-validator";
+
+export function normalizeRegistrationPhone(value: unknown) {
+     const compact = String(value ?? '').replace(/[\s()+-]/g, '');
+     return /^0\d{9}$/.test(compact) ? compact : normalizeSmsPhone(value);
+}
 
 export class CheckMobileNumberDto {
 
      @IsNotEmpty()
-     @Transform(({ value }) => {
-          if (typeof value === "string" && value.length > 0) {
-               return Number(value);
-          }
-          return value;
-     })
-     @IsInt({ message: "mobileno must be a valid number" })
+     @Transform(({ value }) => normalizeRegistrationPhone(value) ?? '')
+     @Matches(/^\d{10,15}$/, { message: 'Enter a valid phone number' })
      mobileno!: string;
 
 

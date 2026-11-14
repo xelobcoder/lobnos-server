@@ -1,3 +1,5 @@
+import { Transform as TransformContactPhone } from 'class-transformer';
+import { normalizeRegistrationPhone } from './checkMobileNoDto.dto';
 import { MaxLength } from "class-validator";
 import {
      IsDateString,
@@ -91,8 +93,14 @@ export class UpdatePatientDto {
      contact_relationship?: string;
 
      @IsOptional()
+     @TransformContactPhone(({ value }) => typeof value === 'string' && value.trim() ? normalizeRegistrationPhone(value) ?? value : value)
      @Matches(/^(?:[0-9]{10,15})?$/)
      backup_phone?: string;
+
+     @IsOptional()
+     @IsInt()
+     @Min(1)
+     backup_patient_id?: number | null;
 
      @IsOptional()
      @IsString()

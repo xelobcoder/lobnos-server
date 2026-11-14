@@ -35,7 +35,3 @@ occupation = ?,
 address = ? 
 WHERE patientid = ?
 `
-
-export const q_patient_update_personal_information = `UPDATE new_patients 
-                   SET firstname = ?,designation = ?, lastname = ?, middlename = ?, email = ?,age = ?, agetype = ?, dob = ?, marital_status = ?, mobile_number = ?, occupation = ?, gender = ?, organization = ?,whatAppcontact = ?
-                   WHERE patientid = ?`

@@ -2,7 +2,7 @@ import { findPatientsByPhone } from '../../models/registration/PatientPhoneLooku
 import { getAuthUser } from '../../middleware/authority';
 import { normalizeRole } from '../../middleware/roles';
 import { Request, response, Response } from "express";
-import Registration from "../../models/registration/registration";
+import Registration, { LinkedContactError, PatientPrimaryContactInUseError } from "../../models/registration/registration";
 import databaseQueries from "../../database/DatabaseQueriesHelper";
 import { customError, convertKeysToLowerCase } from "../../hooks/helper";
 import { NewRegistration } from "../../models/registration/types";
@@ -21,9 +21,8 @@ function invalidContactOwnership(data: Partial<ICreateNewPatient>) {
 	if (!relationship) return false;
 	const self = relationship === 'self';
 	const primary = self ? data.mobile_number : data.relativecontactnumber;
-	return !primary || (self ? data.contact_pointer !== 'self' : data.contact_pointer !== 'relative' || !data.relativecontactname?.trim()) ||
-		Boolean(data.backup_phone && (data.backup_phone === primary || !data.backup_relationship ||
-			(data.backup_relationship !== 'self' && !data.backup_contact_name?.trim())));
+	return (!primary && !self) || (self ? data.contact_pointer !== 'self' : data.contact_pointer !== 'relative' || !data.relativecontactname?.trim()) ||
+		Boolean((data.backup_phone || data.backup_patient_id) && ((!!primary && data.backup_phone === primary) || (data.backup_patient_id && data.backup_relationship === 'self') || !data.backup_relationship));
 }
 
 export const addNewPatient = async (request: Request, res: Response) => {
@@ -60,6 +59,10 @@ export const updatePersonalInformation = async (
 		}
 		response.send({ status: result });
 	} catch (error: any) {
+		if (error instanceof LinkedContactError) return customError(error.message, 400, response);
+		if (error instanceof PatientPrimaryContactInUseError) {
+			return response.status(409).json({ status: 'error', code: error.code, message: error.message });
+		}
 		customError(error?.message || "Error updating personal information", 500, response);
 	}
 };
@@ -189,7 +192,7 @@ export const checkMobileNumber = async (
 	if (!actor || ['patient', 'clinician'].includes(normalizeRole(actor.role))) {
 		return customError('Staff access is required', 403, response);
 	}
-	const number = String(request.query.mobileno).padStart(10, '0');
+	const number = String(request.query.mobileno);
 	const db = await KnexConnection(actor.tenantId);
 	const result = await findPatientsByPhone(db, number);
 	return response.send({ statusCode: 200, status: 'success', exist: result.length > 0, result: request.query.isGetData ? result : undefined });
