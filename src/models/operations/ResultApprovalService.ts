@@ -3,6 +3,7 @@ import ResultSettings from '../application/appsettings/result-settings/resultSet
 import { OperationsFailures } from './types';
 import ImagingResultAuditRepository from './imaging/ImagingResultAuditRepository';
 import { assertResultPaymentPolicy, canPerformResultAction } from './ResultPaymentPolicy';
+import { DeltaCheckBlockedError, evaluateResultDeltas, recordDeltaEvents } from '../results/ResultDeltaService';
 
 export async function invalidateResultApprovals(trx: any, ascensionid: number, employeeid: number) {
      const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
@@ -24,7 +25,7 @@ export async function applyResultValidationBypass(trx: any, ascensionid: number,
 
 export class ResultApprovalService {
      constructor(private tenantId: number) { }
-     async approve(ascensionid: number, employeeid: number, branchid?: number | null, expectedRevision?: number): Promise<boolean | string> {
+     async approve(ascensionid: number, employeeid: number, branchid?: number | null, expectedRevision?: number, deltaAcknowledgementReason?: string): Promise<boolean | string> {
           if (!(await ResultSettings.canStaffApproveResult(this.tenantId, employeeid))) return OperationsFailures.dontHaveAccessPermission;
           const db = await KnexConnection(this.tenantId);
           const reference = await db('test_ascension').where({ id: ascensionid }).first();
@@ -37,6 +38,25 @@ export class ResultApprovalService {
                if (branchid != null && Number(bill?.branchid) !== Number(branchid)) throw Object.assign(new Error('Ordered test belongs to another branch'), { statusCode: 403 });
                if (!ascension.resultEntryEnd) throw Object.assign(new Error('Save the test results before approval'), { statusCode: 409 });
                await assertResultPaymentPolicy(trx, ascensionid, 'validation', true);
+
+               // Delta checks run inside the approval transaction. A blocking rule needs an explicit
+               // supervisor acknowledgement reason; warnings are audited and allowed.
+               const delta = await evaluateResultDeltas(trx, {
+                    tenantId: this.tenantId,
+                    ascensionid,
+                    testid: Number(ascension.testid),
+                    patientid: Number(bill?.patientid || 0),
+               });
+               if (delta.blocking.length && !String(deltaAcknowledgementReason || '').trim()) {
+                    throw new DeltaCheckBlockedError(delta.blocking);
+               }
+               if (delta.violations.length) {
+                    await recordDeltaEvents(trx, {
+                         ascensionid,
+                         testid: Number(ascension.testid),
+                         patientid: Number(bill?.patientid || 0),
+                    }, delta.violations, employeeid, String(deltaAcknowledgementReason || '').trim() || null);
+               }
                const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
                if (!previous) throw Object.assign(new Error('Result approval configuration is missing'), { statusCode: 409 });
                if (!Number.isSafeInteger(expectedRevision) || Number(expectedRevision) !== Number(previous.approval_revision || 0)) throw Object.assign(new Error('The result has changed. Reload and review the latest result before validating.'), { statusCode: 409 });

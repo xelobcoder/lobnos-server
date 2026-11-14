@@ -1,5 +1,6 @@
 import { getAuthUser } from '../../middleware/authority';
 import { requireTestPanelManagement } from '../../middleware/testPanelAuthority';
+import resultSafetyRouter from './ResultSafetyController';
 import labWorkbenchRoutes from './labWorkbenchRoutes';
 import collectionSupplyRoutes from './collectionSupplyRoutes';
 import express from "express"
@@ -192,5 +193,7 @@ router.delete('/api/v1/ultrasound/chx/:id', ...operationsStaffMiddleware, handle
 router.get('/api/v1/ultrasound/chx', ...operationsStaffMiddleware, handleOverLoad(getAllHistories));
 router.post('/api/v1/ultrasound/chx/batch', ...operationsStaffMiddleware, handleOverLoad(getHistoriesByAscensionIds));
 router.post('/api/v1/ultrasound/chx/upsert', ...operationsStaffMiddleware, handleOverLoad(upsertHistory));
+
+router.use(resultSafetyRouter);
 
 export default router;

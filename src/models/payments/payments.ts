@@ -123,6 +123,14 @@ class Payment {
 
 			const isloadallBool = isloadall === true || (typeof isloadall === 'string' && isloadall === 'true');
 			const connection = await KnexConnection(tenantId);
+			// A stale or cross-facility branch link must fail as a clear 404, not as a 500 from a
+			// downstream sales-summary query.
+			const branchId = Number(branchid);
+			if (!Number.isSafeInteger(branchId) || branchId <= 0) {
+				throw Object.assign(new Error('Invalid branch'), { statusCode: 400, code: 'INVALID_BRANCH' });
+			}
+			const branch = await connection('branch').where({ branchid: branchId }).first('branchid');
+			if (!branch) throw Object.assign(new Error('Branch not found'), { statusCode: 404, code: 'BRANCH_NOT_FOUND' });
 			let query = connection
 				.select(
 					'np.patientid',
@@ -197,8 +205,9 @@ class Payment {
 			const summary = await this.summaryRangeOfDates(tenantId, rangeFrom, rangeTo, branchid);
 			return { data: result, expensesPaymentMade: expensesPaymentMade[0], summary } as { data: TransactionData[], summary: any }
 		} catch (err: any) {
-			logger.error(err);
-			throw new Error(err);
+			logger.error(err?.message || String(err), { code: err?.code, statusCode: err?.statusCode });
+			if (err?.statusCode) throw err;
+			throw new Error(err?.message || String(err));
 		}
 	};
 

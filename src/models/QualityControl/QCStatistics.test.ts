@@ -7,7 +7,7 @@ describe('server-side QC statistics', () => {
      it('marks an in-control series normal', () => {
           const result = evaluateSeries([100, 101, 99, 102, 98], 100, 5, standard);
           expect(result.every((entry) => entry.status === 'normal')).toBe(true);
-          expect(result.at(-1)?.violations).toEqual([]);
+          expect(result[result.length - 1].violations).toEqual([]);
      });
 
      it('warns at 1-2s and rejects at 1-3s', () => {

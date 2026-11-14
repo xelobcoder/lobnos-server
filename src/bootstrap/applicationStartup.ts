@@ -16,6 +16,7 @@ import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker 
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
 import { bootstrapReportTables } from '../models/reports/ReportBootstrapper';
+import { bootstrapResultSafetyTables } from '../models/results/ResultSafetyBootstrapper';
 import { bootstrapLoginAccountSchema } from '../models/auth/LoginUsernameBootstrapper';
 import { ensureLoginAttemptSecurity } from '../models/auth/LoginAttemptSecurity';
 import { ensureStaffAccessSchema } from '../models/auth/StaffAccessSchema';
@@ -122,6 +123,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false, 
 	await bootstrapSmsProviderSettings(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId, strict);
 	await bootstrapReportTables(tenantId);
+	await bootstrapResultSafetyTables(tenantId);
 	await bootstrapTestReportSettingsTable(tenantId);
 	await bootstrapResultSettings(tenantId);
 	await bootstrapApplicationSettings(tenantId);

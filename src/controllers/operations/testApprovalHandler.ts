@@ -39,7 +39,7 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
           const employeeId = actor.employeeid;
 			const ascensionId = parseInt(ascensionid.toString());
 			const tId = actor.tenantId;
-			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch, req.body?.approval_revision);
+			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch, req.body?.approval_revision, req.body?.delta_acknowledgement_reason);
 			if (typeof updateTestApproval === "boolean" && updateTestApproval) {
                 const approval = await new TestApprovalClass(ascensionId).getAscensionApprovedDetail(tId);
                 const finalized = Number(approval?.isapproved) === 1;
@@ -58,6 +58,7 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
 			}
 		}
 	} catch (err: any) {
+          if (err?.code === 'DELTA_CHECK_BLOCKED') return res.status(409).json({ status: false, code: 'DELTA_CHECK_BLOCKED', message: err.message, violations: err.violations });
           if (err.statusCode) return res.status(err.statusCode).json({ status: false, message: err.message });
 		responseError(res);
 	}
