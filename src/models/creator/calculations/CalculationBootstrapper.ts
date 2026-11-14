@@ -70,4 +70,20 @@ export async function bootstrapCalculationAndQcTables(tenantId = 1): Promise<voi
                table.index(['session_id'], 'idx_qc_review_session');
           });
      }
+
+     // Server-side QC evaluation is stored with the reading so the enforcement gate never has to
+     // trust a status supplied by the browser.
+     if (await connection.schema.hasTable('qc_readings')) {
+          const additions: Array<[string, (table: any) => void]> = [
+               ['z_score', (table) => table.decimal('z_score', 8, 4).nullable()],
+               ['rule_violations', (table) => table.text('rule_violations').nullable()],
+               ['evaluated_at', (table) => table.dateTime('evaluated_at').nullable()],
+               ['evaluated_by', (table) => table.integer('evaluated_by').unsigned().nullable()],
+          ];
+          for (const [name, addColumn] of additions) {
+               if (!(await connection.schema.hasColumn('qc_readings', name))) {
+                    await connection.schema.alterTable('qc_readings', addColumn);
+               }
+          }
+     }
 }

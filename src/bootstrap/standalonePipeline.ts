@@ -6,6 +6,7 @@ import { safeDatabaseIdentifier } from '../models/Tenancy/FacilitySchema';
 
 /** Reviewed up migrations only; never replay legacy base migrations or transaction/demo seeds. */
 export const LOCAL_MIGRATIONS = [
+     '20261114_report_builder',
      '20261104_clinician_session_revocation',
      '20260716_drop_tax_configuration_relief_columns',
      '20260716_drop_tax_configuration_statutory_columns',

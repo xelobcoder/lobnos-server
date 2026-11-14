@@ -2,6 +2,36 @@ import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from 'express';
 import { QCReadingsRepository } from '../../repositories/QualityControl/QCReadingsRepository';
 import { QCSessionsRepository } from '../../repositories/QualityControl/QCSessionsRepository';
+import KnexConnection from '../../database/KnexConnections';
+import { QcEvaluation, evaluateNewValue, thresholdsFor } from '../../models/QualityControl/QCStatistics';
+
+async function loadControlParameter(db: any, session: any, parameterId: string) {
+     if (!session) return null;
+     return db('control_parameters').where({ id: parameterId, controlMaterialId: session.controlMaterialId }).first();
+}
+
+async function priorValuesFor(db: any, sessionId: string, parameterId: string, excludeId?: string): Promise<number[]> {
+     let query = db('qc_readings').where({ sessionId, parameterId }).orderBy('createdAt', 'asc');
+     if (excludeId) query = query.whereNot({ id: excludeId });
+     const rows = await query.select('value');
+     return rows.map((row: any) => Number(row.value)).filter((value: number) => Number.isFinite(value));
+}
+
+function evaluateAgainst(cp: any, priorValues: number[], value: number): QcEvaluation {
+     const target = Number(cp?.value);
+     const sd = Number(cp?.standardDeviation);
+     return evaluateNewValue(priorValues, value, target, sd, thresholdsFor(target, sd, cp?.warningLimit, cp?.actionLimit));
+}
+
+function evaluationColumns(evaluation: QcEvaluation, employeeid: number) {
+     return {
+          status: evaluation.status,
+          z_score: evaluation.zScore,
+          rule_violations: JSON.stringify(evaluation.violations),
+          evaluated_at: new Date(),
+          evaluated_by: employeeid,
+     };
+}
 
 export class QCReadingsController {
     private getTenantId(req: Request): number {
@@ -142,12 +172,38 @@ export class QCReadingsController {
 
     async create(req: Request, res: Response) {
         try {
-            const tenantId = this.getTenantId(req);
-            const repository = new QCReadingsRepository(tenantId);
-            const readingData = req.body;
+            const actor = getAuthUser(req);
+            if (!actor) return res.status(401).json({ error: 'Authentication required' });
+            const payload = req.body || {};
+            const sessionId = String(payload.sessionId || '').trim();
+            const parameterId = String(payload.parameterId || '').trim();
+            if (!sessionId || sessionId.length > 36) return res.status(400).json({ error: 'A valid QC session is required' });
+            if (!parameterId || parameterId.length > 36) return res.status(400).json({ error: 'A valid control parameter is required' });
+            const rawValue = typeof payload.value === 'string' ? payload.value.trim() : payload.value;
+            const value = Number(rawValue);
+            if (rawValue === '' || rawValue === null || rawValue === undefined || !Number.isFinite(value)) {
+                return res.status(400).json({ error: 'Enter a numeric QC reading' });
+            }
 
-            const status = await repository.create(readingData);
-            res.status(201).json({ status });
+            const db = await KnexConnection(actor.tenantId);
+            const session = await db('qc_sessions').where({ id: sessionId }).first();
+            if (!session) return res.status(400).json({ error: 'QC session not found' });
+            const controlParameter = await loadControlParameter(db, session, parameterId);
+            if (!controlParameter) return res.status(400).json({ error: 'This parameter does not belong to the session control material' });
+
+            // The browser does not decide QC status. Prior values plus this value are evaluated here.
+            const prior = await priorValuesFor(db, sessionId, parameterId);
+            const evaluation = evaluateAgainst(controlParameter, prior, value);
+            const repository = new QCReadingsRepository(actor.tenantId);
+            await repository.create({
+                sessionId,
+                parameterId,
+                parameter: controlParameter.parameter,
+                value: String(value),
+                createdby: actor.employeeid,
+                ...evaluationColumns(evaluation, actor.employeeid),
+            } as any);
+            res.status(201).json({ status: true, evaluation });
         } catch (error) {
             console.error('Failed to create QC reading:', error);
             res.status(500).json({ error: 'Failed to create QC reading' });
@@ -175,13 +231,32 @@ export class QCReadingsController {
 
     async update(req: Request, res: Response) {
         try {
-            const tenantId = this.getTenantId(req);
-            const repository = new QCReadingsRepository(tenantId);
+            const actor = getAuthUser(req);
+            if (!actor) return res.status(401).json({ error: 'Authentication required' });
+            const repository = new QCReadingsRepository(actor.tenantId);
             const id = req.params.id as string;
-            const updates = req.body;
+            const existing = await repository.findById(id);
+            if (!existing) return res.status(404).json({ error: 'QC reading not found' });
 
-            const result = await repository.update(id, updates);
-            res.json({ status: result });
+            const rawValue = typeof req.body?.value === 'string' ? req.body.value.trim() : req.body?.value;
+            const value = Number(rawValue);
+            if (rawValue === '' || rawValue === null || rawValue === undefined || !Number.isFinite(value)) {
+                return res.status(400).json({ error: 'Enter a numeric QC reading' });
+            }
+
+            const db = await KnexConnection(actor.tenantId);
+            const session = await db('qc_sessions').where({ id: existing.sessionId }).first();
+            const controlParameter = await loadControlParameter(db, session, String(existing.parameterId));
+            if (!controlParameter) return res.status(400).json({ error: 'The control parameter is no longer available' });
+
+            const prior = await priorValuesFor(db, String(existing.sessionId), String(existing.parameterId), id);
+            const evaluation = evaluateAgainst(controlParameter, prior, value);
+            // Never accept status, z-score or rule fields from the client.
+            const result = await repository.update(id, {
+                value: String(value),
+                ...evaluationColumns(evaluation, actor.employeeid),
+            } as any);
+            res.json({ status: result, evaluation });
         } catch (error) {
             console.error('Failed to update QC reading:', error);
             res.status(500).json({ error: 'Failed to update QC reading' });
@@ -292,52 +367,76 @@ export class QCReadingsController {
     }
 
     async addReadingsToSession(req: Request, res: Response) {
-        const tenantId = this.getTenantId(req);
-        const readingsRepository = new QCReadingsRepository(tenantId);
-        const sessionsRepository = new QCSessionsRepository(tenantId);
-        const { sessionId, readings, comments } = req.body;
+        const actor = getAuthUser(req);
+        if (!actor) return res.status(401).json({ error: 'Authentication required' });
+        const readingsRepository = new QCReadingsRepository(actor.tenantId);
+        const sessionsRepository = new QCSessionsRepository(actor.tenantId);
+        const { sessionId, readings, comments } = req.body || {};
 
         if (!sessionId || !Array.isArray(readings) || readings.length === 0) {
             return res.status(400).json({ error: 'Invalid payload: sessionId and non-empty readings array are required' });
         }
+        if (readings.length > 100) return res.status(400).json({ error: 'Add at most 100 readings per request' });
 
-        const conn = await (readingsRepository as any).connection;
-        const results = [];
+        const conn = await KnexConnection(actor.tenantId);
+        const evaluations: Array<{ parameterId: string; value: number; evaluation: QcEvaluation }> = [];
 
         try {
             await conn.transaction(async (trx: any) => {
-                // Create session if not exists
-                let session = await sessionsRepository.findById(sessionId);
+                let session = await trx('qc_sessions').where({ id: sessionId }).first();
                 if (!session) {
-                    const sessionData = {
+                    const materialId = readings[0]?.controlMaterialId;
+                    if (typeof materialId !== 'string' || !materialId.trim()) {
+                        throw Object.assign(new Error('A QC session must reference a control material'), { statusCode: 400 });
+                    }
+                    await sessionsRepository.create({
                         id: sessionId,
                         comments,
-                        createdBy: readings[0]?.createdby,
-                        updatedBy: readings[0]?.updatedby,
-                        controlMaterialId: readings[0]?.controlMaterialId
-                    };
-                    await sessionsRepository.create(sessionData as any, trx);
+                        createdBy: actor.employeeid,
+                        updatedBy: actor.employeeid,
+                        controlMaterialId: materialId,
+                    } as any, trx);
+                    session = await trx('qc_sessions').where({ id: sessionId }).first();
                 }
 
-                // Create readings
-                for (const readingData of readings) {
-                    const readingToCreate = {
-                        sessionId,
-                        parameter: readingData.parameter,
-                        value: readingData.value,
-                        parameterId: readingData.parameterId,
-                        status: readingData.status,
-                        createdby: readingData.createdby,
-                        createdAt: new Date(),
-                    };
+                const parameterCache = new Map<string, any>();
+                const priorCache = new Map<string, number[]>();
+                const batchValues = new Map<string, number[]>();
 
-                    const success = await readingsRepository.create(readingToCreate, trx);
-                    results.push({ ...readingToCreate, success });
+                for (const readingData of readings) {
+                    const parameterId = String(readingData?.parameterId || '').trim();
+                    const rawValue = typeof readingData?.value === 'string' ? readingData.value.trim() : readingData?.value;
+                    const value = Number(rawValue);
+                    if (!parameterId || parameterId.length > 36) throw Object.assign(new Error('Every reading needs a valid control parameter'), { statusCode: 400 });
+                    if (rawValue === '' || rawValue === null || rawValue === undefined || !Number.isFinite(value)) {
+                        throw Object.assign(new Error('Every reading needs a numeric value'), { statusCode: 400 });
+                    }
+                    if (!parameterCache.has(parameterId)) {
+                        const controlParameter = await loadControlParameter(trx, session, parameterId);
+                        if (!controlParameter) throw Object.assign(new Error('A reading parameter does not belong to the session control material'), { statusCode: 400 });
+                        parameterCache.set(parameterId, controlParameter);
+                    }
+                    const controlParameter = parameterCache.get(parameterId);
+                    if (!priorCache.has(parameterId)) priorCache.set(parameterId, await priorValuesFor(trx, String(sessionId), parameterId));
+                    const prior = [...(priorCache.get(parameterId) || []), ...(batchValues.get(parameterId) || [])];
+                    const evaluation = evaluateAgainst(controlParameter, prior, value);
+                    batchValues.set(parameterId, [...(batchValues.get(parameterId) || []), value]);
+                    evaluations.push({ parameterId, value, evaluation });
+
+                    await readingsRepository.create({
+                        sessionId,
+                        parameterId,
+                        parameter: controlParameter.parameter,
+                        value: String(value),
+                        createdby: actor.employeeid,
+                        ...evaluationColumns(evaluation, actor.employeeid),
+                    } as any, trx);
                 }
             });
 
-            res.status(201).json({ status: true });
-        } catch (error) {
+            res.status(201).json({ status: true, evaluations });
+        } catch (error: any) {
+            if (error?.statusCode === 400) return res.status(400).json({ error: error.message });
             console.error('Batch creation failed:', error);
             res.status(500).json({ error: 'Failed to add readings to session' });
         }

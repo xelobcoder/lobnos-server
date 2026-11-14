@@ -15,6 +15,7 @@ import { bootstrapExpenseWorkflow } from '../models/Expenses/ExpenseWorkflowBoot
 import { bootstrapAccountingTables, processPendingOutbox, startAccountingWorker } from '../accountingModule';
 import { bootstrapInAppNotificationTables } from '../models/application/in-app-notifications/InAppNotificationBootstrapper';
 import { bootstrapResultValueAnalyticsTables } from '../models/result-value-analytics/ResultValueAnalyticsBootstrapper';
+import { bootstrapReportTables } from '../models/reports/ReportBootstrapper';
 import { bootstrapLoginAccountSchema } from '../models/auth/LoginUsernameBootstrapper';
 import { ensureLoginAttemptSecurity } from '../models/auth/LoginAttemptSecurity';
 import { ensureStaffAccessSchema } from '../models/auth/StaffAccessSchema';
@@ -120,6 +121,7 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false, 
 	await bootstrapEmailTables(tenantId);
 	await bootstrapSmsProviderSettings(tenantId);
 	await bootstrapResultValueAnalyticsTables(tenantId, strict);
+	await bootstrapReportTables(tenantId);
 	await bootstrapTestReportSettingsTable(tenantId);
 	await bootstrapResultSettings(tenantId);
 	await bootstrapApplicationSettings(tenantId);

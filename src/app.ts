@@ -84,6 +84,7 @@ import notificationsRouter from './controllers/notifications/route';
 import InterfacingDevicesRouterT from "./routes/settings/devices/medicalInterfacingDevicesRoute";
 import employeeSettingsRouter from './models/settings/users/routes/employeeSettingsRoutes';
 import accountingRouter from './controllers/accounting/route';
+import reportsRouter from './controllers/reports/route';
 import staffFocRouter from './controllers/foc/routes';
 import physicalSampleRouter from './controllers/samples/physicalSampleRoutes';
 import { redisConnection } from './accountingModule/queue/redisConnection';
@@ -227,6 +228,7 @@ app.use(emailRouter);
 app.use(notificationsRouter);
 app.use(employeeSettingsRouter);
 app.use(accountingRouter);
+app.use(reportsRouter);
 app.use(staffFocRouter);
 app.use('/api/v1/physical-samples', physicalSampleRouter);
 
