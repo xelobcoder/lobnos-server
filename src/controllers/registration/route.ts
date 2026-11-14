@@ -1,3 +1,4 @@
+import { reviewPatientDuplicates } from './PatientDuplicateController';
 import express from "express";
 import {
   addNewPatient,
@@ -21,6 +22,9 @@ import { PatientAddressingDto } from "../../models/patients/dto/addressingPatien
 import { PatientCredentialsDto } from "../../models/patients/dto/patientCredentialsDto.dto";
 
 const router = express.Router();
+
+router.get("/api/v1/register/duplicate-candidates", reviewPatientDuplicates);
+router.post("/api/v1/register/duplicate-candidates/:id/dismiss", reviewPatientDuplicates);
 
 router.post("/api/v1/register", validateDtoMiddleware(CreateNewPatientDto, 'body'), addNewPatient);
 router.put("/api/v1/register/personalinformation", validateDtoMiddleware(UpdatePatientDto), updatePersonalInformation);

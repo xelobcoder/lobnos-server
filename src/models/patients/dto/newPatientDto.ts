@@ -1,3 +1,4 @@
+import { MaxLength } from "class-validator";
 import {
      IsEmail,
      IsEnum,
@@ -128,6 +129,23 @@ export class CreateNewPatientDto {
 
      @IsEnum(ContactPointer)
      contact_pointer!: ContactPointer;
+
+     @IsOptional()
+     @Matches(/^(self|mother|father|guardian|relative|other)$/)
+     contact_relationship?: string;
+
+     @IsOptional()
+     @Matches(/^(?:[0-9]{10,15})?$/)
+     backup_phone?: string;
+
+     @IsOptional()
+     @IsString()
+     @MaxLength(150)
+     backup_contact_name?: string;
+
+     @IsOptional()
+     @Matches(/^(self|mother|father|guardian|relative|other)?$/)
+     backup_relationship?: string;
 
      @IsOptional()
      @IsString()

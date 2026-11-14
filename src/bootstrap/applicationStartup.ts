@@ -1,3 +1,5 @@
+import { up as bootstrapPatientContacts } from '../cron/command-line-tool-database/migrations/20261115_patient_contact_ownership';
+import { up as bootstrapPatientDuplicates } from '../cron/command-line-tool-database/migrations/20261114_patient_duplicate_candidates';
 import { ensureTenantCollationDefault, normalizeTenantCollation } from '../database/legacy-upgrade/TenantCollation';
 import { processDueRecurringExpenses } from '../accountingModule/services/RecurringExpenseService';
 import { consultationDb } from '../models/consultation/ConsultationSchema';
@@ -132,6 +134,8 @@ export async function runApplicationBootstrappers(tenantId = 1, strict = false, 
 	await bootstrapHomeCollectionTables(tenantId);
 	await bootstrapAppointmentTables(tenantId);
 	await bootstrapPatientPortal(tenantId);
+	await bootstrapPatientDuplicates(await KnexConnection(tenantId));
+	await bootstrapPatientContacts(await KnexConnection(tenantId));
 	// Legacy seeds create checklist rows for demo order 1, not reference data.
 	// A new facility must start with no home-collection transactions.
 	if (!strict) await bootstrapHomeCollectionSeeds(tenantId);

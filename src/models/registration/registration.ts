@@ -1,3 +1,5 @@
+import { flagPatientDuplicates } from './PatientDuplicateService';
+import { getAuthUser } from '../../middleware/authority';
 import { record } from "zod";
 import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
@@ -14,7 +16,6 @@ import { addressInformation, NewRegistration, PatientRecords, registrationOutcom
 import { Request, Response } from "express";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import NewPatientsRepo from "../patients/respositories/newPatientsRepo.repo";
-import PatientService from "../patients/services/Patient.services";
 import { PATIENT_REGISTRATION_FAILURES } from "../patients/enums/Failures.Patient.enum";
 
 export default class Registration {
@@ -197,95 +198,89 @@ export default class Registration {
 		return rows.length > 0 ? rows[0] : null;
 	}
 
-	public static async addPersonalInformation(tenantId: number, records: ICreateNewPatient): Promise<number | void | string> {
+	public static async addPersonalInformation(tenantId: number, records: ICreateNewPatient, identity = records): Promise<{ patientid: number; duplicateCount: number }> {
 		try {
 			const connection = await KnexConnection(tenantId);
-			const transaction = await connection.transaction();
-			const patientRepo = new NewPatientsRepo(tenantId, transaction);
-			const generatedId = await patientRepo.generatePatientFullUniqueId(tenantId);
+			return await connection.transaction(async transaction => {
+				// Serialize registrations in this tenant so a concurrent registration can see the first commit.
+				await transaction('applicationsettings').where({ keyid: 1 }).forUpdate().first();
+				const patientRepo = new NewPatientsRepo(tenantId, transaction);
+				const generatedId = await patientRepo.generatePatientFullUniqueId(tenantId);
 
-			if (!generatedId) throw new Error(PATIENT_REGISTRATION_FAILURES.PATIENT_UNIQUE_ID_GENERATION_FAILED);
+				if (!generatedId) throw new Error(PATIENT_REGISTRATION_FAILURES.PATIENT_UNIQUE_ID_GENERATION_FAILED);
 
-			const {
-				designation,
-				firstname,
-				lastname,
-				middlename,
-				age,
-				agetype,
-				gender,
-				relativecontactname,
-				email,
-				mobile_number,
-				mobile_country_code,
-				whatsapp_country_code,
-				marital_status,
-				dob,
-				occupation,
-				organization,
-				contact_pointer,
-			} = records;
+				const {
+					designation,
+					firstname,
+					lastname,
+					middlename,
+					age,
+					agetype,
+					gender,
+					relativecontactname,
+					email,
+					mobile_number,
+					mobile_country_code,
+					whatsapp_country_code,
+					marital_status,
+					dob,
+					occupation,
+					organization,
+					contact_pointer,
+				} = records;
 
-			let patientMobileNumber = mobile_number;
-			let patientContactPointer = contact_pointer;
-			let patientRelativeContactNumber = records.relativecontactnumber;
 
-			if (contact_pointer === "self" && mobile_number) {
-				const isRecordExist = await new PatientService(tenantId, transaction).patientMobileRecordExist(mobile_number as number | string);
-				if (isRecordExist) {
-					patientContactPointer = "relative";
-					patientRelativeContactNumber = patientRelativeContactNumber ?? mobile_number;
-					patientMobileNumber = null as any;
+				const dateofBirth = dob ? new Date(dob).toISOString().split("T")[0] : null;
+
+
+				const patientData = {
+					firstname,
+					lastname,
+					middlename: middlename ?? null,
+					email: email ?? null,
+					age,
+					agetype: agetype,
+					dob: dateofBirth,
+					marital_status,
+					mobile_number: contact_pointer === "relative" ? null : mobile_number,
+					occupation: occupation ?? null,
+					gender: gender ?? null,
+					organization: organization ?? null,
+					fullpatientid: generatedId,
+					contactpointer: contact_pointer,
+					contact_relationship: records.contact_relationship ?? null,
+					backup_phone: records.backup_phone || null,
+					backup_contact_name: records.backup_contact_name || null,
+					backup_relationship: records.backup_relationship || null,
+					designation: designation ?? null,
+					registeredby: records.registeredby,
+					relativecontactname: relativecontactname ?? null,
+					relativecontactnumber: records.relativecontactnumber ?? null,
+					whatsapp_country_code: whatsapp_country_code ?? null,
+					mobile_country_code: mobile_country_code ?? null,
+					whatAppcontact: records.whatAppcontact ?? null,
 				}
-			}
+
+				const sanitizedPatientData = new TiifuWorkingClass("new_patients").ignoredNullUndefinedProperties(patientData);
 
 
-			const dateofBirth = dob ? new Date(dob).toISOString().split("T")[0] : null;
+				const insertOutcome = await patientRepo.create(sanitizedPatientData);
 
+				const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
 
-			const patientData = {
-				firstname,
-				lastname,
-				middlename: middlename ?? null,
-				email: email ?? null,
-				age,
-				agetype: agetype,
-				dob: dateofBirth,
-				marital_status,
-				mobile_number: patientMobileNumber,
-				occupation: occupation ?? null,
-				gender: gender ?? null,
-				organization: organization ?? null,
-				fullpatientid: generatedId,
-				contactpointer: patientContactPointer,
-				designation: designation ?? null,
-				registeredby: records.registeredby,
-				relativecontactname: relativecontactname ?? null,
-				relativecontactnumber: patientRelativeContactNumber ?? null,
-				whatsapp_country_code: whatsapp_country_code ?? null,
-				mobile_country_code: mobile_country_code ?? null,
-				whatAppcontact: records.whatAppcontact ?? null,
-			}
+				if (!patientid || typeof patientid !== "number") {
+					throw new Error("Failed to create patient");
+				}
 
-			const sanitizedPatientData = new TiifuWorkingClass("new_patients").ignoredNullUndefinedProperties(patientData);
+				await applyNewPatientAfterInsert(tenantId, transaction, {
+					patientid,
+					firstname,
+					lastname,
+				});
 
-
-			const insertOutcome = await patientRepo.create(sanitizedPatientData);
-
-			const patientid = Array.isArray(insertOutcome) ? insertOutcome[0] : insertOutcome;
-
-			if (!patientid || typeof patientid !== "number") {
-				throw new Error("Failed to create patient");
-			}
-
-			await applyNewPatientAfterInsert(tenantId, transaction, {
-				patientid,
-				firstname,
-				lastname,
+				const duplicateCount = await flagPatientDuplicates(transaction, patientid, identity);
+				return { patientid, duplicateCount };
 			});
-
-			await transaction.commit();
-			return patientid;
 		} catch (error) {
 			throw new Error(`Error adding personal information: ${error instanceof Error ? error.message : String(error)}`);
 		}
@@ -421,14 +416,29 @@ export default class Registration {
 			agetype,
 			dob ? dob.toString().split("T")[0] : null,
 			marital_status,
-			mobile_number,
+			clientdata.contact_relationship && contact_pointer === "relative" ? null : mobile_number,
 			occupation,
 			gender,
 			organization,
 			whatAppcontact,
 			patientid,
 		];
-		const result = await promisifyQuery(tenantId, q_patient_update_personal_information, values);
+		const db = await KnexConnection(tenantId);
+		const result = await db.transaction(async trx => {
+			const [outcome] = await trx.raw(q_patient_update_personal_information, values);
+			if (clientdata.contact_relationship) {
+				await trx('new_patients').where({ patientid }).update({
+					contactpointer: contact_pointer,
+					contact_relationship: clientdata.contact_relationship,
+					relativecontactname: contact_pointer === 'relative' ? clientdata.relativecontactname : null,
+					relativecontactnumber: contact_pointer === 'relative' ? clientdata.relativecontactnumber : null,
+					backup_phone: clientdata.backup_phone || null,
+					backup_contact_name: clientdata.backup_contact_name || null,
+					backup_relationship: clientdata.backup_relationship || null,
+				});
+			}
+			return outcome;
+		});
 		const updated = rowAffected(result);
 		if (updated) {
 			const newData = await this.getPatientDataUsingPatientId(tenantId, patientid);
@@ -523,7 +533,7 @@ export default class Registration {
 
 	static async addNewPatient(tenantId: number, request: Request, response: Response): Promise<Response | void> {
 		const data = request.body;
-		const employeeId = request.query.employeeid ? parseInt(request.query.employeeid.toString(), 10) : null;
+		const employeeId = getAuthUser(request)?.employeeid;
 		if (!employeeId) {
 			return response.status(400).send({
 				status: "error",
@@ -531,39 +541,17 @@ export default class Registration {
 			});
 		}
 		try {
-			await new PatientService(tenantId).moveDuplicateSelfMobileToRelative(data);
-
-			const isAlreadyRegistered = await this.isClientSame(tenantId, data);
-			if (isAlreadyRegistered && data.contact_pointer == "self") {
-				response.status(404).send({
-					status: "warning",
-					message:
-						data?.mobileownership === "relative"
-							? "Number or email is associated with a patient. Please search and bill client to continue."
-							: "Number or email is associated with a different patient. Select 'relative' if the person is a relative.",
-				});
-				return;
-			}
-
-			if (data.contact_pointer !== "self") {
-				data.mobile_number = null;
-			}
-
-
-			const insertId = await this.addPersonalInformation(tenantId, { ...data, employeeid: employeeId });
-
-			if (typeof insertId === "string") {
-				return response.status(400).send({
-					status: "error",
-					message: insertId,
-				});
-			}
+			const duplicateIdentity = { ...data };
+			const { patientid: insertId, duplicateCount } = await this.addPersonalInformation(
+				tenantId, { ...data, employeeid: employeeId, registeredby: employeeId }, duplicateIdentity
+			);
 
 			if (insertId) {
 				response.status(200).send({
 					status: "success",
 					message: "New patient added successfully",
 					patientid: insertId,
+					duplicateCount,
 				});
 				const patientName = [data.firstname, data.middlename, data.lastname].filter(Boolean).join(" ");
 				InAppNotificationService.publish(tenantId, {

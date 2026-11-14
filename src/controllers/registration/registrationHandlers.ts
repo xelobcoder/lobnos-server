@@ -1,3 +1,6 @@
+import { findPatientsByPhone } from '../../models/registration/PatientPhoneLookup';
+import { getAuthUser } from '../../middleware/authority';
+import { normalizeRole } from '../../middleware/roles';
 import { Request, response, Response } from "express";
 import Registration from "../../models/registration/registration";
 import databaseQueries from "../../database/DatabaseQueriesHelper";
@@ -9,14 +12,29 @@ import Patient from "../../models/patients/patientRepo";
 import { ICreateEmergencyPatient, ICreateNewPatient } from "../../models/patients/interfaces";
 import PatientAddressingRepo from "../../models/patients/respositories/patientAddressingRepo.repo";
 import EmergencyPatientRepo from "../../models/patients/respositories/emmergencyPatient.repo";
-import NewPatientsRepo from "../../models/patients/respositories/newPatientsRepo.repo";
+import KnexConnection from "../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { NotificationDispatcher } from "../../models/application/notifications/services/NotificationDispatcher";
 
+function invalidContactOwnership(data: Partial<ICreateNewPatient>) {
+	const relationship = data.contact_relationship;
+	if (!relationship) return false;
+	const self = relationship === 'self';
+	const primary = self ? data.mobile_number : data.relativecontactnumber;
+	return !primary || (self ? data.contact_pointer !== 'self' : data.contact_pointer !== 'relative' || !data.relativecontactname?.trim()) ||
+		Boolean(data.backup_phone && (data.backup_phone === primary || !data.backup_relationship ||
+			(data.backup_relationship !== 'self' && !data.backup_contact_name?.trim())));
+}
+
 export const addNewPatient = async (request: Request, res: Response) => {
 	try {
-		const tenantId: number = parseInt(request.query.tenantId as string);
-		await Registration.addNewPatient(tenantId, request, res);
+		const actor = getAuthUser(request);
+		if (!actor) return customError('Authentication required', 401, res);
+		if (['patient', 'clinician'].includes(normalizeRole(actor.role))) {
+			return customError('Staff registration access is required', 403, res);
+		}
+		if (invalidContactOwnership(request.body)) return customError('Check primary and backup contact ownership', 400, res);
+		await Registration.addNewPatient(actor.tenantId, request, res);
 	} catch (error) {
 		logger.error(error);
 		customError("Error registering patient", 500, res);
@@ -35,6 +53,7 @@ export const updatePersonalInformation = async (
 	}
 	try {
 		const data = request.body;
+		if (invalidContactOwnership(data)) return customError("Check primary and backup contact ownership", 400, response);
 		const result = await Registration.UpdatePersonalInformation(tenantId, data, parsedPatientId);
 		if (result) {
 			NotificationDispatcher.dispatch(tenantId, 'PATIENT_UPDATED', { patientId: parsedPatientId }).catch(() => { });
@@ -166,15 +185,14 @@ export const checkMobileNumber = async (
 		});
 	}
 
-	const sanitizedMobileNumber = request.query.mobileno.toString().padStart(10, '0');
-
-	const data = await new NewPatientsRepo(tenantId).filterPatient({ mobile_number: sanitizedMobileNumber });
-	return response.send({
-		statusCode: 200,
-		status: "success",
-		exist: data.length > 0,
-		result: request.query.isGetData ? data : undefined,
-	});
+	const actor = getAuthUser(request);
+	if (!actor || ['patient', 'clinician'].includes(normalizeRole(actor.role))) {
+		return customError('Staff access is required', 403, response);
+	}
+	const number = String(request.query.mobileno).padStart(10, '0');
+	const db = await KnexConnection(actor.tenantId);
+	const result = await findPatientsByPhone(db, number);
+	return response.send({ statusCode: 200, status: 'success', exist: result.length > 0, result: request.query.isGetData ? result : undefined });
 
 };
 

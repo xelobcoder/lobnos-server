@@ -1,6 +1,10 @@
 import { Designation } from "../dto/newPatientDto";
 
 export interface ICreateNewPatient {
+     contact_relationship?: string;
+     backup_phone?: string;
+     backup_contact_name?: string;
+     backup_relationship?: string;
   firstname: string;
   lastname: string;
   middlename?: string;
