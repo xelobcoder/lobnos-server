@@ -1,6 +1,8 @@
 import { Designation } from "../dto/newPatientDto";
+import type { PatientPhoneContactDto } from '../dto/patientPhoneContact.dto';
 
 export interface ICreateNewPatient {
+     additional_phone_contacts?: PatientPhoneContactDto[];
      contact_relationship?: string;
      backup_phone?: string;
      backup_patient_id?: number | null;

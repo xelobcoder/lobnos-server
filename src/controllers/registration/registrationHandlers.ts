@@ -1,4 +1,5 @@
 import { findPatientsByPhone } from '../../models/registration/PatientPhoneLookup';
+import { PatientPhoneContactError } from '../../models/registration/PatientPhoneContacts';
 import { getAuthUser } from '../../middleware/authority';
 import { normalizeRole } from '../../middleware/roles';
 import { Request, response, Response } from "express";
@@ -59,7 +60,7 @@ export const updatePersonalInformation = async (
 		}
 		response.send({ status: result });
 	} catch (error: any) {
-		if (error instanceof LinkedContactError) return customError(error.message, 400, response);
+		if (error instanceof LinkedContactError || error instanceof PatientPhoneContactError) return customError(error.message, 400, response);
 		if (error instanceof PatientPrimaryContactInUseError) {
 			return response.status(409).json({ status: 'error', code: error.code, message: error.message });
 		}
@@ -157,7 +158,7 @@ export const getPersonalInformation = async (
 	if (!patientid || isNaN(parsedPatientId)) return customError("patientid not included in the request", 400, response);
 
 	try {
-		const data = await databaseQueries.getSingleId(tenantId, parsedPatientId, "new_patients", "patientid");
+		const data = await Registration.getPatientDataUsingPatientId(tenantId, parsedPatientId);
 		response.send({ statusCode: 200, status: "success", result: data });
 	} catch (error) {
 		logger.error(error);

@@ -8,6 +8,9 @@ import { safeDatabaseIdentifier } from '../models/Tenancy/FacilitySchema';
 export const LOCAL_MIGRATIONS = [
      '20261114_report_builder',
      '20261114_result_safety',
+     '20261114_patient_duplicate_candidates',
+     '20261115_patient_contact_ownership',
+     '20261116_patient_phone_contacts',
      '20261104_clinician_session_revocation',
      '20260716_drop_tax_configuration_relief_columns',
      '20260716_drop_tax_configuration_statutory_columns',

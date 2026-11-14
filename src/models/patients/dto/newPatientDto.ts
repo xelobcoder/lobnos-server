@@ -1,5 +1,8 @@
 import { Transform as TransformContactPhone } from 'class-transformer';
 import { normalizeRegistrationPhone } from './checkMobileNoDto.dto';
+import { Type } from 'class-transformer';
+import { IsArray, ValidateNested } from 'class-validator';
+import { PatientPhoneContactDto } from './patientPhoneContact.dto';
 import { MaxLength } from "class-validator";
 import {
      IsEmail,
@@ -66,6 +69,12 @@ export enum Designation {
 }
 
 export class CreateNewPatientDto {
+     @IsOptional()
+     @IsArray()
+     @ValidateNested({ each: true })
+     @Type(() => PatientPhoneContactDto)
+     additional_phone_contacts?: PatientPhoneContactDto[];
+
 
      @IsString()
      @IsNotEmpty()

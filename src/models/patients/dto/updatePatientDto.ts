@@ -1,5 +1,8 @@
 import { Transform as TransformContactPhone } from 'class-transformer';
 import { normalizeRegistrationPhone } from './checkMobileNoDto.dto';
+import { Type } from 'class-transformer';
+import { IsArray, ValidateNested } from 'class-validator';
+import { PatientPhoneContactDto } from './patientPhoneContact.dto';
 import { MaxLength } from "class-validator";
 import {
      IsDateString,
@@ -16,6 +19,12 @@ import {
 import { AgeType, ContactPointer, Designation, Gender, MaritalStatus } from "./newPatientDto";
 
 export class UpdatePatientDto {
+     @IsOptional()
+     @IsArray()
+     @ValidateNested({ each: true })
+     @Type(() => PatientPhoneContactDto)
+     additional_phone_contacts?: PatientPhoneContactDto[];
+
 
      @IsOptional()
      @IsString()

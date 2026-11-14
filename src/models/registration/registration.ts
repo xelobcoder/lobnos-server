@@ -1,5 +1,7 @@
 import { findPatientDuplicates } from './PatientDuplicateService';
+import { findPhoneOwners, getAdditionalPhoneContacts, PatientPhoneContactError, phoneContactsTable, savePatientPhoneContacts } from './PatientPhoneContacts';
 import { getAuthUser } from '../../middleware/authority';
+import { normalizeRegistrationPhone } from '../patients/dto/checkMobileNoDto.dto';
 import { record } from "zod";
 import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../database/DatabaseTableSchema";
 import KnexConnection from "../../database/KnexConnections";
@@ -33,9 +35,15 @@ export class PatientPrimaryContactInUseError extends Error {
 }
 
 async function assertPrimaryContactAvailable(trx: import('knex').Knex, number: string | number, patientId?: number) {
-	const owner = trx('new_patients').where({ mobile_number: number, contactpointer: 'self' });
-	if (patientId !== undefined) owner.whereNot('patientid', patientId);
-	if (await owner.first('patientid')) throw new PatientPrimaryContactInUseError();
+	const primary = trx('new_patients').where({ mobile_number: number, contactpointer: 'self' });
+	const backup = trx('new_patients').where({ backup_phone: number, backup_relationship: 'self' });
+	const additional = trx(phoneContactsTable).where({ phone: number, relationship: 'self' }).where('position', '>=', 2);
+	if (patientId !== undefined) {
+		primary.whereNot('patientid', patientId);
+		backup.whereNot('patientid', patientId);
+		additional.whereNot('patient_id', patientId);
+	}
+	if (await primary.first('patientid') || await backup.first('patientid') || await additional.first('patient_id')) throw new PatientPrimaryContactInUseError();
 }
 
 async function resolveLinkedContact(db: import('knex').Knex, data: Partial<ICreateNewPatient>, patientId?: number) {
@@ -225,7 +233,16 @@ export default class Registration {
 
 	static async getPatientDataUsingPatientId(tenantId: number, patientid: number): Promise<PrimeLimsTablenew_patients | string | null> {
 		if (!patientid) return OperationsFailures.noArgumentsProvided;
-		return await new TiifuWorkingClass("new_patients").findOne(tenantId, "patientid", patientid);
+		const patient = await new TiifuWorkingClass("new_patients").findOne(tenantId, "patientid", patientid);
+		if (!patient || typeof patient === 'string') return patient;
+		const db = await KnexConnection(tenantId);
+		const [additional, primaryContact] = await Promise.all([
+			getAdditionalPhoneContacts(db, patientid),
+			patient.contactpointer === 'relative' && patient.relativecontactnumber
+				? db(phoneContactsTable).where({ patient_id: patientid, position: 0, phone: patient.relativecontactnumber }).first('owner_patient_id')
+				: null,
+		]);
+		return { ...patient, additional_phone_contacts: additional, primary_phone_owner_patient_id: primaryContact?.owner_patient_id ?? null } as PrimeLimsTablenew_patients;
 	}
 
 	checkEmailOrMobileExist(tenantId: number, email: string, mobile: number): boolean {
@@ -258,6 +275,9 @@ export default class Registration {
 					await assertPrimaryContactAvailable(transaction, records.mobile_number);
 				}
 				await resolveLinkedContact(transaction, records);
+				if (records.backup_phone && records.backup_relationship === 'self' && (await findPhoneOwners(transaction, records.backup_phone)).length) {
+					throw new PatientPhoneContactError('Another patient owns the secondary number. Select their relationship.');
+				}
 				const patientRepo = new NewPatientsRepo(tenantId, transaction);
 				const generatedId = await patientRepo.generatePatientFullUniqueId(tenantId);
 
@@ -332,11 +352,12 @@ export default class Registration {
 					firstname,
 					lastname,
 				});
+				await savePatientPhoneContacts(transaction, patientid, records.additional_phone_contacts);
 
 				return { patientid };
 			});
 		} catch (error) {
-			if (error instanceof DuplicateRegistrationError || error instanceof PatientPrimaryContactInUseError || error instanceof LinkedContactError) throw error;
+			if (error instanceof DuplicateRegistrationError || error instanceof PatientPrimaryContactInUseError || error instanceof LinkedContactError || error instanceof PatientPhoneContactError) throw error;
 			throw new Error(`Error adding personal information: ${error instanceof Error ? error.message : String(error)}`);
 		}
 	}
@@ -358,13 +379,18 @@ export default class Registration {
 		}
 		const values = [];
 		let conditions = [];
-		const mob_str = `${mobile}`;
-		var isMobright = mobile && mob_str.length == 10 && mob_str.charAt(0) == "0" && !isNaN(mobile);
-		var mobileNum: string;
-		if (mobile && !isMobright && mob_str.length == 9 && mob_str.charAt(0) != "0") {
-			mobileNum = mob_str.padStart(10, "0");
-			conditions.push(`np.mobile_number = ?`);
-			values.push(mobileNum);
+		if (mobile) {
+			const phone = normalizeRegistrationPhone(mobile);
+			if (!phone || !/^\d{10,15}$/.test(phone)) return [];
+			conditions.push(`(
+				np.mobile_number = ? OR np.relativecontactnumber = ?
+				OR (np.backup_patient_id IS NULL AND np.backup_phone = ?)
+				OR EXISTS (SELECT 1 FROM new_patients owner
+					WHERE owner.patientid = np.backup_patient_id AND owner.contactpointer = 'self' AND owner.mobile_number = ?)
+				OR EXISTS (SELECT 1 FROM patient_phone_contacts contact
+					WHERE contact.patient_id = np.patientid AND contact.position >= 2 AND contact.phone = ?)
+			)`);
+			values.push(phone, phone, phone, phone, phone);
 		}
 		if (fullname && fullname.length > 2) {
 			conditions.push(`REPLACE(TRIM(CONCAT_WS(' ', np.firstname, NULLIF(np.middlename, ''), np.lastname)), '  ', ' ') LIKE ?`);
@@ -494,22 +520,31 @@ export default class Registration {
 			} : {}),
 		};
 		const suppliedFields = Object.fromEntries(Object.entries(changes).filter(([, value]) => value !== undefined));
-		if (Object.keys(suppliedFields).length === 0) return true;
+		const additional = clientdata.additional_phone_contacts;
+		const hasPersonalChanges = Object.keys(suppliedFields).length > 0;
+		if (!hasPersonalChanges && !additional) return true;
 
 		const db = await KnexConnection(tenantId);
 		const updated = await db.transaction(async trx => {
-			if (suppliedFields.mobile_number || suppliedFields.contactpointer === 'self') {
+			if (suppliedFields.mobile_number || suppliedFields.contactpointer === 'self' || additional || clientdata.backup_relationship === 'self') {
 				// Use the same tenant lock as registration when assigning a primary number.
 				await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
-				const current = await trx('new_patients').where({ patientid }).forUpdate().first('mobile_number', 'contactpointer');
+				const current = await trx('new_patients').where({ patientid }).forUpdate().first('mobile_number', 'contactpointer', 'backup_phone', 'backup_relationship');
 				if (!current) return false;
 				const nextNumber = suppliedFields.mobile_number === undefined ? current.mobile_number : suppliedFields.mobile_number;
 				const nextOwner = suppliedFields.contactpointer ?? current.contactpointer;
 				if (nextOwner === 'self' && nextNumber && (current.contactpointer !== 'self' || String(nextNumber) !== String(current.mobile_number))) {
 					await assertPrimaryContactAvailable(trx, nextNumber as string | number, patientid);
 				}
+				if (clientdata.backup_phone && clientdata.backup_relationship === 'self' &&
+					(current.backup_phone !== clientdata.backup_phone || current.backup_relationship !== 'self') &&
+					(await findPhoneOwners(trx, clientdata.backup_phone, patientid)).length) {
+					throw new PatientPhoneContactError('Another patient owns the secondary number. Select their relationship.');
+				}
 			}
-			return await trx('new_patients').where({ patientid }).update(suppliedFields) > 0;
+			const changed = hasPersonalChanges && await trx('new_patients').where({ patientid }).update(suppliedFields) > 0;
+			await savePatientPhoneContacts(trx, patientid, additional);
+			return changed || Boolean(additional);
 		});
 		if (updated) {
 			const newData = await this.getPatientDataUsingPatientId(tenantId, patientid);
@@ -649,7 +684,7 @@ export default class Registration {
 			}
 
 		} catch (error: any) {
-			if (error instanceof LinkedContactError) return response.status(400).json({ status: 'error', message: error.message });
+			if (error instanceof LinkedContactError || error instanceof PatientPhoneContactError) return response.status(400).json({ status: 'error', message: error.message });
 			if (error instanceof PatientPrimaryContactInUseError) {
 				return response.status(409).json({ status: 'error', code: error.code, message: error.message });
 			}

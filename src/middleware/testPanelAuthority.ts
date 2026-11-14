@@ -78,24 +78,20 @@ export async function requireTestPanelDelegation(req: Request, res: Response, ne
      if (!requireFacilityContext(req, res, actor)) return;
      try {
           if (!(await canDelegateTestPanelAccess(actor))) {
-               return res
-                    .status(403)
-                    .json({
-                         status: "error",
-                         message: "Only administrators and managers may delegate test-panel access",
-                         statusCode: 403,
-                    });
+               return res.status(403).json({
+                    status: "error",
+                    message: "Only administrators and managers may delegate test-panel access",
+                    statusCode: 403,
+               });
           }
           return next();
      } catch (error) {
           console.error("Unable to verify test-panel delegation permission:", error);
-          return res
-               .status(500)
-               .json({
-                    status: "error",
-                    message: "Unable to verify test-panel delegation permission",
-                    statusCode: 500,
-               });
+          return res.status(500).json({
+               status: "error",
+               message: "Unable to verify test-panel delegation permission",
+               statusCode: 500,
+          });
      }
 }
 
@@ -105,13 +101,11 @@ export async function requireTestPanelManagement(req: Request, res: Response, ne
      if (!requireFacilityContext(req, res, actor)) return;
      try {
           if (!(await canManageTestPanels(actor))) {
-               return res
-                    .status(403)
-                    .json({
-                         status: "error",
-                         message: "Test-panel management permission is required",
-                         statusCode: 403,
-                    });
+               return res.status(403).json({
+                    status: "error",
+                    message: "Test-panel management permission is required",
+                    statusCode: 403,
+               });
           }
           // Legacy panel handlers record the editor supplied in the body.
           if (req.body && typeof req.body === "object" && !Array.isArray(req.body))
