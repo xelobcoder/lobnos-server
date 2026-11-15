@@ -16,7 +16,7 @@ export const staffAccessOperation=(operation:(service:StaffAccessService,req:Req
 
 export const switchStaffRole=staffAccessOperation(async(service,req)=>{
      const claims=(req as any).staffClaims;
-     if(!claims?.sid||claims.clientType==='device-manager')throw Error('Sign in through the staff application to switch roles');
+     if(!claims?.sid||claims.developerOwner||claims.clientType==='device-manager')throw Error('Sign in through the staff application to switch roles');
      // Mint before committing the projection; signing failures must not strand the old session.
      let accessToken='';
      const row=await service.switchRole(req.body,claims,async(row:any)=>{
@@ -28,7 +28,7 @@ export const switchStaffRole=staffAccessOperation(async(service,req)=>{
 
 export const refreshStaffRoleSession=staffAccessOperation(async(service,req)=>{
      const claims=(req as any).staffClaims;
-     if(!claims?.sid||claims.clientType==='device-manager')throw Error('Sign in through the staff application to restore your session');
+     if(!claims?.sid||claims.developerOwner||claims.clientType==='device-manager')throw Error('Sign in through the staff application to restore your session');
      let accessToken='';
      const row=await service.refreshRoleSession(claims,async(row:any)=>{
           const {iat,exp,nbf,role,...identity}=claims;

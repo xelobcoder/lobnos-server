@@ -4,7 +4,8 @@ import { customError } from '../hooks/helper';
 import { LicenseError, tenantId } from './certificate';
 import { licenseMode } from './storage';
 import { requireOperationalLicense } from './enforcement';
-import { checkTokenExists } from '../middleware/validateTenancy';
+import TokenValidator from '../models/settings/users/TokenValidator';
+import { checkTokenExists, parseCookies } from '../middleware/validateTenancy';
 import { getAuthUser, requireOwnerRole } from '../middleware/authority';
 
 /** Exact method/path exceptions only. GET is not a synonym for read-only in this legacy application. */
@@ -46,7 +47,8 @@ export const signedLicenseGuard = async (req: Request, res: Response, next: Next
           if (exemption === 'recovery') return next();
           // These existing authorities derive the tenant from a verified session/server-side link
           // and enforce licensing there. They deliberately reject caller tenant IDs.
-          if (/^\/api\/v1\/platform\/facilities(?:\/|$)/i.test(req.path) ||
+          if (/^\/api\/v1\/platform\/(?:facilities|master|payments)(?:\/|$)/i.test(req.path) ||
+               /^\/api\/v1\/marketplace\/platform(?:\/|$)/i.test(req.path) ||
                /^\/api\/v1\/marketplace\/core(?:\/|$)/i.test(req.path)) return next();
           // Kiosk endpoints resolve a served, active facility from their public URL and enforce
           // that facility's license before any queue read or write. They accept no tenant query.
@@ -72,6 +74,13 @@ export const signedLicenseGuard = async (req: Request, res: Response, next: Next
                     req.query.employeeid = String(actor.employeeid);
                     return next();
                });
+          }
+          const token = req.get('pls-prime-tenant-session') || parseCookies(req.headers.cookie)['pls-prime-tenant-session'];
+          if (token && raw !== undefined) {
+               const claims = await new TokenValidator().decodeAccessToken(token);
+               if (claims?.developerOwner && claims.tid === id) {
+                    return checkTokenExists(req, res, next);
+               }
           }
           await requireOperationalLicense(id);
           return next();

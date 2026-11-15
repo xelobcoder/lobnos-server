@@ -1,137 +1,39 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import jwt from "jsonwebtoken";
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+const { getSession } = vi.hoisted(() => ({ getSession: vi.fn() }));
+vi.mock('../models/Tenancy/MasterOwnerSession', () => ({ getMasterSession: getSession }));
+import { requirePlatformFacilityAuthority } from './platformFacilityAuthority';
 
-const mocks = vi.hoisted(() => ({ connection: vi.fn(), session: vi.fn(), ready: vi.fn(), tenant: vi.fn() }));
-vi.mock("../database/KnexConnections", () => ({ default: mocks.connection }));
-vi.mock("../models/Tenancy/TenantRegistry", () => ({
-     TenantRegistry: class {
-          static ensureReady = mocks.ready;
-          requireTenant = mocks.tenant;
-     },
-}));
-vi.mock("./validateTenancy", () => ({
-     verifyStaffSession: mocks.session,
-     parseCookies: (cookie: string) => (cookie ? { "pls-prime-tenant-session": cookie.split("=")[1] } : {}),
-}));
+describe('dedicated master facility authority', () => {
+     beforeEach(() => getSession.mockReset());
 
-import { requirePlatformFacilityAuthority } from "./platformFacilityAuthority";
-import { configuration } from "../hooks/configuration";
-import * as licenseEnforcement from "../licensing/enforcement";
-import { LicenseError } from "../licensing/certificate";
-
-describe("platform facility HTTP authority", () => {
-     const claims = { tid: 123456, employeeid: 9, email: "control@example.test", role: "super-admin" };
-     let row: any;
-     let requestedId: any;
-     beforeEach(() => {
-          vi.clearAllMocks();
-          vi.stubEnv("ACCESS_TOKEN_SECRET", "test-only-signing-key");
-          configuration.isMultiTenant = true;
-          configuration.defaultTenantId = 123456;
-          row = { employeeid: 9, email: claims.email, role: "super-admin", activation: 1 };
-          mocks.tenant.mockResolvedValue({ isActive: true });
-          mocks.session.mockResolvedValue({ ok: true });
-          mocks.connection.mockResolvedValue(() => ({
-               where: (where: any) => {
-                    requestedId = where;
-                    return { first: async () => row };
-               },
-          }));
-     });
-     async function call(payload: any = claims, query: any = {}, options: any = {}) {
-          const token =
-               options.token !== undefined
-                    ? options.token
-                    : jwt.sign(payload, "test-only-signing-key", { expiresIn: "1h" });
-          const req: any = { query, headers: { "pls-prime-tenant-session": token } };
-          const res: any = {
-               locals: {},
-               status: vi.fn().mockReturnThis(),
-               send: vi.fn().mockReturnThis(),
-               json: vi.fn().mockReturnThis(),
-          };
+     async function request(headers: Record<string, string> = {}, tenantId?: string) {
+          const req: any = { get: (name: string) => headers[name], query: { tenantId } };
+          const res: any = { locals: {}, status: vi.fn().mockReturnThis(), send: vi.fn(), json: vi.fn() };
           const next = vi.fn();
           await requirePlatformFacilityAuthority(req, res, next);
-          return { req, res, next };
+          return { res, next };
      }
-     it("allows a verified live control super-admin without caller tenantId", async () => {
-          const { res, next } = await call();
+
+     it('accepts the database-backed master session independently of a tenant', async () => {
+          getSession.mockResolvedValue({ master: true, sid: 'session', employeeid: 1, tid: 0, exp: 100 });
+          const { res, next } = await request({ 'x-pls-master-session': 'opaque' }, '123456');
+          expect(getSession).toHaveBeenCalledWith('opaque');
           expect(next).toHaveBeenCalledOnce();
-          expect(res.locals.facilityActor).toEqual({ tenantId: 123456, employeeId: 9 });
-          expect(requestedId).toEqual({ employeeid: 9 });
+          expect(res.locals.facilityActor).toEqual({ tenantId: 0, employeeId: 1 });
      });
-     it("gates the derived control tenant before handing off to facility mutations", async () => {
-          const guard = vi
-               .spyOn(licenseEnforcement, "requireOperationalLicense")
-               .mockRejectedValueOnce(new LicenseError("LICENSE_EXPIRED"));
-          try {
-               const { res, next } = await call();
-               expect(guard).toHaveBeenCalledWith(123456);
-               expect(res.status).toHaveBeenCalledWith(403);
-               expect(next).not.toHaveBeenCalled();
-               expect(res.locals.facilityActor).toBeUndefined();
-          } finally {
-               guard.mockRestore();
-          }
-     });
-     it.each([
-          { payload: { ...claims, tid: 654321 } },
-          { payload: { ...claims, tid: undefined } },
-          { payload: { ...claims, employeeid: "9" } },
-          { query: { tenantId: "654321" } },
-          { query: { tenantId: "123456junk" } },
-          { query: { tenantId: ["123456"] } },
-     ])("rejects cross-tenant and malformed claims/query %j", async (value) => {
-          const { res, next } = await call(value.payload || claims, value.query || {});
+
+     it('does not accept a staff token in place of a master credential', async () => {
+          getSession.mockResolvedValue(null);
+          const { res, next } = await request({ 'pls-prime-tenant-session': 'tenant-super-admin-token' });
+          expect(getSession).toHaveBeenCalledWith(undefined);
+          expect(res.status).toHaveBeenCalledWith(401);
           expect(next).not.toHaveBeenCalled();
-          expect(res.status).toHaveBeenCalledWith(403);
      });
-     it.each(["super-admin", "super_admin", "superadmin", "super admin"])(
-          "accepts normalized live super-admin role %s",
-          async (role) => {
-               row.role = role;
-               const { next } = await call();
-               expect(next).toHaveBeenCalledOnce();
-          },
-     );
-     it("does not trust the token role after live role changes to admin", async () => {
-          row.role = "admin";
-          const { res, next } = await call();
+
+     it('denies a missing, expired or revoked master session', async () => {
+          getSession.mockResolvedValue(null);
+          const { res, next } = await request({ 'x-pls-master-session': 'revoked' });
+          expect(res.status).toHaveBeenCalledWith(401);
           expect(next).not.toHaveBeenCalled();
-          expect(res.status).toHaveBeenCalledWith(403);
-     });
-     it("does not trust caller employeeid to substitute another account", async () => {
-          const { next } = await call(claims, { employeeid: "42" });
-          expect(next).toHaveBeenCalledOnce();
-          expect(requestedId).toEqual({ employeeid: 9 });
-     });
-     it("rejects disabled accounts, inactive control tenant and revoked sessions", async () => {
-          row.activation = 0;
-          expect((await call()).res.status).toHaveBeenCalledWith(403);
-          row.activation = 1;
-          mocks.tenant.mockResolvedValue({ isActive: false });
-          expect((await call()).res.status).toHaveBeenCalledWith(403);
-          mocks.tenant.mockResolvedValue({ isActive: true });
-          mocks.session.mockResolvedValue({
-               ok: false,
-               statusCode: 401,
-               body: { status: "error", code: "SESSION_REPLACED" },
-          });
-          const { res, next } = await call();
-          expect(next).not.toHaveBeenCalled();
-          expect(res.json).toHaveBeenCalledWith({ status: "error", code: "SESSION_REPLACED" });
-     });
-     it("rejects missing, tampered and expired tokens", async () => {
-          for (const token of [
-               "",
-               "invalid",
-               jwt.sign(claims, "test-only-signing-key", { expiresIn: -1 }),
-               jwt.sign(claims, "test-only-signing-key"),
-          ]) {
-               const { res, next } = await call(claims, {}, { token });
-               expect(next).not.toHaveBeenCalled();
-               expect(res.status).toHaveBeenCalledWith(401);
-          }
-          expect(mocks.connection).not.toHaveBeenCalled();
      });
 });

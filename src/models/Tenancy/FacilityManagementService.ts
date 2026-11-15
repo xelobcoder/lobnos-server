@@ -1,5 +1,7 @@
 import { databaseTlsOptions } from '../../database/tls';
 import { Knex } from 'knex';
+import PrimeWindowAccessRepository from '../settings/users/PrimeWindowAccessRepository';
+import { licenseMode } from '../../licensing/storage';
 import mysql from 'mysql2/promise';
 import { singleTenantKnexInstance, systemConfigConnection } from '../../database/connection';
 import KnexConnection from '../../database/KnexConnections';
@@ -353,6 +355,75 @@ export class FacilityManagementService {
           return trx(EVENTS_TABLE).insert({
                tenant_id: Number(tenant.tenant_number), organization_identifier: tenant.id,
                actor_tenant_id: actor.tenantId, actor_employee_id: actor.employeeId, ...values,
+          });
+     }
+
+     async listLicenseWindows() {
+          const tenants = (await new TenantRegistry().listTenants()).filter(tenant =>
+               tenant.tenantId !== configuration.defaultTenantId && ['active', 'suspended'].includes(tenant.status));
+          const rows = [];
+          for (let offset = 0; offset < tenants.length; offset += 4) {
+               rows.push(...await Promise.all(tenants.slice(offset, offset + 4).map(async ({ tenantId }) => {
+                    try {
+                         const repo = new PrimeWindowAccessRepository(tenantId);
+                         const window = await repo.getCurrentWindow();
+                         const expiresAt = window?.end_period.toISOString() ?? null;
+                         const status = !window ? 'missing' : await repo.validateLicense() ? 'active'
+                              : window.end_period.getTime() < Date.now() ? 'expired' : 'inactive';
+                         return { tenantId, status, expiresAt };
+                    } catch {
+                         return { tenantId, status: 'unavailable', expiresAt: null };
+                    }
+               })));
+          }
+          return { mode: licenseMode(), facilities: rows };
+     }
+
+     async setLicenseExpiry(tenantId: number, endDate: string, reason: string, actor: FacilityActor) {
+          this.requireClient(tenantId, 'have its license changed from the facility list');
+          if (licenseMode() !== 'legacy') throw new FacilityError('Signed installations require a signed certificate to adjust access', 409);
+          const expiry = new Date(endDate + 'T23:59:59.999Z');
+          const now = this.now();
+          if (expiry <= now || expiry.getTime() - now.getTime() > 3650 * 86400000) {
+               throw new FacilityError('Choose a future expiry within the next ten years', 400);
+          }
+          await this.ensureSchema();
+          const db = await KnexConnection(tenantId);
+          return this.master.transaction(async trx => {
+               const tenant = await this.tenantRow(trx, tenantId, true);
+               this.requireManageable(tenant, 'change the license window');
+               const repo = new PrimeWindowAccessRepository(tenantId, db);
+               const current = await repo.getCurrentWindow();
+               const existingExpiry = current?.end_period.toISOString() ?? null;
+               if (existingExpiry === expiry.toISOString() && current && await repo.validateLicense()) {
+                    return { expiresAt: existingExpiry };
+               }
+               const details = JSON.stringify({ previousExpiry: existingExpiry, expiresAt: expiry.toISOString() });
+               await this.event(trx, tenant, actor, { action: 'license_expiry_changed', reason, details });
+               await repo.createWindow(current && current.start_period <= now ? current.start_period : now,
+                    expiry, current?.window_days ?? 3, true, current?.loginDurationPerUser ?? 6);
+               return { expiresAt: expiry.toISOString() };
+          });
+     }
+
+     async recordTestSetupCopy(tenantId: number, actor: FacilityActor, details: {
+          sourceTenantId: number; sourceTestId: number; targetTestId: number; targetAuditId: number; parameterCount: number;
+     }) {
+          await this.ensureSchema();
+          await this.master.transaction(async trx => {
+               const tenant = await this.tenantRow(trx, tenantId, false);
+               await this.event(trx, tenant, actor, { action: 'test_setup_copied', details: JSON.stringify(details) });
+          });
+     }
+
+     async recordDeveloperSession(tenantId: number, owner: { tid?: number; employeeid?: number },
+          action: 'developer_session_opened' | 'developer_session_closed', employeeId: number, sessionId: string) {
+          await this.ensureSchema();
+          await this.master.transaction(async trx => {
+               const tenant = await this.tenantRow(trx, tenantId, false);
+               await this.event(trx, tenant, { tenantId: Number(owner.tid), employeeId: Number(owner.employeeid) }, {
+                    action, details: JSON.stringify({ supportEmployeeId: employeeId, sessionId }),
+               });
           });
      }
 

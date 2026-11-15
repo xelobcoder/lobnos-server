@@ -45,7 +45,9 @@ export class PasswordRecoveryService {
           const connection = await this.connection();
           let row: { email?: string | null; clinician_email?: string | null } | undefined;
           if (entityType === 'staff') {
-               row = await connection('roles').select('email').where({ employeeid: entityId }).first();
+               const staff = await connection('roles').where({ employeeid: entityId }).first();
+               if (Number(staff?.platform_support) === 1) return null;
+               row = staff;
           } else if (entityType === 'patient') {
                row = await connection('patients_credentials as pc')
                     .leftJoin('new_patients as np', 'np.patientid', 'pc.patientid')

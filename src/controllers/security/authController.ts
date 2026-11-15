@@ -180,13 +180,13 @@ export class AuthController {
 			if (!pharmacyRole && !resultsettings) return res.status(404).json({message:'Result settings not found',status:false});
 
 			const primeWindowRepo = new PrimeWindowAccessRepository(tenantId);
-			const daysToExpiry = await primeWindowRepo.calculateDaysToExpiry();
+			const daysToExpiry = response.developerOwner ? null : await primeWindowRepo.calculateDaysToExpiry();
 			return res.status(200).json({
 				message: 'Token is valid',
 				status: true,
 				user: {
 					loginDuration: 6,
-					daysToExpiration: daysToExpiry || 0,
+					daysToExpiration: response.developerOwner ? null : daysToExpiry || 0,
 					maximumUsers: 3,
 					customization: {
 						theme: "light",
@@ -197,7 +197,8 @@ export class AuthController {
 						branch,
 						employeeid,
 						username,
-						email
+						email,
+						...(response.developerOwner ? { developerSupport: true } : {}),
 					},
 					company: company,
 					branchid: branch,

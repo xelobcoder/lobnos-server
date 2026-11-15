@@ -32,7 +32,7 @@ export default class AuthenticationRepository {
         await ensureLoginAttemptSecurity(connection);
         const result = await connection.transaction(async trx => {
             const user = await trx('roles').where({ employeeid: Number(match[1]) }).forUpdate().first();
-            if (!user) return { user: null, retryAfter: undefined };
+            if (!user || Number(user.platform_support) === 1) return { user: null, retryAfter: undefined };
             const attempt = await verifyStaffPassword(trx, Number(user.employeeid), () => bcrypt.compare(password, user.password));
             return { user: attempt.matched ? user : null, retryAfter: attempt.retryAfter };
         });

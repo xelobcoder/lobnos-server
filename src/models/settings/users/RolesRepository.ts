@@ -101,6 +101,7 @@ export default class RolesRepository {
 		return connection.transaction(async trx=>{
 			const current=await trx(this.tablename).where({employeeid:employeeId}).forUpdate().first();
 			if(!current)return 0;
+			if (Number(current.platform_support) === 1) throw new Error('The platform manages this developer account');
 			const changingAccess=(roleData.role!==undefined&&roleData.role!==current.role)||(roleData.branch!==undefined&&Number(roleData.branch)!==Number(current.branch));
 			if(changingAccess&&await trx('staff_role_access').where({employeeid:employeeId}).first())throw new Error('Manage this employee’s roles and locations through Staff & role access. Add or remove assignments there.');
 			const changingSession=changingAccess||(roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation));
@@ -111,7 +112,11 @@ export default class RolesRepository {
 
 	async deleteRole(employeeId: number): Promise<number> {
 		const connection = await this.connection;
-		const result = await connection(this.tablename).where({ employeeid: employeeId }).del()
+		const result = await connection.transaction(async trx => {
+               const row = await trx(this.tablename).where({ employeeid: employeeId }).forUpdate().first();
+               if (Number(row?.platform_support) === 1) throw new Error('The platform manages this developer account');
+               return trx(this.tablename).where({ employeeid: employeeId }).del();
+          });
 		return result
 	}
 

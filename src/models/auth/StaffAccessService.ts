@@ -54,6 +54,7 @@ export class StaffAccessService {
           const target=id(employeeid),branch=id(input.branchid),role=text(input.role,'role');this.allowed(role,branch);
           return this.db.transaction(async(trx:any)=>{
                const row=await trx('roles').where({employeeid:target}).forUpdate().first();
+               if (Number(row?.platform_support) === 1) throw Error('The platform manages this developer account');
                if(!row)throw Error('Employee not found');
                await this.manageableEmployee(trx,row);
                if(!owner(this.actor.role)&&(Number(row.branch)!==Number(this.actor.branch)||!PHARMACY_STAFF_ROLES.includes(row.role)||row.role==='pharmacy_manager'))throw Error('Only an administrator may change this employee’s assignments');
@@ -72,6 +73,7 @@ export class StaffAccessService {
           this.manage();const target=id(employeeid);
           return this.db.transaction(async(trx:any)=>{
                const row=await trx('roles').where({employeeid:target}).forUpdate().first();
+               if (Number(row?.platform_support) === 1) throw Error('The platform manages this developer account');
                const assignment=await trx('staff_role_access').where({id:assignmentId,employeeid:target}).first();
                if(!row||!assignment)throw Error('Assignment not found');
                await this.manageableEmployee(trx,row);
@@ -88,6 +90,7 @@ export class StaffAccessService {
           if(target===this.actor.employeeid)throw Error('You cannot deactivate or reactivate your own account');
           return this.db.transaction(async(trx:any)=>{
                const row=await trx('roles').where({employeeid:target}).forUpdate().first();
+               if (Number(row?.platform_support) === 1) throw Error('The platform manages this developer account');
                if(!row)throw Error('Employee not found');
                await this.manageableEmployee(trx,row);
                if(!owner(this.actor.role)&&(Number(row.branch)!==Number(this.actor.branch)||!PHARMACY_STAFF_ROLES.includes(row.role)||row.role==='pharmacy_manager'))throw Error('Only an administrator may change this employee’s account');

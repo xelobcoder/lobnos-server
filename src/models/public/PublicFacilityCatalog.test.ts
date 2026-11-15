@@ -44,7 +44,7 @@ function database(tests: Record<string, unknown>[] = [{ id: 10, name: 'Synthetic
           if (table === 'additionalservices') return serviceQuery;
           if (table === 'testdetails as details') return detailsQuery;
           throw new Error('Unexpected public database table');
-     }), { raw: vi.fn() });
+     }), { raw: vi.fn(), schema: { hasColumn: vi.fn().mockResolvedValue(false) } });
      mocks.connection.mockResolvedValue(db);
      return { db, testQuery, serviceQuery };
 }
@@ -120,6 +120,18 @@ describe('public cash tariff catalog', () => {
           expect(result.tests.map(item => item.id)).toEqual([10]);
           expect(result.panels).toEqual([{ id: 12, name: 'Synthetic panel', description: 'Public panel explanation', price: 22.5, currency: 'GHS' }]);
           expect(result.facility).not.toHaveProperty('panelIds');
+     });
+     it('publishes copied panels only after explicit selection', async () => {
+          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, panelIds: [12] }]));
+          const { db } = database([
+               { id: 10, name: 'Regular test', price: 5 },
+               { id: 11, name: 'Hidden copy', price: 10, copy_requires_publication: 1 },
+               { id: 12, name: 'Approved copy', price: 15, copy_requires_publication: 1 },
+          ]);
+          db.schema.hasColumn.mockResolvedValue(true);
+          const result = await new PublicFacilityCatalog().catalog(facility.slug);
+          expect(result.tests.map(item => item.id)).toEqual([10]);
+          expect(result.panels.map(item => item.id)).toEqual([12]);
      });
      it('reads approved tenant cash tariffs and descriptions, omitting internal fields and missing descriptions', async () => {
           const { db, testQuery } = database();

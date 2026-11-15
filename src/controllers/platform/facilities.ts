@@ -3,7 +3,9 @@ import { randomBytes } from 'crypto';
 import { customError } from '../../hooks/helper';
 import logger from '../../hooks/logger';
 import { requirePlatformFacilityAuthority } from '../../middleware/platformFacilityAuthority';
+import { DeveloperTenantSessionService } from '../../models/Tenancy/DeveloperTenantSessionService';
 import { FacilityProvisioningService } from '../../models/Tenancy/FacilityProvisioningService';
+import { FacilityTestSetupCopy } from '../../models/Tenancy/FacilityTestSetupCopy';
 import { FacilityManagementService } from '../../models/Tenancy/FacilityManagementService';
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
 import { validateModuleConfiguration } from '../../models/Tenancy/FacilityModules';
@@ -12,13 +14,15 @@ import { FacilityModulePricingCatalog } from '../../models/Tenancy/FacilityModul
 import { FacilitySubscriptionTierService } from '../../models/Tenancy/FacilitySubscriptionTiers';
 import { parseMedicalDeviceId, validateMedicalDeviceInput } from '../../models/Tenancy/FacilityMedicalDeviceInput';
 import {
-     parseAuditQuery, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
+     parseAuditQuery, parseIsoDate, parsePaymentIdParam, parseTenantIdParam, validateSmsProviderInput, validateStatusChange,
      validateSubscriptionPlan, validateVoidInput,
 } from '../../models/Tenancy/FacilityManagementInput';
 
 const router = Router();
 const service = new FacilityProvisioningService();
+const developerSessions = new DeveloperTenantSessionService();
 const management = new FacilityManagementService();
+const testSetupCopy = new FacilityTestSetupCopy();
 const publicRegistry = new PublicFacilityRegistry();
 const modulePricing = new FacilityModulePricingCatalog();
 const subscriptionTiers = new FacilitySubscriptionTierService();
@@ -61,6 +65,41 @@ const handle = (operation: (req: Request, res: Response) => Promise<unknown>) =>
 /** Authenticated actor from requirePlatformFacilityAuthority; never from the request body. */
 const actor = (res: Response) => res.locals.facilityActor;
 
+router.get(`${base}/access`, requirePlatformFacilityAuthority, handle(async () => ({ authorized: true })));
+router.post(`${base}/developer-session`, requirePlatformFacilityAuthority, handle(async (req, res) => {
+     res.setHeader('Cache-Control', 'private, no-store');
+     return developerSessions.open(parseTenantIdParam(String(req.body?.tenantId ?? '')), res.locals.platformOwnerClaims, req.get('x-pls-developer-session'));
+}));
+router.delete(`${base}/developer-session`, requirePlatformFacilityAuthority, handle(async (req, res) => {
+     await developerSessions.close(res.locals.platformOwnerClaims, req.get('x-pls-developer-session'));
+     return { closed: true };
+}));
+router.get(`${base}/license-windows`, requirePlatformFacilityAuthority, handle(() => management.listLicenseWindows()));
+router.put(`${base}/:tenantId/license-window`, requirePlatformFacilityAuthority, handle((req, res) =>
+     management.setLicenseExpiry(parseTenantIdParam(req.params.tenantId), parseIsoDate(req.body?.endDate, 'endDate'),
+          validateVoidInput(req.body).reason, actor(res))));
+router.get(`${base}/:tenantId/test-setup/panels`, requirePlatformFacilityAuthority, handle(req =>
+     testSetupCopy.panels(parseTenantIdParam(req.params.tenantId), req.query.search)));
+router.get(`${base}/:tenantId/test-setup/panels/:testId/parameters`, requirePlatformFacilityAuthority, handle(req =>
+     testSetupCopy.parameters(parseTenantIdParam(req.params.tenantId), parsePaymentIdParam(req.params.testId))));
+router.post(`${base}/test-setup/preview`, requirePlatformFacilityAuthority, handle(req => testSetupCopy.preview(req.body)));
+router.post(`${base}/test-setup/apply`, requirePlatformFacilityAuthority, handle(async (req, res) => {
+     const input = req.body?.request;
+     const result = await testSetupCopy.apply(input, req.body?.previewId, actor(res));
+     let masterAuditRecorded = true;
+     try {
+          await management.recordTestSetupCopy(input.targetTenantId, actor(res), {
+               sourceTenantId: input.sourceTenantId, sourceTestId: input.sourceTestId,
+               targetTestId: result.testId, targetAuditId: Number(result.auditId), parameterCount: result.copied.length,
+          });
+     } catch {
+          masterAuditRecorded = false;
+          logger.error('Test setup was copied but the platform audit could not be recorded', {
+               tenantId: input.targetTenantId, targetAuditId: result.auditId,
+          });
+     }
+     return { ...result, masterAuditRecorded };
+}));
 router.get(`${base}/options`, requirePlatformFacilityAuthority, handle(() => service.options()));
 router.get(base, requirePlatformFacilityAuthority, handle(() => service.list()));
 router.get(`${base}/module-pricing`, requirePlatformFacilityAuthority, handle(req =>

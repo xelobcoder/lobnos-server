@@ -317,24 +317,16 @@ column widths before a facility is reserved.
 
 ## Authority boundary
 
-`platform_users` is currently registry metadata, not a PLS authenticated user
-directory: it has no password/token login architecture. Therefore these routes
-authorize **only** an authenticated, active staff account with the **exact stored
-role `super-admin` in `configuration.defaultTenantId`**. The tenant must be active;
-JWT signature, expiry, numeric tenant and employee claims, current account email,
-live role/activation and current staff session are checked. A token's role is not
-authority. Ordinary tenant admins and even super-admins of other tenants cannot
-list, read options or provision facilities. Aliases such as `super_admin` and
-`superadmin` are deliberately not accepted.
+The master platform uses a dedicated owner account stored in the control
+database. The owner signs in at `/master-platform/login`. The server stores a
+hash of the opaque session secret, and the browser receives an HTTP-only cookie.
+Master authentication has no tenant staff ID or tenant license dependency.
+Staff credentials and developer tenant sessions cannot authorize master APIs.
 
-The default tenant ID is resolved by `TenantRegistry.ensureReady()` from this
-installation's configured local database, including its existing automatic ID
-migration. Sign in again after a tenant-ID migration. The frontend may recognize
-role aliases for display, but that must not imply server access.
-
-The router is mounted before the generic query-tenant agreement middleware so
-platform requests do not need caller-controlled tenancy parameters. It performs
-its own active-control-tenant agreement check and staff session validation.
+Opening a facility issues a temporary, tenant-scoped developer session. Tenant
+requests verify the live master session and target scope. The developer can
+access an expired tenant through this session. The tenant's ordinary staff
+continue to use its normal license checks.
 
 ## Operator setup
 
@@ -348,6 +340,13 @@ its own active-control-tenant agreement check and staff session validation.
    This is a server-configured FK/audit identity, **not** an authorization grant.
    The actual initiating control-tenant employee is separately recorded in each
    lifecycle audit event. No arbitrary first platform user is silently selected.
+   Build the backend and initialize the dedicated owner once with
+   `npm run master:init -- platform-owner --password-stdin`. Supply the
+   password through standard input. To copy an existing active super-admin
+   password hash during migration, use
+   `npm run master:init -- platform-owner --import-staff <tenantId> <employeeId>`.
+   The import copies the hash once. Later tenant password or role changes do
+   not affect the dedicated account.
 4. Deploy the authoritative **288 structure files** under
    `db-exports/primelabmaster/tables-structure`: 287 table structures and the
    routines export. These contain 71 triggers and 36 procedures. No live tenant
@@ -746,4 +745,19 @@ stored and enforced through separate workflows today.
 | Durable provisioning jobs | Facility reservation, per-facility lock, versioned schema bundles and a durable job store | Duplicate requests resolve to the same job. The admin can reload and see progress. An interrupted worker resumes or exposes a safe retry. Failed stages retain an actionable code and the tenant stays inactive. |
 | Fleet readiness and database upgrades | Durable jobs, compatible schema version tracking and deployment metadata | The platform lists each tenant's schema version and last check. A failed upgrade identifies the tenant and stage. Operators can verify a release on a clean facility and a populated upgrade fixture before widening rollout. |
 | Backup, restore and retirement | Verified tenant-to-database mapping, backup storage and retention policy | The platform shows backup age and verification status per tenant. A restore can be tested in an isolated database before cutover. Retirement has an auditable retention and deletion workflow. |
-| Delegated platform administration | Scoped control-tenant permissions and consolidated audit | Provisioning, billing and support access can be granted independently. Every privileged mutation records the actor and target facility. The platform protects the control tenant and enforces scope at the API. |
+
+## Developer tenant switching
+
+Sign in at `/master-platform/login`. From the master facility list, select **Open facility** on an active client. The facility
+dashboard shows a **Developer session** banner with its name and a **Return to
+master platform** button. After returning, select another facility using the
+same master session. The active workspace is shared across tabs in one browser
+profile.
+
+The first visit initializes a dedicated password-disabled developer identity in
+that tenant. The facility's administrator and staff sessions remain independent.
+The developer session expires within 30 minutes or when the master session
+expires, whichever comes first. Target requests recheck the live master
+identity and session. The target identity is scoped to one tenant and cannot
+authorize master operations. Return normally closes the tenant session and
+restores the master session. The facility audit records entry and exit.

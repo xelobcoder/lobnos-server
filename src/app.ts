@@ -63,6 +63,7 @@ import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validat
 import { patientPortalRouter, publicPatientPortalRouter } from "./controllers/patient-portal/route";
 import { clinicianPortalRouter } from "./controllers/clinician-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
+import masterAuthRouter from "./controllers/platform/masterAuth";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
 import {
      createPaymentWebhookRouter,
@@ -151,6 +152,7 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
 });
 // Platform authority derives its tenant from the verified session, not a caller-supplied tenantId.
 // The router enforces active control-tenant standing and live super-admin/session validation.
+app.use(masterAuthRouter);
 app.use(createPlatformPaymentsRouter());
 app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);

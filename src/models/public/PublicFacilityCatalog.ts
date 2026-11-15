@@ -152,15 +152,17 @@ export class PublicFacilityCatalog {
           const connection = await KnexConnection(facility.tenantId);
           // These are the same base tariff records used for general/cash lab billing.
           // Restrict to configured tests, without exposing testdetails or billing/customer records.
+          const panelIds = new Set(facility.panelIds || []);
+          const hasCopyVisibility = await connection.schema.hasColumn('test_panels', 'copy_requires_publication');
           const tests = await connection('test_panels as panel')
                .whereExists(connection('testdetails as details').select(connection.raw('1')).whereRaw('details.testid = panel.id'))
-               .select('panel.id', 'panel.name', 'panel.description', 'panel.price')
+               .select('panel.id', 'panel.name', 'panel.description', 'panel.price', ...(hasCopyVisibility ? ['panel.copy_requires_publication'] : []))
                .orderBy('panel.name');
+          const visibleTests = hasCopyVisibility ? tests.filter(row => !Number(row.copy_requires_publication) || panelIds.has(Number(row.id))) : tests;
           const services = await connection('additionalservices')
                .select('keyid as id', 'serviceName as name', 'servicePrice as price')
                .orderBy('serviceName');
-          const items = tests.map(row => catalogItem(row, facility.currency));
-          const panelIds = new Set(facility.panelIds || []);
+          const items = visibleTests.map(row => catalogItem(row, facility.currency));
           return {
                facility: publicFields(facility),
                tests: items.filter(item => !panelIds.has(item.id)),

@@ -14,6 +14,10 @@ import { roleAllowed } from "./roles";
 import { DEVICE_MANAGER_SESSION_PREFIX, deviceManagerRouteAllowed } from "../models/security/deviceManagerSession";
 import KnexConnection from '../database/KnexConnections';
 import { clinicianCredentialMatches } from '../models/auth/passwordSessions';
+import { TenantRegistry } from '../models/Tenancy/TenantRegistry';
+import { isMasterSessionActive } from '../models/Tenancy/MasterOwnerSession';
+import { DEVELOPER_SUPPORT_EMAIL } from '../models/Tenancy/DeveloperSessionPolicy';
+import { isSuperAdminRole } from './roles';
 import { staffAccessVersionMatches } from '../models/auth/StaffAccessSchema';
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
@@ -37,6 +41,22 @@ export const hashDeviceFingerprint = (deviceId: unknown): string | null => {
  * Logging in elsewhere closes the previous session, so the older device receives SESSION_REPLACED.
  */
 export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid: number, tenantId: number, request: Request, roleRow?: any): Promise<SessionCheck> => {
+     const supportIdentity = roleRow?.email === DEVELOPER_SUPPORT_EMAIL || Number(roleRow?.platform_support) === 1;
+     if (decoded?.developerOwner || supportIdentity) {
+          if (!configuration.isMultiTenant || decoded?.tid !== tenantId ||
+               Number(roleRow?.platform_support) !== 1 || roleRow?.email !== DEVELOPER_SUPPORT_EMAIL ||
+               Number(roleRow?.activation) !== 1 || !isSuperAdminRole(roleRow?.role)) {
+               return sessionFailure(403, 'DEVELOPER_SESSION_DENIED', 'This developer session is unavailable.');
+          }
+          const target = await new TenantRegistry().getTenant(tenantId);
+          if (!target?.isActive) {
+               return sessionFailure(403, 'DEVELOPER_SESSION_DENIED', 'This developer session is unavailable.');
+          }
+          if (!await isMasterSessionActive(decoded?.developerOwner?.masterSessionId)) {
+               return sessionFailure(401, 'DEVELOPER_SESSION_EXPIRED', 'The master session has expired. Sign in again.');
+          }
+     }
+
      const roleRecovery = request.method==='POST' && String(request.originalUrl||request.path||'').split('?')[0]==='/api/v1/prime/refresh-role-session';
      if (roleRow && !staffAccessVersionMatches(decoded,roleRow)) {
           const version=Number(decoded?.arv??0);

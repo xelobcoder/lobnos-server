@@ -190,8 +190,8 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 		const temporaryPassword = 'Aa7!' + crypto.randomBytes(16).toString("hex");
 		const passwordHash = await bcrypt.hash(temporaryPassword, 10);
 		const updated = await connection.transaction(async trx => {
-			const target = await trx('roles').where({ employeeid: targetEmployeeid }).forUpdate().first('employeeid');
-			if (!target) return false;
+			const target = await trx('roles').where({ employeeid: targetEmployeeid }).forUpdate().first();
+			if (!target || Number(target.platform_support) === 1) return false;
 			await trx('roles').where({ employeeid: targetEmployeeid })
 				.update({ password: passwordHash, updated_on: new Date() });
 			await revokePasswordSessions(trx, 'staff', targetEmployeeid);

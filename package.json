@@ -51,6 +51,7 @@
     "setup:new-client": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/setup-new-client.ts",
     "onboard:client": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/onboard-client.ts",
     "export:db": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/export-database.ts",
+    "master:init": "node --env-file=./.env ./dist/src/scripts/initialize-master-owner.js",
     "master:merge": "node --env-file=./.env ./scripts/merge-master-databases.js",
     "tenant:audit-collation": "node --env-file=./.env ./dist/src/scripts/tenant-collation-audit.js",
     "tenant:upgrade-collation": "node --env-file=./.env ./dist/src/scripts/legacy-upgrade-collation.js",
