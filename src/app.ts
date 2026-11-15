@@ -19,6 +19,7 @@ import clinicianRouter from "./controllers/clinicians/route";
 import drugsRouter from "./controllers/drugs/drugsRouter";
 import SMSRouter from "./controllers/sms/route";
 import { startSmsContactGroupWorker } from "./models/application/sms/SmsContactGroupWorker";
+import { startCriticalReadbackWorker } from "./models/operations/CriticalReadbackWorker";
 import { recordSmsDelivery, startSmsCampaignWorker } from "./models/application/sms/SmsCampaignWorker";
 import { smsAuthority } from "./middleware/smsAuthority";
 import { financialDayLimit, financialDayReadinessHandler } from "./middleware/financialDayLimit";
@@ -310,6 +311,7 @@ async function startApplication() {
           startAppointmentReminderWorker(readyTenants);
           startSmsCampaignWorker(readyTenants);
           startSmsContactGroupWorker(readyTenants);
+          startCriticalReadbackWorker(readyTenants);
           // Tenants hold their own gateway credentials, so recovery must run even when no platform provider is configured.
           startPaymentReconciliationWorker(getPaymentGatewayService());
      });

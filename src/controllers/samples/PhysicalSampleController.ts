@@ -60,6 +60,8 @@ export class PhysicalSampleController {
                     unit: request.body?.unit,
                     notes: request.body?.notes,
                     externalFacility: request.body?.externalFacility || request.body?.external_facility,
+                    collectionCenterId: request.body?.collectionCenterId,
+                    collectionBranchId: actor.branch,
                     idempotencyKey: request.body?.idempotencyKey || request.body?.idempotency_key,
                     allowAdditional: Boolean(request.body?.allowAdditional || request.body?.allow_additional),
                }, actor.employeeid);
@@ -93,6 +95,8 @@ export class PhysicalSampleController {
                          expectedVersion: request.body?.expectedVersion ?? request.body?.expected_version,
                          idempotencyKey: request.body?.idempotencyKey ?? request.body?.idempotency_key,
                          communication: request.body?.communication,
+                         collectionCenterId: request.body?.collectionCenterId,
+                         collectionBranchId: actor.branch,
                     }
                );
                response.json({ success: true, data: sample });
@@ -157,7 +161,10 @@ export class PhysicalSampleController {
      static async recollect(request: Request, response: Response): Promise<void> {
           try {
                const actor = getAuthUser(request)!;
-               response.status(201).json({ success: true, data: await new PhysicalSampleService(actor.tenantId).recollect(Number(request.params.id), actor.employeeid) });
+               const data = await new PhysicalSampleService(actor.tenantId).recollect(
+                    Number(request.params.id), actor.employeeid, request.body?.collectionCenterId, actor.branch,
+               );
+               response.status(201).json({ success: true, data });
           } catch (error: any) {
                response.status(/not found/i.test(error.message) ? 404 : 409).json({ success: false, message: error.message });
           }
@@ -197,11 +204,18 @@ export class PhysicalSampleController {
      private static async respondWithReport(request: Request, response: Response, report: 'samples' | 'reviews' | 'communications'): Promise<void> {
           try {
                const actor = getAuthUser(request)!;
+               const rawCenter = report === 'samples' ? request.query.collectionCenterId : undefined;
+               const centerId = typeof rawCenter === 'string' && /^\d+$/.test(rawCenter) ? Number(rawCenter) : NaN;
+               if (rawCenter !== undefined && (!Number.isSafeInteger(centerId) || centerId < 1)) {
+                    response.status(400).json({ success: false, message: 'Select a valid collection center' });
+                    return;
+               }
                const filters = {
                     startDate: request.query.startDate as string | undefined,
                     endDate: request.query.endDate as string | undefined,
                     status: request.query.status as string | undefined,
                     search: request.query.search as string | undefined,
+                    collectionCenterId: rawCenter === undefined ? undefined : centerId,
                     page: Number(request.query.page || 1),
                     count: Number(request.query.count || 10),
                };

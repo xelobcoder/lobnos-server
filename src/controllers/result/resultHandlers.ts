@@ -734,66 +734,81 @@ export const getResultRecordUndelivered = async (req: Request<{}, {}, {}, { tena
 		responseError(res, err);
 	}
 };
-export const recordResultDelivery = async (req: Request, res: Response) => {
-	try {
-		const tenantId = parseInt(req.query.tenantId as unknown as string, 10);
-		const { billingid, ascensionid, delivered_mode, delivered_by_employeeid, notes, failurenotes } = req.body || {};
-		const pBillingId = parseInt(String(billingid), 10);
-		const pAscensionId = ascensionid !== undefined && ascensionid !== null ? parseInt(String(ascensionid), 10) : null;
-		const actor = getAuthUser(req);
-          if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
-          const pEmployeeId = actor.employeeid;
-          const scopeDb = await KnexConnection(tenantId);
-          const scopeBill = await scopeDb('billing').where({ billingid: pBillingId }).first('branchid');
-          if (!scopeBill || (actor.branch != null && Number(scopeBill.branchid) !== Number(actor.branch))) return res.status(403).json({ status: false, message: 'Billing access denied' });
+type ResultDeliveryActor = NonNullable<ReturnType<typeof getAuthUser>>;
 
-		if (!pBillingId || isNaN(pBillingId)) return customError("billingid must be a number", 400, res);
-		if (pAscensionId !== null && isNaN(pAscensionId)) return customError("ascensionid must be a number", 400, res);
-		if (!pEmployeeId || isNaN(pEmployeeId)) {
-			return customError("delivered_by_employeeid must be a number", 400, res);
-		}
-		if ((!delivered_mode || typeof delivered_mode !== 'string') && (!failurenotes || typeof failurenotes !== 'string')) {
-			return customError("either delivered_mode or failurenotes is required", 400, res);
-		}
+function deliveryInputError(message: string) {
+	return Object.assign(new Error(message), { statusCode: 400 });
+}
 
-		const normalizedFailureNotes = typeof failurenotes === 'string' ? failurenotes.trim() : null;
-          if ((notes != null && typeof notes !== 'string') || String(notes || '').length > 2000 || String(normalizedFailureNotes || '').length > 2000) return res.status(400).json({ status: false, message: 'Delivery notes must be text of at most 2000 characters' });
-		const normalizedDeliveredMode = delivered_mode && typeof delivered_mode === 'string'
-			? delivered_mode.trim().toLowerCase()
-			: null;
-
-
-          if ((!normalizedDeliveredMode || normalizedDeliveredMode === 'not_delivered') && !normalizedFailureNotes) return res.status(400).json({ status: false, message: 'Select a delivery mode or enter a failure reason' });
-          if (normalizedDeliveredMode && normalizedDeliveredMode.length > 30) return res.status(400).json({ status: false, message: 'Delivery mode is too long' });
-		const result = await new ResultDeliveryClass(pBillingId, tenantId).updateResultDeliveryLog({
-			ascensionid: pAscensionId,
-			billingid: pBillingId,
-			delivered_mode: normalizedFailureNotes ? null : normalizedDeliveredMode,
-			delivered_by_employeeid: pEmployeeId,
-			notes: notes ?? null,
-			failurenotes: normalizedFailureNotes || null
-		});
-
-
-
-		if (result && normalizedDeliveredMode && !normalizedFailureNotes) {
-			InAppNotificationService.publish(tenantId, {
-				eventCode: 'RESULT_DELIVERED',
-				module: 'result',
-				title: 'Result delivered',
-				message: `Result for billing #${pBillingId} was delivered by ${normalizedDeliveredMode}.`,
-				referenceType: pAscensionId ? 'ascension' : 'billing',
-				referenceId: pAscensionId ?? pBillingId,
-				actorEmployeeId: pEmployeeId,
-			}).catch(() => { });
-		}
-
-		res.status(201).send({ status: true, result });
-	} catch (err) {
-		console.log(err);
-		if ((err as any)?.statusCode) return res.status((err as any).statusCode).json({ status: false, message: (err as any).message });
-          responseError(res, err);
+async function saveResultDelivery(actor: ResultDeliveryActor, body: Record<string, unknown> | undefined, requireTest = false) {
+	const { billingid, ascensionid, delivered_mode, notes, failurenotes } = body || {};
+	const billId = Number(billingid);
+	const testId = ascensionid == null ? null : Number(ascensionid);
+	if (!Number.isSafeInteger(billId) || billId < 1) throw deliveryInputError('A valid billing ID is required');
+	if ((requireTest || testId != null) && (testId == null || !Number.isSafeInteger(testId) || testId < 1)) {
+		throw deliveryInputError('A valid ordered test ID is required');
 	}
+	const mode = typeof delivered_mode === 'string' ? delivered_mode.trim().toLowerCase() : null;
+	const failure = typeof failurenotes === 'string' ? failurenotes.trim() : '';
+	if ((!mode || mode === 'not_delivered') && !failure) throw deliveryInputError('Select a delivery mode or enter a failure reason');
+	if (mode && mode.length > 30) throw deliveryInputError('Delivery mode is too long');
+	if ((notes != null && typeof notes !== 'string') || (typeof notes === 'string' && notes.length > 2000) || failure.length > 2000) {
+		throw deliveryInputError('Delivery notes must be text of at most 2000 characters');
+	}
+
+	const result = await new ResultDeliveryClass(billId, actor.tenantId, actor.branch).updateResultDeliveryLog({
+		ascensionid: testId,
+		billingid: billId,
+		delivered_mode: failure ? null : mode,
+		delivered_by_employeeid: actor.employeeid,
+		notes: typeof notes === 'string' ? notes : null,
+		failurenotes: failure || null,
+	});
+	if (result && mode && !failure) {
+		InAppNotificationService.publish(actor.tenantId, {
+			eventCode: 'RESULT_DELIVERED',
+			module: 'result',
+			title: 'Result delivered',
+			message: 'A result delivery was recorded.',
+			referenceType: testId ? 'ascension' : 'billing',
+			referenceId: testId ?? billId,
+			actorEmployeeId: actor.employeeid,
+		}).catch(() => {});
+	}
+	return result;
+}
+
+export const recordResultDelivery = async (req: Request, res: Response) => {
+	const actor = getAuthUser(req);
+	if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+	try {
+		const result = await saveResultDelivery(actor, req.body);
+		return res.status(201).send({ status: true, result });
+	} catch (error: any) {
+		if (error.statusCode) return res.status(error.statusCode).json({ status: false, message: error.message });
+		return responseError(res, error);
+	}
+};
+
+export const recordBulkResultDelivery = async (req: Request, res: Response) => {
+	const actor = getAuthUser(req);
+	if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
+	const deliveries = req.body?.deliveries;
+	if (!Array.isArray(deliveries) || deliveries.length === 0 || deliveries.length > 400) {
+		return res.status(400).json({ status: false, message: 'Select between 1 and 400 delivery records' });
+	}
+
+	const results: Array<{ status: boolean; message?: string }> = [];
+	for (const delivery of deliveries) {
+		try {
+			await saveResultDelivery(actor, delivery, true);
+			results.push({ status: true });
+		} catch (error: any) {
+			if (!error.statusCode) console.error('Bulk result delivery write failed', { code: error.code });
+			results.push({ status: false, message: error.statusCode ? error.message : 'The server could not record this delivery' });
+		}
+	}
+	return res.json({ status: true, results });
 };
 
 export const recordResultHandover = async (req: Request, res: Response) => {

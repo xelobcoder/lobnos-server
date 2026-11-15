@@ -16,6 +16,10 @@ export const criticalActions = z.object({
      hold_print: z.boolean().default(false),
      hold_release: z.boolean().default(false),
      supervisor_clearance: z.boolean().default(false),
+     readback_required: z.boolean().optional(),
+     readback_escalation_minutes: z.number().int().min(1).max(1440).nullable().optional(),
+}).refine(policy => !policy.readback_escalation_minutes || policy.readback_required, {
+     message: 'Require read-back before setting its escalation timer',
 });
 export const readJson = (value: any) => (typeof value === "string" ? JSON.parse(value) : value || {});
 export async function controlAudit(
@@ -84,6 +88,7 @@ export async function evaluateCriticalActions(
           )
                continue;
           const policy = criticalActions.parse(readJson(rule.actions));
+          const detectedAt = new Date();
           const statement = buildCriticalAlertStatement(field.field, field.value, rule);
           const [legacyId] = await trx("loggingcriticalvaluealert").insert({
                billingid: context.billingid,
@@ -104,7 +109,10 @@ export async function evaluateCriticalActions(
                rule_id: rule.id,
                statement,
                policy_snapshot: JSON.stringify(policy),
-               created_at: new Date(),
+               created_at: detectedAt,
+               ...(policy.readback_escalation_minutes ? {
+                    readback_due_at: new Date(detectedAt.getTime() + policy.readback_escalation_minutes * 60_000),
+               } : {}),
           });
           await trx("in_app_notifications").insert({
                event_code: "CRITICAL_RESULT",
@@ -233,13 +241,14 @@ export class CriticalActionService {
      async act(actor: AuthUser, id: number, input: any) {
           const data = z
                .object({
-                    action: z.enum(["acknowledge", "communicate", "resolve"]),
+                    action: z.enum(["acknowledge", "communicate", "confirm_readback", "resolve"]),
                     version: z.number().int().positive(),
                     reason: z.string().trim().min(3).max(2000),
                     confirmed: z.boolean().optional(),
                     recipient: z.string().trim().max(150).optional(),
                     method: z.enum(["phone", "in_person", "secure_message"]).optional(),
                     outcome: z.string().trim().max(1000).optional(),
+                    readbackDetails: z.string().trim().min(3).max(1000).optional(),
                })
                .parse(input);
           await this.detail(actor, id);
@@ -265,6 +274,22 @@ export class CriticalActionService {
                     if (data.confirmed)
                          Object.assign(changes, { communicated_at: new Date(), communicated_by: actor.employeeid });
                }
+               if (data.action === "confirm_readback") {
+                    if (before.readback_confirmed_at) return controlsFail("Read-back is already confirmed", 409);
+                    if (!data.recipient || !data.method || !data.readbackDetails) {
+                         return controlsFail("Record who read the result back, the method, and what they confirmed");
+                    }
+                    const confirmedAt = new Date();
+                    Object.assign(changes, {
+                         readback_confirmed_at: confirmedAt,
+                         readback_confirmed_by: actor.employeeid,
+                         readback_recipient: data.recipient,
+                         readback_details: data.readbackDetails,
+                         communicated_at: confirmedAt,
+                         communicated_by: actor.employeeid,
+                         communication: JSON.stringify({ recipient: data.recipient, method: data.method, outcome: "Read-back confirmed", confirmed: true }),
+                    });
+               }
                if (data.action === "resolve") {
                     if (policy.supervisor_clearance && !labSupervisor(actor))
                          return controlsFail("A supervisor must clear this critical hold", 403);
@@ -278,6 +303,8 @@ export class CriticalActionService {
                          return controlsFail("Acknowledge this finding first");
                     if (policy.communicate && !before.communicated_at)
                          return controlsFail("Record clinician communication first");
+                    if (policy.readback_required && !before.readback_confirmed_at)
+                         return controlsFail("Record the recipient's read-back before resolving this finding");
                     Object.assign(changes, {
                          resolved_at: new Date(),
                          resolved_by: actor.employeeid,

@@ -6,6 +6,16 @@ import { bootstrapSpecimenLifecycleTables } from './SpecimenLifecycleBootstrappe
 export async function bootstrapPhysicalSampleTables(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
 
+     if (!(await connection.schema.hasTable('sample_collection_centers'))) {
+          await connection.schema.createTable('sample_collection_centers', table => {
+               table.increments('id');
+               table.integer('branch_id').unsigned().notNullable();
+               table.string('name', 100).notNullable();
+               table.boolean('active').notNullable().defaultTo(true);
+               table.unique(['branch_id', 'name']);
+          });
+     }
+
      if (!(await connection.schema.hasTable('physical_samples'))) {
           await connection.schema.createTable('physical_samples', (table) => {
                table.bigIncrements('id').primary().unsigned();
@@ -54,6 +64,16 @@ export async function bootstrapPhysicalSampleTables(tenantId = 1): Promise<void>
      if (!(await connection.schema.hasColumn('physical_samples', 'external_facility'))) {
           await connection.schema.alterTable('physical_samples', (table) => {
                table.string('external_facility', 255).nullable();
+          });
+     }
+     if (!(await connection.schema.hasColumn('physical_samples', 'collection_center_id'))) {
+          await connection.schema.alterTable('physical_samples', table => {
+               table.integer('collection_center_id').unsigned().nullable().index();
+          });
+     }
+     if (!(await connection.schema.hasColumn('physical_samples', 'collection_center_name'))) {
+          await connection.schema.alterTable('physical_samples', table => {
+               table.string('collection_center_name', 100).nullable();
           });
      }
 

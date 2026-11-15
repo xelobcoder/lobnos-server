@@ -21,7 +21,11 @@ export function validateCollectionPlan(input: any) {
      });
      const drawnQuantity = input.drawnQuantity === '' || input.drawnQuantity == null ? null : Number(input.drawnQuantity);
      if (drawnQuantity !== null && (!Number.isFinite(drawnQuantity) || drawnQuantity <= 0 || new Set(containers.map(c => c.unit)).size !== 1 || Math.abs(containers.reduce((sum, c) => sum + c.quantity, 0) - drawnQuantity) > 0.00001)) throw new Error('Container quantities must add up to the draw amount in the same unit');
-     return { billingid, reason, key, drawnQuantity, containers };
+     const collectionCenterId = input.collectionCenterId;
+     if (collectionCenterId != null && (typeof collectionCenterId !== 'number' || !Number.isSafeInteger(collectionCenterId) || collectionCenterId < 1)) {
+          throw new Error('Select a valid collection center');
+     }
+     return { billingid, reason, key, drawnQuantity, containers, collectionCenterId: collectionCenterId ?? undefined };
 }
 
 export class CollectionPlanService {
@@ -56,6 +60,7 @@ export class CollectionPlanService {
                const created: any[] = [];
                for (const [index, container] of plan.containers.entries()) {
                     created.push(await samples.create({ billingid: plan.billingid, ...container, action: 'start', allowAdditional: true,
+                         collectionCenterId: plan.collectionCenterId, collectionBranchId: actor.branch,
                          manualOverride: { sampleTypeId: container.sampleTypeId, containerTypeId: container.containerTypeId, reason: plan.reason },
                          idempotencyKey: `PLAN:${plan.key}:${index}` }, actor.employeeid, trx));
                }

@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
+import { collectionCenterSnapshot, collectionCentersTable } from './SampleCollectionCenters';
 
 export type PhysicalSampleStatus = 'planned' | 'collection_started' | 'collected' | 'received' | 'accepted' | 'rejected' | 'recollection_required';
 
@@ -26,6 +27,8 @@ export interface CreatePhysicalSampleInput {
      unit?: string | null;
      notes?: string | null;
      externalFacility?: string | null;
+     collectionCenterId?: number;
+     collectionBranchId?: number | null;
      idempotencyKey?: string | null;
      allowAdditional?: boolean;
      replacesSampleId?: number | null;
@@ -38,6 +41,7 @@ export interface SampleRejectionCommunicationInput {
 }
 
 export interface PhysicalSampleReportFilters {
+     collectionCenterId?: number;
      startDate?: string;
      endDate?: string;
      status?: string;
@@ -93,7 +97,7 @@ export function groupPhysicalSampleCandidates(rows: any[]): any[] {
 export class PhysicalSampleService {
      constructor(private readonly tenantId: number) { }
 
-     async worklist(filters: PhysicalSampleReportFilters = {}): Promise<{ summary: Record<string, number>; items: any[]; pagination: any }> {
+     async worklist(filters: PhysicalSampleReportFilters = {}) {
           const connection = await KnexConnection(this.tenantId);
           const base = connection('physical_samples as sample')
                .join('billing', 'billing.billingid', 'sample.billingid')
@@ -114,6 +118,7 @@ export class PhysicalSampleService {
                          .whereNull('native_sample.legacy_ascension_id');
                });
           this.applyReportFilters(base, 'sample.created_at', filters);
+          if (filters.collectionCenterId !== undefined) base.where('sample.collection_center_id', filters.collectionCenterId);
 
           const summaryRows = await base.clone().clearSelect().clearOrder().select('sample.status').countDistinct('sample.id as count').groupBy('sample.status');
           const paging = this.reportPaging(filters);
@@ -132,7 +137,8 @@ export class PhysicalSampleService {
           const summary: Record<string, number> = { total: items.length };
           for (const row of summaryRows) summary[String(row.status)] = Number(row.count || 0);
           summary.total = Object.entries(summary).filter(([key]) => key !== 'total').reduce((total, [, count]) => total + Number(count), 0);
-          return { summary, items, pagination: { page: paging.page, count: paging.count, total: summary.total, totalPages: Math.ceil(summary.total / paging.count) } };
+          const collectionCenters = await connection(collectionCentersTable).select('id', 'name', 'branch_id', 'active').orderBy('name').orderBy('id');
+          return { summary, items, collectionCenters, pagination: { page: paging.page, count: paging.count, total: summary.total, totalPages: Math.ceil(summary.total / paging.count) } };
      }
 
      async reviewWorklist(filters: PhysicalSampleReportFilters = {}): Promise<{ summary: Record<string, number>; items: any[]; pagination: any }> {
@@ -235,6 +241,7 @@ export class PhysicalSampleService {
           if (!ascensionIds.length || ascensionIds.some((id) => !Number.isInteger(id) || id <= 0)) throw new Error('At least one valid ascension ID is required');
           const action = input.action || 'collect';
           if (!['start', 'collect', 'receive'].includes(action)) throw new Error('Sample action must be start, collect or receive');
+          if (action === 'receive' && input.collectionCenterId != null) throw new Error('Collection centers apply to onsite collection');
 
           const connection = parentTransaction || await KnexConnection(this.tenantId);
           return connection.transaction(async (trx) => {
@@ -269,6 +276,7 @@ export class PhysicalSampleService {
                const now = new Date();
                const uid = `S-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
                const first = rows[0];
+               const center = await collectionCenterSnapshot(trx, input.collectionCenterId, input.collectionBranchId);
                const [sampleId] = await trx('physical_samples').insert({
                     sample_uid: uid,
                     barcode: uid,
@@ -283,6 +291,7 @@ export class PhysicalSampleService {
                     unit: input.unit || first.unit || null,
                     status: action === 'receive' ? 'received' : action === 'collect' ? 'collected' : 'collection_started',
                     collection_source: action === 'receive' ? 'external' : 'onsite',
+                    ...center,
                     external_facility: action === 'receive' ? input.externalFacility?.trim() || null : null,
                     collection_started_at: action === 'receive' ? null : now,
                     collection_started_by: action === 'receive' ? null : actorEmployeeId,
@@ -319,7 +328,7 @@ export class PhysicalSampleService {
           });
      }
 
-     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput } = {}): Promise<any> {
+     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput; collectionCenterId?: number; collectionBranchId?: number | null } = {}): Promise<any> {
           const allowed: PhysicalSampleStatus[] = ['collected', 'received', 'accepted', 'rejected'];
           if (!allowed.includes(status)) throw new Error('Unsupported sample transition');
           const connection = await KnexConnection(this.tenantId);
@@ -339,6 +348,12 @@ export class PhysicalSampleService {
                if (!canTransitionPhysicalSample(sample.status as PhysicalSampleStatus, status)) throw new Error(`Physical sample cannot move from ${sample.status} to ${status}`);
 
                if (status === 'collected') {
+                    if (sample.collection_center_id && options.collectionCenterId != null && Number(sample.collection_center_id) !== options.collectionCenterId) {
+                         throw new Error('Complete collection at the center already recorded for this container');
+                    }
+                    if (!sample.collection_center_id) {
+                         Object.assign(update, await collectionCenterSnapshot(trx, options.collectionCenterId, options.collectionBranchId));
+                    }
                     if (!sample.collection_started_at) update.collection_started_at = now;
                     if (!sample.collection_started_by) update.collection_started_by = actorEmployeeId;
                     update.collected_at = sample.collected_at || now;
@@ -477,7 +492,7 @@ export class PhysicalSampleService {
           return { ...sample, latestReview: latestReview || null };
      }
 
-     async recollect(sampleId: number, actorEmployeeId: number): Promise<any> {
+     async recollect(sampleId: number, actorEmployeeId: number, collectionCenterId?: number, branchId?: number | null): Promise<any> {
           const connection = await KnexConnection(this.tenantId);
           return connection.transaction(async (trx) => {
                const rejected = await trx('physical_samples').where({ id: sampleId }).forUpdate().first();
@@ -492,11 +507,13 @@ export class PhysicalSampleService {
                const ascensionIds = links.map((link: any) => Number(link.ascension_id));
                const now = new Date();
                const uid = `S-${now.toISOString().slice(0, 10).replace(/-/g, '')}-${randomUUID().slice(0, 8).toUpperCase()}`;
+               const center = await collectionCenterSnapshot(trx, collectionCenterId, branchId);
                const [newSampleId] = await trx('physical_samples').insert({
                     sample_uid: uid, barcode: uid, patientid: rejected.patientid, billingid: rejected.billingid,
                     sample_type_id: rejected.sample_type_id, sample_type_name: rejected.sample_type_name,
                     container_type_id: rejected.container_type_id, container_type_name: rejected.container_type_name,
                     quantity: rejected.quantity, unit: rejected.unit, status: 'collection_started',
+                    ...center,
                     collection_started_at: now, collection_started_by: actorEmployeeId, replaces_sample_id: sampleId,
                     version: 1, created_at: now, updated_at: now,
                });

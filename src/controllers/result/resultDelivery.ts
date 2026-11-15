@@ -114,6 +114,9 @@ export default class ResultDeliveryClass {
           return db.transaction(async trx => {
                const bill = await trx('billing').where({ billingid: entry.billingid }).forUpdate().first();
                if (!bill) throw Object.assign(new Error('Billing record not found'), { statusCode: 404 });
+               if (this.branchid != null && Number(bill.branchid) !== Number(this.branchid)) {
+                    throw Object.assign(new Error('Billing access denied'), { statusCode: 403 });
+               }
                let tests = trx('test_ascension').where({ billingid: entry.billingid });
                if (entry.ascensionid != null) tests = tests.where('id', entry.ascensionid);
                const ascensions = await tests.orderBy('id').forUpdate();

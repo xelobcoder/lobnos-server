@@ -101,18 +101,21 @@ describe('sample validation worklist', () => {
                const inserts: Array<{ table: string; data: any }> = [];
                const trx: any = vi.fn((table: string) => {
                     const query: any = {};
-                    for (const method of ['whereIn', 'whereNull', 'where']) query[method] = vi.fn(() => query);
-                    query.first = vi.fn(async () => alreadyLinked ? { id: 10 } : undefined);
+                    for (const method of ['whereIn', 'whereNull', 'where', 'forUpdate']) query[method] = vi.fn(() => query);
+                    query.first = vi.fn(async () => table === 'sample_collection_centers' ? { id: 2, name: 'Market Center' } : alreadyLinked ? { id: 10 } : undefined);
                     query.update = vi.fn(async () => 1);
                     query.insert = vi.fn(async (data: any) => { inserts.push({ table, data }); return [10]; });
                     return query;
                });
                vi.mocked(KnexConnection).mockResolvedValue({ transaction: async (callback: any) => callback(trx) } as any);
-               const result = await service.create({ billingid: 3, ascensionIds: [101], action: 'collect' }, 5);
+               const result = await service.create({ billingid: 3, ascensionIds: [101], action: 'collect', collectionCenterId: 2, collectionBranchId: 4 }, 5);
                expect(result).toEqual({ id: 10, barcode: 'sample-barcode' });
                expect(requirements.forUpdate).toHaveBeenCalledOnce();
                const physical = inserts.find(item => item.table === 'physical_samples')!.data;
-               expect(physical).toMatchObject({ patientid: 4, billingid: 3, status: 'collected', collected_by: 5 });
+               expect(physical).toMatchObject({
+                    patientid: 4, billingid: 3, status: 'collected', collected_by: 5,
+                    collection_center_id: 2, collection_center_name: 'Market Center',
+               });
                expect(physical.barcode).toBe(physical.sample_uid);
                expect(physical.collected_at).toBeInstanceOf(Date);
                expect(physical.accepted_at).toBeUndefined();

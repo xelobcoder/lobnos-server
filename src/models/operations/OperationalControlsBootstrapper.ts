@@ -54,6 +54,20 @@ export async function ensureOperationalControls(db: Knex) {
                t.index(["ascensionid", "resolved_at"]);
                t.index(["created_at"]);
           });
+     const escalationColumns = [
+          "readback_due_at", "readback_confirmed_at", "readback_confirmed_by",
+          "readback_recipient", "readback_details", "readback_escalated_at",
+     ] as const;
+     for (const column of escalationColumns) {
+          if (await db.schema.hasColumn("lab_critical_events", column)) continue;
+          await db.schema.alterTable("lab_critical_events", t => {
+               if (column === "readback_confirmed_by") t.integer(column).unsigned().nullable();
+               else if (column === "readback_recipient") t.string(column, 150).nullable();
+               else if (column === "readback_details") t.text(column).nullable();
+               else if (column === "readback_due_at") t.datetime(column).nullable().index();
+               else t.datetime(column).nullable();
+          });
+     }
      if (!(await db.schema.hasTable("lab_control_audit")))
           await db.schema.createTable("lab_control_audit", (t) => {
                t.increments("id");

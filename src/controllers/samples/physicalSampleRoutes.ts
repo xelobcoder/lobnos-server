@@ -4,10 +4,61 @@ import { PhysicalSampleController, requireSampleCollectionRole } from './Physica
 import { SpecimenLifecycleController } from './SpecimenLifecycleController';
 import { CollectionPlanService } from '../../models/samples/CollectionPlanService';
 import { getAuthUser } from '../../middleware/authority';
+import { roleAllowed } from '../../middleware/roles';
+import KnexConnection from '../../database/KnexConnections';
+import { collectionCentersTable } from '../../models/samples/SampleCollectionCenters';
 
 const router = Router();
 
 router.use(checkTokenExists, requireSampleCollectionRole);
+router.get('/collection-centers', async (req, res) => {
+     const actor = getAuthUser(req)!;
+     const canManage = Boolean(actor.branch && roleAllowed(actor.role, ['admin', 'manager']));
+     try {
+          if (!actor.branch) return res.json({ success: true, data: [], canManage });
+          const db = await KnexConnection(actor.tenantId);
+          const query = db(collectionCentersTable).where({ branch_id: actor.branch }).select('id', 'name', 'active').orderBy('name');
+          if (!canManage) query.where({ active: true });
+          return res.json({ success: true, data: await query, canManage });
+     } catch {
+          return res.status(500).json({ success: false, message: 'Unable to load collection centers' });
+     }
+});
+router.post('/collection-centers', async (req, res) => {
+     const actor = getAuthUser(req)!;
+     if (!actor.branch || !roleAllowed(actor.role, ['admin', 'manager'])) {
+          return res.status(403).json({ success: false, message: 'Only administrators and managers can configure collection centers for their branch' });
+     }
+     const name = typeof req.body?.name === 'string' ? req.body.name.trim() : '';
+     if (!name || name.length > 100) return res.status(400).json({ success: false, message: 'Enter a collection center name up to 100 characters' });
+     try {
+          const db = await KnexConnection(actor.tenantId);
+          const [id] = await db(collectionCentersTable).insert({ branch_id: actor.branch, name });
+          return res.status(201).json({ success: true, data: { id, name, active: true } });
+     } catch (error: any) {
+          if (error?.code === 'ER_DUP_ENTRY') return res.status(409).json({ success: false, message: 'This branch already has a center with that name' });
+          return res.status(500).json({ success: false, message: 'Unable to create collection center' });
+     }
+});
+router.patch('/collection-centers/:id', async (req, res) => {
+     const actor = getAuthUser(req)!;
+     if (!actor.branch || !roleAllowed(actor.role, ['admin', 'manager'])) {
+          return res.status(403).json({ success: false, message: 'Only administrators and managers can update their branch collection centers' });
+     }
+     const id = Number(req.params.id);
+     const active = req.body?.active;
+     if (!Number.isSafeInteger(id) || id < 1 || typeof active !== 'boolean') {
+          return res.status(400).json({ success: false, message: 'Select a collection center and provide its active status' });
+     }
+     try {
+          const db = await KnexConnection(actor.tenantId);
+          const changed = await db(collectionCentersTable).where({ id, branch_id: actor.branch }).update({ active });
+          if (!changed) return res.status(404).json({ success: false, message: 'Collection center was not found in your branch' });
+          return res.json({ success: true });
+     } catch {
+          return res.status(500).json({ success: false, message: 'Unable to update collection center' });
+     }
+});
 router.get('/collection-plan/options', async (req, res) => {
      try { const actor = getAuthUser(req)!; res.json({ success: true, data: { ...await new CollectionPlanService(actor.tenantId).options(), tenantId: actor.tenantId } }); }
      catch { res.status(500).json({ success: false, message: 'Unable to load specimen and container types' }); }

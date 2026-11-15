@@ -21,6 +21,7 @@ import {
        setResultDeliveryPreference,
        getResultDeliveryPreference,
        recordResultDelivery,
+       recordBulkResultDelivery,
        recordResultHandover,
        getResultDeliveryChain,
        getResultRecordUndelivered
@@ -84,6 +85,7 @@ router.get("/api/v1/result/printout/ascension/multiple/getResult", CheckMultiple
 router.post('/api/v1/result/delivery/preference', handleOverLoad(setResultDeliveryPreference));
 router.get('/api/v1/result/delivery/preference/:billingid', handleOverLoad(getResultDeliveryPreference));
 router.post('/api/v1/result/delivery/record', requireResultDeliveryRole, handleOverLoad(recordResultDelivery));
+router.post('/api/v1/result/delivery/record/bulk', requireResultDeliveryRole, handleOverLoad(recordBulkResultDelivery));
 router.post('/api/v1/result/delivery/handover', requireResultDeliveryRole, handleOverLoad(recordResultHandover));
 router.get('/api/v1/result/delivery/record/result/undelivered', requireResultDeliveryRole, handleOverLoad(getResultRecordUndelivered));
 router.get('/api/v1/result/delivery/chain/:billingid', requireResultDeliveryRole, handleOverLoad(getResultDeliveryChain));
