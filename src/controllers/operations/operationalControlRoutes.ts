@@ -8,7 +8,10 @@ import { OutsourceWorkflowService } from '../../models/operations/OutsourceWorkf
 import { OutsourceRequestService } from '../../models/operations/OutsourceRequestService';
 import { OutsourceAssignmentService } from '../../models/operations/OutsourceAssignmentService';
 import { roleAllowed } from '../../middleware/roles';
-import { controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
+import { assertLabTestAccess, controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
+import ResultSettings from '../../models/application/appsettings/result-settings/resultSettings';
+import { loadLaboratoryReportData } from '../../models/result/LaboratoryReportData';
+import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, reportChanges, reportVersionMetadata, reportVersionTable } from '../../models/result/LaboratoryReportVersions';
 
 const router = Router();
 router.use((req, res, next) => {
@@ -26,6 +29,54 @@ const run = (operation: (db: any, actor: any, req: any) => Promise<any>) => asyn
      try { const actor = getAuthUser(req)!; res.setHeader('Cache-Control', 'private, no-store'); res.json({ success: true, data: await operation(await KnexConnection(actor.tenantId), actor, req) }); }
      catch (error: any) { const status = error.name === 'ZodError' ? 400 : Number(error.statusCode) || 500; res.status(status).json({ success: false, message: status === 500 ? 'Laboratory control operation failed' : error.name === 'ZodError' ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ') : error.message }); }
 };
+async function amendmentPreview(db: any, actor: any, ascensionid: number) {
+     if (!await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) return controlsFail('An authorized result validator must sign this amendment', 403);
+     const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first();
+     if (!latest) return controlsFail('No original report was archived for this result', 409);
+     const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
+     const bill = await db('billing').where({ billingid: order.billingid }).first('patientid');
+     let revision = -1;
+     const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
+     if (revision <= Number(latest.revision)) return controlsFail('There is no newly validated amendment to sign', 409);
+     return { report, revision, reviewHash: clinicalReportHash(report), changes: reportChanges(readReportSnapshot(latest), report) };
+}
+router.get('/reports/:ascensionid/versions', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const rows = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc');
+     const approval = await db('dbotestresultapproval').where({ ascensionid }).first();
+     return { versions: rows.map(reportVersionMetadata), canSign: Boolean(rows.length &&
+          Number(approval?.approval_revision) > Number(rows[0].revision) && Number(approval?.isapproved) === 1 &&
+          !Number(approval?.requires_revalidation) && await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) };
+}));
+router.get('/reports/:ascensionid/versions/:version', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     const version = z.coerce.number().int().positive().parse(req.params.version);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const row = await db(reportVersionTable).where({ ascensionid, version_number: version }).first();
+     if (!row) return controlsFail('Report version not found', 404);
+     return { ...reportVersionMetadata(row), report: readReportSnapshot(row) };
+}));
+router.get('/reports/:ascensionid/amendment', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const { report, ...preview } = await amendmentPreview(db, actor, ascensionid);
+     return preview;
+}));
+router.post('/reports/:ascensionid/amendment', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     const data = z.object({ revision: z.number().int().nonnegative(), reason: z.string().trim().min(3).max(2000),
+          reviewHash: z.string().regex(/^[a-f0-9]{64}$/), confirmed: z.literal(true) }).parse(req.body);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const preview = await amendmentPreview(db, actor, ascensionid);
+     if (preview.revision !== data.revision || preview.reviewHash !== data.reviewHash) return controlsFail('The report changed. Review the new amendment before signing.', 409);
+     const staff = await db('roles').where({ employeeid: actor.employeeid }).first('username');
+     if (!staff?.username) return controlsFail('Could not verify the signing staff identity', 403);
+     const row = await archiveLaboratoryReport(db, ascensionid, data.revision, preview.report, 'release', {
+          id: actor.employeeid, name: staff.username, reason: data.reason, reviewHash: data.reviewHash,
+     });
+     return reportVersionMetadata(row);
+}));
 router.get('/settings', run(async (db, actor) => ({ ...(await db('lab_access_settings').where({ id: 1 }).first()), can_manage: labSupervisor(actor) })));
 router.put('/settings', run(async (db, actor, req) => {
      if (!labSupervisor(actor)) return controlsFail('Only supervisors can change laboratory access settings', 403);

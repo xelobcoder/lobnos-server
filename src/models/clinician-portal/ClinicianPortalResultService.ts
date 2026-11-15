@@ -1,7 +1,7 @@
 import {roleAllowed} from '../../middleware/roles';
 import { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
-import { loadLaboratoryReportData } from '../result/LaboratoryReportData';
+import { loadReleasedLaboratoryReport } from '../result/LaboratoryReportData';
 import { isResultApproved, toExternalLaboratoryReport } from '../patient-portal/PatientPortalResultService';
 
 export class ClinicianPortalError extends Error {
@@ -68,7 +68,7 @@ export interface ClinicianPortalDeps {
      /** The clinician's live services on the bill, with the bill's patient. Empty when not owned. */
      findOwnedServices: (clinicianid: number, billingid: number, branchid?: number) => Promise<{ serviceid: number; patientid: number }[]>;
      loadStages: (billingid: number) => Promise<any[]>;
-     loadReport: (patientid: number, billingid: number, testid: number, ascensionid: number) => ReturnType<typeof loadLaboratoryReportData>;
+     loadReport: (patientid: number, billingid: number, testid: number, ascensionid: number) => ReturnType<typeof loadReleasedLaboratoryReport>;
 }
 
 const liveService = (q: Knex.QueryBuilder) => q
@@ -95,7 +95,7 @@ export function defaultClinicianPortalDeps(tenantId: number): ClinicianPortalDep
                return Operations.getAscensionOverViewModelTransaction(tenantId, billingid);
           },
           loadReport: (patientid, billingid, testid, ascensionid) =>
-               loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionid, true, 'release'),
+               loadReleasedLaboratoryReport(tenantId, patientid, billingid, testid, ascensionid, true, 'release'),
      };
 }
 

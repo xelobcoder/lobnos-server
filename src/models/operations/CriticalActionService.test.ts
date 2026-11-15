@@ -39,6 +39,22 @@ function fixture(extra: any = {}) {
 }
 beforeEach(() => vi.clearAllMocks());
 describe("critical result holds", () => {
+     it("keeps a required read-back open until staff record who confirmed and what was read back", async () => {
+          const { service, store } = fixture({ lab_critical_events: [event({
+               policy_snapshot: JSON.stringify({ readback_required: true }),
+          })] });
+          await expect(service.act(actor, 1, { action: "resolve", version: 1, reason: "Attempt to resolve" })).rejects.toThrow("read-back");
+          await service.act(actor, 1, {
+               action: "confirm_readback", version: 1, reason: "Verified by phone",
+               recipient: "Synthetic clinician", method: "phone", readbackDetails: "Repeated the synthetic result and unit",
+          });
+          expect(store.rows("lab_critical_events")[0]).toMatchObject({
+               readback_confirmed_by: actor.employeeid, readback_recipient: "Synthetic clinician",
+               readback_confirmed_at: expect.any(Date), readback_details: "Repeated the synthetic result and unit",
+          });
+          await service.act(actor, 1, { action: "resolve", version: 2, reason: "Read-back reviewed" });
+          expect(store.rows("lab_critical_events")[0].resolved_at).toBeInstanceOf(Date);
+     });
      it("separates printing and electronic release while preserving unresolved older-revision holds", () => {
           expect(criticalHoldApplies(event({ policy_snapshot: JSON.stringify({ hold_print: true }) }), "print")).toBe(
                true,
@@ -116,7 +132,7 @@ describe("critical result holds", () => {
                          conditionId: 1,
                          conditionConstraint: "greater",
                          target: "6",
-                         actions: JSON.stringify(actions),
+                         actions: JSON.stringify({ ...actions, readback_required: true, readback_escalation_minutes: 15 }),
                     },
                ],
                test_results: [
@@ -139,7 +155,8 @@ describe("critical result holds", () => {
           expect(store.rows("lab_critical_events")).toHaveLength(1);
           const recorded = store.rows("lab_critical_events")[0];
           expect(recorded).toMatchObject({ revision: 4, created_by: 7, rule_id: 9 });
-          expect(JSON.parse(recorded.policy_snapshot)).toEqual(actions);
+          expect(JSON.parse(recorded.policy_snapshot)).toEqual({ ...actions, readback_required: true, readback_escalation_minutes: 15 });
+          expect(recorded.readback_due_at.getTime() - recorded.created_at.getTime()).toBe(15 * 60_000);
           expect(recorded.statement).toContain("7.2");
           expect(store.rows("in_app_notifications")).toHaveLength(1);
      });

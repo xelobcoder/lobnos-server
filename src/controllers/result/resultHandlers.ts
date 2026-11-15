@@ -1,4 +1,3 @@
-import { captureReportRevision, assertReportRevision } from '../../models/operations/ResultReleaseGuard';
 import { assertCriticalRelease } from '../../models/operations/CriticalActionService';
 import { getAuthUser } from '../../middleware/authority';
 import { Request, Response } from "express";
@@ -14,7 +13,6 @@ import ResultPrint from "../../models/result/resultPrint";
 import { TestAscension } from "../../models/operations/ascension";
 import { customError, responseError } from "../../hooks/helper";
 import { CreationRule, previewReportView, resultEntryType } from "../../models/creator/creator-types";
-import TestLiteratureSetup from "../../testpanel/literature";
 import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer";
 import Creator from "../../models/creator/creator";
 import { Billing } from "../../../obso/billing";
@@ -31,7 +29,7 @@ import { InAppNotificationService } from "../../models/application/in-app-notifi
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 import { roleAllowed, normalizeRole } from "../../middleware/roles";
 import { assertLabTestAccess } from "../../models/operations/LabAccessPolicy";
-import { loadLaboratoryReportData } from "../../models/result/LaboratoryReportData";
+import { loadReleasedLaboratoryReport } from "../../models/result/LaboratoryReportData";
 import logger from "../../hooks/logger";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
@@ -293,7 +291,7 @@ export const getResultPrintoutHandler = async (request: Request<
 		let creator = new Creator(parsedTestId);
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 
-		const dataset = await loadLaboratoryReportData(
+		const dataset = await loadReleasedLaboratoryReport(
 			tenantIdP, Number(patientid), Number(billingid), parsedTestId, numAscensionId, browserMode,
 		);
 
@@ -395,77 +393,9 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					generalComments: ''
 				}
 
-				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async (item: any, index) => {
-					const { testid, ascensionid } = item;
-                    const controlDb = await KnexConnection(tenantIdP);
-                    const reportRevision = await captureReportRevision(controlDb, ascensionid);
-					let dataset = {
-						literatureReview: null,
-						records: null,
-						testname: '',
-						hasDrugs: false,
-						drugList: [],
-						validators: [],
-						lastupdatedon: '',
-						resultentry: '',
-						comments: '',
-						testInfo: null,
-						testdetailcategory: null,
-						referrerFacility: null,
-					};
-					const literatureReview: { can: boolean, literature?: string } = await new TestLiteratureSetup('').getResultLiterature(tenantIdP, testid)
-
-					if (literatureReview.can != false) {
-						dataset.literatureReview = literatureReview.literature as any
-					}
-
-					let resultEntry = await new ResultPrint(billingid).getResultEntryScientist(tenantIdP, billingid, item.testid, item.ascensionid);
-
-					const { validators, resultentry, lastupdatedon, enteredOn } = resultEntry;
-					dataset.validators = validators as any
-					dataset.resultentry = resultentry as any
-					dataset.lastupdatedon = enteredOn as string || lastupdatedon as string
-
-
-					const records = await new Creator(testid).resultPresentationView(tenantIdP, testid, billingid, patientid) as previewReportView
-
-
-					if (records != null && typeof records != "string") {
-						const { result, testname, hasDrugs, testInfo, testdetailcategory } = records;
-						dataset.records = result as any
-						if (browserMode && typeof records != "string" && records.result && Array.isArray(records.result)) {
-							dataset.records = await ResultPrint.decryptResultArray(records.result);
-						}
-						dataset.testname = testname as any
-						dataset.hasDrugs = hasDrugs
-						dataset.testInfo = testInfo || null as any
-						dataset.testdetailcategory = testdetailcategory || null as any
-					}
-
-					if (dataset.hasDrugs == true) {
-						const drugList = await TestAscension.getAscensionSavedDrugs(tenantIdP, ascensionid, testid);
-						if (Array.isArray(drugList) && drugList.length > 0) {
-							dataset.drugList = drugList.filter((drug) => {
-								return ['Resistant', 'Sensitive'].includes(drug.sensitivity);
-							}) as [];
-						} else {
-							dataset.drugList = drugList as [];
-						}
-					}
-
-					// Get referrer facility information from services table
-					const referrerFacility = await Services.getRefererFacilityByBillingId(tenantIdP, billingid);
-					if (referrerFacility) {
-						dataset.referrerFacility = referrerFacility;
-					}
-
-					const comments = await creator.getCustomCommentsRecords(
-						tenantIdP,
-						billingid, testid);
-					dataset.comments = typeof comments === "string" ? comments : '';
-                    await assertReportRevision(controlDb, ascensionid, reportRevision, 'print');
-                    return dataset
-				}))
+				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async ({ testid, ascensionid }) =>
+					loadReleasedLaboratoryReport(tenantIdP, Number(patientid), Number(billingid), Number(testid), Number(ascensionid), browserMode),
+				));
 
 				const distinctTestIds = Array.from(new Set(qualifiedForPrintOut.map((item: any) => item?.testid).filter(Boolean)));
 				// Only apply a per-test report override when the whole batch is a single test; mixed-test batches use the general settings.

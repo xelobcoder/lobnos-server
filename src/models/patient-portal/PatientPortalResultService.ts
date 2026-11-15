@@ -3,7 +3,7 @@ import { getAllCompanyProfiles } from '../settings/companyProfile';
 import { bootstrapPatientPortal } from './PatientPortalBootstrapper';
 import { PatientPortalSettings, PatientPortalSettingsService } from './PatientPortalSettings';
 import { PatientPortalError } from './PatientPortalAccountService';
-import { loadLaboratoryReportData } from '../result/LaboratoryReportData';
+import { loadReleasedLaboratoryReport } from '../result/LaboratoryReportData';
 
 export type PatientResultStage = 'registered' | 'collected' | 'processing' | 'completed' | 'verified';
 
@@ -67,7 +67,7 @@ export function evaluateResultRelease(input: ResultReleaseInput, settings: Pick<
      return { stage, released: true, pending: null };
 }
 
-type LaboratoryReportDataset = Awaited<ReturnType<typeof loadLaboratoryReportData>>;
+type LaboratoryReportDataset = Awaited<ReturnType<typeof loadReleasedLaboratoryReport>>;
 
 /**
  * Shares the staff renderer's data contract with external portals (patients, clinicians),
@@ -190,7 +190,7 @@ export class PatientPortalResultService {
           for (const test of tests) {
                if (seen.has(test.testid)) continue;
                seen.add(test.testid);
-               const report = await loadLaboratoryReportData(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true, 'release');
+               const report = await loadReleasedLaboratoryReport(this.tenantId, patientid, billingid, test.testid, test.ascensionid, true, 'release');
                const safe = toExternalLaboratoryReport(report, test.ascensionid, billingid, patientid);
                const records = safe.records;
                reports.push(safe);

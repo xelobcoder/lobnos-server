@@ -1,4 +1,5 @@
 import { assertCriticalRelease } from '../../models/operations/CriticalActionService';
+import { assertReportAmendmentSigned } from '../../models/result/LaboratoryReportVersions';
 import KnexConnection from "../../database/KnexConnections";
 
 export default class ResultDeliveryClass {
@@ -128,7 +129,10 @@ export default class ResultDeliveryClass {
                          if (entry.ascensionid == null) continue;
                          throw Object.assign(new Error('Only finalized results can be marked delivered'), { statusCode: 409 });
                     }
-                    if (entry.delivered_mode && !entry.failurenotes) await assertCriticalRelease(trx, test.id, 'release');
+                    if (entry.delivered_mode && !entry.failurenotes) {
+                         await assertCriticalRelease(trx, test.id, 'release');
+                         await assertReportAmendmentSigned(trx, test.id, Number(approval.approval_revision || 0));
+                    }
                     const now = new Date();
                     await trx('result_delivery_attempts').insert({ billingid: entry.billingid, ascensionid: test.id,
                          delivered_mode: entry.failurenotes ? null : entry.delivered_mode, employeeid: entry.delivered_by_employeeid,

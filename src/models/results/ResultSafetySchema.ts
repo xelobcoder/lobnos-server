@@ -5,6 +5,23 @@ import { Knex } from 'knex';
  * application bootstrapper and by the reviewed migration, so a run never depends on manual SQL.
  */
 export async function ensureResultSafetySchema(db: Knex): Promise<void> {
+     if (!(await db.schema.hasTable('lab_report_versions'))) {
+          await db.schema.createTable('lab_report_versions', table => {
+               table.increments('id');
+               table.integer('ascensionid').unsigned().notNullable();
+               table.integer('revision').unsigned().notNullable();
+               table.integer('version_number').unsigned().notNullable();
+               table.text('snapshot', 'longtext').notNullable();
+               table.string('snapshot_hash', 64).notNullable();
+               table.text('changes', 'longtext').nullable();
+               table.text('reason').nullable();
+               table.integer('signed_by').unsigned().nullable();
+               table.string('signer_name', 255).nullable();
+               table.datetime('recorded_at').notNullable();
+               table.unique(['ascensionid', 'revision']);
+               table.unique(['ascensionid', 'version_number']);
+          });
+     }
      if (!(await db.schema.hasTable('pls_delta_rules'))) {
           await db.schema.createTable('pls_delta_rules', (table) => {
                table.increments('id').primary();

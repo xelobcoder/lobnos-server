@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ load: vi.fn(), patient: vi.fn(), company: vi.fn(), connection: vi.fn() }));
-vi.mock('../result/LaboratoryReportData', () => ({ loadLaboratoryReportData: mocks.load }));
+vi.mock('../result/LaboratoryReportData', () => ({ loadReleasedLaboratoryReport: mocks.load }));
 vi.mock('../settings/companyProfile', () => ({ getAllCompanyProfiles: mocks.company }));
 vi.mock('./PatientPortalBootstrapper', () => ({
      bootstrapPatientPortal: mocks.connection,

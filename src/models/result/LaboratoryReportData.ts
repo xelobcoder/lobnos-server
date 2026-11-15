@@ -11,11 +11,14 @@ import TestLiteratureSetup from '../../testpanel/literature';
 import { TestAscension } from '../operations/ascension';
 import { Services } from '../services/services';
 import { assertResultPaymentPolicy } from '../operations/ResultPaymentPolicy';
+import { archiveLaboratoryReport, readReportSnapshot, reportVersionMetadata } from './LaboratoryReportVersions';
+import { encrypt_value } from '../../utils/encryptionModels';
 
 /** Call only after the caller has authorized this patient, bill and ascension. */
 export async function loadLaboratoryReportData(
      tenantId: number, patientid: number, billingid: number, testid: number, ascensionId: number,
      decrypt: boolean, channel: 'print' | 'release' = 'print',
+     revisionWitness?: (revision: number) => void,
 ): Promise<resultPrintOutDataset> {
      const controlDb = await KnexConnection(tenantId);
      const order = await controlDb('test_ascension').where({ id: ascensionId }).first('billingid', 'testid');
@@ -32,8 +35,13 @@ export async function loadLaboratoryReportData(
           throw new Error('The laboratory report could not be loaded');
      }
      const settings = await TestReportSettings.resolve(tenantId, testid);
-     const records = decrypt && Array.isArray(view.result)
-          ? await ResultPrint.decryptResultArray(view.result) : view.result;
+     const scopedRecords = Array.isArray(view.result)
+          ? view.result.filter((row: any) => row.ascensionid == null || Number(row.ascensionid) === ascensionId) : view.result;
+     if (Array.isArray(view.result) && view.result.length && !scopedRecords.length) {
+          throw Object.assign(new Error('No report records were found for this ordered test'), { statusCode: 409 });
+     }
+     const records = decrypt && Array.isArray(scopedRecords)
+          ? await ResultPrint.decryptResultArray(scopedRecords) : scopedRecords;
      const literature = await new TestLiteratureSetup('').getResultLiterature(tenantId, testid);
      const entry = await new ResultPrint(billingid).getResultEntryScientist(tenantId, billingid, testid, ascensionId);
      const savedDrugs = view.hasDrugs ? await TestAscension.getAscensionSavedDrugs(tenantId, ascensionId, testid) : [];
@@ -63,5 +71,23 @@ export async function loadLaboratoryReportData(
           patientid, billingid,
      };
      await assertReportRevision(controlDb, ascensionId, revision, channel);
+     revisionWitness?.(revision);
      return dataset;
+}
+
+export async function loadReleasedLaboratoryReport(
+     tenantId: number, patientid: number, billingid: number, testid: number, ascensionId: number,
+     decrypt: boolean, channel: 'print' | 'release' = 'print',
+) {
+     let revision = -1;
+     const dataset = await loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionId, true, channel, value => { revision = value; });
+     const db = await KnexConnection(tenantId);
+     const archive = await archiveLaboratoryReport(db, ascensionId, revision, dataset, channel);
+     const snapshot = readReportSnapshot(archive) as resultPrintOutDataset;
+     if (!decrypt && Array.isArray(snapshot.records)) {
+          snapshot.records = snapshot.records.map((row: any) => ({
+               ...row, value: encrypt_value(String(row.value ?? '')), originalvalue: encrypt_value(String(row.originalvalue ?? '')),
+          }));
+     }
+     return { ...snapshot, reportVersion: reportVersionMetadata(archive) };
 }
