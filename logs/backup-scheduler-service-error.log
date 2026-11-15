@@ -7382,3 +7382,29 @@
     at async execute (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\node_modules\.pnpm\node-cron@4.6.0\node_modules\node-cron\dist\_shared.cjs:272:36) {
   code: 'TENANT_NOT_REGISTERED'
 }
+[BackupScheduler] tick failed: TenantNotRegisteredError: Tenant 1 is not registered in primelabmaster_control.prime_tenants
+    at TenantRegistry.requireTenant (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\TenantRegistry.js:211:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async getTenantConnection (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\tenantConnections.js:130:9)
+    at async KnexConnectionTenant (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\tenantConnections.js:274:19)
+    at async KnexConnection (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\database\KnexConnections.js:7:58)
+    at async BackupManager.getDueSchedules (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\security\database-backup\backup.js:332:28)
+    at async BackupManager.runScheduledBackups (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\security\database-backup\backup.js:525:30)
+    at async BackupScheduler.tick (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\services\backup-scheduler.js:100:31)
+    at async D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\services\backup-scheduler.js:73:13
+    at async execute (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\node_modules\.pnpm\node-cron@4.6.0\node_modules\node-cron\dist\_shared.cjs:272:36) {
+  code: 'TENANT_NOT_REGISTERED'
+}
+[BackupScheduler] tick failed: TenantNotRegisteredError: Tenant 1 is not registered in primelabmaster_control.prime_tenants
+    at TenantRegistry.requireTenant (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\TenantRegistry.js:211:19)
+    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)
+    at async getTenantConnection (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\tenantConnections.js:130:9)
+    at async KnexConnectionTenant (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\Tenancy\tenantConnections.js:274:19)
+    at async KnexConnection (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\database\KnexConnections.js:7:58)
+    at async BackupManager.getDueSchedules (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\security\database-backup\backup.js:332:28)
+    at async BackupManager.runScheduledBackups (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\models\security\database-backup\backup.js:525:30)
+    at async BackupScheduler.tick (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\services\backup-scheduler.js:100:31)
+    at async D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\dist\src\services\backup-scheduler.js:73:13
+    at async execute (D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\node_modules\.pnpm\node-cron@4.6.0\node_modules\node-cron\dist\_shared.cjs:272:36) {
+  code: 'TENANT_NOT_REGISTERED'
+}
