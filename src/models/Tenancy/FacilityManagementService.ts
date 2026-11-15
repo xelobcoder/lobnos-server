@@ -164,9 +164,11 @@ function toAuditEvent(row: any): FacilityAuditEvent {
      const source = row.source === 'provisioning' ? 'provisioning' : 'management';
      const nullableText = (value: unknown) => value === null || value === undefined ? null : String(value);
      let details: Record<string, unknown> | null;
+     let action = String(row.action ?? '');
      if (source === 'provisioning') {
-          const stage = String(row.action ?? '');
-          details = { stage, failed: stage.startsWith('failed:') };
+          const failure = /^(failed:[a-z_]+):([A-Z0-9_]+)$/.exec(action);
+          if (failure) action = failure[1];
+          details = { stage: action, failed: action.startsWith('failed:'), ...(failure ? { errorCode: failure[2] } : {}) };
      } else {
           details = parseStoredDetails(row.details);
           const ids: Record<string, number> = {};
@@ -175,7 +177,7 @@ function toAuditEvent(row: any): FacilityAuditEvent {
           if (Object.keys(ids).length) details = { ...ids, ...(details ?? {}) };
      }
      return {
-          id: Number(row.id), source, action: String(row.action ?? ''),
+          id: Number(row.id), source, action,
           createdAt: storedTimestampToIso(row.created_at),
           actorTenantId: Number(row.actor_tenant_id), actorEmployeeId: Number(row.actor_employee_id),
           reason: nullableText(row.reason), fromStatus: nullableText(row.from_status), toStatus: nullableText(row.to_status),

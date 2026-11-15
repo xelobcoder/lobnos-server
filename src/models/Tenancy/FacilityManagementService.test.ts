@@ -804,7 +804,7 @@ describe('platform facility status and subscription management', () => {
                     prime_tenants: db.table('prime_tenants'),
                     [PROVISIONING_EVENTS_TABLE]: [
                          prov(1, CLIENT, 'reserved', '2026-10-01T10:00:00.000Z'),
-                         prov(2, CLIENT, 'failed:reference_seeds', '2026-10-01T10:00:05.000Z'),
+                         prov(2, CLIENT, 'failed:reference_seeds:ER_TOO_LONG_IDENT', '2026-10-01T10:00:05.000Z'),
                          prov(3, 222222, 'reserved', '2026-10-01T10:00:00.000Z'),
                     ],
                     [EVENTS_TABLE]: [
@@ -834,7 +834,7 @@ describe('platform facility status and subscription management', () => {
                     details: { planId: 4, paymentId: 7, periodStart: '2026-09-01', amount: '1.00', nested: { ok: 1 } },
                });
                expect(page.events[1]).toMatchObject({ reason: 'Unpaid', fromStatus: 'active', toStatus: 'suspended', details: null });
-               expect(page.events[2]).toMatchObject({ details: { stage: 'failed:reference_seeds', failed: true }, reason: null });
+               expect(page.events[2]).toMatchObject({ details: { stage: 'failed:reference_seeds', failed: true, errorCode: 'ER_TOO_LONG_IDENT' }, reason: null });
                expect(JSON.stringify(page)).not.toMatch(/password|apiKey|other tenant/);
                expect(db.lastRaw.bindings).toEqual([EVENTS_TABLE, CLIENT, PROVISIONING_EVENTS_TABLE, CLIENT, 25, 0]);
                expect(db.lastRaw.sql).toMatch(/UNION ALL[\s\S]*ORDER BY created_at DESC, source ASC, id DESC LIMIT \? OFFSET \?$/);

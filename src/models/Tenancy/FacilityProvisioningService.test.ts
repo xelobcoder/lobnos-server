@@ -514,10 +514,14 @@ describe('complete facility provisioning lifecycle', () => {
           mocks.connect.mockResolvedValue(schemaConnection());
           mocks.tenantConnection.mockResolvedValue(db);
           mocks.bootstrap.mockImplementationOnce(async () => {
-               db.on.mock.calls[0][1]();
+               db.on.mock.calls[0][1](Object.assign(new Error('Private driver detail'), { code: 'ER_TOO_LONG_IDENT' }));
                return { accountingReady: true };
           });
-          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow('runtime_bootstrap');
+          await expect(new FacilityProvisioningService(db).provision(input, actor)).rejects.toThrow(
+               /runtime_bootstrap \(ER_TOO_LONG_IDENT: MySQL rejected a schema identifier longer than 64 characters/,
+          );
+          expect(writes.some(write => write.value.stage === 'failed:runtime_bootstrap:ER_TOO_LONG_IDENT')).toBe(true);
+          expect(JSON.stringify(mocks.logError.mock.calls)).not.toContain('Private driver detail');
           expect(writes.filter(write => write.table === 'prime_tenants').map(write => write.value.status)).toEqual(['provisioning', 'failed']);
           expect(db.removeListener).toHaveBeenCalled();
      });

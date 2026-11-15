@@ -47,6 +47,9 @@ export function assertNotControlAssignment(tenantId: number, databaseName: strin
 /** Allowlisted diagnostics only; raw driver messages can contain SQL and are never logged or returned. */
 function diagnosticDetail(error: unknown): string {
      if (error instanceof FacilityError) return '';
+     if ((error as any)?.code === 'ER_TOO_LONG_IDENT') {
+          return 'MySQL rejected a schema identifier longer than 64 characters; deploy the corrected backend before retrying';
+     }
      if (error && typeof error === 'object' && 'code' in error && error.code === 'ER_BAD_FIELD_ERROR') {
           const message = 'sqlMessage' in error ? error.sqlMessage : 'message' in error ? error.message : '';
           const column = String(message).match(/^Unknown column '([A-Za-z_][A-Za-z0-9_.]{0,127})'/)?.[1]?.split('.').pop();
@@ -339,9 +342,9 @@ export class FacilityProvisioningService {
                await seedFacilityReferences(db, catalog, input.adminName);
                await this.event(this.master, reservation, actor, 'reference_seeded');
                stage = 'runtime_bootstrap';
-               let failedQuery = false;
+               let firstQueryError: unknown;
                const queryFailure = (error: unknown) => {
-                    failedQuery = true;
+                    firstQueryError ??= error ?? new Error('Runtime bootstrap query failed');
                     const code = error && typeof error === 'object' && 'code' in error &&
                          typeof error.code === 'string' && /^[A-Z0-9_]{1,64}$/.test(error.code) ? error.code : 'UNKNOWN_QUERY_ERROR';
                     logger.error('Facility runtime bootstrap query failed', {
@@ -351,7 +354,8 @@ export class FacilityProvisioningService {
                db.on('query-error', queryFailure);
                try {
                     const runtime = await runApplicationBootstrappers(reservation.tenantId, true);
-                    if (!runtime.accountingReady || failedQuery) throw new Error('Runtime bootstrap incomplete');
+                    if (firstQueryError) throw firstQueryError;
+                    if (!runtime.accountingReady) throw new Error('Runtime bootstrap incomplete');
                } finally {
                     db.removeListener('query-error', queryFailure);
                }
@@ -469,7 +473,9 @@ export class FacilityProvisioningService {
                     }
                }
                try {
-                    await this.event(this.master, reservation, actor, `failed:${stage}`);
+                    const failureStage = `failed:${stage}`;
+                    const codedStage = `${failureStage}:${code}`;
+                    await this.event(this.master, reservation, actor, codedStage.length <= 64 ? codedStage : failureStage);
                } catch (auditError) {
                     logger.error('Facility failure audit could not be recorded', {
                          organizationIdentifier: reservation.organizationIdentifier, detail: diagnosticDetail(auditError),

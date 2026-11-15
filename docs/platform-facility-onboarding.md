@@ -712,3 +712,38 @@ activation ordering and failure stages, plus status/subscription management (rou
 authority, control-tenant refusal, lifecycle refusal, calendar boundaries, paid/unpaid/overdue,
 duplicates, voids, plan-change history and the registry cache race) using mocked/in-memory databases. These tests are
 not a live end-to-end provisioning test against MySQL.
+
+## Recovering a runtime bootstrap failure
+
+MySQL rejects identifiers longer than 64 characters. The accounting bootstrap
+previously generated a 67-character unique index name for recurring expense
+occurrences. The updated bootstrap uses explicit names and restores missing
+unique keys on partially created MySQL tables. Existing equivalent unique keys
+are retained. If duplicate occurrence rows prevent restoring a key, bootstrap
+reports the database error and preserves the rows for review.
+
+For a facility such as NRNT13 in Failed status, deploy and restart the updated
+backend, then open **Platform Administration → Provisioning → Retry
+provisioning** for the existing facility. Expand **Provisioning history** for
+the most recent failed stage and any recorded driver code. Older entries may
+have only the stage. Retry rebuilds the partial tenant database using the
+existing reservation. Confirm the facility reaches Active, then check the
+administrator login and the expected branch. Use the separately confirmed
+deletion workflow only when abandoning the facility.
+
+## Master platform coverage and remaining work
+
+The platform provides a tenant registry with provisioning, interrupted-setup
+recovery, retry, suspension/reactivation and deletion. It also manages plan
+tiers and module entitlements, billing schedules and payment history, website
+applications, public profiles, SMS settings, medical device definitions and
+facility audit logs. A billing schedule and the effective license window are
+stored and enforced through separate workflows today.
+
+| Work item | Dependencies | Acceptance criteria |
+| --- | --- | --- |
+| Extend or shorten a facility's license window | Define the effective end date, grace policy and interaction with signed offline licenses | A control admin previews and saves earlier or later expiry with a reason. The audit records the actor and both dates. The facility's effective access changes at the intended time. Historical invoices and payments remain intact. |
+| Durable provisioning jobs | Facility reservation, per-facility lock, versioned schema bundles and a durable job store | Duplicate requests resolve to the same job. The admin can reload and see progress. An interrupted worker resumes or exposes a safe retry. Failed stages retain an actionable code and the tenant stays inactive. |
+| Fleet readiness and database upgrades | Durable jobs, compatible schema version tracking and deployment metadata | The platform lists each tenant's schema version and last check. A failed upgrade identifies the tenant and stage. Operators can verify a release on a clean facility and a populated upgrade fixture before widening rollout. |
+| Backup, restore and retirement | Verified tenant-to-database mapping, backup storage and retention policy | The platform shows backup age and verification status per tenant. A restore can be tested in an isolated database before cutover. Retirement has an auditable retention and deletion workflow. |
+| Delegated platform administration | Scoped control-tenant permissions and consolidated audit | Provisioning, billing and support access can be granted independently. Every privileged mutation records the actor and target facility. The platform protects the control tenant and enforces scope at the API. |
