@@ -6,15 +6,20 @@ const mocks = vi.hoisted(() => ({
      getPublicProfile: vi.fn(), putPublicProfile: vi.fn(), getSmsProvider: vi.fn(), setSmsProvider: vi.fn(), setModuleConfiguration: vi.fn(),
      getModulePricing: vi.fn(), getAllModulePricing: vi.fn(), putModulePricing: vi.fn(),
      listPlans: vi.fn(), upsertPlan: vi.fn(), platformUpgradeRequests: vi.fn(), decideUpgradeRequest: vi.fn(), assignPlan: vi.fn(),
+     listBackups: vi.fn(), createBackup: vi.fn(), restoreBackup: vi.fn(), auditBackup: vi.fn(),
      getMedicalDevices: vi.fn(), saveMedicalDevice: vi.fn(), deleteMedicalDevice: vi.fn(),
 }));
 vi.mock('../../middleware/platformFacilityAuthority', () => ({ requirePlatformFacilityAuthority: mocks.authority }));
+vi.mock('../../models/Tenancy/FacilityBackups', () => ({
+     FacilityBackups: class { list = mocks.listBackups; create = mocks.createBackup; restore = mocks.restoreBackup; },
+}));
 vi.mock('../../hooks/logger', () => ({ default: { error: mocks.logError, info: vi.fn(), warn: vi.fn() } }));
 vi.mock('../../models/Tenancy/FacilityProvisioningService', () => ({
      FacilityProvisioningService: class { list = mocks.list; options = mocks.options; provision = mocks.provision; retry = mocks.retry; },
 }));
 vi.mock('../../models/Tenancy/FacilityManagementService', () => ({
      FacilityManagementService:      class {
+          recordBackupOperation = mocks.auditBackup;
           setStatus = mocks.setStatus; getSubscription = mocks.getSubscription; setPlan = mocks.setPlan;
           recordPayment = mocks.recordPayment; voidPayment = mocks.voidPayment; listAudit = mocks.listAudit;
           deleteTenant = mocks.deleteTenant;
@@ -69,6 +74,8 @@ describe('platform facility routes', () => {
                'get /api/v1/platform/facilities/:tenantId/test-setup/panels',
                'get /api/v1/platform/facilities/:tenantId/test-setup/panels/:testId/parameters',
                'post /api/v1/platform/facilities/test-setup/preview', 'post /api/v1/platform/facilities/test-setup/apply',
+               'get /api/v1/platform/facilities/:tenantId/backups', 'post /api/v1/platform/facilities/:tenantId/backups',
+               'post /api/v1/platform/facilities/:tenantId/backups/:backupId/restore',
                'get /api/v1/platform/facilities/options', 'get /api/v1/platform/facilities',
                'get /api/v1/platform/facilities/module-pricing', 'put /api/v1/platform/facilities/module-pricing',
                'get /api/v1/platform/facilities/plans', 'put /api/v1/platform/facilities/plans/:code',
@@ -96,6 +103,22 @@ describe('platform facility routes', () => {
                expect(route.stack).toHaveLength(2);
                expect(route.stack[0].handle).toBe(mocks.authority);
           }
+     });
+
+     it('scopes backup catalog, creation and restore to the facility in the authenticated route', async () => {
+          const base = '/api/v1/platform/facilities/:tenantId/backups';
+          mocks.listBackups.mockResolvedValue({ backups: [] });
+          mocks.createBackup.mockResolvedValue({ name: 'platform-fixture' });
+          mocks.restoreBackup.mockResolvedValue({ database: 'plsrestorefixture', tableCount: 1 });
+          mocks.auditBackup.mockResolvedValue(undefined);
+          const params = { tenantId: '123456', backupId: '7' };
+          await invoke('get', base, { params, query: { tenantId: '987654', page: '2' } });
+          await invoke('post', base, { params, body: { tenantId: 987654, path: '/arbitrary' } });
+          await invoke('post', base + '/:backupId/restore', { params, body: { tenantId: 987654, targetDatabase: 'other', confirmation: 'QATEST' } });
+          expect(mocks.listBackups).toHaveBeenCalledWith(123456, 2);
+          expect(mocks.createBackup).toHaveBeenCalledWith(123456);
+          expect(mocks.restoreBackup).toHaveBeenCalledWith(123456, 7, 'QATEST');
+          expect(mocks.auditBackup).toHaveBeenCalledTimes(2);
      });
 
      it('uses the path facility and verified actor for medical-device CRUD, not the control-tenant query or body ID', async () => {

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { SslOptions } from 'mysql2';
 
 /** Deployment-owned policy only. Tenant records cannot weaken certificate verification. */
-export function databaseTlsOptions(host: string, scope: 'DB' | 'SYSTEM_CONFIG_DB' = 'DB'): { ssl?: SslOptions } {
+export function databaseTlsOptions(host: string, scope: 'DB' | 'SYSTEM_CONFIG_DB' | 'BACKUP_RESTORE_DB' = 'DB'): { ssl?: SslOptions } {
      const setting = (suffix: string) => process.env[`${scope}_TLS_${suffix}`] ?? process.env[`DB_TLS_${suffix}`];
      const required = process.env.PLS_ENCRYPTION_REQUIRED === 'true';
      const loopback = ['localhost', '127.0.0.1', '::1'].includes(host?.toLowerCase());

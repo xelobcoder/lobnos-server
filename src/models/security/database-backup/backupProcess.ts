@@ -30,7 +30,7 @@ export async function withDatabaseDump<T>(config: any, run: (binary: string, arg
                const binary = process.env.MYSQLDUMP_PATH || (process.platform === 'win32'
                     ? 'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysqldump.exe' : 'mysqldump');
                if (!/^[a-zA-Z0-9_]+$/.test(connection.database)) throw new Error('Invalid registered backup database name');
-               return await run(binary, [`--defaults-extra-file=${defaults}`, '--single-transaction', '--hex-blob', '--', connection.database]);
+               return await run(binary, [`--defaults-extra-file=${defaults}`, '--single-transaction', '--set-gtid-purged=OFF', '--hex-blob', '--', connection.database]);
           }
           if (config.client === 'postgresql') {
                const tlsEnvironment: NodeJS.ProcessEnv = {};
@@ -55,9 +55,9 @@ export async function withDatabaseDump<T>(config: any, run: (binary: string, arg
      }
 }
 
-export async function runBackupProcess(binary: string, args: string[], tenantId: number, output: string, encrypted: boolean, env?: NodeJS.ProcessEnv): Promise<string | undefined> {
+export async function runBackupProcess(binary: string, args: string[], tenantId: number, output: string, encrypted: boolean, env?: NodeJS.ProcessEnv, serverManagedKey = false): Promise<string | undefined> {
      // Persist and capture the data key before mysqldump opens its consistent snapshot.
-     const encryption = encrypted ? await EncryptionManager.prepareBackupEncryption(tenantId) : undefined;
+     const encryption = encrypted ? await EncryptionManager.prepareBackupEncryption(tenantId, serverManagedKey) : undefined;
      const child = spawn(binary, args, { windowsHide: true, shell: false, env, stdio: ['ignore', 'pipe', 'pipe'] });
      // Drain diagnostics without persisting database contents, credentials or SQL in logs.
      child.stderr.resume();

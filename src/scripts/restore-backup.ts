@@ -13,8 +13,10 @@
  * - `--list` reads `backup_logs` only and never opens a backup file.
  */
 import 'dotenv/config';
+import { randomBytes } from 'node:crypto';
 import { createReadStream, promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
+import { StringDecoder } from 'node:string_decoder';
 import { spawn } from 'node:child_process';
 import path from 'node:path';
 import { pipeline } from 'node:stream/promises';
@@ -412,13 +414,23 @@ function databaseSettings() {
      return { host, port, user, password, ...databaseTlsOptions(host) };
 }
 
+function recoveryDatabaseSettings() {
+     const host = process.env.BACKUP_RESTORE_DB_HOST?.trim();
+     if (!host) return databaseSettings();
+     const port = Number(process.env.BACKUP_RESTORE_DB_PORT || 3306);
+     const user = process.env.BACKUP_RESTORE_DB_USERNAME;
+     const password = process.env.BACKUP_RESTORE_DB_PASSWORD;
+     if (!user || !Number.isInteger(port) || port < 1 || port > 65535) throw new RestoreError('The recovery MySQL connection is incomplete');
+     return { host, port, user, password, ...databaseTlsOptions(host, 'BACKUP_RESTORE_DB') };
+}
+
 function tempRoot(): string {
      return process.env.BACKUP_TEMP_DIRECTORY || tmpdir();
 }
 
-async function openServerConnection(database?: string) {
+async function openServerConnection(database?: string, settings = databaseSettings()) {
      const mysql = await import('mysql2/promise');
-     return await mysql.createConnection({ ...databaseSettings(), ...(database ? { database } : {}), connectTimeout: 10000 });
+     return await mysql.createConnection({ ...settings, ...(database ? { database } : {}), connectTimeout: 10000 });
 }
 
 async function openControlConnection() {
@@ -440,56 +452,99 @@ function quoteOption(value: unknown): string {
      return `"${String(value ?? '').replace(/\\/g, '\\\\').replace(/"/g, '\\"').replace(/\n/g, '\\n').replace(/\r/g, '\\r')}"`;
 }
 
-async function streamDumpToTarget(database: string, plaintextPath: string): Promise<void> {
-     const settings = databaseSettings();
+/** Rebind MySQL dump trigger/view definers to the schema-scoped restore account. */
+export async function* bindDumpDefiners(source: AsyncIterable<Buffer>) {
+     const decoder = new StringDecoder('utf8');
+     let prefix = '';
+     let passedPrefix = false;
+     const bind = (line: string) => line.replace(
+          /^(\/\*!50003 CREATE\*\/ )?(\/\*!500(?:13|17) DEFINER=)`(?:[^`]|``)*`@`(?:[^`]|``)*`/,
+          '$1$2CURRENT_USER',
+     );
+     for await (const chunk of source) {
+          const parts = decoder.write(chunk).split('\n');
+          for (let index = 0; index < parts.length; index++) {
+               const part = parts[index];
+               const finished = index < parts.length - 1;
+               if (passedPrefix) {
+                    if (part) yield part;
+               } else {
+                    prefix += part;
+                    if (finished || prefix.length >= 512) {
+                         yield bind(prefix);
+                         passedPrefix = true;
+                         prefix = '';
+                    }
+               }
+               if (finished) {
+                    yield '\n';
+                    passedPrefix = false;
+               }
+          }
+     }
+     const end = decoder.end();
+     if (prefix || end) yield passedPrefix ? end : bind(prefix + end);
+}
+
+async function streamDumpToTarget(database: string, plaintextPath: string, options?: { settings: ReturnType<typeof databaseSettings>; user: string; password: string }): Promise<void> {
+     const settings = options ? { ...options.settings, user: options.user, password: options.password } : databaseSettings();
      const directory = await fs.mkdtemp(path.join(tempRoot(), 'pls-restore-client-'));
      await fs.chmod(directory, 0o700);
      try {
           // Credentials live in a private options file, never on the command line or in logs.
-          const options = ['[client]', `host=${quoteOption(settings.host)}`, `port=${quoteOption(settings.port)}`,
+          const clientOptions = ['[client]', `host=${quoteOption(settings.host)}`, `port=${quoteOption(settings.port)}`,
                `user=${quoteOption(settings.user)}`, `password=${quoteOption(settings.password)}`];
           if (settings.ssl) {
-               options.push('ssl-mode=VERIFY_IDENTITY');
+               clientOptions.push('ssl-mode=VERIFY_IDENTITY');
                for (const [property, option] of [['ca', 'ssl-ca'], ['cert', 'ssl-cert'], ['key', 'ssl-key']] as const) {
                     const material = (settings.ssl as Record<string, unknown>)[property];
                     if (typeof material !== 'string' || !material) continue;
                     const filename = path.join(directory, `${property}.pem`);
                     await fs.writeFile(filename, material, { mode: 0o600 });
-                    options.push(`${option}=${quoteOption(filename)}`);
+                    clientOptions.push(`${option}=${quoteOption(filename)}`);
                }
           }
           const defaults = path.join(directory, 'client.cnf');
-          await fs.writeFile(defaults, options.join('\n') + '\n', { mode: 0o600 });
+          await fs.writeFile(defaults, clientOptions.join('\n') + '\n', { mode: 0o600 });
 
           const binary = process.env.MYSQL_PATH || (process.platform === 'win32'
                ? 'C:\\Program Files\\MySQL\\MySQL Server 8.0\\bin\\mysql.exe' : 'mysql');
-          const child = spawn(binary, [`--defaults-extra-file=${defaults}`, '--database', database], {
+          const child = spawn(binary, [`--defaults-extra-file=${defaults}`, '--binary-mode', '--local-infile=0', '--database', database], {
                windowsHide: true, shell: false, stdio: ['pipe', 'ignore', 'pipe'],
           });
-          // Drain diagnostics; the client can echo rejected SQL, so it is never persisted or printed.
-          child.stderr.resume();
+          // Retain just the vendor error number, since stderr may include rejected SQL.
+          let mysqlError: string | undefined;
+          child.stderr.on('data', (chunk: Buffer) => { mysqlError ??= /^ERROR (\d+)\b/.exec(chunk.toString('utf8', 0, 48))?.[1]; });
+          const reportFailure = () => {
+               if (options && (mysqlError === '1419' || mysqlError === '1227')) {
+                    return new RestoreError('The recovery MySQL server rejected a privileged dump statement. Use a recovery server configured to restore triggers and views.');
+               }
+               return null;
+          };
           const exited = new Promise<number>((resolve, reject) => {
                child.once('error', () => reject(new RestoreError('The mysql client could not be started; install it or set MYSQL_PATH')));
                child.once('close', code => resolve(code === null ? -1 : code));
           });
           void exited.catch(() => undefined);
           try {
-               await pipeline(createReadStream(plaintextPath), child.stdin);
+               const file = createReadStream(plaintextPath);
+               if (options) await pipeline(file, bindDumpDefiners, child.stdin);
+               else await pipeline(file, child.stdin);
           } catch {
                child.kill();
                const code = await exited.catch(() => -1);
-               throw new RestoreError(`Streaming the dump to the mysql client failed (client exit code ${code}); the target database may be partially restored and should be dropped before retrying`);
+               throw reportFailure() ?? new RestoreError(`Streaming the dump to the mysql client failed (client exit code ${code}); the target database may be partially restored and should be dropped before retrying`);
           }
           const code = await exited;
           if (code !== 0) {
-               throw new RestoreError(`The mysql client exited with code ${code}; the target database may be partially restored and should be dropped before retrying`);
+               throw reportFailure() ?? new RestoreError(`The mysql client exited with code ${code}; the target database may be partially restored and should be dropped before retrying`);
           }
      } finally {
           await fs.rm(directory, { recursive: true, force: true });
      }
 }
 
-export async function createDefaultDependencies(): Promise<RestoreDependencies> {
+export async function createDefaultDependencies(target = databaseSettings): Promise<RestoreDependencies> {
      const { default: BackupManager } = await import('../models/security/database-backup/backup');
      const { default: EncryptionManager } = await import('../models/security/database-backup/encryption');
      const { configuration } = await import('../hooks/configuration');
@@ -523,11 +578,11 @@ export async function createDefaultDependencies(): Promise<RestoreDependencies> 
           },
           decryptToFile: (tenantId, inputPath, outputPath, keyId) => EncryptionManager.decryptFile(tenantId, inputPath, outputPath, keyId),
           targetHost: () => {
-               const settings = databaseSettings();
+               const settings = target();
                return `${settings.host}:${settings.port}`;
           },
           targetExists: async database => {
-               const connection = await openServerConnection();
+               const connection = await openServerConnection(undefined, target());
                try {
                     const [rows] = await connection.query('SELECT SCHEMA_NAME FROM information_schema.SCHEMATA WHERE SCHEMA_NAME = ? LIMIT 1', [database]);
                     return Array.isArray(rows) && rows.length > 0;
@@ -537,7 +592,7 @@ export async function createDefaultDependencies(): Promise<RestoreDependencies> 
           },
           streamDumpToTarget,
           listTargetTables: async database => {
-               const connection = await openServerConnection(database);
+               const connection = await openServerConnection(database, target());
                try {
                     const [rows] = await connection.query(
                          "SELECT TABLE_NAME AS name FROM information_schema.TABLES WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE' ORDER BY TABLE_NAME",
@@ -558,6 +613,58 @@ export async function createDefaultDependencies(): Promise<RestoreDependencies> 
           tempDirectory: tempRoot,
           fileExists: async candidate => await fs.stat(candidate).then(stat => stat.isFile()).catch(() => false),
      };
+}
+
+/**
+ * Restore into a newly allocated schema using a MySQL account that can only access that schema.
+ * Keep the account locked on success so any objects created with that definer remain valid.
+ */
+export async function restoreIsolatedBackup(tenantId: number, backup: BackupRecord): Promise<{ database: string; tableCount: number; server: string }> {
+     const settings = recoveryDatabaseSettings();
+     const deps = await createDefaultDependencies(() => settings);
+     const nonce = randomBytes(8).toString('hex');
+     const database = `plsrestore${tenantId}x${nonce}`;
+     const user = `plsrestore${nonce}`;
+     const password = randomBytes(32).toString('hex');
+     const account = `'${user}'@'%'`;
+     const connection = await openServerConnection(undefined, settings);
+     let createdDatabase = false;
+     let createdAccount = false;
+     let verified = false;
+     let tableCount = 0;
+     try {
+          await assertRestoreTargetAllowed({ targetDatabase: database, tenantDatabase: await deps.tenantDatabaseName(tenantId),
+               controlDatabase: deps.controlDatabaseName() });
+          await connection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`);
+          createdDatabase = true;
+          await connection.query(`CREATE USER ${account} IDENTIFIED BY ?`, [password]);
+          createdAccount = true;
+          await connection.query(`GRANT ALL PRIVILEGES ON \`${database}\`.* TO ${account}`);
+          const result = await runRestoreCli(['--tenant', String(tenantId), '--backup', String(backup.id),
+               '--target-database', database, '--execute'], {
+               ...deps,
+               stdout: () => undefined,
+               stderr: () => undefined,
+               listBackupRecords: async () => [backup],
+               streamDumpToTarget: (target, file) => streamDumpToTarget(target, file, { settings, user, password }),
+               listTargetTables: async target => {
+                    const tables = await deps.listTargetTables(target);
+                    tableCount = tables.length;
+                    return tables;
+               },
+          });
+          if (result !== 0) throw new RestoreError('The restored table set could not be verified');
+          await connection.query(`ALTER USER ${account} ACCOUNT LOCK`);
+          verified = true;
+          return { database, tableCount, server: deps.targetHost() };
+     } finally {
+          try {
+               if (!verified) {
+                    try { if (createdAccount) await connection.query(`DROP USER ${account}`); }
+                    finally { if (createdDatabase) await connection.query(`DROP DATABASE \`${database}\``); }
+               }
+          } finally { await connection.end(); }
+     }
 }
 
 async function main(): Promise<number> {

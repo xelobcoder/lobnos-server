@@ -5,6 +5,7 @@ import logger from '../../hooks/logger';
 import { requirePlatformFacilityAuthority } from '../../middleware/platformFacilityAuthority';
 import { DeveloperTenantSessionService } from '../../models/Tenancy/DeveloperTenantSessionService';
 import { FacilityProvisioningService } from '../../models/Tenancy/FacilityProvisioningService';
+import { FacilityBackups } from '../../models/Tenancy/FacilityBackups';
 import { FacilityTestSetupCopy } from '../../models/Tenancy/FacilityTestSetupCopy';
 import { FacilityManagementService } from '../../models/Tenancy/FacilityManagementService';
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
@@ -23,6 +24,7 @@ const service = new FacilityProvisioningService();
 const developerSessions = new DeveloperTenantSessionService();
 const management = new FacilityManagementService();
 const testSetupCopy = new FacilityTestSetupCopy();
+const backups = new FacilityBackups();
 const publicRegistry = new PublicFacilityRegistry();
 const modulePricing = new FacilityModulePricingCatalog();
 const subscriptionTiers = new FacilitySubscriptionTierService();
@@ -99,6 +101,28 @@ router.post(`${base}/test-setup/apply`, requirePlatformFacilityAuthority, handle
           });
      }
      return { ...result, masterAuditRecorded };
+}));
+router.get(`${base}/:tenantId/backups`, requirePlatformFacilityAuthority, handle(req => {
+     const page = Number(req.query.page ?? 1);
+     if (!Number.isInteger(page) || page < 1 || page > 10000) throw new FacilityError('Invalid backup page');
+     return backups.list(parseTenantIdParam(req.params.tenantId), page);
+}));
+router.post(`${base}/:tenantId/backups`, requirePlatformFacilityAuthority, handle(async (req, res) => {
+     const tenantId = parseTenantIdParam(req.params.tenantId);
+     const result = await backups.create(tenantId);
+     const auditRecorded = await management.recordBackupOperation(tenantId, actor(res), 'facility_backup_created', result)
+          .then(() => true).catch(() => false);
+     return { ...result, auditRecorded };
+}));
+router.post(`${base}/:tenantId/backups/:backupId/restore`, requirePlatformFacilityAuthority, handle(async (req, res) => {
+     const tenantId = parseTenantIdParam(req.params.tenantId);
+     const rawId = req.params.backupId;
+     if (typeof rawId !== 'string' || !/^[1-9]\d{0,14}$/.test(rawId)) throw new FacilityError('Invalid backup ID');
+     const backupId = Number(rawId);
+     const result = await backups.restore(tenantId, backupId, req.body?.confirmation);
+     const auditRecorded = await management.recordBackupOperation(tenantId, actor(res), 'facility_backup_restored', { backupId, ...result })
+          .then(() => true).catch(() => false);
+     return { ...result, auditRecorded };
 }));
 router.get(`${base}/options`, requirePlatformFacilityAuthority, handle(() => service.options()));
 router.get(base, requirePlatformFacilityAuthority, handle(() => service.list()));

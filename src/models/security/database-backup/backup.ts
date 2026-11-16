@@ -154,7 +154,8 @@ export default class BackupManager {
           backupMode: 'automated' | 'manual' = 'manual',
           createdBy: number | null = null,
           scheduleId?: number,
-          encryptBackup: boolean = false
+          encryptBackup: boolean = false,
+          serverManagedKey = false
      ): Promise<{ success: boolean; backupPath?: string; size?: number; error?: string; duration?: number; encryptionKeyId?: string }> {
           const startTime = Date.now();
 
@@ -175,7 +176,7 @@ export default class BackupManager {
                const config = connection.client.config;
 
                const encryptionKeyId = await withDatabaseDump(config, (binary, args, env) =>
-                    runBackupProcess(binary, args, tenantId, fullPath, encryptBackup, env));
+                    runBackupProcess(binary, args, tenantId, fullPath, encryptBackup, env, serverManagedKey));
                const size = fs.statSync(fullPath).size;
                const duration = Math.floor((Date.now() - startTime) / 1000);
                const finalBackupPath = fullPath;

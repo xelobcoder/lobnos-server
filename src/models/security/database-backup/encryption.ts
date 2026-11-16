@@ -138,14 +138,14 @@ export default class EncryptionManager {
           }
      }
 
-     static async generateEncryptionKey(tenantId: number, createdBy?: string, userKey?: string): Promise<string> {
+     static async generateEncryptionKey(tenantId: number, createdBy?: string, userKey?: string, serverManaged = false): Promise<string> {
           const settings = await EncryptionManager.getSecuritySettings(tenantId);
-          if (!settings) {
+          if (!settings && !serverManaged) {
                throw new Error('Backup security settings not found. Configure security settings first');
           }
           const effectivePassword = userKey || settings?.encryption_password || '';
 
-          if (!effectivePassword.trim() && !this.encryptionRequired()) {
+          if (!effectivePassword.trim() && !serverManaged && !this.encryptionRequired()) {
                throw new Error('No encryption password configured in backup security settings');
           }
           if (userKey) {
@@ -159,7 +159,7 @@ export default class EncryptionManager {
           const encryptedKey = this.encryptWithMasterKey(key, `backup-key:${tenantId}`);
 
           const expiresAt = new Date();
-          expiresAt.setDate(expiresAt.getDate() + (settings.key_rotation_days || 90));
+          expiresAt.setDate(expiresAt.getDate() + (settings?.key_rotation_days || 90));
 
           const connection = await KnexConnection(tenantId);
           await connection(this.KEYS_TABLE).insert({
@@ -203,10 +203,10 @@ export default class EncryptionManager {
           };
      }
 
-     static async prepareBackupEncryption(tenantId: number) {
+     static async prepareBackupEncryption(tenantId: number, serverManaged = false) {
           let keyInfo = await this.getActiveEncryptionKey(tenantId);
           if (!keyInfo || !keyInfo.authenticated || await this.isKeyRotationNeeded(tenantId)) {
-               await this.generateEncryptionKey(tenantId);
+               await this.generateEncryptionKey(tenantId, undefined, undefined, serverManaged);
                keyInfo = await this.getActiveEncryptionKey(tenantId);
           }
           if (!keyInfo) throw new Error('Failed to retrieve the backup encryption key');

@@ -5,6 +5,7 @@ import path from 'node:path';
 import {
      RestoreError,
      assertRestoreTargetAllowed,
+     bindDumpDefiners,
      formatBackupList,
      formatBytes,
      parseRestoreArguments,
@@ -353,5 +354,27 @@ describe('dump scanning', () => {
           const longInsert = 'INSERT INTO `patient` VALUES (' + '0,'.repeat(4096) + '0);';
           await fs.writeFile(dump, `CREATE TABLE \`patient\` (\r\n\`id\` int\r\n);\r\n${longInsert}\r\nCREATE TABLE \`visit\` (\r\n\`id\` int\r\n);`, 'utf8');
           expect(await readDumpTableNames(dump)).toEqual(['patient', 'visit']);
+     });
+});
+
+
+describe('scoped restore', () => {
+     it('rebinds mysqldump trigger and view definers across chunks while preserving data', async () => {
+          const lines = [
+               '/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `sample`',
+               '/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */',
+               "INSERT INTO notes VALUES ('DEFINER=`root`@`localhost`', '" + 'x'.repeat(8000) + "µ');",
+          ];
+          const input = Buffer.from(lines.join('\n'));
+          async function* bytes() {
+               for (let i = 0; i < input.length; i += 7) yield input.subarray(i, i + 7);
+          }
+          const output: string[] = [];
+          for await (const chunk of bindDumpDefiners(bytes())) output.push(chunk);
+          expect(output.join('')).toBe([
+               lines[0].replace('`root`@`localhost`', 'CURRENT_USER'),
+               lines[1].replace('`root`@`localhost`', 'CURRENT_USER'),
+               lines[2],
+          ].join('\n'));
      });
 });

@@ -135,3 +135,14 @@ storage with service-only ACLs.
       any follow-up actions in the recovery log.
 - [ ] If more than 90 days have passed, rotate the backup data key and repeat a restore
       drill against a backup written under the new key.
+
+
+## Platform Administration
+
+Open **Facility backups** to review the storage directory and database backup logs for a selected facility. New backups are encrypted with a server-managed key. Configure `BACKUP_MASTER_KEY_FILE` or `BACKUP_MASTER_KEY` and a facility backup storage directory. If the facility does not have a directory setting, the master platform stores its backups under `BACKUP_DIRECTORY/platform/<tenantId>`.
+
+Select **Review restore** on an available backup and enter the facility’s organization identifier. The application creates a new recovery database, runs the importer under an account scoped to that schema, and verifies the table set. Successful restores leave that database available for review, with a locked MySQL account retained as the definer for any restored views or triggers. A restore does not change the registered facility database. The backup and restore actions are recorded in the facility audit log.
+
+The importer targets the configured MySQL server by default. For a separate recovery server, configure `BACKUP_RESTORE_DB_HOST`, `BACKUP_RESTORE_DB_PORT`, `BACKUP_RESTORE_DB_USERNAME`, `BACKUP_RESTORE_DB_PASSWORD`, and any required TLS settings. The recovery account needs permission to create databases and temporary schema-scoped accounts. For dumps containing triggers, use a recovery server where its binary-logging policy lets the schema-scoped user recreate them. Some older dumps contain privileged statements that the restricted importer cannot run.
+
+The current facility catalog and decryption keys are read from the facility database. Keep recovery copies of the applicable backup logs and encrypted key records as well as the server master key and backup files. If the facility database is lost, recover that metadata before using this screen.

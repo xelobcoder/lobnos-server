@@ -416,6 +416,15 @@ export class FacilityManagementService {
           });
      }
 
+     async recordBackupOperation(tenantId: number, actor: FacilityActor,
+          action: 'facility_backup_created' | 'facility_backup_restored', details: Record<string, unknown>) {
+          await this.ensureSchema();
+          await this.master.transaction(async trx => {
+               const tenant = await this.tenantRow(trx, tenantId, false);
+               await this.event(trx, tenant, actor, { action, details: JSON.stringify(details) });
+          });
+     }
+
      async recordDeveloperSession(tenantId: number, owner: { tid?: number; employeeid?: number },
           action: 'developer_session_opened' | 'developer_session_closed', employeeId: number, sessionId: string) {
           await this.ensureSchema();
