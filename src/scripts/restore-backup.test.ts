@@ -359,10 +359,24 @@ describe('dump scanning', () => {
 
 
 describe('scoped restore', () => {
+     it('stops before importing when the recovery server rejects a dump statement', async () => {
+          const file = backupPath('.sql');
+          await fs.writeFile(file, DUMP_SQL + '\nCREATE TRIGGER fixture');
+          const { deps, streamDumpToTarget } = createDependencies({
+               listBackupRecords: async () => buildRecords(file).map(record => ({ ...record, encryption_key_id: null })),
+               fileExists: async candidate => candidate === file,
+               checkDumpLine: line => { if (line.startsWith('CREATE TRIGGER')) throw new RestoreError('Trigger policy blocks this restore'); },
+          });
+          await expect(runRestoreCli(['--tenant', '12', '--backup', '12', '--target-database', 'qa_restore', '--execute'], deps))
+               .rejects.toThrow('Trigger policy blocks this restore');
+          expect(streamDumpToTarget).not.toHaveBeenCalled();
+     });
+
      it('rebinds mysqldump trigger and view definers across chunks while preserving data', async () => {
           const lines = [
                '/*!50003 CREATE*/ /*!50017 DEFINER=`root`@`localhost`*/ /*!50003 TRIGGER `sample`',
                '/*!50013 DEFINER=`root`@`localhost` SQL SECURITY DEFINER */',
+               'ALTER DATABASE `source_db` CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci ;',
                "INSERT INTO notes VALUES ('DEFINER=`root`@`localhost`', '" + 'x'.repeat(8000) + "µ');",
           ];
           const input = Buffer.from(lines.join('\n'));
@@ -374,7 +388,8 @@ describe('scoped restore', () => {
           expect(output.join('')).toBe([
                lines[0].replace('`root`@`localhost`', 'CURRENT_USER'),
                lines[1].replace('`root`@`localhost`', 'CURRENT_USER'),
-               lines[2],
+               lines[2].replace('`source_db` ', ''),
+               lines[3],
           ].join('\n'));
      });
 });

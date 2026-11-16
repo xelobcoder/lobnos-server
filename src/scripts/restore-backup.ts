@@ -76,6 +76,7 @@ export interface RestoreDependencies {
      streamDumpToTarget(database: string, plaintextPath: string): Promise<void>;
      listTargetTables(database: string): Promise<Array<{ table: string; rows: number }>>;
      tempDirectory(): string;
+     checkDumpLine?(line: string): void;
      fileExists(candidate: string): Promise<boolean>;
 }
 
@@ -244,9 +245,10 @@ export function formatBackupList(records: BackupRecord[], options: { tenantId: n
  * multi-megabyte INSERT lines are skipped without being buffered. No data rows are retained.
  * mysqldump writes `CREATE TABLE \`name\` (` at the start of a line.
  */
-export async function readDumpTableNames(filePath: string): Promise<string[]> {
+export async function readDumpTableNames(filePath: string, checkLine?: (line: string) => void): Promise<string[]> {
      const LINE_LIMIT = 512;
      const found = new Set<string>();
+     let checkError: Error | undefined;
      let partial = '';
      let skipping = false;
      let settled = false;
@@ -256,6 +258,10 @@ export async function readDumpTableNames(filePath: string): Promise<string[]> {
           if (match) found.add(match[1]);
      };
      const finishLine = () => {
+          if (checkLine && !checkError) {
+               try { checkLine(partial); }
+               catch (error) { checkError = error instanceof Error ? error : new RestoreError('The dump could not be validated'); }
+          }
           if (!skipping) consumeLine(partial.endsWith('\r') ? partial.slice(0, -1) : partial);
           partial = '';
           skipping = false;
@@ -290,10 +296,11 @@ export async function readDumpTableNames(filePath: string): Promise<string[]> {
           });
           stream.on('error', settle);
           stream.on('end', () => {
-               if (!skipping && partial) consumeLine(partial.endsWith('\r') ? partial.slice(0, -1) : partial);
+               if (partial) finishLine();
                settle();
           });
      });
+     if (checkError) throw checkError;
      return Array.from(found).sort();
 }
 
@@ -385,7 +392,7 @@ export async function runRestoreCli(argv: string[], deps: RestoreDependencies): 
                dumpPath = plaintext;
           }
 
-          const expectedTables = await readDumpTableNames(dumpPath);
+          const expectedTables = await readDumpTableNames(dumpPath, deps.checkDumpLine);
           if (expectedTables.length === 0) {
                throw new RestoreError('The backup has no mysqldump CREATE TABLE statements; refusing to restore an unrecognised format');
           }
@@ -460,6 +467,9 @@ export async function* bindDumpDefiners(source: AsyncIterable<Buffer>) {
      const bind = (line: string) => line.replace(
           /^(\/\*!50003 CREATE\*\/ )?(\/\*!500(?:13|17) DEFINER=)`(?:[^`]|``)*`@`(?:[^`]|``)*`/,
           '$1$2CURRENT_USER',
+     ).replace(
+          /^(\s*ALTER DATABASE\s+)`[A-Za-z0-9_]+`\s+(CHARACTER SET\s+[A-Za-z0-9_]+\s+COLLATE\s+[A-Za-z0-9_]+\s*;\s*)$/i,
+          '$1$2',
      );
      for await (const chunk of source) {
           const parts = decoder.write(chunk).split('\n');
@@ -513,13 +523,18 @@ async function streamDumpToTarget(database: string, plaintextPath: string, optio
                windowsHide: true, shell: false, stdio: ['pipe', 'ignore', 'pipe'],
           });
           // Retain just the vendor error number, since stderr may include rejected SQL.
-          let mysqlError: string | undefined;
-          child.stderr.on('data', (chunk: Buffer) => { mysqlError ??= /^ERROR (\d+)\b/.exec(chunk.toString('utf8', 0, 48))?.[1]; });
+          let diagnostic = '';
+          child.stderr.on('data', (chunk: Buffer) => {
+               if (diagnostic.length < 256) diagnostic += chunk.toString('utf8', 0, 256 - diagnostic.length);
+          });
           const reportFailure = () => {
-               if (options && (mysqlError === '1419' || mysqlError === '1227')) {
-                    return new RestoreError('The recovery MySQL server rejected a privileged dump statement. Use a recovery server configured to restore triggers and views.');
+               const match = /^ERROR (\d+) \([A-Z0-9]+\)(?: at line (\d+))?/m.exec(diagnostic);
+               const mysqlError = match?.[1];
+               if (options && mysqlError === '1419') return triggerRestoreError();
+               if (options && mysqlError === '1227') {
+                    return new RestoreError('MySQL error 1227: the dump contains a statement that requires privileges beyond the recovery database.');
                }
-               return null;
+               return mysqlError ? new RestoreError(`MySQL rejected the recovery import (error ${mysqlError}${match?.[2] ? ` at dump line ${match[2]}` : ''}).`) : null;
           };
           const exited = new Promise<number>((resolve, reject) => {
                child.once('error', () => reject(new RestoreError('The mysql client could not be started; install it or set MYSQL_PATH')));
@@ -619,6 +634,10 @@ export async function createDefaultDependencies(target = databaseSettings): Prom
  * Restore into a newly allocated schema using a MySQL account that can only access that schema.
  * Keep the account locked on success so any objects created with that definer remain valid.
  */
+function triggerRestoreError() {
+     return new RestoreError('MySQL blocks trigger creation for the recovery account while binary logging is enabled and log_bin_trust_function_creators is OFF. Configure BACKUP_RESTORE_DB_HOST to use a dedicated recovery MySQL server that allows trigger creation.');
+}
+
 export async function restoreIsolatedBackup(tenantId: number, backup: BackupRecord): Promise<{ database: string; tableCount: number; server: string }> {
      const settings = recoveryDatabaseSettings();
      const deps = await createDefaultDependencies(() => settings);
@@ -635,6 +654,9 @@ export async function restoreIsolatedBackup(tenantId: number, backup: BackupReco
      try {
           await assertRestoreTargetAllowed({ targetDatabase: database, tenantDatabase: await deps.tenantDatabaseName(tenantId),
                controlDatabase: deps.controlDatabaseName() });
+          const [policy] = await connection.query<import('mysql2').RowDataPacket[]>(
+               'SELECT @@log_bin AS binaryLogging, @@log_bin_trust_function_creators AS trustedCreators');
+          const blockedTriggers = Number(policy[0]?.binaryLogging) === 1 && Number(policy[0]?.trustedCreators) === 0;
           await connection.query(`CREATE DATABASE \`${database}\` CHARACTER SET utf8mb4`);
           createdDatabase = true;
           await connection.query(`CREATE USER ${account} IDENTIFIED BY ?`, [password]);
@@ -643,6 +665,11 @@ export async function restoreIsolatedBackup(tenantId: number, backup: BackupReco
           const result = await runRestoreCli(['--tenant', String(tenantId), '--backup', String(backup.id),
                '--target-database', database, '--execute'], {
                ...deps,
+               checkDumpLine: blockedTriggers ? line => {
+                    if (/^\s*(?:CREATE\s+(?:DEFINER\s*=.*?)?TRIGGER\b|\/\*!50003\s+(?:CREATE\b.*\/\*!50003\s+)?TRIGGER\b)/i.test(line)) {
+                         throw triggerRestoreError();
+                    }
+               } : undefined,
                stdout: () => undefined,
                stderr: () => undefined,
                listBackupRecords: async () => [backup],
@@ -660,8 +687,8 @@ export async function restoreIsolatedBackup(tenantId: number, backup: BackupReco
      } finally {
           try {
                if (!verified) {
-                    try { if (createdAccount) await connection.query(`DROP USER ${account}`); }
-                    finally { if (createdDatabase) await connection.query(`DROP DATABASE \`${database}\``); }
+                    try { if (createdDatabase) await connection.query(`DROP DATABASE \`${database}\``); }
+                    finally { if (createdAccount) await connection.query(`DROP USER ${account}`); }
                }
           } finally { await connection.end(); }
      }
