@@ -341,6 +341,8 @@ continue to use its normal license checks.
    The actual initiating control-tenant employee is separately recorded in each
    lifecycle audit event. No arbitrary first platform user is silently selected.
    Build the backend and initialize the dedicated owner once with
+   Run the initialization on each deployment against its own control database. The tenant super-admin signs in through the facility login and lands in the tenant workspace. The platform owner signs in at `/master-platform/login`.
+
    `npm run master:init -- platform-owner --password-stdin`. Supply the
    password through standard input. To copy an existing active super-admin
    password hash during migration, use
@@ -761,3 +763,5 @@ expires, whichever comes first. Target requests recheck the live master
 identity and session. The target identity is scoped to one tenant and cannot
 authorize master operations. Return normally closes the tenant session and
 restores the master session. The facility audit records entry and exit.
+
+For reverse-proxy deployments, forward the public `Host` (or overwrite `X-Forwarded-Host` with the public host) and set `X-Forwarded-Proto` to the public scheme. The proxy should overwrite client-supplied forwarding headers.

@@ -16,7 +16,7 @@ const id = z.number().int().positive().max(2147483647);
 const tenantId = z.number().int().min(100000).max(999999);
 const copyInput = z.discriminatedUnion('mode', [
      z.object({ mode: z.literal('panel'), sourceTenantId: tenantId, targetTenantId: tenantId, sourceTestId: id,
-          price: z.number().int().min(0).max(2147483647) }),
+          price: z.number().int().min(0).max(2147483647), standardSetup: z.boolean().optional() }),
      z.object({ mode: z.literal('parameters'), sourceTenantId: tenantId, targetTenantId: tenantId, sourceTestId: id,
           targetTestId: id, fieldIds: z.array(id).min(1).max(500) }),
 ]);
@@ -79,14 +79,30 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
      const blockers: string[] = [];
      if (input.mode === 'parameters' && Number(destinationPanel.iscustom)) blockers.push('This destination panel uses a custom result template.');
      const mappings: Record<string, number> = {};
+     const missingReferences: { column: string; table: string; values: Row }[] = [];
+     const warnings: string[] = [];
+     let literature: Row[] = [];
+     let literatureAvailable = true;
      const mappingState: Row[] = [];
      const details = input.mode === 'panel' ? await source('testdetails').where({ testid: sourcePanel.id }).first() : undefined;
      if (input.mode === 'panel') {
           if (destinationPanel) blockers.push('A panel with this name already exists. Use Copy selected parameters.');
-          if (Number(sourcePanel.iscustom) || Number(sourcePanel.requires_qc) || formulas.some(row => Number(row.active))
-               || Number(details?.hasManual) || Number(details?.useLiterature) || Number(details?.hasDrugs) ||
-               Number(details?.isoutsourced) || (details?.deviceInterfaceMapping && !['{}', '[]', 'null'].includes(String(details.deviceInterfaceMapping).trim()))) {
-               blockers.push('This panel has custom, calculated, QC, manual, outsourcing or device setup that needs manual transfer.');
+          const hasDeviceMapping = details?.deviceInterfaceMapping &&
+               !['{}', '[]', 'null'].includes(String(details.deviceInterfaceMapping).trim());
+          if (Number(sourcePanel.iscustom) || hasDeviceMapping) {
+               if (input.standardSetup) warnings.push('The new panel uses the standard result form. Custom templates and device mappings require setup at the destination.');
+               else blockers.push('This panel uses a custom template or device mapping. Select Copy as standard setup and preview again.');
+          }
+          if (Number(sourcePanel.requires_qc) || formulas.some(row => Number(row.active))
+               || Number(details?.hasManual) || Number(details?.hasDrugs)
+               || Number(details?.isoutsourced)) {
+               blockers.push('This panel has calculated, QC, manual, drug or outsourcing setup that requires manual transfer.');
+          }
+          if (Number(details?.useLiterature)) {
+               literature = await optionalRows(source, 'setupliteraturereview', 'testid', sourcePanel.id);
+               literatureAvailable = !literature.length || await destination.schema.hasTable('setupliteraturereview');
+               if (!literatureAvailable) blockers.push('The destination does not support panel literature yet.');
+               else if (literature.length) warnings.push('The copy will include the source panel’s report literature.');
           }
           for (const [column, table, key] of [['category','departments','department'], ['sample','sampletype','name'],
                ['sample_container','samplecontainer','name']]) {
@@ -94,7 +110,20 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
                const reference = await source(table).where({ id: sourcePanel[column] }).first();
                const matches = reference ? await destination(table).where(key, reference[key]).orderBy('id') : [];
                mappingState.push({ column, reference, matches });
-               if (matches.length !== 1) blockers.push(`Map ${key === 'department' ? 'department' : table} "${reference?.[key] ?? sourcePanel[column]}" in the destination first.`);
+               if (reference && !matches.length && input.standardSetup) {
+                    const values = pick(reference, table === 'samplecontainer'
+                         ? ['name', 'description', 'volume_capacity', 'material', 'color', 'is_reusable'] : [key]);
+                    if (table === 'departments') {
+                         const owner = await destination('roles').where({ activation: 1 }).orderBy('employeeid').first('employeeid');
+                         mappingState.push({ owner });
+                         Object.assign(values, {
+                              departmentManager: owner ? 'System Import' : 'Unassigned',
+                              employeeid: owner?.employeeid ?? 0,
+                         });
+                    }
+                    missingReferences.push({ column, table, values });
+                    warnings.push(`The copy will create destination ${table === 'departments' ? 'department' : table === 'sampletype' ? 'sample type' : 'sample container'} "${reference[key]}".`);
+               } else if (matches.length !== 1) blockers.push(`Map ${key === 'department' ? 'department' : table === 'sampletype' ? 'sample type' : 'sample container'} "${reference?.[key] ?? sourcePanel[column]}" in the destination first.`);
                else if (table === 'samplecontainer' && ['material','volume_capacity','color','is_reusable'].some(field => label(reference[field]) !== label(matches[0][field]))) {
                     blockers.push(`The destination sample container "${reference[key]}" has different specifications.`);
                } else mappings[column] = Number(matches[0].id);
@@ -108,9 +137,10 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
      const policies = matchedConditions.length && await source.schema.hasTable('lab_critical_policies')
           ? await source('lab_critical_policies').whereIn('rule_id', matchedConditions.map(rule => rule.id)).orderBy('rule_id')
           : [];
-     if (policies.length) blockers.push('Selected critical rules have facility-specific escalation or approval actions. Review and transfer those rules manually.');
      if (input.mode === 'panel' && matchedConditions.length !== sourceConditions.length) blockers.push('Some critical rules cannot be matched to a source parameter.');
-     if (matchedConditions.some(rule => !conditionGroups.some(group => group.id === rule.conditionId))) blockers.push('A critical rule has a missing condition group.');
+     const constraintStorage = !sourceConstraints.length || await destination.schema.hasTable('field_constraints');
+     const conditionStorage = !matchedConditions.length ||
+          (await destination.schema.hasTable('testconditions') && await destination.schema.hasTable('testconditiondefinitions'));
      const rows = selected.map(field => {
           const keyMatches = (candidate: Row) => (label(field.field) && label(candidate.field) === label(field.field)) ||
                (label(field.name) && label(candidate.name) === label(field.name));
@@ -130,39 +160,50 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
           const inconsistent = sourceFields.filter(keyMatches).length > 1 || matches.length > 1 ||
                (field.categoryid && !sourceCategory) || !label(field.name);
           const destinationRuleCollision = !existing && destinationConditions.some(rule => affects(field, rule));
-          const status = unsupported || inconsistent || destinationRuleCollision ? 'blocked' : !existing ? 'add' : differences.length ? 'conflict' : 'exists';
-          const reason = unsupported ? 'This parameter needs manual calculation or imaging setup.'
-               : inconsistent ? 'Ambiguous parameter identity or missing parameter group.'
+          const transferIssue = unsupported ? 'This parameter needs manual calculation or imaging setup.'
                : destinationRuleCollision ? 'An existing destination critical rule already references this parameter.'
+               : copiedConditions.some(rule => policies.some(policy => policy.rule_id === rule.id))
+                    ? 'This parameter has facility-specific escalation or approval actions.'
+               : copiedConditions.some(rule => !conditionGroups.some(group => group.id === rule.conditionId))
+                    ? 'A critical rule has a missing condition group.'
+               : constraints.length && !constraintStorage ? 'The destination does not support field constraints yet.'
+               : copiedConditions.length && !conditionStorage ? 'The destination does not support critical rules yet.'
                : undefined;
+          const reason = inconsistent ? 'Ambiguous parameter identity or missing parameter group.'
+               : existing ? undefined : transferIssue;
+          const status = reason ? 'blocked' : !existing ? 'add' : differences.length ? 'conflict' : 'exists';
           return { id: Number(field.id), name: String(field.name), status, differences, reason,
                source: { unit: field.units ?? null, range: [field.lowerlimit, field.upperlimit], type: field.plan },
                destination: existing ? { unit: existing.units ?? null, range: [existing.lowerlimit, existing.upperlimit], type: existing.plan } : null };
      });
      if (input.mode === 'panel' && rows.some(row => row.status !== 'add')) blockers.push('A full panel copy requires every parameter to be transferable.');
-     if (sourceConstraints.some(rule => selected.some(field => field.id === rule.fieldid)) && !await destination.schema.hasTable('field_constraints')) {
-          blockers.push('The destination database does not support field constraints yet.');
-     }
-     if (matchedConditions.length && (!await destination.schema.hasTable('testconditions') || !await destination.schema.hasTable('testconditiondefinitions'))) {
-          blockers.push('The destination database does not support critical rules yet.');
-     }
      const fingerprint = createHash('sha256').update(ordered([input, sourcePanel, destinationPanel, sourceFields, destinationFields,
           sourceCategories, destinationCategories, sourceConstraints, destinationConstraints, sourceConditions, destinationConditions,
-          formulas, conditionGroups, policies, details, mappings, mappingState])).digest('hex');
+          formulas, conditionGroups, policies, details, mappings, mappingState, constraintStorage, conditionStorage, literature, literatureAvailable])).digest('hex');
      return { sourcePanel, destinationPanel, selected, sourceCategories, destinationCategories, sourceConstraints,
-          matchedConditions, conditionGroups, details, mappings, rows, blockers, fingerprint };
+          matchedConditions, conditionGroups, details, mappings, rows, blockers, warnings, missingReferences, literature, fingerprint };
 }
 
 async function copyRows(db: Knex.Transaction, input: CopyInput, plan: Awaited<ReturnType<typeof inspect>>, actor: FacilityActor) {
      let testId: number = Number(plan.destinationPanel?.id);
      if (input.mode === 'panel') {
           testId = Number(await generateNextTestPanelId(db));
+          const mappings = { ...plan.mappings };
+          for (const reference of plan.missingReferences) {
+               const [referenceId] = await db(reference.table).insert(reference.values);
+               mappings[reference.column] = Number(referenceId);
+          }
           await db('test_panels').insert({
                ...pick(plan.sourcePanel, ['name','description','unit','qty_required','shorttext']),
-               ...plan.mappings, id: testId, price: input.price, iscustom: 0, copy_requires_publication: true,
+               ...mappings, id: testId, price: input.price, iscustom: 0, copy_requires_publication: true,
           });
           await applyTestPanelsAfterInsert(db, { testid: testId, price: input.price, iscustom: 0 });
-          if (plan.details) await db('testdetails').where({ testid: testId }).update(pick(plan.details, DETAILS_COLUMNS));
+          if (plan.details) await db('testdetails').where({ testid: testId }).update({
+               ...pick(plan.details, DETAILS_COLUMNS), useLiterature: Number(plan.details.useLiterature ?? 0),
+          });
+          if (plan.literature.length) await db('setupliteraturereview').insert(plan.literature.map(row => ({
+               testid: testId, literature: row.literature,
+          })));
      }
      const fields = plan.selected.filter(field => plan.rows.some(row => row.id === Number(field.id) && row.status === 'add'));
      const copied = [];
@@ -243,7 +284,7 @@ export class FacilityTestSetupCopy {
           const [source, destination] = await Promise.all([tenantDb(input.sourceTenantId), tenantDb(input.targetTenantId)]);
           const plan = await source.transaction(trx => inspect(trx, destination, input), { readOnly: true });
           return { sourceName: plan.sourcePanel.name, destinationName: plan.destinationPanel?.name ?? null,
-               parameters: plan.rows, blockers: plan.blockers, previewId: plan.fingerprint };
+               parameters: plan.rows, blockers: plan.blockers, warnings: plan.warnings, previewId: plan.fingerprint };
      }
 
      async apply(value: unknown, previewId: unknown, actor: FacilityActor) {
