@@ -10,8 +10,8 @@ export async function labAccessSettings(db: any) {
      return (
           (await db("lab_access_settings").where({ id: 1 }).first()) || {
                visibility: "team",
-               editing: "assigned",
-               allow_claim: true,
+               editing: "team",
+               allow_claim: false,
                version: 1,
           }
      );

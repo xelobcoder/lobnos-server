@@ -17,7 +17,7 @@ function setup(settings: any = {}, assigned = 8) {
           q.response = [
                q.sql.includes("from `test_ascension`")
                     ? [{ id: 1, branchid: 4, assigned_employeeid: assigned }]
-                    : [{ id: 1, visibility: "restricted", editing: "assigned", allow_claim: false, ...settings }],
+                    : [{ id: 1, visibility: "team", editing: "team", allow_claim: false, ...settings }],
                [],
           ];
           return q;
@@ -27,27 +27,32 @@ function setup(settings: any = {}, assigned = 8) {
 beforeEach(() => vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false));
 afterEach(async () => db?.destroy());
 describe("scientist assignment authorization", () => {
+     it("defaults to team access when a facility has not opted into restrictions", async () => {
+          setup();
+          await expect(assertLabTestAccess(db, actor, 1)).resolves.toBeUndefined();
+          await expect(assertLabTestAccess(db, actor, 1, true)).resolves.toBeUndefined();
+     });
      it("denies another scientist private results and edits", async () => {
-          const queries = setup();
+          const queries = setup({ visibility: "restricted", editing: "assigned" });
           await expect(assertLabTestAccess(db, actor, 1)).rejects.toThrow("another scientist");
           await expect(assertLabTestAccess(db, actor, 1, true)).rejects.toThrow("Claim");
           expect(queries[0].sql).toContain("`ta`.`id`");
           expect(queries[0].sql).not.toContain("`test`.`id`");
      });
      it("preserves supervisor and qualified validator read access without granting reviewer edits", async () => {
-          setup();
+          setup({ visibility: "restricted", editing: "assigned" });
           vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true);
           await expect(assertLabTestAccess(db, actor, 1)).resolves.toBeUndefined();
           await expect(assertLabTestAccess(db, actor, 1, true)).rejects.toThrow("Claim");
           await expect(assertLabTestAccess(db, { ...actor, role: "admin" }, 1, true)).resolves.toBeUndefined();
      });
      it("allows team reads and optionally unassigned claiming while keeping edits assigned", async () => {
-          setup({ visibility: "team" });
+          setup({ visibility: "team", editing: "assigned" });
           await expect(assertLabTestAccess(db, actor, 1)).resolves.toBeUndefined();
           await expect(assertLabTestAccess(db, actor, 1, true)).rejects.toThrow("Claim");
      });
      it("scopes queries before pagination without executing or exposing the result builder", async () => {
-          const queries = setup();
+          const queries = setup({ visibility: "restricted", editing: "assigned" });
           const q = db("test_ascension as test").select("test.id");
           await scopeLabWork(q, db, actor, "test.id");
           const compiled = q.limit(25).toSQL();
