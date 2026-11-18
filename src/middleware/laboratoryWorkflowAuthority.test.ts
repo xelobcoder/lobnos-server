@@ -1,6 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
+const mocks = vi.hoisted(() => ({ connection: vi.fn() }));
 vi.mock('./authority', () => ({ getAuthUser: (req: any) => req.authUser }));
-import { requireLaboratoryWorkflowRole, requireResultDeliveryRole } from './laboratoryWorkflowAuthority';
+vi.mock('../database/KnexConnections', () => ({ default: mocks.connection }));
+import { requireLaboratoryWorkflowRole, requireResultDeliveryRole, requireResultEntryRole } from './laboratoryWorkflowAuthority';
 
 describe('laboratory workflow authorization', () => {
     it.each(['patient', 'clinician', 'organization', 'outsourced', 'phlebotomist', 'sonographer'])('rejects %s from processing/results and complete-flow shortcuts', role => {
@@ -25,6 +27,64 @@ describe('laboratory workflow authorization', () => {
             expect(res.status).toHaveBeenCalledWith(actor ? 403 : 401);
             expect(next).not.toHaveBeenCalled();
         }
+    });
+});
+
+describe('shared result-entry authorization', () => {
+    const request = (role: string, branch = 4) => ({
+        query: { tenantId: '9' },
+        body: { testid: 20, ascensionid: 30, employeeid: 999 },
+        authUser: { tenantId: 9, employeeid: 1, branch, role },
+    } as any);
+
+    it('allows a sonographer to edit an ultrasound ordered test in their branch', async () => {
+        const first = vi.fn().mockResolvedValue({ branchid: 4 });
+        const query: any = {
+            join: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            whereRaw: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            first,
+        };
+        mocks.connection.mockResolvedValue(() => query);
+        const req = request('sonographer'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        await requireResultEntryRole(req, res, next);
+        expect(next).toHaveBeenCalledOnce();
+        expect(req.body.employeeid).toBe(1);
+        expect(query.whereRaw).toHaveBeenCalledWith("LOWER(TRIM(department.department)) = 'ultrasound'");
+    });
+
+    it('denies sonographers lab tests, missing orders, and ultrasound from another branch', async () => {
+        for (const order of [undefined, { branchid: 5 }]) {
+            const query: any = {
+                join: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                whereRaw: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                first: vi.fn().mockResolvedValue(order),
+            };
+            mocks.connection.mockResolvedValue(() => query);
+            const next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+            await requireResultEntryRole(request('sonographer'), res, next);
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(next).not.toHaveBeenCalled();
+        }
+    });
+
+    it('keeps sonographers out of non-result laboratory workflow routes', () => {
+        const next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        requireLaboratoryWorkflowRole(request('sonographer'), res, next);
+        expect(res.status).toHaveBeenCalledWith(403);
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    it('preserves the general workflow bypass for super administrators', async () => {
+        mocks.connection.mockClear();
+        const req = request('super_admin'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        await requireResultEntryRole(req, res, next);
+        expect(next).toHaveBeenCalledOnce();
+        expect(req.body.employeeid).toBe(1);
+        expect(mocks.connection).not.toHaveBeenCalled();
     });
 });
 

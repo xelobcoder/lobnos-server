@@ -2,7 +2,7 @@ import { ResultPrintingTrackingController } from "./ResultPrintingTrackingContro
 
 
 import express from "express"
-import { requireLaboratoryWorkflowRole, requireResultDeliveryRole } from "../../middleware/laboratoryWorkflowAuthority";
+import { requireLaboratoryWorkflowRole, requireResultDeliveryRole, requireResultEntryRole } from "../../middleware/laboratoryWorkflowAuthority";
 import { requireTestPanelManagement } from "../../middleware/testPanelAuthority";
 import {
        resultEntry,
@@ -44,7 +44,7 @@ import { getTestTrendsHandler } from "../creator/testTrendsHandler";
 const router = express.Router();
 
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
-router.post("/api/v1/result/entry/customtest", requireLaboratoryWorkflowRole, resultEntry);
+router.post("/api/v1/result/entry/customtest", requireResultEntryRole, resultEntry);
 router.get("/api/v1/testpanel/list/customtestrule/previous", handleOverLoad(getPreviousResultEntryRecordsIfAny));
 router.get("/api/v1/testpanel/list/customtestrule/previous/comments", getResultCommentsHandler);
 router.get("/api/v1/result/entry/customtest/drugs", resultEntryDrugsHandler)
