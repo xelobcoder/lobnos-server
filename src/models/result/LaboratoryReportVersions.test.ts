@@ -1,6 +1,19 @@
 import { expect, it } from 'vitest';
 import { accountingSqlDatabase } from '../../testSupport/accountingSqlDatabase';
-import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, reportVersionMetadata } from './LaboratoryReportVersions';
+import { archiveLaboratoryReport, clinicalReportHash, laboratoryPrintSnapshot, plainLaboratoryText, readReportSnapshot, reportVersionMetadata } from './LaboratoryReportVersions';
+
+it('removes Markdown heading and emphasis markers from report labels', () => {
+     expect(plainLaboratoryText('##### WIDAL TEST')).toBe('WIDAL TEST');
+     expect(plainLaboratoryText('  ### **WIDAL** TEST')).toBe('WIDAL TEST');
+});
+
+it('does not expose amendment history in the printable report snapshot', () => {
+     expect(laboratoryPrintSnapshot({
+          testname: 'WIDAL',
+          records: [],
+          reportVersion: { version: 2, reason: 'Correction', changes: [] },
+     })).toEqual({ testname: 'WIDAL', records: [] });
+});
 
 it('retains the issued original and releases only the amended revision the validator reviewed', async () => {
      const { db, native } = accountingSqlDatabase();

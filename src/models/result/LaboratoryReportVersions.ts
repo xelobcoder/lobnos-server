@@ -5,6 +5,14 @@ import { controlsFail } from '../operations/LabAccessPolicy';
 export const reportVersionTable = 'lab_report_versions';
 export const reportHash = (value: string) => createHash('sha256').update(value).digest('hex');
 
+export function plainLaboratoryText(value: unknown) {
+     return String(value ?? '')
+          .replace(/^[#*_`\s]+/, '')
+          .replace(/[*_`]/g, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+}
+
 export async function assertReportAmendmentSigned(db: any, ascensionid: number, revision: number) {
      const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first('revision');
      if (latest && Number(latest.revision) !== revision) {
@@ -50,6 +58,11 @@ export function reportVersionMetadata(row: any) {
      return { id: row.id, version: row.version_number, revision: row.revision, reason: row.reason,
           signedBy: row.signed_by, signerName: row.signer_name, recordedAt: row.recorded_at,
           changes: row.changes ? JSON.parse(row.changes) : [] };
+}
+
+export function laboratoryPrintSnapshot<T extends Record<string, any>>(snapshot: T): Omit<T, 'reportVersion'> {
+     const { reportVersion: _reportVersion, ...printSnapshot } = snapshot;
+     return printSnapshot;
 }
 
 export async function archiveLaboratoryReport(db: any, ascensionid: number, revision: number, dataset: any,

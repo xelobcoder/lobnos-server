@@ -11,7 +11,7 @@ import TestLiteratureSetup from '../../testpanel/literature';
 import { TestAscension } from '../operations/ascension';
 import { Services } from '../services/services';
 import { assertResultPaymentPolicy } from '../operations/ResultPaymentPolicy';
-import { archiveLaboratoryReport, readReportSnapshot, reportVersionMetadata } from './LaboratoryReportVersions';
+import { archiveLaboratoryReport, laboratoryPrintSnapshot, plainLaboratoryText, readReportSnapshot } from './LaboratoryReportVersions';
 import { encrypt_value } from '../../utils/encryptionModels';
 
 /** Call only after the caller has authorized this patient, bill and ascension. */
@@ -55,7 +55,7 @@ export async function loadLaboratoryReportData(
           patientInformation: await new Registration().getPatientBasicData(tenantId, patientid),
           comments: await creator.getCustomCommentsRecords(tenantId, billingid, testid),
           literatureReview: literature.can !== false ? literature.literature : null,
-          testname: view.testname,
+          testname: plainLaboratoryText(view.testname),
           hasDrugs: view.hasDrugs,
           testInfo: view.testInfo || null,
           testdetailcategory: view.testdetailcategory || null,
@@ -89,5 +89,5 @@ export async function loadReleasedLaboratoryReport(
                ...row, value: encrypt_value(String(row.value ?? '')), originalvalue: encrypt_value(String(row.originalvalue ?? '')),
           }));
      }
-     return { ...snapshot, reportVersion: reportVersionMetadata(archive) };
+     return laboratoryPrintSnapshot(snapshot);
 }
