@@ -30,6 +30,7 @@ import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggi
 import { roleAllowed, normalizeRole } from "../../middleware/roles";
 import { assertLabTestAccess } from "../../models/operations/LabAccessPolicy";
 import { loadReleasedLaboratoryReport } from "../../models/result/LaboratoryReportData";
+import { testpanel } from "../../testpanel/testpanelList";
 import logger from "../../hooks/logger";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
@@ -288,6 +289,13 @@ export const getResultPrintoutHandler = async (request: Request<
 
 
 		const parsedTestId = parseInt(testid.toString());
+		const isUltrasoundPrint = String(isScan).toLowerCase() === "true";
+		if (!isUltrasoundPrint && await testpanel.isTestUltrasoundScanCategory(tenantIdP, parsedTestId)) {
+			return response.status(409).send({
+				status: false,
+				message: "Ultrasound reports must be printed through the ultrasound report view",
+			});
+		}
 		let creator = new Creator(parsedTestId);
 		const { billingid, patientid } = creator.sanitize_patientid_billingid_query(csvid, ptid, target);
 

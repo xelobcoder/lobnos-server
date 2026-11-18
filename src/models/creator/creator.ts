@@ -517,7 +517,10 @@ export default class Creator {
 		const connection = await KnexConnection(tenantId);
 		const query = connection('test_ascension AS ta')
 			.leftJoin('dboservices AS ds', 'ds.serviceid', 'ta.serviceid')
+			.leftJoin('test_panels AS tp', 'tp.id', 'ta.testid')
+			.leftJoin('departments AS dp', 'dp.id', 'tp.category')
 			.where('ta.billingid', billingid)
+			.whereRaw("(dp.department IS NULL OR LOWER(TRIM(dp.department)) <> 'ultrasound')")
 			.select('ta.id');
 
 		if (!allowsUnpaidResultAction(appSettings, 'print')) {
