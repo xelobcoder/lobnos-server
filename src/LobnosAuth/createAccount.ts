@@ -393,6 +393,7 @@ const updateUserBasicInfo = async (body: any, tenantId: number, isUser: boolean 
 
           if (passwordHash) {
                updatePayload.password = passwordHash;
+               updatePayload.password_changed_on = new Date();
           }
 
           const updateCount = await roleRepo.updateRole(targetEmployeeid, updatePayload);

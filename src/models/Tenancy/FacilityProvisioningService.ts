@@ -590,6 +590,7 @@ export class FacilityProvisioningService {
                          login_username: adminUsername,
                          role: "admin",
                          password: passwordHash,
+                         password_changed_on: new Date(),
                          pin: null,
                          pin_hash: null,
                          activation: 1,

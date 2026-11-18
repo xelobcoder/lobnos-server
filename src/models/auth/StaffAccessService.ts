@@ -140,7 +140,7 @@ export class StaffAccessService {
                if(!await trx('branch').where({branchid:branch}).first())throw Error('Location not found');
                if(await trx('roles').where({email}).first())throw Error('A staff account already uses this email. Assign another role to that account instead.');
                if(await trx('roles').where({mobile}).first())throw Error('This mobile number is already linked to a staff account. Assign another role to that account instead.');
-               const [employeeid]=await trx('roles').insert({username,email,mobile,password,pin:null,pin_hash,role,branch,activation:1,emailAuthenticated:'false',access_revision:0});
+               const [employeeid]=await trx('roles').insert({username,email,mobile,password,password_changed_on:new Date(),pin:null,pin_hash,role,branch,activation:1,emailAuthenticated:'false',access_revision:0});
                const login_username=formatLoginUsername(platformId,'staff',Number(employeeid));
                await trx('roles').where({employeeid}).update({login_username});
                await trx('staff_role_access').insert({id:randomUUID(),employeeid,role,branchid:branch,is_default:true,granted_by:this.actor.employeeid});

@@ -19,6 +19,7 @@ import { isMasterSessionActive } from '../models/Tenancy/MasterOwnerSession';
 import { DEVELOPER_SUPPORT_EMAIL } from '../models/Tenancy/DeveloperSessionPolicy';
 import { isSuperAdminRole } from './roles';
 import { staffAccessVersionMatches } from '../models/auth/StaffAccessSchema';
+import { isStaffPasswordExpired, staffPasswordChangeRouteAllowed } from '../models/auth/StaffPasswordPolicy';
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -204,6 +205,15 @@ export const checkTokenExists = async (request: Request, response: Response, nex
 
           const sessionCheck = await verifyStaffSession(decoded, employeeid, tenantId, request, roleRow);
           if (!sessionCheck.ok) return response.status(sessionCheck.statusCode || 401).json(sessionCheck.body);
+          const passwordChangeRequired = isStaffPasswordExpired(roleRow?.password_changed_on);
+          if (passwordChangeRequired && !staffPasswordChangeRouteAllowed(request.method, request.path)) {
+               return response.status(403).json({
+                    status: 'error',
+                    statusCode: 403,
+                    code: 'PASSWORD_CHANGE_REQUIRED',
+                    message: 'Your password has reached its 30-day limit. Update it to continue.',
+               });
+          }
           (request as any).staffClaims = decoded;
 
           (request as any).authUser = {

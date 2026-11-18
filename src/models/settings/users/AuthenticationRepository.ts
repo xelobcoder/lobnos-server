@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import KnexConnection from "../../../database/KnexConnections";
 import { ensureLoginAttemptSecurity, verifyStaffPassword, LoginCooldownError } from '../../auth/LoginAttemptSecurity';
+import { revokePasswordSessions } from '../../auth/passwordSessions';
 
 export default class AuthenticationRepository {
     private connection;
@@ -39,6 +40,32 @@ export default class AuthenticationRepository {
         // Throw after commit so failed attempts survive the rejected login.
         if (result.retryAfter) throw new LoginCooldownError(result.retryAfter);
         return result.user;
+    }
+
+    async changePassword(employeeid: number, currentPassword: string, newPassword: string): Promise<void> {
+        const validNewPassword = requireStrongPassword(newPassword);
+        const connection = await this.connection;
+        await connection.transaction(async trx => {
+            const user = await trx('roles').where({ employeeid }).forUpdate().first();
+            if (!user || Number(user.platform_support) === 1) {
+                throw Object.assign(new Error('Staff account not found'), { statusCode: 404 });
+            }
+            if (typeof currentPassword !== 'string' || !currentPassword ||
+                !(await bcrypt.compare(currentPassword, String(user.password || '')))) {
+                throw Object.assign(new Error('Current password is incorrect'), { statusCode: 401 });
+            }
+            if (await bcrypt.compare(validNewPassword, String(user.password || ''))) {
+                throw Object.assign(new Error('Choose a password you have not used before'), { statusCode: 400 });
+            }
+
+            const changedOn = new Date();
+            await trx('roles').where({ employeeid }).update({
+                password: await bcrypt.hash(validNewPassword, 10),
+                password_changed_on: changedOn,
+                updated_on: changedOn,
+            });
+            await revokePasswordSessions(trx, 'staff', employeeid);
+        });
     }
 
     async generateAccessToken(email: string, claims: Record<string, unknown> = {}, expiresInSeconds?: number): Promise<string> {

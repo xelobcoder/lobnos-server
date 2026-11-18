@@ -22,6 +22,7 @@ import { PatientPortalAccountService } from "../../models/patient-portal/Patient
 import { LoginCooldownError } from '../../models/auth/LoginAttemptSecurity';
 import { verifyPractitionerCredentials } from '../../models/auth/PractitionerLoginSecurity';
 import { recordPortalAudit } from "../../models/patient-portal/PatientPortalAudit";
+import AuthenticationRepository from "../../models/settings/users/AuthenticationRepository";
 
 const recoveryResponse = "If the account and email address are registered, password recovery instructions will be sent.";
 
@@ -193,7 +194,7 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 			const target = await trx('roles').where({ employeeid: targetEmployeeid }).forUpdate().first();
 			if (!target || Number(target.platform_support) === 1) return false;
 			await trx('roles').where({ employeeid: targetEmployeeid })
-				.update({ password: passwordHash, updated_on: new Date() });
+				.update({ password: passwordHash, password_changed_on: new Date(), updated_on: new Date() });
 			await revokePasswordSessions(trx, 'staff', targetEmployeeid);
 			return true;
 		});
@@ -208,6 +209,24 @@ export const resetStaffPasswordHandler = async (req: Request<{}, {}, { employeei
 	} catch (error) {
 		logger.error(error);
 		responseError(res);
+	}
+};
+
+export const changeStaffPasswordHandler = async (req: Request, res: Response) => {
+	try {
+		const actor = getAuthUser(req);
+		if (!actor) return customError('Authentication required', 401, res);
+		const currentPassword = req.body?.currentPassword;
+		const newPassword = req.body?.newPassword;
+		if (typeof currentPassword !== 'string' || typeof newPassword !== 'string') {
+			return customError('Current and new passwords are required', 400, res);
+		}
+		await new AuthenticationRepository(actor.tenantId).changePassword(actor.employeeid, currentPassword, newPassword);
+		return res.status(200).json({ status: 'success', statusCode: 200, message: 'Password updated. Sign in again with your new password.' });
+	} catch (error: any) {
+		if (Number(error?.statusCode)) return customError(error.message, Number(error.statusCode), res);
+		logger.error('[StaffPasswordChange] Password update failed:', error);
+		return customError('Password update failed. Please try again.', 500, res);
 	}
 };
 

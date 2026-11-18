@@ -72,6 +72,7 @@ async function ensureRoleColumns(connection: Knex): Promise<void> {
           { name: 'refresh_token', add: (table) => table.string('refresh_token', 255).nullable() },
           { name: 'activation', add: (table) => table.boolean('activation').notNullable().defaultTo(false) },
           { name: 'updated_on', add: (table) => table.datetime('updated_on', { precision: 6 }).nullable() },
+          { name: 'password_changed_on', add: (table) => table.datetime('password_changed_on', { precision: 6 }).nullable() },
           { name: 'emailAuthenticated', add: (table) => table.string('emailAuthenticated', 6).notNullable().defaultTo('false') },
           { name: 'branch', add: (table) => table.integer('branch').unsigned().nullable() },
           { name: 'mobile', add: (table) => table.string('mobile', 10).nullable() },
@@ -91,6 +92,7 @@ async function ensureRoleColumns(connection: Knex): Promise<void> {
                logger.info(`[Bootstrap] Added missing column roles.${column.name}`);
           }
      }
+     await connection('roles').whereNull('password_changed_on').update({ password_changed_on: connection.fn.now() });
 
      await connection.raw('ALTER TABLE roles MODIFY COLUMN pin INT UNSIGNED NULL DEFAULT NULL');
      const legacyPins = await connection('roles').select('employeeid', 'pin')

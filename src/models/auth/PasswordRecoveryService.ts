@@ -162,6 +162,7 @@ export class PasswordRecoveryService {
                if (entityType === 'staff') {
                     updated = await trx('roles').where({ employeeid: entityId }).update({
                          password: passwordHash,
+                         password_changed_on: new Date(),
                          updated_on: new Date(),
                     });
                } else if (entityType === 'patient') {

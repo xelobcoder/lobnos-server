@@ -16,6 +16,7 @@ import TokenValidator from "../../models/settings/users/TokenValidator";
 import { Request, Response } from "express";
 import { PatientPortalAccountService } from "../../models/patient-portal/PatientPortalAccountService";
 import { LoginCooldownError } from '../../models/auth/LoginAttemptSecurity';
+import { isStaffPasswordExpired } from '../../models/auth/StaffPasswordPolicy';
 export class AuthController {
 	private tokenValidator: TokenValidator;
 
@@ -91,6 +92,7 @@ export class AuthController {
 			res.status(200).json({
 				status: true,
 				accessToken,
+				passwordChangeRequired: isStaffPasswordExpired(user.password_changed_on),
 				tenantId: resolvedTenantId,
 				clientType,
 				...(accessTokenExpiresAt ? { accessTokenExpiresAt } : {}),
@@ -171,6 +173,7 @@ export class AuthController {
 			if (!email) return res.status(401).json({ message: 'Invalid token', status: false });
 			const user = await new RolesRepository(tenantId).getRoleByEmail(email);
 			const { role, username, employeeid, branch } = user;
+			const passwordChangeRequired = isStaffPasswordExpired(user.password_changed_on);
 			// Pharmacy sign-in must not depend on laboratory result configuration.
 			let moduleConfiguration:any=settings?.moduleConfiguration;
 			if(typeof moduleConfiguration==='string')moduleConfiguration=JSON.parse(moduleConfiguration);
@@ -184,6 +187,7 @@ export class AuthController {
 			return res.status(200).json({
 				message: 'Token is valid',
 				status: true,
+				passwordChangeRequired,
 				user: {
 					loginDuration: 6,
 					daysToExpiration: response.developerOwner ? null : daysToExpiry || 0,

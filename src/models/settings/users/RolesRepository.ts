@@ -13,6 +13,7 @@ export interface IEmployee {
 	activation: number;
 	email: string;
 	updated_on?: string | Date,
+	password_changed_on?: string | Date | null,
 	emailAuthenticated: string;
 	branch?: number | null;
 	mobile: string;
@@ -64,7 +65,12 @@ export default class RolesRepository {
 			if (!/^\d{4}$/.test(pin)) throw new Error('Invalid pin');
 			if (!roleData.mobile || typeof roleData.mobile !== 'string' || roleData.mobile.length < 7) throw new Error('Invalid mobile');
 			const connection = await this.connection;
-			const result = await connection(this.tablename).insert({ ...roleData, pin: null, pin_hash: await bcrypt.hash(pin, 10) }).returning('employeeid');
+			const result = await connection(this.tablename).insert({
+				...roleData,
+				password_changed_on: roleData.password_changed_on ?? new Date(),
+				pin: null,
+				pin_hash: await bcrypt.hash(pin, 10),
+			}).returning('employeeid');
 			return result[0];
 		} catch (error: any) {
 			logger.log(error);
@@ -104,9 +110,15 @@ export default class RolesRepository {
 			if (Number(current.platform_support) === 1) throw new Error('The platform manages this developer account');
 			const changingAccess=(roleData.role!==undefined&&roleData.role!==current.role)||(roleData.branch!==undefined&&Number(roleData.branch)!==Number(current.branch));
 			if(changingAccess&&await trx('staff_role_access').where({employeeid:employeeId}).first())throw new Error('Manage this employee’s roles and locations through Staff & role access. Add or remove assignments there.');
-			const changingSession=changingAccess||(roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation));
-			if(roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation))await revokePasswordSessions(trx,'staff',employeeId);
-			return trx(this.tablename).where({employeeid:employeeId}).update({...roleData,...(changingSession?{access_revision:Number(current.access_revision||0)+1}:{})});
+			const changingPassword = roleData.password !== undefined && roleData.password !== current.password;
+			const changingActivation = roleData.activation!==undefined&&Number(roleData.activation)!==Number(current.activation);
+			const changingSession=changingAccess||changingPassword||changingActivation;
+			if (changingActivation || changingPassword) await revokePasswordSessions(trx, 'staff', employeeId);
+			return trx(this.tablename).where({employeeid:employeeId}).update({
+				...roleData,
+				...(changingPassword && roleData.password_changed_on === undefined ? { password_changed_on: new Date() } : {}),
+				...(changingSession ? { access_revision: Number(current.access_revision || 0) + 1 } : {}),
+			});
 		});
 	}
 

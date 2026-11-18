@@ -19,7 +19,7 @@ import { handleOverLoad } from "../../hooks/helper";
 import { PrimeWindowAccessController } from "../settings/PrimeWindowAccessController";
 import PrimeWindowAccessRepository from "../../models/settings/users/PrimeWindowAccessRepository";
 import { resolveLoginTenant } from "../../middleware/resolveLoginTenant";
-import { requestPasswordResetOtp, resetPasswordWithOtp, verifyPasswordResetOtp } from "../logins/authHandlers";
+import { changeStaffPasswordHandler, requestPasswordResetOtp, resetPasswordWithOtp, verifyPasswordResetOtp } from "../logins/authHandlers";
 import { licenseMode } from "../../licensing/storage";
 import { requireOwnerRole } from "../../middleware/authority";
 import { customError } from "../../hooks/helper";
@@ -57,6 +57,7 @@ router.post('/api/v1/prime/login', createRateLimiter({ windowMs: 60_000, max: 12
 router.post('/api/v1/prime/forgotpassword', handleOverLoad(requestPasswordResetOtp));
 router.post('/api/v1/prime/verify-reset-otp', handleOverLoad(verifyPasswordResetOtp));
 router.post('/api/v1/prime/resetpassword', handleOverLoad(resetPasswordWithOtp));
+router.post('/api/v1/prime/change-password', handleOverLoad(checkTokenExists), handleOverLoad(changeStaffPasswordHandler));
 router.get('/api/v1/prime/validate-token', handleOverLoad(checkTokenExists), handleOverLoad(checkLicenseAccess), (req, res) => authController.validateToken(req, res));
 router.post('/api/v1/prime/validate-user-pin', handleOverLoad(checkLicenseAccess), handleOverLoad(checkTokenExists), (req, res) => authController.validateUserPinProvided(req, res));
 router.get('/api/v1/prime/my-roles',checkTokenExists,staffAccess(s=>s.mine()));
