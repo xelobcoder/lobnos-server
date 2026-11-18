@@ -10,6 +10,7 @@ import { OutsourceAssignmentService } from '../../models/operations/OutsourceAss
 import { roleAllowed } from '../../middleware/roles';
 import { assertLabTestAccess, controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
 import { canSignReportAmendment } from '../../models/operations/ReportAmendmentAuthorization';
+import ImagingResultAuditRepository from '../../models/operations/imaging/ImagingResultAuditRepository';
 import { loadLaboratoryReportData } from '../../models/result/LaboratoryReportData';
 import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, reportChanges, reportVersionMetadata, reportVersionTable } from '../../models/result/LaboratoryReportVersions';
 
@@ -39,6 +40,7 @@ async function amendmentPreview(db: any, actor: any, ascensionid: number) {
      if (!latest) return controlsFail('No original report was archived for this result', 409);
      const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
      if (!order) return controlsFail('Ordered test not found', 404);
+     const isUltrasound = await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid));
      if (!await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) {
           return controlsFail('An authorized result validator or an eligible sonographer must sign this amendment', 403);
      }
@@ -46,15 +48,16 @@ async function amendmentPreview(db: any, actor: any, ascensionid: number) {
      let revision = -1;
      const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
      if (revision <= Number(latest.revision)) return controlsFail('There is no newly validated amendment to sign', 409);
-     return { report, revision, reviewHash: clinicalReportHash(report), changes: reportChanges(readReportSnapshot(latest), report) };
+     return { report, revision, reviewHash: clinicalReportHash(report), changes: reportChanges(readReportSnapshot(latest), report), isUltrasound };
 }
 router.get('/reports/:ascensionid/versions', run(async (db, actor, req) => {
      const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
      await assertLabTestAccess(db, actor, ascensionid);
      const rows = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc');
      const approval = await db('dbotestresultapproval').where({ ascensionid }).first();
-     const order = rows.length ? await db('test_ascension').where({ id: ascensionid }).first('testid') : null;
-     return { versions: rows.map(reportVersionMetadata), canSign: Boolean(rows.length &&
+     const order = await db('test_ascension').where({ id: ascensionid }).first('testid');
+     const isUltrasound = Boolean(order && await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid)));
+     return { versions: rows.map(reportVersionMetadata), isUltrasound, canSign: Boolean(rows.length &&
           Number(approval?.approval_revision) > Number(rows[0].revision) && Number(approval?.isapproved) === 1 &&
           !Number(approval?.requires_revalidation) && order &&
           await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) };
@@ -65,7 +68,9 @@ router.get('/reports/:ascensionid/versions/:version', run(async (db, actor, req)
      await assertLabTestAccess(db, actor, ascensionid);
      const row = await db(reportVersionTable).where({ ascensionid, version_number: version }).first();
      if (!row) return controlsFail('Report version not found', 404);
-     return { ...reportVersionMetadata(row), report: readReportSnapshot(row) };
+     const order = await db('test_ascension').where({ id: ascensionid }).first('testid');
+     const isUltrasound = Boolean(order && await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid)));
+     return { ...reportVersionMetadata(row), isUltrasound, report: readReportSnapshot(row) };
 }));
 router.get('/reports/:ascensionid/amendment', run(async (db, actor, req) => {
      const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
