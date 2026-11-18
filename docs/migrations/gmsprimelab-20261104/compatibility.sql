@@ -2384,6 +2384,7 @@ CREATE TABLE IF NOT EXISTS `gmsprimelab`.`lab_access_settings` (
   `visibility` varchar(20) NOT NULL DEFAULT 'team',
   `editing` varchar(20) NOT NULL DEFAULT 'assigned',
   `allow_claim` tinyint(1) NOT NULL DEFAULT '1',
+  `allow_sonographer_amendment_signing` tinyint(1) NOT NULL DEFAULT '0',
   `version` int NOT NULL DEFAULT '1',
   `updated_by` int DEFAULT NULL,
   `updated_at` datetime DEFAULT NULL,

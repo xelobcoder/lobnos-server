@@ -12,6 +12,7 @@ export async function labAccessSettings(db: any) {
                visibility: "team",
                editing: "team",
                allow_claim: false,
+               allow_sonographer_amendment_signing: false,
                version: 1,
           }
      );

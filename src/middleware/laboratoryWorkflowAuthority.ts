@@ -53,7 +53,7 @@ export async function requireResultEntryRole(req: Request, res: Response, next: 
 }
 
 /** Sonographers may validate ultrasound reports only within their assigned branch. */
-export async function requireResultValidationRole(req: Request, res: Response, next: NextFunction) {
+export async function requireResultValidationRole(req: Request, res: Response, next: NextFunction, ascensionIdOverride?: string) {
     const actor = getAuthUser(req);
     if (!actor) return res.status(401).json({ status: 'error', message: 'Authentication required' });
     if (Number(req.query.tenantId) !== Number(actor.tenantId)) {
@@ -63,7 +63,7 @@ export async function requireResultValidationRole(req: Request, res: Response, n
         return requireLaboratoryWorkflowRole(req, res, next);
     }
 
-    const ascensionid = Number(req.query.ascensionid ?? req.body?.ascensionid ?? req.body?.ascensionId);
+    const ascensionid = Number(ascensionIdOverride ?? req.query.ascensionid ?? req.body?.ascensionid ?? req.body?.ascensionId);
     if (!Number.isSafeInteger(ascensionid) || ascensionid <= 0) {
         return res.status(400).json({ status: 'error', message: 'A valid ultrasound order is required' });
     }

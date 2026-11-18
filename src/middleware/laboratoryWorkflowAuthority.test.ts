@@ -111,6 +111,24 @@ describe('ultrasound result-validation authorization', () => {
         expect(query.whereRaw).toHaveBeenCalledWith("LOWER(TRIM(department.department)) = 'ultrasound'");
     });
 
+    it('accepts a routed report ID when validating report-history access', async () => {
+        const query: any = {
+            join: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            whereRaw: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            first: vi.fn().mockResolvedValue({ branchid: 4 }),
+        };
+        mocks.connection.mockResolvedValue(() => query);
+        const req = request('sonographer');
+        delete req.query.ascensionid;
+        const next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        await requireResultValidationRole(req, res, next, '30');
+
+        expect(next).toHaveBeenCalledOnce();
+        expect(query.where).toHaveBeenCalledWith({ 'ta.id': 30 });
+    });
+
     it('denies sonographers outside their branch and leaves other workflow roles unchanged', async () => {
         for (const order of [undefined, { branchid: 5 }]) {
             const query: any = {

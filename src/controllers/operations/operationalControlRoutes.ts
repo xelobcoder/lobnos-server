@@ -2,20 +2,25 @@ import { Router } from 'express';
 import { z } from 'zod';
 import KnexConnection from '../../database/KnexConnections';
 import { getAuthUser } from '../../middleware/authority';
-import { requireLaboratoryWorkflowRole } from '../../middleware/laboratoryWorkflowAuthority';
+import { requireLaboratoryWorkflowRole, requireResultValidationRole } from '../../middleware/laboratoryWorkflowAuthority';
 import { CriticalActionService, controlAudit } from '../../models/operations/CriticalActionService';
 import { OutsourceWorkflowService } from '../../models/operations/OutsourceWorkflowService';
 import { OutsourceRequestService } from '../../models/operations/OutsourceRequestService';
 import { OutsourceAssignmentService } from '../../models/operations/OutsourceAssignmentService';
 import { roleAllowed } from '../../middleware/roles';
 import { assertLabTestAccess, controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
-import ResultSettings from '../../models/application/appsettings/result-settings/resultSettings';
+import { canSignReportAmendment } from '../../models/operations/ReportAmendmentAuthorization';
 import { loadLaboratoryReportData } from '../../models/result/LaboratoryReportData';
 import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, reportChanges, reportVersionMetadata, reportVersionTable } from '../../models/result/LaboratoryReportVersions';
 
 const router = Router();
 router.use((req, res, next) => {
      const actor = getAuthUser(req);
+     const reportRoute = req.path.match(/^\/reports\/(\d+)(?:\/versions(?:\/\d+)?|\/amendment)$/);
+     if (reportRoute && actor && roleAllowed(actor.role, ['sonographer']) &&
+          Number(req.query.tenantId) === Number(actor.tenantId)) {
+          return requireResultValidationRole(req, res, next, reportRoute[1]);
+     }
      const samplingOutsource = /^(?:\/billing\/\d+\/outsourcing|\/tests\/\d+\/outsourcing|\/outsourcing\/\d+\/requests(?:\/\d+)?)$/.test(req.path);
      if (samplingOutsource && actor && ['GET', 'PUT', 'POST'].includes(req.method) &&
           roleAllowed(actor.role, ['phlebotomist', 'phelobotomist']) && Number(req.query.tenantId) === Number(actor.tenantId)) {
@@ -30,10 +35,13 @@ const run = (operation: (db: any, actor: any, req: any) => Promise<any>) => asyn
      catch (error: any) { const status = error.name === 'ZodError' ? 400 : Number(error.statusCode) || 500; res.status(status).json({ success: false, message: status === 500 ? 'Laboratory control operation failed' : error.name === 'ZodError' ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ') : error.message }); }
 };
 async function amendmentPreview(db: any, actor: any, ascensionid: number) {
-     if (!await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) return controlsFail('An authorized result validator must sign this amendment', 403);
      const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first();
      if (!latest) return controlsFail('No original report was archived for this result', 409);
      const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
+     if (!order) return controlsFail('Ordered test not found', 404);
+     if (!await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) {
+          return controlsFail('An authorized result validator or an eligible sonographer must sign this amendment', 403);
+     }
      const bill = await db('billing').where({ billingid: order.billingid }).first('patientid');
      let revision = -1;
      const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
@@ -45,9 +53,11 @@ router.get('/reports/:ascensionid/versions', run(async (db, actor, req) => {
      await assertLabTestAccess(db, actor, ascensionid);
      const rows = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc');
      const approval = await db('dbotestresultapproval').where({ ascensionid }).first();
+     const order = rows.length ? await db('test_ascension').where({ id: ascensionid }).first('testid') : null;
      return { versions: rows.map(reportVersionMetadata), canSign: Boolean(rows.length &&
           Number(approval?.approval_revision) > Number(rows[0].revision) && Number(approval?.isapproved) === 1 &&
-          !Number(approval?.requires_revalidation) && await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) };
+          !Number(approval?.requires_revalidation) && order &&
+          await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) };
 }));
 router.get('/reports/:ascensionid/versions/:version', run(async (db, actor, req) => {
      const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
@@ -80,7 +90,8 @@ router.post('/reports/:ascensionid/amendment', run(async (db, actor, req) => {
 router.get('/settings', run(async (db, actor) => ({ ...(await db('lab_access_settings').where({ id: 1 }).first()), can_manage: labSupervisor(actor) })));
 router.put('/settings', run(async (db, actor, req) => {
      if (!labSupervisor(actor)) return controlsFail('Only supervisors can change laboratory access settings', 403);
-     const data = z.object({ visibility: z.enum(['team', 'restricted']), editing: z.enum(['team', 'assigned']), allow_claim: z.boolean(), version: z.number().int().positive(), reason: z.string().trim().min(3).max(2000) }).parse(req.body);
+     const data = z.object({ visibility: z.enum(['team', 'restricted']), editing: z.enum(['team', 'assigned']), allow_claim: z.boolean(),
+          allow_sonographer_amendment_signing: z.boolean().optional(), version: z.number().int().positive(), reason: z.string().trim().min(3).max(2000) }).parse(req.body);
      return db.transaction(async (trx: any) => {
           const old = await trx('lab_access_settings').where({ id: 1 }).forUpdate().first();
           if (Number(old.version) !== data.version) return controlsFail('Settings changed. Reload before saving.', 409);
