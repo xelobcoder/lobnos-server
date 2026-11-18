@@ -7,16 +7,19 @@ export const controlsFail = (message: string, statusCode = 400): never => {
 };
 export const labSupervisor = (actor: { role: string }) => roleAllowed(actor.role, ["admin", "manager"]);
 export async function labAccessSettings(db: any) {
-     return (
-          (await db("lab_access_settings").where({ id: 1 }).first()) || {
-               visibility: "team",
-               editing: "team",
-               allow_claim: false,
-               allow_sonographer_amendment_signing: false,
-               version: 1,
-          }
-     );
+     const stored = await db("lab_access_settings").where({ id: 1 }).first();
+     return {
+          visibility: "team",
+          editing: "team",
+          allow_claim: false,
+          allow_sonographer_amendment_signing: false,
+          version: 1,
+          ...stored,
+          require_amendment_signoff: stored?.require_amendment_signoff ?? true,
+     };
 }
+export const reportAmendmentSignoffRequired = (settings: { require_amendment_signoff?: unknown }) =>
+     settings.require_amendment_signoff == null || Number(settings.require_amendment_signoff) === 1;
 export async function assertLabTestAccess(
      db: any,
      actor: AuthUser,

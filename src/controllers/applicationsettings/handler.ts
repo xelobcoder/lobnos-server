@@ -31,13 +31,15 @@ export const getApplicationSettings = async (req: Request<{ target: string }, {}
 		const tenantId = parseInt(req.query.tenantId.toString())
 		const result = await appsettings.getAllAppSettings(tenantId);
 		if (result && target) {
-			if (result[target] !== undefined) {
-				response.send({ statusCode: 200, status: "success", [target]: result[target] });
-			} else {
-				response.send({ statusCode: 404, status: "error", message: `${target} not found` });
+			const settingKey = Object.keys(result).find(
+				(key): key is keyof ApplicationSettingsData => key === target,
+			);
+			if (settingKey === undefined || result[settingKey] === undefined) {
+				return response.send({ statusCode: 404, status: "error", message: `${target} not found` });
 			}
+			return response.send({ statusCode: 200, status: "success", [target]: result[settingKey] });
 		}
-		response.send({ statusCode: 200, status: "success", result });
+		return response.send({ statusCode: 200, status: "success", result });
 	} catch (err) {
 		responseError(response);
 	}
@@ -283,13 +285,14 @@ export const TableFiltering = async (request: Request<{ tablename: string }, {},
 		if (!tablename.tablename || !value || value.trim().length <= 0 || isNaN(limit)) {
 			return customError(OperationsFailures.invalidRequestParams, 404, response);
 		}
-		const columnName = original && original.trim().length > 0 && original.trim() != "undefined" ? original : null
+		const columnName: string =
+			original && original.trim().length > 0 && original.trim() != "undefined" ? original : '';
 		const tenantIdP: number = parseInt(request.query.tenantId as string, 10);
 		const result = await TiifuWorkingClass.filterDatabaseTable(tenantIdP,
 			tablename.tablename, columnName, value, parseInt(limit.toString()));
 		response.send(result)
 	} catch (err) {
-		if (err && err?.code == OperationsFailures.ER_NO_SUCH_TABLE) {
+		if (typeof err === "object" && err !== null && "code" in err && err.code === OperationsFailures.ER_NO_SUCH_TABLE) {
 			response.send({ status: false, message: OperationsFailures.ER_NO_SUCH_TABLE })
 		} else {
 			responseError(response);
@@ -303,11 +306,14 @@ export const columnFiltering = async (request: Request<{ column: string }>, resp
 		const tablename = request.params;
 		const { tenantId } = request.query
 		if (tablename.column && typeof tablename.column === "string" && tablename.column.trim().length > 0) {
-			const tenantIdP: number = parseInt(tenantId.toString(), 10);
+			if (typeof tenantId !== "string" || !/^\d+$/.test(tenantId)) {
+				return customError(OperationsFailures.invalidResquestQuery, 400, response);
+			}
+			const tenantIdP = parseInt(tenantId, 10);
 
 			let columns = await TiifuWorkingClass.getTableColumns(tenantIdP, tablename.column);
 			if (columns.length > 0) {
-				columns = columns.map((item) => ({
+				columns = columns.map((item: { Field: string }) => ({
 					value: item.Field,
 					field: item.Field.replace(/[^\w\s]|_/g, ' ')
 				}));
@@ -487,6 +493,7 @@ export const removePendingNonPaidServicesHandler = async (req: Request, res: Res
 		const { billingid, serviceid, employeeid } = req.body;
 		const actor = getAuthUser(req);
 		if (!actor || actor.tenantId !== tenantId) return res.status(403).json({ status: false, message: 'Billing access denied' });
+		if (actor.branch == null) return res.status(403).json({ status: false, message: 'Use your assigned billing branch' });
 		const result = await SubmitCustomerBilling.removePendingNonPaidServices({ tenantId, billingid, serviceid, employeeid: actor.employeeid, branchid: actor.branch });
 
 		if (typeof result === 'string') return res.status(400).json({ success: false, message: result });

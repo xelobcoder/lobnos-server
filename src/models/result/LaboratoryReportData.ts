@@ -11,6 +11,7 @@ import TestLiteratureSetup from '../../testpanel/literature';
 import { TestAscension } from '../operations/ascension';
 import { Services } from '../services/services';
 import { assertResultPaymentPolicy } from '../operations/ResultPaymentPolicy';
+import { labAccessSettings, reportAmendmentSignoffRequired } from '../operations/LabAccessPolicy';
 import { archiveLaboratoryReport, laboratoryPrintSnapshot, plainLaboratoryText, readReportSnapshot } from './LaboratoryReportVersions';
 import { encrypt_value } from '../../utils/encryptionModels';
 
@@ -82,7 +83,8 @@ export async function loadReleasedLaboratoryReport(
      let revision = -1;
      const dataset = await loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionId, true, channel, value => { revision = value; });
      const db = await KnexConnection(tenantId);
-     const archive = await archiveLaboratoryReport(db, ascensionId, revision, dataset, channel);
+     const requireSignoff = reportAmendmentSignoffRequired(await labAccessSettings(db));
+     const archive = await archiveLaboratoryReport(db, ascensionId, revision, dataset, channel, undefined, requireSignoff);
      const snapshot = readReportSnapshot(archive) as resultPrintOutDataset;
      if (!decrypt && Array.isArray(snapshot.records)) {
           snapshot.records = snapshot.records.map((row: any) => ({

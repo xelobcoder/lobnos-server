@@ -37,7 +37,7 @@ describe('shared result-entry authorization', () => {
         authUser: { tenantId: 9, employeeid: 1, branch, role },
     } as any);
 
-    it('allows a sonographer to edit an ultrasound ordered test in their branch', async () => {
+    it('allows the Sonography role to edit an ultrasound order in its branch', async () => {
         const first = vi.fn().mockResolvedValue({ branchid: 4 });
         const query: any = {
             join: vi.fn().mockReturnThis(),
@@ -47,11 +47,14 @@ describe('shared result-entry authorization', () => {
             first,
         };
         mocks.connection.mockResolvedValue(() => query);
-        const req = request('sonographer'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        const req = request('Sonography'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
         await requireResultEntryRole(req, res, next);
         expect(next).toHaveBeenCalledOnce();
         expect(req.body.employeeid).toBe(1);
-        expect(query.whereRaw).toHaveBeenCalledWith("LOWER(TRIM(department.department)) = 'ultrasound'");
+        expect(query.whereRaw).toHaveBeenCalledWith(
+            "(LOWER(department.department) LIKE ? OR LOWER(department.department) LIKE ?)",
+            ["%ultrasound%", "%sonograph%"],
+        );
     });
 
     it('denies sonographers lab tests, missing orders, and ultrasound from another branch', async () => {
@@ -95,7 +98,7 @@ describe('ultrasound result-validation authorization', () => {
         authUser: { tenantId: 9, employeeid: 1, branch, role },
     } as any);
 
-    it('allows a sonographer to validate an ultrasound result within their branch', async () => {
+    it('allows the Sonography role to validate an ultrasound result within its branch', async () => {
         const query: any = {
             join: vi.fn().mockReturnThis(),
             where: vi.fn().mockReturnThis(),
@@ -104,11 +107,14 @@ describe('ultrasound result-validation authorization', () => {
             first: vi.fn().mockResolvedValue({ branchid: 4 }),
         };
         mocks.connection.mockResolvedValue(() => query);
-        const req = request('sonographer'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        const req = request('Sonography'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
         await requireResultValidationRole(req, res, next);
         expect(next).toHaveBeenCalledOnce();
         expect(req.body.employeeid).toBe(1);
-        expect(query.whereRaw).toHaveBeenCalledWith("LOWER(TRIM(department.department)) = 'ultrasound'");
+        expect(query.whereRaw).toHaveBeenCalledWith(
+            "(LOWER(department.department) LIKE ? OR LOWER(department.department) LIKE ?)",
+            ["%ultrasound%", "%sonograph%"],
+        );
     });
 
     it('accepts a routed report ID when validating report-history access', async () => {

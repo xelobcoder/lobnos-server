@@ -2,6 +2,7 @@ import { NextFunction, Request, Response } from 'express';
 import { getAuthUser } from './authority';
 import { normalizeRole, roleAllowed } from './roles';
 import KnexConnection from '../database/KnexConnections';
+import { ultrasoundDepartmentCondition } from '../models/operations/imaging/ImagingResultAuditRepository';
 
 /** Bypass configuration never confers permission or lets callers impersonate staff. */
 export function requireLaboratoryWorkflowRole(req: Request, res: Response, next: NextFunction) {
@@ -33,13 +34,14 @@ export async function requireResultEntryRole(req: Request, res: Response, next: 
     }
 
     try {
+        const ultrasound = ultrasoundDepartmentCondition('department.department');
         const db = await KnexConnection(actor.tenantId);
         const order = await db('test_ascension as ta')
             .join('billing as bill', 'bill.billingid', 'ta.billingid')
             .join('test_panels as panel', 'panel.id', 'ta.testid')
             .join('departments as department', 'department.id', 'panel.category')
             .where({ 'ta.id': ascensionid, 'ta.testid': testid })
-            .whereRaw("LOWER(TRIM(department.department)) = 'ultrasound'")
+            .whereRaw(ultrasound.sql, ultrasound.bindings)
             .select('bill.branchid')
             .first();
         if (!order || actor.branch == null || Number(order.branchid) !== Number(actor.branch)) {
@@ -69,13 +71,14 @@ export async function requireResultValidationRole(req: Request, res: Response, n
     }
 
     try {
+        const ultrasound = ultrasoundDepartmentCondition('department.department');
         const db = await KnexConnection(actor.tenantId);
         const order = await db('test_ascension as ta')
             .join('billing as bill', 'bill.billingid', 'ta.billingid')
             .join('test_panels as panel', 'panel.id', 'ta.testid')
             .join('departments as department', 'department.id', 'panel.category')
             .where({ 'ta.id': ascensionid })
-            .whereRaw("LOWER(TRIM(department.department)) = 'ultrasound'")
+            .whereRaw(ultrasound.sql, ultrasound.bindings)
             .select('bill.branchid')
             .first();
         if (!order || actor.branch == null || Number(order.branchid) !== Number(actor.branch)) {

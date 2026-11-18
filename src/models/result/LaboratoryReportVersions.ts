@@ -1,6 +1,6 @@
 import { createHash } from 'crypto';
 import { assertReportRevision } from '../operations/ResultReleaseGuard';
-import { controlsFail } from '../operations/LabAccessPolicy';
+import { controlsFail, labAccessSettings, reportAmendmentSignoffRequired } from '../operations/LabAccessPolicy';
 
 export const reportVersionTable = 'lab_report_versions';
 export const reportHash = (value: string) => createHash('sha256').update(value).digest('hex');
@@ -14,6 +14,7 @@ export function plainLaboratoryText(value: unknown) {
 }
 
 export async function assertReportAmendmentSigned(db: any, ascensionid: number, revision: number) {
+     if (!reportAmendmentSignoffRequired(await labAccessSettings(db))) return;
      const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first('revision');
      if (latest && Number(latest.revision) !== revision) {
           return controlsFail('This amended report requires electronic sign-off before delivery', 409);
@@ -66,7 +67,8 @@ export function laboratoryPrintSnapshot<T extends Record<string, any>>(snapshot:
 }
 
 export async function archiveLaboratoryReport(db: any, ascensionid: number, revision: number, dataset: any,
-     channel: 'print' | 'release', signer?: { id: number; name: string; reason: string; reviewHash: string }) {
+     channel: 'print' | 'release', signer?: { id: number; name: string; reason: string; reviewHash: string },
+     requireSignoff = true) {
      return db.transaction(async (trx: any) => {
           await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
           await assertReportRevision(trx, ascensionid, revision, channel);
@@ -75,7 +77,7 @@ export async function archiveLaboratoryReport(db: any, ascensionid: number, revi
                if (signer) return controlsFail('This revision is already on record', 409);
                return latest;
           }
-          if (latest && !signer) return controlsFail('This amended report requires electronic sign-off before release', 409);
+          if (latest && !signer && requireSignoff) return controlsFail('This amended report requires electronic sign-off before release', 409);
           if (signer && (!latest || clinicalReportHash(dataset) !== signer.reviewHash)) {
                return controlsFail('The report to sign changed. Reload and review the amendment.', 409);
           }

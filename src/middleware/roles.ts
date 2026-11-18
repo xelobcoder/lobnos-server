@@ -1,5 +1,8 @@
 /** "Super Admin", "super_admin", "super-admin" and "superadmin" all mean the same role. */
-export const normalizeRole = (role: unknown): string => String(role ?? '').toLowerCase().replace(/[\s_-]/g, '');
+export const normalizeRole = (role: unknown): string => {
+     const normalized = String(role ?? '').toLowerCase().replace(/[\s_-]/g, '');
+     return normalized === 'sonography' ? 'sonographer' : normalized;
+};
 
 export const isSuperAdminRole = (role: unknown): boolean => normalizeRole(role) === 'superadmin';
 

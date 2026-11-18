@@ -12,7 +12,7 @@ vi.mock('../../../utils/encryptionModels', () => ({
 }));
 
 import ImagingResultAuditRepository, {
-     IMAGING_AUDIT_TABLE, imagingDepartmentCondition, resolveActorEmployeeId,
+     IMAGING_AUDIT_TABLE, imagingDepartmentCondition, resolveActorEmployeeId, ultrasoundDepartmentCondition,
 } from './ImagingResultAuditRepository';
 import ImagingAnalyticsController, { ImagingAuditController, validateDateRange } from '../../../controllers/operations/ImagingAnalyticsController';
 
@@ -84,6 +84,13 @@ describe('ImagingResultAuditRepository', () => {
           const { sql, bindings } = imagingDepartmentCondition('dp.department');
           expect(sql.match(/\?/g)?.length).toBe(bindings.length);
           expect(bindings).toContain('%ultrasound%');
+     });
+
+     it('classifies ultrasound and sonography department labels for report workflows', () => {
+          expect(ultrasoundDepartmentCondition('dp.department')).toEqual({
+               sql: '(LOWER(dp.department) LIKE ? OR LOWER(dp.department) LIKE ?)',
+               bindings: ['%ultrasound%', '%sonograph%'],
+          });
      });
 
      it('resolveActorEmployeeId prefers the token user over client input', () => {

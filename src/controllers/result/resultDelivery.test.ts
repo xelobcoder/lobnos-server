@@ -44,6 +44,20 @@ describe('result delivery reconciliation', () => {
           await delivery.updateResultDeliveryLog({ ...entry(), delivered_mode: 'whatapp' });
           expect(store.rows('result_delivery_attempts').map(row => row.delivered_mode)).toEqual(['hardcopy', 'whatapp']);
      });
+     it('allows delivery of a revalidated amendment when facility sign-off is disabled', async () => {
+          const store = transactionalDatabase({
+               billing: [{ billingid: 2, branchid: 4 }],
+               test_ascension: [{ id: 1, billingid: 2, resultEntryEnd: new Date() }],
+               dbotestresultapproval: [{ ascensionid: 1, isapproved: 1, approval_revision: 2 }],
+               lab_access_settings: [{ id: 1, require_amendment_signoff: 0 }],
+               lab_report_versions: [{ id: 1, ascensionid: 1, revision: 1 }],
+          });
+          vi.mocked(KnexConnection).mockResolvedValue(store.db);
+          const delivery = new ResultDeliveryClass(2, 1, 4);
+
+          await expect(delivery.updateResultDeliveryLog(entry())).resolves.toBe(1);
+          expect(store.rows('result_delivery_log')).toHaveLength(1);
+     });
      it('reads actual approval and includes imaging orders with no approval row in SMS readiness', async () => {
           const db = knex({ client: 'mysql2' }); let statement: any;
           vi.spyOn(db.client, 'runner').mockImplementation((builder: any) => ({ run: async () => {

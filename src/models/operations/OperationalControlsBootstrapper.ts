@@ -16,6 +16,7 @@ export async function ensureOperationalControls(db: Knex) {
                t.string("editing", 20).notNullable().defaultTo("team");
                t.boolean("allow_claim").notNullable().defaultTo(false);
                t.boolean("allow_sonographer_amendment_signing").notNullable().defaultTo(false);
+               t.boolean("require_amendment_signoff").notNullable().defaultTo(true);
                t.integer("version").notNullable().defaultTo(1);
                t.integer("updated_by").nullable();
                t.datetime("updated_at").nullable();
@@ -23,6 +24,10 @@ export async function ensureOperationalControls(db: Knex) {
      if (!(await db.schema.hasColumn("lab_access_settings", "allow_sonographer_amendment_signing")))
           await db.schema.alterTable("lab_access_settings", (t) =>
                t.boolean("allow_sonographer_amendment_signing").notNullable().defaultTo(false),
+          );
+     if (!(await db.schema.hasColumn("lab_access_settings", "require_amendment_signoff")))
+          await db.schema.alterTable("lab_access_settings", (t) =>
+               t.boolean("require_amendment_signoff").notNullable().defaultTo(true),
           );
      await db("lab_access_settings").insert({ id: 1 }).onConflict("id").ignore();
      await db("lab_access_settings")

@@ -45,6 +45,13 @@ export function imagingDepartmentCondition(column: string): { sql: string; bindi
      return { sql, bindings: IMAGING_DEPARTMENT_KEYWORDS.map((keyword) => `%${keyword}%`) };
 }
 
+export function ultrasoundDepartmentCondition(column: string): { sql: string; bindings: string[] } {
+     return {
+          sql: `(LOWER(${column}) LIKE ? OR LOWER(${column}) LIKE ?)`,
+          bindings: ["%ultrasound%", "%sonograph%"],
+     };
+}
+
 export async function createImagingAuditTable(knex: any): Promise<void> {
      if (await knex.schema.hasTable(IMAGING_AUDIT_TABLE)) return;
      await knex.schema.createTable(IMAGING_AUDIT_TABLE, (table: any) => {
@@ -164,10 +171,11 @@ export default class ImagingResultAuditRepository {
      }
 
      static async isUltrasoundTest(db: any, testid: number): Promise<boolean> {
+          const condition = ultrasoundDepartmentCondition("dp.department");
           const row = await db("test_panels as tp")
                .innerJoin("departments as dp", "dp.id", "tp.category")
                .where("tp.id", testid)
-               .whereRaw("LOWER(TRIM(dp.department)) = 'ultrasound'")
+               .whereRaw(condition.sql, condition.bindings)
                .first("tp.id");
           return Boolean(row);
      }

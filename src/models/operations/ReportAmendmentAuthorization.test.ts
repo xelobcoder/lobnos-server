@@ -35,6 +35,10 @@ describe('report amendment signing authorization', () => {
           expect(ImagingResultAuditRepository.isResultAuthor).toHaveBeenCalledWith({}, 10, 20, 7);
      });
 
+     it('recognizes the Sonography role alias for amendment signing', async () => {
+          await expect(canSignReportAmendment({}, { ...actor, role: 'Sonography' }, 10, 20)).resolves.toBe(true);
+     });
+
      it('keeps sonographer signing disabled unless the facility opts in', async () => {
           vi.mocked(labAccessSettings).mockResolvedValue({ allow_sonographer_amendment_signing: false } as any);
           await expect(canSignReportAmendment({}, actor, 10, 20)).resolves.toBe(false);

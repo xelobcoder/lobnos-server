@@ -8,7 +8,7 @@ import { OutsourceWorkflowService } from '../../models/operations/OutsourceWorkf
 import { OutsourceRequestService } from '../../models/operations/OutsourceRequestService';
 import { OutsourceAssignmentService } from '../../models/operations/OutsourceAssignmentService';
 import { roleAllowed } from '../../middleware/roles';
-import { assertLabTestAccess, controlsFail, labSupervisor } from '../../models/operations/LabAccessPolicy';
+import { assertLabTestAccess, controlsFail, labAccessSettings, labSupervisor, reportAmendmentSignoffRequired } from '../../models/operations/LabAccessPolicy';
 import { canSignReportAmendment } from '../../models/operations/ReportAmendmentAuthorization';
 import ImagingResultAuditRepository from '../../models/operations/imaging/ImagingResultAuditRepository';
 import { loadLaboratoryReportData } from '../../models/result/LaboratoryReportData';
@@ -36,6 +36,9 @@ const run = (operation: (db: any, actor: any, req: any) => Promise<any>) => asyn
      catch (error: any) { const status = error.name === 'ZodError' ? 400 : Number(error.statusCode) || 500; res.status(status).json({ success: false, message: status === 500 ? 'Laboratory control operation failed' : error.name === 'ZodError' ? error.issues.map((i: any) => `${i.path.join('.')}: ${i.message}`).join('; ') : error.message }); }
 };
 async function amendmentPreview(db: any, actor: any, ascensionid: number) {
+     if (!reportAmendmentSignoffRequired(await labAccessSettings(db))) {
+          return controlsFail('Amendment sign-off is disabled for this facility', 409);
+     }
      const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first();
      if (!latest) return controlsFail('No original report was archived for this result', 409);
      const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
@@ -57,7 +60,8 @@ router.get('/reports/:ascensionid/versions', run(async (db, actor, req) => {
      const approval = await db('dbotestresultapproval').where({ ascensionid }).first();
      const order = await db('test_ascension').where({ id: ascensionid }).first('testid');
      const isUltrasound = Boolean(order && await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid)));
-     return { versions: rows.map(reportVersionMetadata), isUltrasound, canSign: Boolean(rows.length &&
+     const requireAmendmentSignoff = reportAmendmentSignoffRequired(await labAccessSettings(db));
+     return { versions: rows.map(reportVersionMetadata), isUltrasound, requireAmendmentSignoff, canSign: requireAmendmentSignoff && Boolean(rows.length &&
           Number(approval?.approval_revision) > Number(rows[0].revision) && Number(approval?.isapproved) === 1 &&
           !Number(approval?.requires_revalidation) && order &&
           await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) };
@@ -96,7 +100,8 @@ router.get('/settings', run(async (db, actor) => ({ ...(await db('lab_access_set
 router.put('/settings', run(async (db, actor, req) => {
      if (!labSupervisor(actor)) return controlsFail('Only supervisors can change laboratory access settings', 403);
      const data = z.object({ visibility: z.enum(['team', 'restricted']), editing: z.enum(['team', 'assigned']), allow_claim: z.boolean(),
-          allow_sonographer_amendment_signing: z.boolean().optional(), version: z.number().int().positive(), reason: z.string().trim().min(3).max(2000) }).parse(req.body);
+          allow_sonographer_amendment_signing: z.boolean().optional(), require_amendment_signoff: z.boolean().optional(),
+          version: z.number().int().positive(), reason: z.string().trim().min(3).max(2000) }).parse(req.body);
      return db.transaction(async (trx: any) => {
           const old = await trx('lab_access_settings').where({ id: 1 }).forUpdate().first();
           if (Number(old.version) !== data.version) return controlsFail('Settings changed. Reload before saving.', 409);
