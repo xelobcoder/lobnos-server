@@ -222,11 +222,14 @@ export const updateResultSettings = (req: Request, res: Response) => {
 
 
 
-export const validateUserRole = async (employeeid: string | string[], tenantId: number): Promise<boolean> => {
+export const validateUserRole = async (
+	employeeid: string | string[],
+	tenantId: number,
+	validRoles: string[] = ["manager", "admin", "scientist"],
+): Promise<boolean> => {
 	const parsedEmployeeid = parseInt(employeeid.toString());
 	const parsedTenantId = parseInt(tenantId.toString());
 	const role = await new User(null, null, null, null, null).getUserRole(parsedEmployeeid, parsedTenantId);
-	const validRoles = ["manager", "admin", "scientist"];
 	return roleAllowed(role, validRoles);
 };
 
@@ -240,7 +243,7 @@ export const resultEntrySettingsHandler = async (request: Request<{}, {}, {}, { 
 
 		if (!employeeid) return handleInvalidRequest(response);
 
-		if (!(await validateUserRole(employeeid as any, parseInt(tenantId.toString())))) {
+		if (!(await validateUserRole(employeeid as any, parseInt(tenantId.toString()), ["manager", "admin", "scientist", "sonographer"]))) {
 			response.send({ status: false, message: OperationsFailures.dontHavePermission });
 		} else {
 			const settings = await ResultSettings.getResultEntrySettings(parseInt(tenantId.toString()));
