@@ -30,6 +30,7 @@ import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggi
 import { roleAllowed, normalizeRole } from "../../middleware/roles";
 import { assertLabTestAccess } from "../../models/operations/LabAccessPolicy";
 import { loadReleasedLaboratoryReport } from "../../models/result/LaboratoryReportData";
+import { loadLaboratoryReportBatch } from "../../models/result/LaboratoryReportBatch";
 import { testpanel } from "../../testpanel/testpanelList";
 import logger from "../../hooks/logger";
 
@@ -398,14 +399,17 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 					patientid: null,
 					billingid: null,
 					logourl: null,
-					generalComments: ''
+					generalComments: '',
+					skippedTests: [] as { ascensionid: number; testid: number }[],
 				}
 
-				finalResult.test = await Promise.all(qualifiedForPrintOut.map(async ({ testid, ascensionid }) =>
+				const reportBatch = await loadLaboratoryReportBatch(qualifiedForPrintOut, ({ testid, ascensionid }) =>
 					loadReleasedLaboratoryReport(tenantIdP, Number(patientid), Number(billingid), Number(testid), Number(ascensionid), browserMode),
-				));
+				);
+				finalResult.test = reportBatch.reports;
+				finalResult.skippedTests = reportBatch.skippedTests;
 
-				const distinctTestIds = Array.from(new Set(qualifiedForPrintOut.map((item: any) => item?.testid).filter(Boolean)));
+				const distinctTestIds = Array.from(new Set(reportBatch.includedEntries.map((item) => item?.testid).filter(Boolean)));
 				// Only apply a per-test report override when the whole batch is a single test; mixed-test batches use the general settings.
 				const resultsettings = distinctTestIds.length === 1
 					? await TestReportSettings.resolve(tenantIdP, distinctTestIds[0])

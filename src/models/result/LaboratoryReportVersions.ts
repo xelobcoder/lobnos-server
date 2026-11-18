@@ -4,6 +4,11 @@ import { controlsFail, labAccessSettings, reportAmendmentSignoffRequired } from 
 
 export const reportVersionTable = 'lab_report_versions';
 export const reportHash = (value: string) => createHash('sha256').update(value).digest('hex');
+export const REPORT_AMENDMENT_SIGNOFF_REQUIRED_CODE = 'REPORT_AMENDMENT_SIGNOFF_REQUIRED';
+
+function amendmentSignoffRequiredError(message: string) {
+     return Object.assign(new Error(message), { statusCode: 409, code: REPORT_AMENDMENT_SIGNOFF_REQUIRED_CODE });
+}
 
 export function plainLaboratoryText(value: unknown) {
      return String(value ?? '')
@@ -17,7 +22,7 @@ export async function assertReportAmendmentSigned(db: any, ascensionid: number, 
      if (!reportAmendmentSignoffRequired(await labAccessSettings(db))) return;
      const latest = await db(reportVersionTable).where({ ascensionid }).orderBy('version_number', 'desc').first('revision');
      if (latest && Number(latest.revision) !== revision) {
-          return controlsFail('This amended report requires electronic sign-off before delivery', 409);
+          throw amendmentSignoffRequiredError('This amended report requires electronic sign-off before delivery');
      }
 }
 
@@ -77,7 +82,8 @@ export async function archiveLaboratoryReport(db: any, ascensionid: number, revi
                if (signer) return controlsFail('This revision is already on record', 409);
                return latest;
           }
-          if (latest && !signer && requireSignoff) return controlsFail('This amended report requires electronic sign-off before release', 409);
+          if (latest && !signer && requireSignoff)
+               throw amendmentSignoffRequiredError('This amended report requires electronic sign-off before release');
           if (signer && (!latest || clinicalReportHash(dataset) !== signer.reviewHash)) {
                return controlsFail('The report to sign changed. Reload and review the amendment.', 409);
           }
