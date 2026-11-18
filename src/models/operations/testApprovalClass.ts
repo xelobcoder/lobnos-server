@@ -46,8 +46,9 @@ export class TestApprovalClass extends Operations {
           branchid?: number | null,
           expectedRevision?: number,
           deltaAcknowledgementReason?: string,
+          actorRole?: string,
      ): Promise<boolean | string> {
-          return new ResultApprovalService(tenantId).approve(ascensionid, approvedBy, branchid, expectedRevision, deltaAcknowledgementReason);
+          return new ResultApprovalService(tenantId).approve(ascensionid, approvedBy, branchid, expectedRevision, deltaAcknowledgementReason, actorRole);
      }
 
      public static async getAscensionPrintCount(ascensionid: number, tenantId: number): Promise<boolean | number> {

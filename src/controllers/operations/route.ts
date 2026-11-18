@@ -4,7 +4,7 @@ import resultSafetyRouter from './ResultSafetyController';
 import labWorkbenchRoutes from './labWorkbenchRoutes';
 import collectionSupplyRoutes from './collectionSupplyRoutes';
 import express from "express"
-import { requireLaboratoryWorkflowRole } from "../../middleware/laboratoryWorkflowAuthority";
+import { requireLaboratoryWorkflowRole, requireResultValidationRole } from "../../middleware/laboratoryWorkflowAuthority";
 import {
   getAllCollections,
   getAllEnterResult,
@@ -145,8 +145,8 @@ router.delete('/api/v1/result/entry/ultrasound/templates/:templateid', ...operat
 
 // TEST APPROVAL
 
-router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireLaboratoryWorkflowRole, getAscensionApprovalDetailsHandler);
-router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireLaboratoryWorkflowRole, updateAscensionApprovalDetailsHandler);
+router.get(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireResultValidationRole, getAscensionApprovalDetailsHandler);
+router.put(`/api/v1/test/approval/get/staffQualifiedToValidationResult`, ...operationsStaffMiddleware, requireResultValidationRole, updateAscensionApprovalDetailsHandler);
 
 
 // TEST MULTI CONDITIONS CREATION

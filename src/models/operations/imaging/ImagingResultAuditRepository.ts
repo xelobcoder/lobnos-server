@@ -163,6 +163,20 @@ export default class ImagingResultAuditRepository {
           return Boolean(row);
      }
 
+     static async isUltrasoundTest(db: any, testid: number): Promise<boolean> {
+          const row = await db("test_panels as tp")
+               .innerJoin("departments as dp", "dp.id", "tp.category")
+               .where("tp.id", testid)
+               .whereRaw("LOWER(TRIM(dp.department)) = 'ultrasound'")
+               .first("tp.id");
+          return Boolean(row);
+     }
+
+     static async isResultAuthor(db: any, ascensionid: number, testid: number, employeeid: number): Promise<boolean> {
+          const row = await db("test_results").where({ ascensionid, testid, employeeid }).first("employeeid");
+          return Boolean(row);
+     }
+
      static async query(tenantId: number, filters: ImagingAuditFilters) {
           await this.ensureTable(tenantId);
           const knex = await KnexConnection(tenantId);

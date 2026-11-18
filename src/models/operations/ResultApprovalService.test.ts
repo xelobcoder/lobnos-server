@@ -5,14 +5,21 @@ vi.mock("../application/appsettings/result-settings/resultSettings", () => ({
      default: { canStaffApproveResult: vi.fn().mockResolvedValue(true) },
 }));
 vi.mock("./imaging/ImagingResultAuditRepository", () => ({
-     default: { isImagingTest: vi.fn().mockResolvedValue(false) },
+     default: {
+          isImagingTest: vi.fn().mockResolvedValue(false),
+          isUltrasoundTest: vi.fn().mockResolvedValue(false),
+          isResultAuthor: vi.fn().mockResolvedValue(false),
+          ensureTable: vi.fn(),
+          record: vi.fn(),
+     },
 }));
 import ResultSettings from "../application/appsettings/result-settings/resultSettings";
+import ImagingResultAuditRepository from "./imaging/ImagingResultAuditRepository";
 import KnexConnection from "../../database/KnexConnections";
 import { ResultApprovalService, invalidateResultApprovals, applyResultValidationBypass } from "./ResultApprovalService";
 import ResultDeliveryClass from '../../controllers/result/resultDelivery';
 
-function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid: any = 0) {
+function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid: any = 0, approvalOverrides: any = {}) {
      const store = transactionalDatabase({
           test_ascension: [{ id: 1, billingid: 2, testid: 3, serviceid: 6, resultEntryEnd: new Date(), ...overrides }],
           billing: [{ billingid: 2, branchid: 4 }],
@@ -28,6 +35,7 @@ function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid
                     maxvalidation: 3,
                     approval_revision: 5,
                     requires_revalidation: 0,
+                    ...approvalOverrides,
                },
           ],
      });
@@ -36,7 +44,13 @@ function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid
      vi.mocked(KnexConnection).mockResolvedValue(db);
      return { store, service: new ResultApprovalService(1) };
 }
-beforeEach(() => { vi.clearAllMocks(); vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true); });
+beforeEach(() => {
+     vi.clearAllMocks();
+     vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true);
+     vi.mocked(ImagingResultAuditRepository.isImagingTest).mockResolvedValue(false);
+     vi.mocked(ImagingResultAuditRepository.isUltrasoundTest).mockResolvedValue(false);
+     vi.mocked(ImagingResultAuditRepository.isResultAuthor).mockResolvedValue(false);
+});
 describe("result validation integrity", () => {
      for (const status of ['paid', 'partial', 'pending']) {
           it.each([0, 1])(`validates ${status} services only when the validation setting permits (%s)`, async enabled => {
@@ -64,6 +78,36 @@ describe("result validation integrity", () => {
           vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false);
           expect(await service.approve(1, 7, 4, 5)).not.toBe(true);
           expect(store.rows('lab_result_approval_events')).toHaveLength(0);
+     });
+     it('allows a sonographer to validate ultrasound without being on the configured validator list', async () => {
+          const { store, service } = setup({}, 'paid', 0, { minvalidation: 1, maxvalidation: 1 });
+          vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false);
+          vi.mocked(ImagingResultAuditRepository.isUltrasoundTest).mockResolvedValue(true);
+          vi.mocked(ImagingResultAuditRepository.isImagingTest).mockResolvedValue(true);
+          vi.mocked(ImagingResultAuditRepository.isResultAuthor).mockResolvedValue(true);
+          await expect(service.approve(1, 7, 4, 5, undefined, 'sonographer')).resolves.toBe(true);
+          expect(store.rows('dbotestresultapproval')[0]).toMatchObject({ approvedBy: '7', isapproved: 1 });
+          expect(store.rows('lab_result_approval_events')).toMatchObject([{ ascensionid: 1, revision: 5, employeeid: 7 }]);
+     });
+     it('does not let a sonographer validate a non-ultrasound test outside the validator list', async () => {
+          const { store, service } = setup();
+          vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false);
+          await expect(service.approve(1, 7, 4, 5, undefined, 'sonographer')).resolves.not.toBe(true);
+          expect(store.rows('lab_result_approval_events')).toHaveLength(0);
+     });
+     it('does not let a sonographer approve an ultrasound report they did not save', async () => {
+          const { store, service } = setup();
+          vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(false);
+          vi.mocked(ImagingResultAuditRepository.isUltrasoundTest).mockResolvedValue(true);
+          await expect(service.approve(1, 7, 4, 5, undefined, 'sonographer')).rejects.toMatchObject({ statusCode: 403 });
+          expect(store.rows('lab_result_approval_events')).toHaveLength(0);
+     });
+     it('preserves configured reviewer access for sonographers reviewing a colleague report', async () => {
+          const { store, service } = setup();
+          vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true);
+          vi.mocked(ImagingResultAuditRepository.isUltrasoundTest).mockResolvedValue(true);
+          await expect(service.approve(1, 7, 4, 5, undefined, 'sonographer')).resolves.toBe(true);
+          expect(store.rows('lab_result_approval_events')).toHaveLength(1);
      });
 
      it("preserves simultaneous validators and finalizes only after the minimum is reached", async () => {

@@ -52,6 +52,42 @@ export async function requireResultEntryRole(req: Request, res: Response, next: 
     }
 }
 
+/** Sonographers may validate ultrasound reports only within their assigned branch. */
+export async function requireResultValidationRole(req: Request, res: Response, next: NextFunction) {
+    const actor = getAuthUser(req);
+    if (!actor) return res.status(401).json({ status: 'error', message: 'Authentication required' });
+    if (Number(req.query.tenantId) !== Number(actor.tenantId)) {
+        return res.status(403).json({ status: 'error', message: 'Laboratory workflow access denied' });
+    }
+    if (normalizeRole(actor.role) !== 'sonographer') {
+        return requireLaboratoryWorkflowRole(req, res, next);
+    }
+
+    const ascensionid = Number(req.query.ascensionid ?? req.body?.ascensionid ?? req.body?.ascensionId);
+    if (!Number.isSafeInteger(ascensionid) || ascensionid <= 0) {
+        return res.status(400).json({ status: 'error', message: 'A valid ultrasound order is required' });
+    }
+
+    try {
+        const db = await KnexConnection(actor.tenantId);
+        const order = await db('test_ascension as ta')
+            .join('billing as bill', 'bill.billingid', 'ta.billingid')
+            .join('test_panels as panel', 'panel.id', 'ta.testid')
+            .join('departments as department', 'department.id', 'panel.category')
+            .where({ 'ta.id': ascensionid })
+            .whereRaw("LOWER(TRIM(department.department)) = 'ultrasound'")
+            .select('bill.branchid')
+            .first();
+        if (!order || actor.branch == null || Number(order.branchid) !== Number(actor.branch)) {
+            return res.status(403).json({ status: 'error', message: 'Imaging workflow access denied' });
+        }
+        if (req.body) req.body.employeeid = actor.employeeid;
+        return next();
+    } catch (error) {
+        return next(error);
+    }
+}
+
 export function requireResultDeliveryRole(req: Request, res: Response, next: NextFunction) {
     const actor = getAuthUser(req);
     if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });

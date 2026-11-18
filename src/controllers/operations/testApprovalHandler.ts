@@ -7,6 +7,8 @@ import ResultSettings from "../../models/application/appsettings/result-settings
 import { customError, responseError } from "../../hooks/helper";
 import { InAppNotificationService } from "../../models/application/in-app-notifications/InAppNotificationService";
 import { canPerformResultAction } from '../../models/operations/ResultPaymentPolicy';
+import ImagingResultAuditRepository from '../../models/operations/imaging/ImagingResultAuditRepository';
+import { normalizeRole } from '../../middleware/roles';
 
 export const getAscensionApprovalDetailsHandler = async (req: Request, res: Response) => {
      try {
@@ -14,10 +16,15 @@ export const getAscensionApprovalDetailsHandler = async (req: Request, res: Resp
           if (!actor) return res.status(401).json({ status: false, message: 'Authentication required' });
           const id = Number(req.query.ascensionid);
           if (!Number.isSafeInteger(id) || id <= 0) return res.status(400).json({ status: false, message: 'Invalid ordered test ID' });
-          if (!await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid)) return res.status(403).json({ status: false, message: 'You do not have permission to validate results' });
           const db = await KnexConnection(actor.tenantId);
-          const row = await db('test_ascension as test').join('billing as bill', 'bill.billingid', 'test.billingid').where('test.id', id).select('bill.branchid').first();
+          const row = await db('test_ascension as test').join('billing as bill', 'bill.billingid', 'test.billingid').where('test.id', id).select('bill.branchid', 'test.testid').first();
           if (!row || actor.branch != null && Number(row.branchid) !== Number(actor.branch)) return res.status(404).json({ status: false, message: 'Ordered test not found in your branch' });
+          const canValidate = await ResultSettings.canStaffApproveResult(actor.tenantId, actor.employeeid);
+          const sonographerUltrasound = normalizeRole(actor.role) === 'sonographer' &&
+               actor.branch != null && Number(row.branchid) === Number(actor.branch) &&
+               await ImagingResultAuditRepository.isUltrasoundTest(db, Number(row.testid)) &&
+               await ImagingResultAuditRepository.isResultAuthor(db, id, Number(row.testid), actor.employeeid);
+          if (!canValidate && !sonographerUltrasound) return res.status(403).json({ status: false, message: 'You do not have permission to validate results' });
           // Read the revision before the UI renders the result. Any intervening edit invalidates the approval request.
           const approval = await new TestApprovalClass(id).getAscensionApprovedDetail(actor.tenantId);
           if (!approval) return res.status(409).json({ status: false, message: 'Result approval configuration is missing' });
@@ -39,7 +46,7 @@ export const updateAscensionApprovalDetailsHandler = async (req: Request, res: R
           const employeeId = actor.employeeid;
 			const ascensionId = parseInt(ascensionid.toString());
 			const tId = actor.tenantId;
-			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch, req.body?.approval_revision, req.body?.delta_acknowledgement_reason);
+			const updateTestApproval = await TestApprovalClass.updateTestApprovalStatus(ascensionId, employeeId, tId, actor.branch, req.body?.approval_revision, req.body?.delta_acknowledgement_reason, actor.role);
 			if (typeof updateTestApproval === "boolean" && updateTestApproval) {
                 const approval = await new TestApprovalClass(ascensionId).getAscensionApprovedDetail(tId);
                 const finalized = Number(approval?.isapproved) === 1;

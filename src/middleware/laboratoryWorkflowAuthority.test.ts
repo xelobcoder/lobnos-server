@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 const mocks = vi.hoisted(() => ({ connection: vi.fn() }));
 vi.mock('./authority', () => ({ getAuthUser: (req: any) => req.authUser }));
 vi.mock('../database/KnexConnections', () => ({ default: mocks.connection }));
-import { requireLaboratoryWorkflowRole, requireResultDeliveryRole, requireResultEntryRole } from './laboratoryWorkflowAuthority';
+import { requireLaboratoryWorkflowRole, requireResultDeliveryRole, requireResultEntryRole, requireResultValidationRole } from './laboratoryWorkflowAuthority';
 
 describe('laboratory workflow authorization', () => {
     it.each(['patient', 'clinician', 'organization', 'outsourced', 'phlebotomist', 'sonographer'])('rejects %s from processing/results and complete-flow shortcuts', role => {
@@ -85,6 +85,50 @@ describe('shared result-entry authorization', () => {
         expect(next).toHaveBeenCalledOnce();
         expect(req.body.employeeid).toBe(1);
         expect(mocks.connection).not.toHaveBeenCalled();
+    });
+});
+
+describe('ultrasound result-validation authorization', () => {
+    const request = (role: string, branch = 4) => ({
+        query: { tenantId: '9', ascensionid: '30' },
+        body: { ascensionid: 30, employeeid: 999 },
+        authUser: { tenantId: 9, employeeid: 1, branch, role },
+    } as any);
+
+    it('allows a sonographer to validate an ultrasound result within their branch', async () => {
+        const query: any = {
+            join: vi.fn().mockReturnThis(),
+            where: vi.fn().mockReturnThis(),
+            whereRaw: vi.fn().mockReturnThis(),
+            select: vi.fn().mockReturnThis(),
+            first: vi.fn().mockResolvedValue({ branchid: 4 }),
+        };
+        mocks.connection.mockResolvedValue(() => query);
+        const req = request('sonographer'), next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+        await requireResultValidationRole(req, res, next);
+        expect(next).toHaveBeenCalledOnce();
+        expect(req.body.employeeid).toBe(1);
+        expect(query.whereRaw).toHaveBeenCalledWith("LOWER(TRIM(department.department)) = 'ultrasound'");
+    });
+
+    it('denies sonographers outside their branch and leaves other workflow roles unchanged', async () => {
+        for (const order of [undefined, { branchid: 5 }]) {
+            const query: any = {
+                join: vi.fn().mockReturnThis(),
+                where: vi.fn().mockReturnThis(),
+                whereRaw: vi.fn().mockReturnThis(),
+                select: vi.fn().mockReturnThis(),
+                first: vi.fn().mockResolvedValue(order),
+            };
+            mocks.connection.mockResolvedValue(() => query);
+            const next = vi.fn(), res: any = { status: vi.fn().mockReturnThis(), json: vi.fn() };
+            await requireResultValidationRole(request('sonographer'), res, next);
+            expect(res.status).toHaveBeenCalledWith(403);
+            expect(next).not.toHaveBeenCalled();
+        }
+        const next = vi.fn();
+        requireResultValidationRole(request('scientist'), {} as any, next);
+        expect(next).toHaveBeenCalledOnce();
     });
 });
 
