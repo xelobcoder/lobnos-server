@@ -1,3 +1,4 @@
+import type { Knex } from 'knex';
 import { ensureAccountingPlanningSchema } from './AccountingPlanningSchema';
 import KnexConnection from '../../database/KnexConnections';
 import { ACCOUNT_CONFIG } from '../config/accountConfig';
@@ -27,6 +28,13 @@ export async function ensureAccountingSchema(tenantId: number): Promise<void> {
 
 const ensuredAccountingTenants = new Set<number>();
 const pendingAccountingEnsures = new Map<number, Promise<void>>();
+
+export async function ensureFinancialRecordLockSourceRefIndex(knex: Knex): Promise<void> {
+     await ensureIndexes(knex, 'financial_record_locks', [{
+          name: 'idx_fin_record_locks_source_ref',
+          columns: ['source_table', 'source_ref'],
+     }]);
+}
 
 async function ensureAccountingSchemaForTenant(tenantId: number): Promise<void> {
      const knex = await KnexConnection(tenantId);
@@ -233,10 +241,12 @@ async function ensureFinancialFinalizationTables(tenantId: number): Promise<void
                table.string('content_hash', 64).notNullable();
                table.datetime('locked_at', { precision: 6 }).notNullable();
                table.unique(['source_module', 'source_table', 'source_identity_hash'], 'uq_financial_source');
+               table.index(['source_table', 'source_ref'], 'idx_fin_record_locks_source_ref');
                table.index('closure_id', 'idx_record_locks_closure');
                table.index(['branchid', 'financial_date'], 'idx_record_locks_day');
           });
      }
+     await ensureFinancialRecordLockSourceRefIndex(knex);
 
      if (!(await knex.schema.hasTable('financial_correction_requests'))) {
           await knex.schema.createTable('financial_correction_requests', (table) => {
