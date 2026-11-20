@@ -29,6 +29,7 @@ import { InAppNotificationService } from "../../models/application/in-app-notifi
 import LoggingCriticalValueAlertRepository from "../../models/creator/Repo/loggingCriticalValueAlertRepository";
 import { roleAllowed, normalizeRole } from "../../middleware/roles";
 import { assertLabTestAccess } from "../../models/operations/LabAccessPolicy";
+import ApplicationSettings from "../../models/application/appsettings/appset";
 import { loadReleasedLaboratoryReport } from "../../models/result/LaboratoryReportData";
 import { loadLaboratoryReportBatch } from "../../models/result/LaboratoryReportBatch";
 import { testpanel } from "../../testpanel/testpanelList";
@@ -265,6 +266,11 @@ export const getResultPrintoutHandler = async (request: Request<
           if (!actor) return customError("Authentication required", 401, response);
           if (Number(tenantId) !== actor.tenantId) return customError("Organization scope does not match the session", 403, response);
           const employeeid = String(actor.employeeid);
+          if (['crm', 'customerservicerepresentative'].includes(normalizeRole(actor.role))) {
+               const appSettings = await new ApplicationSettings().getAllAppSettings(actor.tenantId);
+               if (Number(appSettings?.allowCrmToPrintResult) !== 1)
+                    return customError('CRM printing is disabled by the application settings', 403, response);
+          }
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 		let isWithinWindow = false;
@@ -333,6 +339,11 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
           if (!actor) return customError("Authentication required", 401, response);
           if (Number(tenantId) !== actor.tenantId) return customError("Organization scope does not match the session", 403, response);
           const employeeid = actor.employeeid;
+          if (['crm', 'customerservicerepresentative'].includes(normalizeRole(actor.role))) {
+               const appSettings = await new ApplicationSettings().getAllAppSettings(actor.tenantId);
+               if (Number(appSettings?.allowCrmToPrintResult) !== 1)
+                    return customError('CRM printing is disabled by the application settings', 403, response);
+          }
 		const browserMode = isBrowserPrintout == "1" || isBrowserPrintout == 1 || isBrowserPrintout == "true" ? true : false;
 		const tenantIdP = parseInt(tenantId.toString())
 		const pEmployeeId = parseInt(employeeid.toString());
@@ -408,6 +419,8 @@ export const getResultPrintMultipleHandler = async (request: Request<{}, {}, {},
 				);
 				finalResult.test = reportBatch.reports;
 				finalResult.skippedTests = reportBatch.skippedTests;
+                    if (reportBatch.includedEntries.length === 0)
+                         return response.status(409).send({ status: false, message: 'No signed and released results are available for printing' });
 
 				const distinctTestIds = Array.from(new Set(reportBatch.includedEntries.map((item) => item?.testid).filter(Boolean)));
 				// Only apply a per-test report override when the whole batch is a single test; mixed-test batches use the general settings.

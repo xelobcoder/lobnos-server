@@ -7,6 +7,8 @@ import User from "../../LobnosAuth/user";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import ApplicationSettings from "../../models/application/appsettings/appset";
 import { roleAllowed } from "../../middleware/roles";
+import KnexConnection from "../../database/KnexConnections";
+import { getResultReleaseWorkflows } from "../../models/operations/ResultReleaseService";
 
 
 export async function ascensionStagingHandler(request: Request, response: Response) {
@@ -46,9 +48,14 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 		}
 
 
-		if (operationsStaging === "VALIDATED" && Array.isArray(list)) {
+		if (['VALIDATED', 'SIGN_RELEASE', 'RELEASED'].includes(String(operationsStaging)) && Array.isArray(list)) {
+                    const workflows = await getResultReleaseWorkflows(
+                         await KnexConnection(tenantIdP), tenantIdP,
+                         list.map((item: any) => Number(item.ascensionid)),
+                         actor || undefined,
+                    );
 			list = await Promise.all(list.map(async (item) => {
-				return await validatedResultEmployeeGetter(item, tenantIdP);
+				return await validatedResultEmployeeGetter(item, tenantIdP, workflows[Number(item.ascensionid)]);
 			}))
 		}
 		response.send(list);
@@ -57,13 +64,14 @@ export async function ascensionStagingHandler(request: Request, response: Respon
 	}
 }
 
-async function validatedResultEmployeeGetter(item: any, tenantId: number) {
+async function validatedResultEmployeeGetter(item: any, tenantId: number, releaseWorkflow: any) {
 	const { department, name, fullname, age, printCount, clientstatus, patientid, billingid, ascensionid, id,
 		fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username } = item;
 	const validators = await new TestApprovalClass(ascensionid).getAscensionAprovedListDetails(tenantId);
 	return {
 		department, name, fullname, age, printCount, clientstatus, patientid, billingid, validators, testid: id,
-		ascensionid, fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username
+		ascensionid, fullpatientid, paymentstatus, ascension_date, delivered_by_employeeid, delivered_at, delivered_mode, requested_mode, delivered_by_username,
+               ...releaseWorkflow,
 	};
 }
 

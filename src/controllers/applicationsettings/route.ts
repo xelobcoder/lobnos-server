@@ -61,8 +61,8 @@ router.put("/api/v1/application/tax/activation", changeTaxStatus);
 router.delete("/api/v1/application/tax", deleteTax);
 router.get("/api/v1/applicationsetting/resultsettings", getResultSettings);
 router.put("/api/v1/applicationsetting/resultsettings", updateResultSettings);
-router.get("/api/v1/applicationsetting/resultsettings/resultentrysettings", resultEntrySettingsHandler);
-router.put("/api/v1/applicationsetting/resultsettings/resultentrysettings", resultEntrySettingsUpdateHandler)
+router.get("/api/v1/applicationsetting/resultsettings/resultentrysettings", checkTokenExists, resultEntrySettingsHandler);
+router.put("/api/v1/applicationsetting/resultsettings/resultentrysettings", checkTokenExists, resultEntrySettingsUpdateHandler)
 
 router.get('/api/v1/application/filtering/table/:tablename', TableFiltering)
 router.get('/api/v1/application/get-column/:column', columnFiltering)

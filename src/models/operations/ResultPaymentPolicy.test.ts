@@ -9,6 +9,7 @@ const actions: ResultPaymentAction[] = ['entry', 'validation', 'print'];
 function fixture(status: string, settings: any = {}, approval: any = {}) {
      return transactionalDatabase({
           applicationsettings: [settings],
+          lab_result_release_events: [{id:1,ascensionid:1,revision:2}],
           test_ascension: [{ id: 1, serviceid: 6, resultEntryEnd: new Date() }],
           dboservices: [{ serviceid: 6, paymentstatus: status }],
           dbotestresultapproval: [{ ascensionid: 1, approval_revision: 2, requires_revalidation: 0, isapproved: 1, ...approval }],

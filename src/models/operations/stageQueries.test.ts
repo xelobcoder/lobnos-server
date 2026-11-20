@@ -1,7 +1,37 @@
 import { describe, expect, it } from "vitest";
-import { OperationsStages, q_get_all_test_ready_for_various_stages } from "./queries";
+import { OperationsStages, q_get_all_result_entry_base, q_get_all_test_ready_for_various_stages } from "./queries";
 
 describe("lab stage queries", () => {
+     it.each([OperationsStages.PROCESSING, OperationsStages.COMPLETED])('honors collection and sample-validation bypass in %s', stage => {
+          const sql = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, stage, false,
+               {bypassCollection:true,bypassSampleValidation:true})!;
+          expect(sql).toContain('WHERE 1 = 1 AND 1 = 1');
+          expect(sql).toContain('LEFT JOIN samplestatus');
+          expect(sql).toContain('tp.id = ta.testid');
+          expect(sql).toContain('ta.resultEntryEnd IS NULL');
+     });
+     it('keeps enabled prerequisites when bypass is off', () => {
+          const sql = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, OperationsStages.PROCESSING)!;
+          expect(sql).toContain('ss.approvalstatus = 1');
+          expect(sql).toContain('ta.collectionStartDate IS NOT NULL');
+     });
+     it.each([OperationsStages.SIGN_RELEASE, OperationsStages.RELEASED])('filters %s by current signed revision and required manager approval', stage => {
+          const sql = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, stage, false, {requireManagerApproval:true})!;
+          expect(sql).toContain('re.revision = COALESCE(dta.approval_revision, 0)');
+          expect(sql).toContain('rv.signed_by IS NOT NULL');
+          expect(sql).toContain('lab_result_manager_approval_events');
+          expect(sql.includes('AND NOT ((EXISTS')).toBe(stage === OperationsStages.SIGN_RELEASE);
+     });
+     it.each([OperationsStages.VALIDATION, OperationsStages.VALIDATED])('keeps saved results visible in %s after collection bypass', stage => {
+          const sql = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, stage)!;
+          expect(sql).not.toContain('WHERE ss.approvalstatus = 1');
+          expect(sql).not.toContain('ta.collectionStartDate IS NOT NULL');
+          expect(sql).toContain('ta.resultEntryEnd IS NOT NULL');
+          expect(sql).toContain('ds.isDeleted = 0');
+          expect(sql).toContain('LEFT JOIN samplestatus');
+          expect(sql).toContain('tp.id = ta.testid');
+          expect(sql).toContain('rdel.ascensionid = ta.id');
+     });
      it('routes processing-bypassed requests to result entry without fabricating timestamps', () => {
           const completed = q_get_all_test_ready_for_various_stages('', OperationsStages.COMPLETED, true)!;
           expect(completed).toContain('ta.resultEntryEnd IS NULL');

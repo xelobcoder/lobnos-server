@@ -9,7 +9,7 @@ import { OutsourceRequestService } from '../../models/operations/OutsourceReques
 import { OutsourceAssignmentService } from '../../models/operations/OutsourceAssignmentService';
 import { roleAllowed } from '../../middleware/roles';
 import { assertLabTestAccess, controlsFail, labAccessSettings, labSupervisor, reportAmendmentSignoffRequired } from '../../models/operations/LabAccessPolicy';
-import { canSignReportAmendment } from '../../models/operations/ReportAmendmentAuthorization';
+import { getResultReleaseWorkflow, ResultReleaseService } from '../../models/operations/ResultReleaseService';
 import ImagingResultAuditRepository from '../../models/operations/imaging/ImagingResultAuditRepository';
 import { loadLaboratoryReportData } from '../../models/result/LaboratoryReportData';
 import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, reportChanges, reportVersionMetadata, reportVersionTable } from '../../models/result/LaboratoryReportVersions';
@@ -17,7 +17,7 @@ import { archiveLaboratoryReport, clinicalReportHash, readReportSnapshot, report
 const router = Router();
 router.use((req, res, next) => {
      const actor = getAuthUser(req);
-     const reportRoute = req.path.match(/^\/reports\/(\d+)(?:\/versions(?:\/\d+)?|\/amendment)$/);
+     const reportRoute = req.path.match(/^\/reports\/(\d+)(?:\/versions(?:\/\d+)?|\/amendment|\/release-preview|\/release|\/manager-approval)$/);
      if (reportRoute && actor && roleAllowed(actor.role, ['sonographer']) &&
           Number(req.query.tenantId) === Number(actor.tenantId)) {
           return requireResultValidationRole(req, res, next, reportRoute[1]);
@@ -44,9 +44,13 @@ async function amendmentPreview(db: any, actor: any, ascensionid: number) {
      const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
      if (!order) return controlsFail('Ordered test not found', 404);
      const isUltrasound = await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid));
-     if (!await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) {
-          return controlsFail('An authorized result validator or an eligible sonographer must sign this amendment', 403);
-     }
+     const workflow = await getResultReleaseWorkflow(db, actor.tenantId, ascensionid, actor);
+     if (!workflow.canRelease) return controlsFail(
+          workflow.managerApprovalRequired && !workflow.managerApproved
+               ? 'Manager approval is required before this amendment can be released'
+               : 'You are not authorized to sign and release this result amendment',
+          workflow.managerApprovalRequired && !workflow.managerApproved ? 409 : 403,
+     );
      const bill = await db('billing').where({ billingid: order.billingid }).first('patientid');
      let revision = -1;
      const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
@@ -61,10 +65,11 @@ router.get('/reports/:ascensionid/versions', run(async (db, actor, req) => {
      const order = await db('test_ascension').where({ id: ascensionid }).first('testid');
      const isUltrasound = Boolean(order && await ImagingResultAuditRepository.isUltrasoundTest(db, Number(order.testid)));
      const requireAmendmentSignoff = reportAmendmentSignoffRequired(await labAccessSettings(db));
+     const workflow = await getResultReleaseWorkflow(db, actor.tenantId, ascensionid, actor);
      return { versions: rows.map(reportVersionMetadata), isUltrasound, requireAmendmentSignoff, canSign: requireAmendmentSignoff && Boolean(rows.length &&
           Number(approval?.approval_revision) > Number(rows[0].revision) && Number(approval?.isapproved) === 1 &&
           !Number(approval?.requires_revalidation) && order &&
-          await canSignReportAmendment(db, actor, ascensionid, Number(order.testid))) };
+          workflow.canRelease) };
 }));
 router.get('/reports/:ascensionid/versions/:version', run(async (db, actor, req) => {
      const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
@@ -95,6 +100,61 @@ router.post('/reports/:ascensionid/amendment', run(async (db, actor, req) => {
           id: actor.employeeid, name: staff.username, reason: data.reason, reviewHash: data.reviewHash,
      });
      return reportVersionMetadata(row);
+}));
+router.get('/reports/:ascensionid/release-preview', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const workflow = await getResultReleaseWorkflow(db, actor.tenantId, ascensionid, actor);
+     if (!workflow.validationComplete || !workflow.differentValidatorSatisfied) return { workflow, report: null, reviewHash: null };
+     const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
+     if (!order) return controlsFail('Ordered test not found', 404);
+     const bill = await db('billing').where({ billingid: order.billingid }).first('patientid');
+     if (!bill) return controlsFail('Patient billing record not found', 404);
+     let revision = -1;
+     const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
+     if (revision !== workflow.revision) return controlsFail('The result changed. Reload the release preview.', 409);
+     const [validations, managerApprovals, releases] = await Promise.all([
+          db('lab_result_approval_events').where({ ascensionid }).orderBy('created_at', 'desc'),
+          db('lab_result_manager_approval_events').where({ ascensionid }).orderBy('created_at', 'desc'),
+          db('lab_result_release_events').where({ ascensionid }).orderBy('created_at', 'desc'),
+     ]);
+     return { workflow, report, reviewHash: clinicalReportHash(report), history: [
+          ...validations.map((event: any) => ({ action: 'Validated', revision: event.revision, employeeid: event.employeeid, at: event.created_at })),
+          ...managerApprovals.map((event: any) => ({ action: 'Manager approved', revision: event.revision, employeeid: event.employeeid, at: event.created_at })),
+          ...releases.map((event: any) => ({ action: 'Signed and released', revision: event.revision, employeeid: event.employeeid, at: event.created_at })),
+     ].sort((left, right) => new Date(right.at).getTime() - new Date(left.at).getTime()) };
+}));
+router.post('/reports/:ascensionid/manager-approval', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     const data = z.object({
+          revision: z.number().int().nonnegative(),
+          reason: z.string().trim().min(3).max(2000),
+     }).parse(req.body);
+     await assertLabTestAccess(db, actor, ascensionid);
+     return new ResultReleaseService(actor.tenantId).approveByManager(ascensionid, actor, data.revision, data.reason);
+}));
+router.post('/reports/:ascensionid/release', run(async (db, actor, req) => {
+     const ascensionid = z.coerce.number().int().positive().parse(req.params.ascensionid);
+     const data = z.object({
+          revision: z.number().int().nonnegative(),
+          reviewHash: z.string().regex(/^[a-f0-9]{64}$/),
+          reason: z.string().trim().min(3).max(2000),
+          confirmed: z.literal(true),
+     }).parse(req.body);
+     await assertLabTestAccess(db, actor, ascensionid);
+     const order = await db('test_ascension').where({ id: ascensionid }).first('billingid', 'testid');
+     if (!order) return controlsFail('Ordered test not found', 404);
+     const bill = await db('billing').where({ billingid: order.billingid }).first('patientid');
+     if (!bill) return controlsFail('Patient billing record not found', 404);
+     let revision = -1;
+     const report = await loadLaboratoryReportData(actor.tenantId, Number(bill.patientid), Number(order.billingid), Number(order.testid), ascensionid, true, 'release', value => { revision = value; });
+     if (revision !== data.revision || clinicalReportHash(report) !== data.reviewHash)
+          return controlsFail('The report changed. Review the current result before signing.', 409);
+     const staff = await db('roles').where({ employeeid: actor.employeeid }).first('username');
+     if (!staff?.username) return controlsFail('Could not verify the signing staff identity', 403);
+     return new ResultReleaseService(actor.tenantId).signAndRelease(
+          ascensionid, actor, data.revision, report, data.reviewHash, staff.username, data.reason,
+     );
 }));
 router.get('/settings', run(async (db, actor) => ({ ...(await db('lab_access_settings').where({ id: 1 }).first()), can_manage: labSupervisor(actor) })));
 router.put('/settings', run(async (db, actor, req) => {

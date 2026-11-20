@@ -7,6 +7,11 @@ function isAmendmentSignoffRequired(error: unknown): boolean {
           error.code === REPORT_AMENDMENT_SIGNOFF_REQUIRED_CODE;
 }
 
+function isUnreleasedResult(error: unknown): boolean {
+     return typeof error === 'object' && error !== null && 'code' in error &&
+          error.code === 'RESULT_NOT_RELEASED';
+}
+
 export async function loadLaboratoryReportBatch<Entry extends LaboratoryReportBatchEntry, Report>(
      entries: readonly Entry[],
      loadReport: (entry: Entry) => Promise<Report>,
@@ -15,7 +20,7 @@ export async function loadLaboratoryReportBatch<Entry extends LaboratoryReportBa
           try {
                return { kind: 'loaded' as const, entry, report: await loadReport(entry) };
           } catch (error) {
-               if (isAmendmentSignoffRequired(error)) return { kind: 'skipped' as const, entry };
+               if (isAmendmentSignoffRequired(error) || isUnreleasedResult(error)) return { kind: 'skipped' as const, entry };
                throw error;
           }
      }));

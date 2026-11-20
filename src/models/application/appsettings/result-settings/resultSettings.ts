@@ -6,6 +6,7 @@ import { OperationsFailures } from "../../../operations/types";
 import ApplicationSettings from "../appset";
 import { q_update_result_entry_settings, q_get_result_entry_settings, GET_RESULT_SETTINGS, INSERT_RESULT_SETTINGS, UPDATE_RESULT_SETTINGS } from "../queries";
 import { ResultEntrySettings, ApplicationResultSettings } from "../interfaces/results-settings.interface";
+import { DEFAULT_RESULT_ENTRY_SETTINGS } from "./ResultSettingsBootstrapper";
 
 
 
@@ -17,18 +18,43 @@ class ResultSettings extends ApplicationSettings {
 	}
 
 	public static async updateResultEntrySettings(tenantId: number, resultEntrySettings: ResultEntrySettings): Promise<boolean> {
-		if (typeof resultEntrySettings != 'object') return false;
-		let parsedJson = JSON.stringify(resultEntrySettings);
+		if (!resultEntrySettings || typeof resultEntrySettings !== 'object' || Array.isArray(resultEntrySettings)) return false;
+		const existing = await this.getResultEntrySettings(tenantId);
+		const merged = {
+			...DEFAULT_RESULT_ENTRY_SETTINGS,
+			...(existing && typeof existing === 'object' ? existing : {}),
+			...resultEntrySettings,
+		};
+		if (!Array.isArray(merged.staffQualifiedToValidationResult) || !Array.isArray(merged.staffQualifiedToReleaseResult)) return false;
+        if (!['selected_staff', 'managers_only'].includes(merged.resultReleasePolicy || 'selected_staff')) return false;
+        merged.resultReleasePolicy = merged.resultReleasePolicy || 'selected_staff';
+        const minimum = Number(merged.minimumResultValidation);
+        const maximum = Number(merged.maximumResultValidation);
+        if (!Number.isInteger(minimum) || minimum < 1 || !Number.isInteger(maximum) || maximum < minimum) return false;
+        if ([...merged.staffQualifiedToValidationResult, ...merged.staffQualifiedToReleaseResult]
+            .some(value => !Number.isSafeInteger(Number(value)) || Number(value) < 1)) return false;
+        merged.minimumResultValidation = minimum;
+        merged.maximumResultValidation = maximum;
+		const normalizeStaff = (ids: number[]) => [...new Set(ids.map(Number))];
+		merged.staffQualifiedToValidationResult = normalizeStaff(merged.staffQualifiedToValidationResult);
+		merged.staffQualifiedToReleaseResult = normalizeStaff(merged.staffQualifiedToReleaseResult);
+		merged.requireDifferentValidatorFromResultAuthor = Number(merged.requireDifferentValidatorFromResultAuthor) === 1 || merged.requireDifferentValidatorFromResultAuthor === true;
+		merged.requireManagerApprovalBeforeRelease = Number(merged.requireManagerApprovalBeforeRelease) === 1 || merged.requireManagerApprovalBeforeRelease === true;
+		merged.allowResultAuthorToRelease = Number(merged.allowResultAuthorToRelease) === 1 || merged.allowResultAuthorToRelease === true;
+		merged.requireDifferentReleaserFromValidator = Number(merged.requireDifferentReleaserFromValidator) === 1 || merged.requireDifferentReleaserFromValidator === true;
+		const parsedJson = JSON.stringify(merged);
 		const result = await promisifyQuery(tenantId, q_update_result_entry_settings, [parsedJson]);
 		return rowAffected(result);
 	}
 
-	public static async getResultEntrySettings(tenantId: number): Promise<boolean | null | ResultEntrySettings> {
+	public static async getResultEntrySettings(tenantId: number): Promise<null | ResultEntrySettings> {
 		const result = await promisifyQuery(tenantId, q_get_result_entry_settings);
 		if (result.length === 0) return null
-		let data = result[0]['resultsEntrySettings'];
-		if (data) return JSON.parse(data);
-		return null
+		const data = result[0]['resultsEntrySettings'];
+		if (!data) return { ...DEFAULT_RESULT_ENTRY_SETTINGS };
+		const parsed = JSON.parse(data);
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return { ...DEFAULT_RESULT_ENTRY_SETTINGS };
+		return { ...DEFAULT_RESULT_ENTRY_SETTINGS, ...parsed };
 	}
 
 

@@ -22,6 +22,33 @@ export async function ensureResultSafetySchema(db: Knex): Promise<void> {
                table.unique(['ascensionid', 'version_number']);
           });
      }
+     if (!(await db.schema.hasTable('lab_result_manager_approval_events'))) {
+          await db.schema.createTable('lab_result_manager_approval_events', table => {
+               table.increments('id').primary();
+               table.integer('ascensionid').unsigned().notNullable();
+               table.integer('revision').unsigned().notNullable();
+               table.integer('employeeid').unsigned().notNullable();
+               table.text('reason').notNullable();
+               table.datetime('created_at').notNullable();
+               table.unique(['ascensionid', 'revision'], 'uq_lab_result_manager_approval_revision');
+               table.index(['ascensionid', 'created_at'], 'idx_lab_result_manager_approval_history');
+          });
+     }
+     if (!(await db.schema.hasTable('lab_result_release_events'))) {
+          await db.schema.createTable('lab_result_release_events', table => {
+               table.increments('id').primary();
+               table.integer('ascensionid').unsigned().notNullable();
+               table.integer('revision').unsigned().notNullable();
+               table.integer('report_version_id').unsigned().notNullable();
+               table.integer('employeeid').unsigned().notNullable();
+               table.string('signer_name', 255).notNullable();
+               table.string('signature_hash', 64).notNullable();
+               table.text('reason').notNullable();
+               table.datetime('created_at').notNullable();
+               table.unique(['ascensionid', 'revision'], 'uq_lab_result_release_revision');
+               table.index(['ascensionid', 'created_at'], 'idx_lab_result_release_history');
+          });
+     }
      if (!(await db.schema.hasTable('pls_delta_rules'))) {
           await db.schema.createTable('pls_delta_rules', (table) => {
                table.increments('id').primary();

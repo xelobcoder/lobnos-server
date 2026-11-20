@@ -279,7 +279,7 @@ export class TestAscension {
 		// laod application settings to check if complete lab flow is enabled
 		const application_settings = await new ApplicationSettings().getAllAppSettings(tenantId);
 		if (!application_settings) return;
-          await applyResultValidationBypass(connection, ascensionid, employeeid, Number(application_settings.byPassValidation) === 1);
+          await applyResultValidationBypass(connection, ascensionid, employeeid, Number(application_settings.byPassValidation) === 1, tenantId);
 
 	}
 

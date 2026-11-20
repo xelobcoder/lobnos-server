@@ -239,39 +239,34 @@ const handleInvalidRequest = (response: Response) => {
 	response.send({ status: false, message: OperationsFailures.invalidResquestQuery });
 };
 
-export const resultEntrySettingsHandler = async (request: Request<{}, {}, {}, { employeeid: string, tenantId: number }>, response: Response) => {
+export const resultEntrySettingsHandler = async (request: Request, response: Response) => {
 	try {
-		const { employeeid, tenantId } = request.query;
-
-		if (!employeeid) return handleInvalidRequest(response);
-
-		if (!(await validateUserRole(employeeid as any, parseInt(tenantId.toString()), ["manager", "admin", "scientist", "sonographer"]))) {
-			response.send({ status: false, message: OperationsFailures.dontHavePermission });
-		} else {
-			const settings = await ResultSettings.getResultEntrySettings(parseInt(tenantId.toString()));
-			response.send({ result: settings });
-		}
+		const actor = getAuthUser(request);
+		const tenantId = Number(request.query.tenantId);
+		if (!actor) return customError("Authentication required", 401, response);
+		if (!Number.isSafeInteger(tenantId) || tenantId <= 0 || actor.tenantId !== tenantId) return customError("Organization scope does not match the session", 403, response);
+		if (!roleAllowed(actor.role, ["manager", "admin", "scientist", "sonographer"]))
+			return customError(OperationsFailures.dontHavePermission, 403, response);
+		const settings = await ResultSettings.getResultEntrySettings(tenantId);
+		response.send({ result: settings });
 	} catch (err) {
-
-		responseError(response);
+		responseError(response, err);
 	}
 };
 
-export const resultEntrySettingsUpdateHandler = async (request: Request<{}, {}, {}, { employeeid: string, tenantId: number }>, response: Response) => {
+export const resultEntrySettingsUpdateHandler = async (request: Request, response: Response) => {
 	try {
-		const { employeeid, tenantId } = request.query;
-
-		if (!employeeid) return handleInvalidRequest(response);
-
-		if (!(await validateUserRole(employeeid as any, parseInt(tenantId.toString())))) {
-			response.send({ status: false, message: OperationsFailures.dontHavePermission });
-		} else {
-			const result = await ResultSettings.updateResultEntrySettings(parseInt(tenantId.toString()),
-				request.body as any);
-			response.send({ status: result });
-		}
+		const actor = getAuthUser(request);
+		const tenantId = Number(request.query.tenantId);
+		if (!actor) return customError("Authentication required", 401, response);
+		if (!Number.isSafeInteger(tenantId) || tenantId <= 0 || actor.tenantId !== tenantId) return customError("Organization scope does not match the session", 403, response);
+		if (!roleAllowed(actor.role, ["manager", "admin"]))
+			return customError(OperationsFailures.dontHavePermission, 403, response);
+		const result = await ResultSettings.updateResultEntrySettings(tenantId, request.body as any);
+		if (!result) return customError("Invalid result-entry settings", 400, response);
+		response.send({ status: result });
 	} catch (err) {
-		responseError(response);
+		responseError(response, err);
 	}
 };
 

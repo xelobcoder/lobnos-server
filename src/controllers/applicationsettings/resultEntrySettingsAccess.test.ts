@@ -23,6 +23,8 @@ vi.mock('../../middleware/authority', () => ({ getAuthUser: vi.fn() }));
 vi.mock('../../database/interface', () => ({ categoryColumnMapper: {}, smsTemplatePlaceholdersOptions: {} }));
 
 import { resultEntrySettingsHandler, resultEntrySettingsUpdateHandler } from './handler';
+import { customError } from '../../hooks/helper';
+import { getAuthUser } from '../../middleware/authority';
 
 function response() {
      return { send: vi.fn() } as any;
@@ -31,6 +33,7 @@ function response() {
 beforeEach(() => {
      vi.clearAllMocks();
      mocks.role.mockResolvedValue('sonographer');
+     vi.mocked(getAuthUser).mockReturnValue({ tenantId: 1, employeeid: 7, role: 'sonographer' } as any);
      mocks.getSettings.mockResolvedValue({ minimumResultValidation: 1, maximumResultValidation: 2 });
      mocks.updateSettings.mockResolvedValue(true);
 });
@@ -38,15 +41,22 @@ beforeEach(() => {
 describe('result-entry settings access', () => {
      it('allows sonographers to read the approval limits needed for ultrasound review', async () => {
           const res = response();
-          await resultEntrySettingsHandler({ query: { employeeid: '7', tenantId: 1 } } as any, res);
+          await resultEntrySettingsHandler({ query: { tenantId: 1 } } as any, res);
           expect(res.send).toHaveBeenCalledWith({ result: { minimumResultValidation: 1, maximumResultValidation: 2 } });
           expect(mocks.getSettings).toHaveBeenCalledWith(1);
      });
 
      it('does not allow sonographers to change result-entry settings', async () => {
           const res = response();
-          await resultEntrySettingsUpdateHandler({ query: { employeeid: '7', tenantId: 1 }, body: {} } as any, res);
-          expect(res.send).toHaveBeenCalledWith(expect.objectContaining({ status: false }));
+          await resultEntrySettingsUpdateHandler({ query: { tenantId: 1 }, body: {} } as any, res);
+          expect(customError).toHaveBeenCalledWith(expect.any(String), 403, res);
           expect(mocks.updateSettings).not.toHaveBeenCalled();
+     });
+
+     it('rejects settings access outside the authenticated tenant', async () => {
+          const res = response();
+          await resultEntrySettingsHandler({ query: { tenantId: 2 } } as any, res);
+          expect(res.status).toBeUndefined();
+          expect(mocks.getSettings).not.toHaveBeenCalled();
      });
 });

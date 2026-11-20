@@ -19,6 +19,7 @@ it('retains the issued original and releases only the amended revision the valid
      const { db, native } = accountingSqlDatabase();
      try {
           native.exec(`
+               CREATE TABLE resultsettings(id INTEGER PRIMARY KEY, resultsEntrySettings TEXT);
                CREATE TABLE test_ascension(id INTEGER PRIMARY KEY, resultEntryEnd TEXT);
                CREATE TABLE dbotestresultapproval(ascensionid INTEGER, approval_revision INTEGER, isapproved INTEGER);
                CREATE TABLE lab_critical_events(ascensionid INTEGER, resolved_at TEXT);
@@ -51,6 +52,7 @@ it('allows a revalidated amended report to be archived without a signer when sig
      const { db, native } = accountingSqlDatabase();
      try {
           native.exec(`
+               CREATE TABLE resultsettings(id INTEGER PRIMARY KEY, resultsEntrySettings TEXT);
                CREATE TABLE test_ascension(id INTEGER PRIMARY KEY, resultEntryEnd TEXT);
                CREATE TABLE dbotestresultapproval(ascensionid INTEGER, approval_revision INTEGER, isapproved INTEGER);
                CREATE TABLE lab_critical_events(ascensionid INTEGER, resolved_at TEXT);

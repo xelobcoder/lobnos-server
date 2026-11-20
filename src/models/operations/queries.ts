@@ -184,15 +184,43 @@ export enum OperationsStages {
   VALIDATION = "VALIDATION",
   ULTRASOUND_UNCOMPLETED = "ULTRASOUND_UNCOMPLETED",
   ULTRASOUND_COMPLETED = "ULTRASOUND_COMPLETED",
-  VALIDATED = 'VALIDATED'
+  VALIDATED = 'VALIDATED',
+  SIGN_RELEASE = 'SIGN_RELEASE',
+  RELEASED = 'RELEASED'
 }
 
-export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false) {
+export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false,
+  policy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean } = {}): string | null {
+  if (stage === OperationsStages.SIGN_RELEASE || stage === OperationsStages.RELEASED) {
+    const validated = q_get_all_test_ready_for_various_stages(currentQuery, OperationsStages.VALIDATED, bypassProcessing, policy);
+    const revision = 'COALESCE(dta.approval_revision, 0)';
+    const release = `((EXISTS (SELECT 1 FROM lab_result_release_events re WHERE re.ascensionid = ta.id AND re.revision = ${revision})
+      OR EXISTS (SELECT 1 FROM lab_report_versions rv WHERE rv.ascensionid = ta.id AND rv.revision = ${revision} AND rv.signed_by IS NOT NULL))
+      ${policy.requireManagerApproval ? `AND EXISTS (SELECT 1 FROM lab_result_manager_approval_events ma WHERE ma.ascensionid = ta.id AND ma.revision = ${revision})` : ''})`;
+    return validated + ` AND ${stage === OperationsStages.SIGN_RELEASE ? 'NOT ' : ''}${release}`;
+  }
   let query = currentQuery;
+  if (stage === OperationsStages.PROCESSING || stage === OperationsStages.COMPLETED) {
+    query = query.replace('INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id', 'LEFT JOIN samplestatus AS ss ON ss.ascensionid = ta.id')
+      .replace('tp.id = ss.testid', 'tp.id = ta.testid');
+    const sampleRequirement = policy.bypassSampleValidation ? '1 = 1' : 'ss.approvalstatus = 1';
+    const collectionRequirement = policy.bypassCollection ? '1 = 1' : '(ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL)';
+    query = query.replace(/ss\.approvalstatus = 1\s+AND \(ta\.collectionStartDate IS NOT NULL AND ta\.collectionEndDate IS NOT NULL\)/,
+      `${sampleRequirement} AND ${collectionRequirement}`);
+  }
+  // Saved results must remain reviewable when collection was bypassed by facility policy.
+  if (stage === OperationsStages.VALIDATION || stage === OperationsStages.VALIDATED) {
+    query = query.replace('INNER JOIN samplestatus AS ss ON ss.ascensionid = ta.id', 'LEFT JOIN samplestatus AS ss ON ss.ascensionid = ta.id')
+      .replace('tp.id = ss.testid', 'tp.id = ta.testid')
+      .replace('rdel.ascensionid = ss.ascensionid', 'rdel.ascensionid = ta.id')
+      .replace('prdp.ascension = ss.ascensionid', 'prdp.ascension = ta.id');
+    query = query.replace(/ss\.approvalstatus = 1\s+AND \(ta\.collectionStartDate IS NOT NULL AND ta\.collectionEndDate IS NOT NULL\)/,
+      'ta.resultEntryEnd IS NOT NULL');
+  }
   switch (stage) {
     case OperationsStages.PROCESSING:
       if (bypassProcessing) return query + ` AND 1 = 0`;
-      query += ` AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
+      query += ` AND ta.resultEntryEnd IS NULL AND (ta.processingEndDate IS NULL OR ta.processingStartDate IS NULL) AND  (d.department <> 'ultrasound' OR d.department IS NULL)`;
       return query;
     case OperationsStages.COMPLETED:
       query += ` AND ${bypassProcessing ? '1 = 1' : '(ta.processingStartDate IS NOT NULL AND ta.processingEndDATE IS NOT NULL)'} AND ta.resultEntryEnd IS NULL

@@ -5,6 +5,12 @@ export interface ResultEntrySettings {
      maximumResultValidation: number;
      minimumResultValidation: number;
      staffQualifiedToValidationResult: number[];
+     requireDifferentValidatorFromResultAuthor: boolean;
+     requireManagerApprovalBeforeRelease: boolean;
+     resultReleasePolicy?: 'selected_staff' | 'managers_only';
+     staffQualifiedToReleaseResult: number[];
+     allowResultAuthorToRelease: boolean;
+     requireDifferentReleaserFromValidator: boolean;
      showPastTestResult: number;
      allowScientistViewAudit: number;
      showTaTAnalysis: number;

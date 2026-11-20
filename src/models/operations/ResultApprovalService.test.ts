@@ -2,7 +2,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { transactionalDatabase } from "../../testSupport/transactionalDatabase";
 vi.mock("../../database/KnexConnections", () => ({ default: vi.fn() }));
 vi.mock("../application/appsettings/result-settings/resultSettings", () => ({
-     default: { canStaffApproveResult: vi.fn().mockResolvedValue(true) },
+     default: {
+          canStaffApproveResult: vi.fn().mockResolvedValue(true),
+          getResultEntrySettings: vi.fn().mockResolvedValue({ requireDifferentValidatorFromResultAuthor: false }),
+     },
 }));
 vi.mock("./imaging/ImagingResultAuditRepository", () => ({
      default: {
@@ -47,6 +50,7 @@ function setup(overrides: any = {}, paymentstatus = 'paid', allowValidationUpaid
 beforeEach(() => {
      vi.clearAllMocks();
      vi.mocked(ResultSettings.canStaffApproveResult).mockResolvedValue(true);
+     vi.mocked(ResultSettings.getResultEntrySettings).mockResolvedValue({ requireDifferentValidatorFromResultAuthor: false } as any);
      vi.mocked(ImagingResultAuditRepository.isImagingTest).mockResolvedValue(false);
      vi.mocked(ImagingResultAuditRepository.isUltrasoundTest).mockResolvedValue(false);
      vi.mocked(ImagingResultAuditRepository.isResultAuthor).mockResolvedValue(false);
@@ -68,7 +72,7 @@ describe("result validation integrity", () => {
                const { store } = setup({}, status, enabled);
                await store.db.transaction(async trx => {
                     await trx('test_ascension').forUpdate().first();
-                    await applyResultValidationBypass(trx, 1, 9, true);
+                    await applyResultValidationBypass(trx, 1, 9, true, 1);
                });
                expect(Number(store.rows('dbotestresultapproval')[0].isapproved || 0)).toBe(status === 'paid' || enabled === 1 ? 1 : 0);
           });
@@ -154,13 +158,13 @@ describe("result validation integrity", () => {
           const { store } = setup();
           await store.db.transaction(async (trx) => {
                await trx("test_ascension").forUpdate().first();
-               await applyResultValidationBypass(trx, 1, 9, true);
+               await applyResultValidationBypass(trx, 1, 9, true, 1);
           });
           expect(store.rows("dbotestresultapproval")[0].isapproved).toBe(1);
           await store.db.transaction((trx) => invalidateResultApprovals(trx, 1, 9));
           await store.db.transaction(async (trx) => {
                await trx("test_ascension").forUpdate().first();
-               await applyResultValidationBypass(trx, 1, 9, true);
+               await applyResultValidationBypass(trx, 1, 9, true, 1);
           });
           expect(store.rows("dbotestresultapproval")[0]).toMatchObject({
                isapproved: 0,

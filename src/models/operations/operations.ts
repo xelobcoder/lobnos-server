@@ -1,4 +1,5 @@
 import { LaboratoryWorkflowService } from "./LaboratoryWorkflow";
+import ResultSettings from '../application/appsettings/result-settings/resultSettings';
 import {
      q_approved_samples,
      q_billing_test_collection,
@@ -426,6 +427,7 @@ export default class Operations {
      private static async generateAscensionQuery(
           queryParams: ascensionStageRequestQueryTypes,
           bypassProcessing = false,
+          workflowPolicy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean } = {},
      ): Promise<{ conditions: (string | Date)[]; finalQuery: string }> {
           const {
                from,
@@ -445,7 +447,7 @@ export default class Operations {
                const conditions: (string | Date)[] = [];
                finalQuery = replaceQueryValuesNonPartition(finalQuery);
                if (!isUltrasound) {
-                    finalQuery = q_get_all_test_ready_for_various_stages(finalQuery, stage, bypassProcessing);
+                    finalQuery = q_get_all_test_ready_for_various_stages(finalQuery, stage, bypassProcessing, workflowPolicy);
                } else {
                     finalQuery = q_get_all_test_ready_for_various_stages_ultrasound(finalQuery, stage);
                }
@@ -678,6 +680,7 @@ export default class Operations {
                } = queryParams;
                const settings = !isUltrasound && ['PROCESSING', 'COMPLETED'].includes(stage)
                     ? await new ApplicationSettings().getAllAppSettings(tenantId) : null;
+               const releaseSettings = ['SIGN_RELEASE', 'RELEASED'].includes(stage) ? await ResultSettings.getResultEntrySettings(tenantId) : null;
                const { finalQuery, conditions: conditionx } = await Operations.generateAscensionQuery({
                     sortby,
                     from: _dateFrom,
@@ -692,7 +695,11 @@ export default class Operations {
                     clinicianId,
                     organizationId,
                     grouped: queryParams.grouped || null,
-               }, Number(settings?.byPassProcessing) === 1);
+               }, Number(settings?.byPassProcessing) === 1, {
+                    bypassCollection: Number(settings?.byPassCollection) === 1,
+                    bypassSampleValidation: Number(settings?.byPassSampleValidation) === 1,
+                    requireManagerApproval: Boolean(releaseSettings?.requireManagerApprovalBeforeRelease),
+               });
                let query = finalQuery;
                let conditionValues = conditionx;
 

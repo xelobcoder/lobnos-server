@@ -1,6 +1,9 @@
 import { getAuthUser } from "../../middleware/authority";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import KnexConnection from "../../database/KnexConnections";
+import ApplicationSettings from "../../models/application/appsettings/appset";
+import { normalizeRole } from "../../middleware/roles";
+import { captureReportRevision } from "../../models/operations/ResultReleaseGuard";
 import { Request, response, Response } from "express";
 import ResultPrint from "../../models/result/resultPrint";
 import { getBillingInvoiceData } from "../../models/invoice/invoice";
@@ -119,10 +122,26 @@ export const previewReport = async (
           const parsedBillingid = parseInt(billingid.toString());
           const parsedTestId = parseInt(testid.toString());
           const tenantId = parseInt(request.query.tenantId.toString());
+          const actor = getAuthUser(request);
+          if (!actor) return customError("Authentication required", 401, response);
+          if (actor.tenantId !== tenantId) return customError("Organization scope does not match the session", 403, response);
+          const db = await KnexConnection(tenantId);
+          const bill = await db('billing').where({ billingid: parsedBillingid }).first('branchid');
+          if (!bill || (actor.branch != null && Number(bill.branchid) !== Number(actor.branch)))
+               return customError("Ordered test not found in your branch", 404, response);
+          if (['crm', 'customerservicerepresentative'].includes(normalizeRole(actor.role))) {
+               const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+               if (Number(settings?.allowCrmToPrintResult) !== 1)
+                    return customError("CRM printing is disabled by the application settings", 403, response);
+               const orders = await db('test_ascension').where({ billingid: parsedBillingid, testid: parsedTestId }).select('id');
+               if (!orders.length) return customError("Ordered test not found", 404, response);
+               for (const order of orders) await captureReportRevision(db, Number(order.id), 'print');
+          }
           const result = await new ResultPrint(0).previewReport(tenantId, parsedBillingid, parsedTestId);
 
           response.send({ result });
-     } catch (err) {
+     } catch (err: any) {
+          if (err?.statusCode) return customError(err.message, err.statusCode, response);
           responseError(response);
      }
 };

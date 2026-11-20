@@ -17,8 +17,10 @@ export async function invalidateResultApprovals(trx: any, ascensionid: number, e
 }
 
 /** Initial-entry bypass must never release an amended result awaiting revalidation. */
-export async function applyResultValidationBypass(trx: any, ascensionid: number, employeeid: number, enabled: boolean) {
+export async function applyResultValidationBypass(trx: any, ascensionid: number, employeeid: number, enabled: boolean, tenantId: number) {
      if (!enabled) return;
+     const settings = await ResultSettings.getResultEntrySettings(tenantId);
+     if (typeof settings === 'object' && settings?.requireDifferentValidatorFromResultAuthor) return;
      if (!await canPerformResultAction(trx, ascensionid, 'validation', true)) return;
      await trx('dbotestresultapproval').where({ ascensionid }).where('requires_revalidation', 0)
           .update({ isapproved: 1, approvedBy: employeeid, lastupdatedon: new Date() });
@@ -27,6 +29,7 @@ export async function applyResultValidationBypass(trx: any, ascensionid: number,
 export class ResultApprovalService {
      constructor(private tenantId: number) { }
      async approve(ascensionid: number, employeeid: number, branchid?: number | null, expectedRevision?: number, deltaAcknowledgementReason?: string, actorRole?: string): Promise<boolean | string> {
+          const entrySettings = await ResultSettings.getResultEntrySettings(this.tenantId);
           const canValidate = await ResultSettings.canStaffApproveResult(this.tenantId, employeeid);
           const isSonographer = normalizeRole(actorRole) === 'sonographer';
           if (!canValidate && !isSonographer) return OperationsFailures.dontHaveAccessPermission;
@@ -42,6 +45,12 @@ export class ResultApprovalService {
                const bill = await trx('billing').where({ billingid: ascension.billingid }).first();
                if (branchid != null && Number(bill?.branchid) !== Number(branchid)) throw Object.assign(new Error('Ordered test belongs to another branch'), { statusCode: 403 });
                if (!ascension.resultEntryEnd) throw Object.assign(new Error('Save the test results before approval'), { statusCode: 409 });
+               if (typeof entrySettings === 'object' && entrySettings?.requireDifferentValidatorFromResultAuthor) {
+                    const authors = await trx('test_results').where({ ascensionid }).whereNotNull('employeeid').distinct('employeeid');
+                    if (!authors.length) throw Object.assign(new Error('The result author could not be verified. Contact your laboratory administrator.'), { statusCode: 409 });
+                    if (authors.some((author: any) => Number(author.employeeid) === employeeid))
+                         throw Object.assign(new Error('A result author cannot validate their own result under the current facility policy.'), { statusCode: 403 });
+               }
                if (!canValidate && ultrasound && !await ImagingResultAuditRepository.isResultAuthor(trx, ascensionid, Number(ascension.testid), employeeid)) {
                     throw Object.assign(new Error('A sonographer can validate only an ultrasound report they have saved'), { statusCode: 403 });
                }

@@ -1,3 +1,4 @@
+import type { ResultEntrySettings } from '../interfaces/results-settings.interface';
 import KnexConnection from '../../../../database/KnexConnections';
 
 // Reference configuration from primelabtestmig, without its staff IDs or contact number.
@@ -29,12 +30,15 @@ export const DEFAULT_RESULT_SETTINGS = {
      useInstrumentation: false,
 };
 
-export const DEFAULT_RESULT_ENTRY_SETTINGS = {
+export const DEFAULT_RESULT_ENTRY_SETTINGS: ResultEntrySettings = {
      resultLockAfter24Hours: 1, isPinOnResultEntry: 1, isPinOnResultViewAfter24Hours: 1,
      maximumResultValidation: 10, minimumResultValidation: 1, showPastTestResult: 1,
      allowScientistViewAudit: 1, showTaTAnalysis: 1, encryptResultAfter24Hours: 0,
      sendLoginEmailNotificationAfterResultEdit: 0, monitorForCriticalValues: 1,
      notifyClientOnResultReady: 0, notificationType: 'Email', staffQualifiedToValidationResult: [],
+     requireDifferentValidatorFromResultAuthor: false, requireManagerApprovalBeforeRelease: false,
+     resultReleasePolicy: 'selected_staff',
+     staffQualifiedToReleaseResult: [], allowResultAuthorToRelease: false, requireDifferentReleaserFromValidator: false,
 };
 
 export async function bootstrapResultSettings(tenantId: number): Promise<void> {

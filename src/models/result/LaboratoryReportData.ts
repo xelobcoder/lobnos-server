@@ -1,4 +1,4 @@
-import { captureReportRevision, assertReportRevision } from '../operations/ResultReleaseGuard';
+import { captureReportRevision, assertReportRevision, assertResultFormallyReleased } from '../operations/ResultReleaseGuard';
 import KnexConnection from '../../database/KnexConnections';
 import { assertCriticalRelease } from '../operations/CriticalActionService';
 import type { resultPrintOutDataset } from '../../controllers/result/resultHandlers';
@@ -28,7 +28,7 @@ export async function loadLaboratoryReportData(
           throw Object.assign(new Error('The result does not belong to this patient and billing request'), { statusCode: 403 });
      }
      if (channel === 'print') await assertResultPaymentPolicy(controlDb, ascensionId, 'print');
-     const revision = await captureReportRevision(controlDb, ascensionId);
+     const revision = await captureReportRevision(controlDb, ascensionId, channel);
      await assertCriticalRelease(controlDb, ascensionId, channel);
      const creator = new Creator(testid);
      const view = await creator.resultPresentationView(tenantId, testid, billingid, patientid);
@@ -83,6 +83,7 @@ export async function loadReleasedLaboratoryReport(
      let revision = -1;
      const dataset = await loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionId, true, channel, value => { revision = value; });
      const db = await KnexConnection(tenantId);
+     await assertResultFormallyReleased(db, ascensionId, revision);
      const requireSignoff = reportAmendmentSignoffRequired(await labAccessSettings(db));
      const archive = await archiveLaboratoryReport(db, ascensionId, revision, dataset, channel, undefined, requireSignoff);
      const snapshot = readReportSnapshot(archive) as resultPrintOutDataset;
