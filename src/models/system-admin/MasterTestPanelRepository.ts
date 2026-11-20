@@ -66,15 +66,26 @@ export default class MasterTestPanelRepository {
           return row;
      }
 
+     getMasterSampleTypeById = async (id: number) => this.connection('sampletype').where({id}).first();
+
      getMasterFieldConstraintsByRuleIds = async (ruleIds: number[]) => {
           if (!Array.isArray(ruleIds) || ruleIds.length === 0) {
                return [];
           }
 
+          const columns = await this.connection('field_constraints').columnInfo();
           const rows = await this.connection('field_constraints')
                .select('*')
-               .whereIn('rule_id', ruleIds)
+               .whereIn(columns.rule_id ? 'rule_id' : 'fieldid', ruleIds)
                .orderBy('id', 'asc');
           return rows;
+     }
+
+     getSupplementalSetup = async (testid: number) => {
+          const setup: Record<string, any[]> = {};
+          for (const table of ['customtestcreation','field_constraints','proceduremanual','test_report_settings','calculated_parameter_formulas','testconditiondefinitions','testconditions']) {
+               setup[table] = await this.connection.schema.hasTable(table) ? await this.connection(table).where({testid}) : [];
+          }
+          return setup;
      }
 }

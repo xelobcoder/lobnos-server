@@ -69,6 +69,11 @@ describe('platform facility routes', () => {
      it('guards every facility route, existing and new, with the platform authority as the first handler', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
                'get /api/v1/platform/facilities/access',
+               'get /api/v1/platform/facilities/master-catalog/options',
+               'get /api/v1/platform/facilities/master-catalog/:module',
+               'post /api/v1/platform/facilities/master-catalog/:module',
+               'put /api/v1/platform/facilities/master-catalog/:module/:id',
+               'delete /api/v1/platform/facilities/master-catalog/:module/:id',
                'post /api/v1/platform/facilities/developer-session', 'delete /api/v1/platform/facilities/developer-session',
                'get /api/v1/platform/facilities/license-windows', 'put /api/v1/platform/facilities/:tenantId/license-window',
                'get /api/v1/platform/facilities/:tenantId/test-setup/panels',

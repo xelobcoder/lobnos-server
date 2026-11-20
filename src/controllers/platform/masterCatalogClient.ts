@@ -1,0 +1,63 @@
+import {Router,Request,Response} from 'express';
+import {requirePlatformFacilityAuthority} from '../../middleware/platformFacilityAuthority';
+import {MASTER_CATALOG_SCOPE,masterCatalogContext} from '../../models/system-admin/MasterCatalogContext';
+import {systemConfigConnection} from '../../database/connection';
+import {MasterCatalogService} from '../../models/system-admin/MasterCatalogService';
+import testPanelRouter from '../testpanel/routes';
+import departmentRouter from '../settings/route';
+import sampleTypeRouter from '../applicationsettings/branches/route';
+import sampleContainerRouter from '../routes/sampleContainerRoutes';
+import {testCreationRuleUpdateHandler} from '../result/resultHandlers';
+import TestDetailCategoryController from '../operations/TestDetailCategoryController';
+import * as conditions from '../operations/testCreationMultipleCondtionHandlers';
+import {CriticalActionService} from '../../models/operations/CriticalActionService';
+import {getAuthUser} from '../../middleware/authority';
+import {requireTestPanelManagement} from '../../middleware/testPanelAuthority';
+import {handleOverLoad} from '../../hooks/helper';
+import logger from '../../hooks/logger';
+
+import {allowedMasterCatalogPath} from './masterCatalogPaths';
+export {allowedMasterCatalogPath} from './masterCatalogPaths';
+const router=Router(), dispatch=Router(), service=new MasterCatalogService();
+const run=(fn:(req:Request,res:Response)=>Promise<any>)=>async(req:Request,res:Response)=>{try{return await fn(req,res)}catch(error:any){return res.status(error.statusCode||400).json({status:'error',message:error.statusCode?error.message:'Unable to update master test setup'})}};
+// The shared screens keep their normal endpoint contracts. Only authenticated master requests enter this dispatcher.
+dispatch.get('/api/v1/testpanel/my-access',(_req,res)=>res.json({success:true,can_view:true,can_manage:true,can_delegate:false}));
+dispatch.delete('/api/v1/testpanel/list',run(async(req,res)=>{const ids=String(req.query.testid||'').split(',').map(Number);if(!ids.length||ids.length>1000||ids.some(id=>!Number.isSafeInteger(id)||id<1))return res.status(400).json({status:'error',message:'Valid master panel IDs are required'});for(const id of ids)await service.remove('panels',id,getAuthUser(req)!.employeeid);return res.json({status:'success'})}));
+dispatch.put('/api/v1/testpanel/list/customtestrule',requireTestPanelManagement,handleOverLoad(testCreationRuleUpdateHandler));
+dispatch.post('/api/v1/test/fields/category',TestDetailCategoryController.create);
+dispatch.get('/api/v1/test/fields/category',TestDetailCategoryController.getAll);
+dispatch.get('/api/v1/test/fields/category/test/:testid',TestDetailCategoryController.getByTestId);
+dispatch.get('/api/v1/test/fields/category/:id',TestDetailCategoryController.getById);
+dispatch.put('/api/v1/test/fields/category/:id',TestDetailCategoryController.update);
+dispatch.patch('/api/v1/test/fields/category/soft-delete/:id',TestDetailCategoryController.softDelete);
+dispatch.patch('/api/v1/test/fields/category/restore/:id',TestDetailCategoryController.restore);
+dispatch.delete('/api/v1/test/fields/category/:id',TestDetailCategoryController.delete);
+dispatch.post('/api/v1/multi/definition',conditions.createTestConditionDefinition);
+dispatch.get('/api/v1/multi/definition/test/:testid',conditions.getTestDefinitionsTestId);
+dispatch.get('/api/v1/multi/definition/conditions/:conditionId',conditions.getTestDefinitionConditionsHandler);
+dispatch.get('/api/v1/multi/definition/:id',conditions.getTestConditionDefinition);
+dispatch.put('/api/v1/multi/definition/:id',conditions.updateTestConditionDefinition);
+dispatch.delete('/api/v1/multi/definition/:id',conditions.deleteTestConditionDefinition);
+dispatch.post('/api/v1/multi/condition',conditions.createTestCondition);
+dispatch.get('/api/v1/multi/condition/:id',conditions.getTestCondition);
+dispatch.put('/api/v1/multi/condition/update/:id',conditions.updateTestCondition);
+dispatch.delete('/api/v1/multi/condition/delete/:id',conditions.deleteTestCondition);
+dispatch.get('/api/v1/operations/control/tests/:id/critical-policies',run(async(req,res)=>res.json({success:true,data:await new CriticalActionService(systemConfigConnection).policies(getAuthUser(req)!,Number(req.params.id))})));
+dispatch.put('/api/v1/operations/control/tests/:id/critical-policies/:ruleId',run(async(req,res)=>res.json({success:true,data:await new CriticalActionService(systemConfigConnection).savePolicy(getAuthUser(req)!,Number(req.params.id),Number(req.params.ruleId),req.body)})));
+dispatch.use(testPanelRouter,departmentRouter,sampleTypeRouter,sampleContainerRouter);
+router.use('/api/v1/platform/facilities/catalog-api',requirePlatformFacilityAuthority,run(async(req,res)=>{
+ if(!allowedMasterCatalogPath(req.path))return res.status(404).json({status:'error',message:'This operation is not part of the master test catalogue'});
+ await service.ensure();
+ const employeeid=Number(res.locals.facilityActor.employeeId);
+ const url=new URL('/api/v1'+req.url,'http://catalog.local');url.searchParams.set('tenantId',String(MASTER_CATALOG_SCOPE));url.searchParams.set('employeeid',String(employeeid));url.searchParams.set('grouping','client');
+ req.url=url.pathname+url.search;
+ Object.assign(req.query,{tenantId:String(MASTER_CATALOG_SCOPE),employeeid:String(employeeid),grouping:'client'});
+ (req as any).authUser={employeeid,role:'super-admin',tenantId:MASTER_CATALOG_SCOPE,branch:1,email:''};
+ if(req.body&&typeof req.body==='object'&&!Array.isArray(req.body)) {
+  for(const key of ['employeeid','createdby','updatedby','createdBy','updatedBy'])if(key in req.body)req.body[key]=employeeid;
+ }
+ const scope={db:systemConfigConnection,employeeid};
+ if(req.method!=='GET')res.once('finish',()=>{void systemConfigConnection('master_catalog_audit').insert({actor_id:employeeid,action:req.method.toLowerCase(),module:'client_editor',testid:Number(req.query.testid||req.body?.testid)||null,recordid:Number(req.query.testid||req.body?.testid)||0,after_data:JSON.stringify({path:url.pathname,status:res.statusCode})}).catch(()=>logger.error('Master catalogue request audit could not be recorded'))});
+ return masterCatalogContext.run(scope,()=>dispatch(req,res,()=>res.status(404).json({status:'error',message:'Catalogue operation not found'})));
+}));
+export default router;

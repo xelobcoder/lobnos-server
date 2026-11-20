@@ -7,6 +7,7 @@ import { testpanel } from "../../testpanel/testpanelList";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import logger from "../../hooks/logger";
 import MasterTestPanelRepository from "../../models/system-admin/MasterTestPanelRepository";
+import { importMasterSupplementalSetup } from '../../testpanel/importMasterSupplementalSetup';
 import KnexConnection from "../../database/KnexConnections";
 import { applyTestPanelsAfterInsert } from "../../database/appLevelTriggers";
 import { generateNextTestPanelId } from "../../testpanel/testPanelId";
@@ -505,13 +506,21 @@ async function importOneMasterTest(
                     }
                }
 
+               let targetSampleTypeId = Number(masterPanel.sample ?? 0);
+               if (targetSampleTypeId && typeof masterRepo.getMasterSampleTypeById === 'function') {
+                    const sample = await masterRepo.getMasterSampleTypeById(targetSampleTypeId);
+                    if (!sample?.name) throw new Error('The master sample type is unavailable');
+                    const existingSample = await trx('sampletype').whereRaw('LOWER(name) = LOWER(?)',[sample.name]).first();
+                    if (existingSample) targetSampleTypeId = Number(existingSample.id);
+                    else { const inserted = await trx('sampletype').insert({name:sample.name}); targetSampleTypeId = Number(inserted[0]); }
+               }
                const id = await generateNextTestPanelId(trx);
                const insertedPanel = await trx('test_panels').insert({
                     id,
                     name: masterPanel.name,
                     category: targetDepartment.id,
                     price: Number(masterPanel.price ?? 0),
-                    sample: Number(masterPanel.sample ?? 0),
+                    sample: targetSampleTypeId,
                     description: masterPanel.description ?? null,
                     sample_container: targetSampleContainerId,
                     unit: masterPanel.unit ?? '',
@@ -613,9 +622,10 @@ async function importOneMasterTest(
                }
 
                const masterRules = await masterRepo.getTestCreationRulesByTestId(masterTestId);
+               const importedFields = new Map<number, number>();
                for (const rule of masterRules) {
                     const mappedCategoryId = rule.categoryid ? categoryIdMap.get(Number(rule.categoryid)) : null;
-                    await trx('testcreationrules').insert({
+                    const insertedRule = await trx('testcreationrules').insert({
                          testid: newTestId,
                          name: rule.name,
                          field: rule.field,
@@ -644,6 +654,11 @@ async function importOneMasterTest(
                          upperLimitNeonates: rule.upperLimitNeonates,
                          lowerLimitNeonates: rule.lowerLimitNeonates,
                     });
+                    importedFields.set(Number(rule.id),Number(insertedRule[0]));
+               }
+
+               if (typeof masterRepo.getSupplementalSetup === 'function') {
+                    await importMasterSupplementalSetup(trx, await masterRepo.getSupplementalSetup(masterTestId), newTestId, importedFields, defaultEmployeeId);
                }
 
                await trx.commit();

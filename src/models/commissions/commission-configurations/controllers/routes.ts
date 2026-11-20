@@ -5,6 +5,8 @@ import { CommissionTrackingController } from './CommissionTrackingController';
 import { CommissionDefaultController } from './CommissionDefaultController';
 import { CommissionAnalyticsController } from './CommissionAnalyticsController';
 import { bindCommissionActor, commissionAccess } from '../../../../middleware/commissionAuthority';
+import KnexConnection from '../../../../database/KnexConnections';
+import { commissionRecipients } from '../../CommissionRecipients';
 
 const router = Router();
 router.use(bindCommissionActor, commissionAccess);
@@ -17,6 +19,10 @@ router.put('/configs/:id', CommissionConfigController.updateConfig);
 router.delete('/configs/:id', CommissionConfigController.deleteConfig);
 
 // COMMISSION ASSIGNMENTS
+router.get('/assignments/recipients', async (req,res) => {
+    try { return res.json({status:'success',result:await commissionRecipients(await KnexConnection(Number(req.query.tenantId)),req.query)}); }
+    catch(error:any) { return res.status(error.statusCode||500).json({status:'error',message:error.statusCode ? error.message : 'Unable to load commission recipients'}); }
+});
 router.post('/assignments', CommissionAssignmentController.createAssignment);
 router.get('/assignments', CommissionAssignmentController.getAssignments);
 router.get('/assignments/resolve', CommissionAssignmentController.resolveAssignment);

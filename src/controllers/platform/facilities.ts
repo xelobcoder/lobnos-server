@@ -7,6 +7,7 @@ import { DeveloperTenantSessionService } from '../../models/Tenancy/DeveloperTen
 import { FacilityProvisioningService } from '../../models/Tenancy/FacilityProvisioningService';
 import { FacilityBackups } from '../../models/Tenancy/FacilityBackups';
 import { FacilityTestSetupCopy } from '../../models/Tenancy/FacilityTestSetupCopy';
+import { MasterCatalogService } from '../../models/system-admin/MasterCatalogService';
 import { FacilityManagementService } from '../../models/Tenancy/FacilityManagementService';
 import { FacilityError, validateFacilityInput } from '../../models/Tenancy/FacilityInput';
 import { validateModuleConfiguration } from '../../models/Tenancy/FacilityModules';
@@ -29,6 +30,7 @@ const publicRegistry = new PublicFacilityRegistry();
 const modulePricing = new FacilityModulePricingCatalog();
 const subscriptionTiers = new FacilitySubscriptionTierService();
 const base = '/api/v1/platform/facilities';
+const masterCatalog = new MasterCatalogService();
 
 const SCHEMA_CODES = new Set(['ER_BAD_FIELD_ERROR', 'ER_NO_SUCH_TABLE', 'ER_CANT_AGGREGATE_2COLLATIONS', 'ER_CANT_AGGREGATE_NCOLLATIONS',
      'ER_WRONG_FIELD_WITH_GROUP', 'ER_TRUNCATED_WRONG_VALUE_FOR_FIELD', 'ER_DATA_TOO_LONG', 'ER_NO_REFERENCED_ROW_2']);
@@ -68,6 +70,11 @@ const handle = (operation: (req: Request, res: Response) => Promise<unknown>) =>
 const actor = (res: Response) => res.locals.facilityActor;
 
 router.get(`${base}/access`, requirePlatformFacilityAuthority, handle(async () => ({ authorized: true })));
+router.get(`${base}/master-catalog/options`, requirePlatformFacilityAuthority, handle(req => masterCatalog.lookups(req.query.testid)));
+router.get(`${base}/master-catalog/:module`, requirePlatformFacilityAuthority, handle(req => masterCatalog.list(String(req.params.module),req.query)));
+router.post(`${base}/master-catalog/:module`, requirePlatformFacilityAuthority, handle((req,res) => masterCatalog.save(String(req.params.module),req.body,actor(res).employeeId,req.query.testid)));
+router.put(`${base}/master-catalog/:module/:id`, requirePlatformFacilityAuthority, handle((req,res) => masterCatalog.save(String(req.params.module),req.body,actor(res).employeeId,req.query.testid,req.params.id)));
+router.delete(`${base}/master-catalog/:module/:id`, requirePlatformFacilityAuthority, handle((req,res) => masterCatalog.remove(String(req.params.module),req.params.id,actor(res).employeeId,req.query.testid)));
 router.post(`${base}/developer-session`, requirePlatformFacilityAuthority, handle(async (req, res) => {
      res.setHeader('Cache-Control', 'private, no-store');
      return developerSessions.open(parseTenantIdParam(String(req.body?.tenantId ?? '')), res.locals.platformOwnerClaims, req.get('x-pls-developer-session'));

@@ -1,3 +1,4 @@
+import {masterCatalogContext} from '../models/system-admin/MasterCatalogContext';
 import { Request, Response, NextFunction } from "express";
 import { configuration } from "../hooks/configuration";
 import logger from "../hooks/logger";
@@ -38,6 +39,7 @@ export function ensureMasterTestLinkColumn(connection: any): Promise<boolean> {
  * master catalog in primelabmaster_control; ad-hoc test creation is rejected.
  */
 export const blockWhenMasterCatalogEnforced = (_req: Request, res: Response, next: NextFunction) => {
+     if (masterCatalogContext.getStore()) return next();
      if (!configuration.enforceMasterTestCatalog) return next();
      return res.status(403).json({
           status: 'error',

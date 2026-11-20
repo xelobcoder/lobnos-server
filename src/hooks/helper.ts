@@ -1,3 +1,4 @@
+import {scopedCatalogDatabase} from '../models/system-admin/MasterCatalogContext';
 import { primeTenancyConnector } from '../models/Tenancy/tenantConnections';
 import { databaseConnectionPool } from './../database/connection'
 import { configuration } from './configuration';
@@ -83,6 +84,8 @@ function NotFound(response: any) {
 
 
 async function promisifyQuery(tenantId: number, query: string, values: any[] = []): Promise<any> {
+    const catalog = scopedCatalogDatabase(tenantId);
+    if (catalog) return (await catalog.raw(query, values))[0];
 	if (!query || typeof query !== "string") {
 		throw new Error("Query must be provided and of string type");
 	}

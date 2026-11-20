@@ -65,6 +65,7 @@ import { clinicianPortalRouter } from "./controllers/clinician-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import masterAuthRouter from "./controllers/platform/masterAuth";
 import platformFacilitiesRouter from "./controllers/platform/facilities";
+import masterCatalogClientRouter from "./controllers/platform/masterCatalogClient";
 import {
      createPaymentWebhookRouter,
      createPlatformPaymentsRouter,
@@ -154,6 +155,7 @@ app.get("/api/v1/health", (_req: Request, res: Response) => {
 // The router enforces active control-tenant standing and live super-admin/session validation.
 app.use(masterAuthRouter);
 app.use(createPlatformPaymentsRouter());
+app.use(masterCatalogClientRouter);
 app.use(platformFacilitiesRouter);
 app.use(publicFacilitiesRouter);
 app.use(publicWalkInQueueRouter);
