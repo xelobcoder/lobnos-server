@@ -1,3 +1,4 @@
+import {assertPatientConsent,recordCollectionConsents} from '../patients/EConsent';
 import { randomUUID } from 'crypto';
 import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
@@ -20,6 +21,8 @@ export function canTransitionPhysicalSample(from: PhysicalSampleStatus, to: Phys
 }
 
 export interface CreatePhysicalSampleInput {
+     consent?:any;
+     consentActor?:any;
      billingid: number;
      ascensionIds: number[];
      action?: 'start' | 'collect' | 'receive';
@@ -257,6 +260,8 @@ export class PhysicalSampleService {
                if (rows.length !== ascensionIds.length) throw new Error('One or more test ascensions were not found');
                if (rows.some((row: any) => Number(row.billingid) !== input.billingid)) throw new Error('All tests must belong to the same billing order');
                if (new Set(rows.map((row: any) => Number(row.patientid))).size !== 1) throw new Error('All tests must belong to the same patient');
+               if(input.consent&&input.consentActor)await recordCollectionConsents(trx,input.consentActor,Number((rows[0] as any).patientid),ascensionIds,input.consent);
+               for(const id of ascensionIds)await assertPatientConsent(trx,Number((rows[0] as any).patientid),id);
 
                const requirementKeys = new Set(rows.map((row: any) => [row.sample_type_id || 0, row.container_type_id || 0, String(row.unit || '').trim().toLowerCase()].join(':')));
                if (requirementKeys.size !== 1 && !input.manualOverride) throw new Error('Selected tests require different specimen or container types');
@@ -328,7 +333,7 @@ export class PhysicalSampleService {
           });
      }
 
-     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput; collectionCenterId?: number; collectionBranchId?: number | null } = {}): Promise<any> {
+     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { consent?:any;consentActor?:any;expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput; collectionCenterId?: number; collectionBranchId?: number | null } = {}): Promise<any> {
           const allowed: PhysicalSampleStatus[] = ['collected', 'received', 'accepted', 'rejected'];
           if (!allowed.includes(status)) throw new Error('Unsupported sample transition');
           const connection = await KnexConnection(this.tenantId);
@@ -343,6 +348,8 @@ export class PhysicalSampleService {
                }
                const links = await trx('test_ascension_samples').where({ sample_id: sampleId });
                const ascensionIds = links.map((link: any) => Number(link.ascension_id));
+               if((status==='collection_started'||status==='collected')&&options.consent&&options.consentActor)await recordCollectionConsents(trx,options.consentActor,Number(sample.patientid),ascensionIds,options.consent);
+               if(status==='collection_started'||status==='collected')for(const id of ascensionIds)await assertPatientConsent(trx,Number(sample.patientid),Number(id));
                const now = new Date();
                const update: any = { status, version: Number(sample.version || 1) + 1, updated_at: now };
                if (!canTransitionPhysicalSample(sample.status as PhysicalSampleStatus, status)) throw new Error(`Physical sample cannot move from ${sample.status} to ${status}`);

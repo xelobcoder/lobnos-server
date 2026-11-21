@@ -1,3 +1,4 @@
+import {parseConfiguredTat} from '../../models/operations/LabDeadlines';
 import { Request, Response } from "express";
 import Creator from "../../models/creator/creator";
 import { getCategory, postCategory } from "../../testpanel/categories";
@@ -552,7 +553,7 @@ async function importOneMasterTest(
                               hasManual: masterDetails.hasManual,
                               procedureCode: masterDetails.procedureCode,
                               pre_Tat: masterDetails.pre_Tat,
-                              tat: masterDetails.tat,
+                              tat: parseConfiguredTat(masterDetails.tat,masterDetails.tatEvaluation),
                               post_Tat: masterDetails.post_Tat,
                               tatCount: masterDetails.tatCount,
                               updatedon: trx.fn.now(),
@@ -568,7 +569,7 @@ async function importOneMasterTest(
                               outSourcingList: masterDetails.outSourcingList ?? null,
                               post_TatEvaluation: masterDetails.post_TatEvaluation ?? 'min',
                               pre_TatEvaluation: masterDetails.pre_TatEvaluation ?? 'min',
-                              tatEvaluation: masterDetails.tatEvaluation ?? 'min',
+                              tatEvaluation: 'min',
                               deviceInterfaceMapping: masterDetails.deviceInterfaceMapping ?? null,
                               reportitle: masterDetails.reportitle ?? null,
                               method: masterDetails.method ?? null,

@@ -1,3 +1,4 @@
+import {testPanelCache} from '../../services/cache/testPanelCache';
 import { scopeLabWork, labAccessSettings, assertLabTestAccess } from "./LabAccessPolicy";
 import { createHash } from "crypto";
 import KnexConnection from "../../database/KnexConnections";
@@ -235,7 +236,12 @@ export class LabWorkbenchService {
                values[`lab_${kind}_tat_minutes`] = value;
           }
           const db = await KnexConnection(this.tenantId);
-          if (!(await db("test_panels").where({ id: testId }).update(values))) fail("Test not found", 404);
+          await db.transaction(async trx=>{
+               if(!await trx("test_panels").where({id:testId}).forUpdate().first())fail("Test not found",404);
+               if (!(await trx("test_panels").where({ id: testId }).update(values))) fail("Test not found", 404);
+               await trx('testdetails').where({testid:testId}).update({tat:values.lab_routine_tat_minutes,tatEvaluation:'min'});
+          });
+          await testPanelCache.invalidate(this.tenantId);
           return values;
      }
 

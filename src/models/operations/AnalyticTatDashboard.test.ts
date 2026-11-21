@@ -1,0 +1,3 @@
+import {expect,it} from 'vitest';
+import {analyticDashboardQuery} from './AnalyticTatDashboard';
+it('uses analytical start/end and configured priority targets rather than registration age as analytic TAT',()=>{const {query,params}=analyticDashboardQuery(4,'2026-01-12','2026-01-12');expect(params).toEqual([4,'2026-01-12','2026-01-12']);expect(query).toContain('TIMESTAMPDIFF(MINUTE,ta.processingStartDate,COALESCE(ta.processingEndDate,NOW()))');expect(query).toContain('tp.lab_stat_tat_minutes');expect(query).toContain('tp.lab_urgent_tat_minutes');expect(query).toContain('AS recordAgeMinutes');expect(query).toContain("THEN 'data_review'");expect(query).toContain('processingEndDate=processingStartDate');expect(query).not.toContain('>= 1440');});

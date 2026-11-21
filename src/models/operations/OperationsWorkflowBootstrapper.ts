@@ -10,8 +10,8 @@ export async function ensureOperationsWorkflowSchema(db: Knex): Promise<void> {
                     await db.schema.alterTable("test_panels", (t) => t.integer(column).unsigned().nullable());
           }
           if (initializeTargets && (await db.schema.hasTable("testdetails"))) {
-               for (const detail of await db("testdetails").select("testid", "tat")) {
-                    const minutes = parseConfiguredTat(detail.tat);
+               for (const detail of await db("testdetails").select("testid", "tat", "tatEvaluation")) {
+                    const minutes = parseConfiguredTat(detail.tat,detail.tatEvaluation);
                     if (minutes)
                          await db("test_panels")
                               .where({ id: detail.testid })

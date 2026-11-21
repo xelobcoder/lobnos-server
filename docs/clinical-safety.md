@@ -147,7 +147,20 @@ The following items from the clinical safety table are **not** delivered by this
 - **G3** autoverification rules.
 - **G5** amended-report versioning and electronic signatures.
 - **G6** structured allergies/interactions.
-- **G7** consent management.
 - **G8** ISO 15189 document control, CAPA, competency.
 - **G9** critical-result read-back verification and escalation timers.
 - **G10** calibration/maintenance and lot-to-lot QC.
+
+## 6. Electronic consent — 21 November 2026
+
+Registration/general laboratory consent and ordered-test/procedure consent are available from patient registration, the laboratory visit, and the CRM/Laboratory Electronic consent links. Administrators and managers publish facility-reviewed wording as new versions. No consent is assumed or pre-signed.
+
+Staff record the patient or guardian decision, typed electronic signature, guardian relationship, identity-check method, and witnessing staff identity. Each record preserves its exact wording, version and signed snapshot hash. Withdrawal adds an audit event and retains the original signature and wording. Refusal is recorded explicitly.
+
+Consent is confirmed inside sample collection, with one staff-witnessed verbal-consent confirmation. Patient names are filled automatically; guardian identity and relationship remain explicit. One confirmation covers the applicable versioned forms for the visit and is saved in the collection transaction. The separate consent page provides history, refusal, withdrawal and exceptional typed-signature capture.
+
+Facility Result Entry Settings select consent Off, Optional or Required. Off hides the collection prompt; Optional permits recording without imposing a workflow hold; Required enforces the published forms marked required, including procedure forms restricted to a panel. Missing, declined, withdrawn, superseded or altered records cannot satisfy an enforced form. Stale wording or a confirmation for a different patient/visit is rejected. Existing signed records and withdrawal history are retained in every mode.
+
+Sign & Release is independently configurable. Existing facilities retain mandatory signing by default. When disabled, validated reports may print without a separate signature event; payment restrictions, critical-result holds and separately configured manager approval remain in force. No release or signature is fabricated, and archived report versions remain available.
+
+The shared Test Details Save Changes action also saves Linearity and Delta rules transactionally. Configure these checks from Test Details; the earlier API-only rollout instruction is superseded.

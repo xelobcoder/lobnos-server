@@ -1,4 +1,6 @@
 export interface ResultEntrySettings {
+     requireExplicitResultRelease?: boolean;
+     electronicConsentMode?: 'off' | 'optional' | 'required';
      resultLockAfter24Hours: number;
      isPinOnResultEntry: number;
      isPinOnResultViewAfter24Hours: number;

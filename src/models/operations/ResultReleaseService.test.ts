@@ -150,3 +150,12 @@ it('blocks release when a numeric measurement is outside its analytical range',a
  expect(await fixture.db('lab_result_release_events')).toHaveLength(0);
  expect(await fixture.db('lab_report_versions')).toHaveLength(0);
 });
+
+it('optional Sign & Release permits a validated print revision without creating a release event',async()=>{
+ await fixture.db('resultsettings').where({id:1}).update({resultsEntrySettings:JSON.stringify({requireExplicitResultRelease:false})});
+ await expect(assertResultFormallyReleased(fixture.db,1,0)).resolves.toBeUndefined();await expect(captureReportRevision(fixture.db,1,'print')).resolves.toBe(0);expect(await fixture.db('lab_result_release_events')).toHaveLength(0);
+ await fixture.db('dbotestresultapproval').where({ascensionid:1}).update({isapproved:0,approvedBy:null});await expect(captureReportRevision(fixture.db,1,'print')).rejects.toThrow('validation');
+});
+it('optional Sign & Release still respects a separately required manager approval',async()=>{
+ await fixture.db('resultsettings').where({id:1}).update({resultsEntrySettings:JSON.stringify({requireExplicitResultRelease:false,requireManagerApprovalBeforeRelease:true})});await expect(assertResultFormallyReleased(fixture.db,1,0)).rejects.toMatchObject({code:'RESULT_NOT_RELEASED'});
+});

@@ -1,0 +1,5 @@
+import {expect,it,vi} from 'vitest';
+import {isAuthorizedRoleScientistPhelobotomist} from './validateTenancy';
+function response(){return {statusCode:0,body:null as any,status(n:number){this.statusCode=n;return this;},send(body:any){this.body=body;return this;},json(body:any){this.body=body;return this;}};}
+it('authorizes the actual signed-in scientist without requiring employeeid in the URL',async()=>{const next=vi.fn();await isAuthorizedRoleScientistPhelobotomist({authUser:{employeeid:7,role:'scientist'},query:{}} as any,response() as any,next);expect(next).toHaveBeenCalledOnce();});
+it('rejects an unsigned or unauthorized caller even when an employee ID is supplied',async()=>{const next=vi.fn(),unsigned=response(),forbidden=response();await isAuthorizedRoleScientistPhelobotomist({query:{employeeid:7}} as any,unsigned as any,next);await isAuthorizedRoleScientistPhelobotomist({authUser:{role:'marketer'},query:{employeeid:7}} as any,forbidden as any,next);expect(unsigned.statusCode).toBe(401);expect(forbidden.statusCode).toBe(403);expect(next).not.toHaveBeenCalled();});

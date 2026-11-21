@@ -1,3 +1,4 @@
+import {explicitResultReleaseRequired} from '../operations/ResultReleaseGuard';
 import { captureReportRevision, assertReportRevision, assertResultFormallyReleased } from '../operations/ResultReleaseGuard';
 import KnexConnection from '../../database/KnexConnections';
 import { assertCriticalRelease } from '../operations/CriticalActionService';
@@ -84,7 +85,7 @@ export async function loadReleasedLaboratoryReport(
      const dataset = await loadLaboratoryReportData(tenantId, patientid, billingid, testid, ascensionId, true, channel, value => { revision = value; });
      const db = await KnexConnection(tenantId);
      await assertResultFormallyReleased(db, ascensionId, revision);
-     const requireSignoff = reportAmendmentSignoffRequired(await labAccessSettings(db));
+     const requireSignoff = await explicitResultReleaseRequired(db) && reportAmendmentSignoffRequired(await labAccessSettings(db));
      const archive = await archiveLaboratoryReport(db, ascensionId, revision, dataset, channel, undefined, requireSignoff);
      const snapshot = readReportSnapshot(archive) as resultPrintOutDataset;
      if (!decrypt && Array.isArray(snapshot.records)) {

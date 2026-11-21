@@ -1,3 +1,7 @@
+import {MasterLookupImport} from '../../models/TestCreation/MasterLookupImport';
+import KnexConnection from '../../database/KnexConnections';
+import {systemConfigConnection} from '../../database/connection';
+import {testPanelCache} from '../../services/cache/testPanelCache';
 import {getReportValidation,putReportValidation} from './reportValidationHandlers';
 import {listUnits,addUnit} from '../../models/TestCreation/UnitCatalogue';
 import {masterCatalogContext} from '../../models/system-admin/MasterCatalogContext';
@@ -39,6 +43,13 @@ import { blockWhenMasterCatalogEnforced } from "../../testpanel/masterCatalog";
 import { getTestPanelStaffAccess, updateTestPanelStaffAccess } from "./testPanelStaffAccess";
 
 const router = express.Router();
+router.get('/api/v1/testpanel/master-lookups/:kind',requireTestPanelManagement,handleOverLoad(async(req,res)=>{
+ try{const service=new MasterLookupImport(systemConfigConnection,await KnexConnection(Number(req.query.tenantId)));return res.json({success:true,data:await service.preview(String(req.params.kind))});}catch(e:any){return res.status(e.statusCode||500).json({success:false,message:e.statusCode?e.message:'Unable to load master items'});}
+}));
+router.post('/api/v1/testpanel/master-lookups/:kind',requireTestPanelManagement,handleOverLoad(async(req,res)=>{
+ try{const tenantId=Number(req.query.tenantId);const service=new MasterLookupImport(systemConfigConnection,await KnexConnection(tenantId));const data=await service.apply(String(req.params.kind),req.body?.ids,getAuthUser(req)!.employeeid);await testPanelCache.invalidate(tenantId);return res.json({success:true,data});}catch(e:any){return res.status(e.statusCode||500).json({success:false,message:e.statusCode?e.message:'Unable to import master items'});}
+}));
+
 router.get('/api/v1/testpanel/:testid/validation-rules',requireTestPanelManagement,getReportValidation);
 router.put('/api/v1/testpanel/:testid/validation-rules',requireTestPanelManagement,putReportValidation);
 

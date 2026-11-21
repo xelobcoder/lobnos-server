@@ -265,33 +265,13 @@ export const ValidateTenancyAgreement = async (request: Request<{}, {}, {}, { te
 }
 
 
-export const isAuthorizedRoleScientistPhelobotomist = async (request: Request<{}, {}, {}, { tenantId: string; employeeid: string }>, response: Response, next: NextFunction) => {
-     try {
-          const { tenantId } = request.query;
-          const employeeid = request.query.employeeid;
-          if (!employeeid || !employeeid) return customError("invalid request query provided", 400, response)
-          const tenantIdP = parseInt(tenantId.toString());
-          const parsedEmployeeid = parseInt(employeeid.toString())
-          const userdata = await new RolesRepository(tenantIdP).getRoleById(parsedEmployeeid);
-          const role = userdata ? userdata['role'].toLowerCase().trim() : ''
-
-          const allowedRoles = [
-               "phelobotomist",
-               'admin',
-               'super-admin',
-               'manager',
-               'scientist'
-          ];
-
-          if (!roleAllowed(role, allowedRoles)) {
-               return customError(OperationsFailures.dontHaveAccessPermission, 404, response);
-          }
-
-          next();
-     } catch (err) {
-          responseError(response);
-     }
+export const isAuthorizedRoleScientistPhelobotomist = async (request: Request, response: Response, next: NextFunction) => {
+     const actor=(request as any).authUser;
+     if(!actor)return customError('Authentication required',401,response);
+     if(!roleAllowed(actor.role,['admin','super-admin','manager','scientist','phelobotomist','phlebotomist']))return customError(OperationsFailures.dontHaveAccessPermission,403,response);
+     return next();
 }
+
 
 
 export const isAuthorizedRoleAdmin = async (request: Request<any, any, any, any>, response: Response, next: NextFunction) => {

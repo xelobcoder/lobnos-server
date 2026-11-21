@@ -42,6 +42,10 @@ class ResultSettings extends ApplicationSettings {
 		merged.requireManagerApprovalBeforeRelease = Number(merged.requireManagerApprovalBeforeRelease) === 1 || merged.requireManagerApprovalBeforeRelease === true;
 		merged.allowResultAuthorToRelease = Number(merged.allowResultAuthorToRelease) === 1 || merged.allowResultAuthorToRelease === true;
 		merged.requireDifferentReleaserFromValidator = Number(merged.requireDifferentReleaserFromValidator) === 1 || merged.requireDifferentReleaserFromValidator === true;
+		if(!['off','optional','required'].includes(merged.electronicConsentMode||'off'))return false;
+        merged.electronicConsentMode=merged.electronicConsentMode||'off';
+        if(![true,false,0,1].includes(merged.requireExplicitResultRelease as any))return false;
+        merged.requireExplicitResultRelease=merged.requireExplicitResultRelease!==false&&Number(merged.requireExplicitResultRelease)!==0;
 		const parsedJson = JSON.stringify(merged);
 		const result = await promisifyQuery(tenantId, q_update_result_entry_settings, [parsedJson]);
 		return rowAffected(result);

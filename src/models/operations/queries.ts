@@ -10,12 +10,7 @@ export const q_get_ascension_ids_for_tat_archive = `
   FROM test_ascension AS ta
   INNER JOIN dboservices AS ss ON ss.serviceid = ta.serviceid
   INNER JOIN billing AS bb ON bb.billingid = ss.billingid
-  WHERE ta.collectionStartDate IS NOT NULL
-    AND ta.collectionEndDate IS NOT NULL
-    AND ta.processingStartDate IS NOT NULL
-    AND ta.processingEndDate IS NOT NULL
-    AND ta.resultEntryStart IS NOT NULL
-    AND ta.resultEntryEnd IS NOT NULL
+  WHERE ta.resultEntryEnd IS NOT NULL
     AND bb.billedon IS NOT NULL
     AND DATE(ta.resultEntryEnd) = CURDATE() - INTERVAL 1 DAY
   ORDER BY ta.id ASC
@@ -495,6 +490,7 @@ export const q_get_date_for_tat_analysis: string = `SELECT
           tp.name AS testname,
           td.pre_tat,
           td.tat,
+          td.tatEvaluation,
           td.post_Tat,
           bb.billedon, 
           ta.id AS ascensionid, 

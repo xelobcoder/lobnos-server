@@ -1,3 +1,4 @@
+import eConsentRouter from './controllers/patients/eConsentRoutes';
 import { assertStorageEncryption } from "./security/storageEncryption";
 import { configureTransport, applicationServer } from "./security/transport";
 import { practitionerBoundary } from "./middleware/practitionerBoundary";
@@ -201,6 +202,7 @@ app.use(SecurityRouter);
 app.use(BillingRouter);
 app.use(sampleContainerRouter);
 app.use(testPanelRouter);
+app.use(eConsentRouter);
 app.use(expenseRouter);
 app.use(organizationRouter);
 app.use(organizationInvoiceRouter);

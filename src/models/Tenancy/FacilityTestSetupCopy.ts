@@ -1,3 +1,4 @@
+import {parseConfiguredTat} from '../operations/LabDeadlines';
 import { createHash } from 'crypto';
 import type { Knex } from 'knex';
 import { z } from 'zod';
@@ -199,7 +200,7 @@ async function copyRows(db: Knex.Transaction, input: CopyInput, plan: Awaited<Re
           });
           await applyTestPanelsAfterInsert(db, { testid: testId, price: input.price, iscustom: 0 });
           if (plan.details) await db('testdetails').where({ testid: testId }).update({
-               ...pick(plan.details, DETAILS_COLUMNS), useLiterature: Number(plan.details.useLiterature ?? 0),
+               ...pick(plan.details, DETAILS_COLUMNS), tat:parseConfiguredTat(plan.details.tat,plan.details.tatEvaluation),tatEvaluation:'min', useLiterature: Number(plan.details.useLiterature ?? 0),
           });
           if (plan.literature.length) await db('setupliteraturereview').insert(plan.literature.map(row => ({
                testid: testId, literature: row.literature,

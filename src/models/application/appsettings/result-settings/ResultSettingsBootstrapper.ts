@@ -31,6 +31,7 @@ export const DEFAULT_RESULT_SETTINGS = {
 };
 
 export const DEFAULT_RESULT_ENTRY_SETTINGS: ResultEntrySettings = {
+     requireExplicitResultRelease:true, electronicConsentMode:'off',
      resultLockAfter24Hours: 1, isPinOnResultEntry: 1, isPinOnResultViewAfter24Hours: 1,
      maximumResultValidation: 10, minimumResultValidation: 1, showPastTestResult: 1,
      allowScientistViewAudit: 1, showTaTAnalysis: 1, encryptResultAfter24Hours: 0,

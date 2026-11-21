@@ -1,3 +1,4 @@
+import {analyticTatMetrics} from './LabDeadlines';
 import moment from "moment";
 import { paginationQuery, promisifyQuery } from "../../hooks/helper";
 import {
@@ -95,6 +96,7 @@ class TestAscensionTurnAroundTime {
      }
 
      static normalizeDuration(value: unknown): number | null {
+          if(value===null||value===undefined||value==='')return null;
           const duration = typeof value === "number" ? value : Number(value);
           return Number.isFinite(duration) && duration >= 0 ? duration : null;
      }
@@ -106,7 +108,7 @@ class TestAscensionTurnAroundTime {
           if (roundedMinutes < 1440) {
                return `${Math.floor(roundedMinutes / 60)} hr ${roundedMinutes % 60} min`;
           }
-          return `${Math.floor(roundedMinutes / 1440)} days ${Math.floor((roundedMinutes % 1440) / 60)} hr`;
+          return `${Math.floor(roundedMinutes / 1440)} days ${Math.floor((roundedMinutes % 1440) / 60)} hr ${roundedMinutes%60} min`;
      }
 
      /** Returns paginated list of TAT data with duration and flags */
@@ -122,9 +124,7 @@ class TestAscensionTurnAroundTime {
                let query = q_get_date_for_tat_analysis;
 
                if (isCompleted) {
-                    query += `ta.collectionStartDate IS NOT NULL AND ta.collectionEndDate IS NOT NULL
-					AND ta.processingStartDate IS NOT NULL AND ta.processingEndDate IS NOT NULL
-					AND ta.resultEntryStart IS NOT NULL AND ta.resultEntryEnd IS NOT NULL AND bb.billedon IS NOT NULL
+                    query += `ta.resultEntryEnd IS NOT NULL AND bb.billedon IS NOT NULL
 					`;
                } else {
                     query += `bb.billedon IS NOT NULL`;
@@ -191,13 +191,14 @@ class TestAscensionTurnAroundTime {
      /** Static helper to analyze a single row for TAT */
      static analyzeTATRow(row: any) {
           // Parse expected TATs (in minutes)
-          const preTatSet = TestAscensionTurnAroundTime.parseDuration(row.pre_tat);
-          const processingTatSet = TestAscensionTurnAroundTime.parseDuration(row.processing_tat);
-          const postTatSet = TestAscensionTurnAroundTime.parseDuration(row.post_Tat);
-          const totalTatSet = TestAscensionTurnAroundTime.parseDuration(row.tat);
+          const metrics=analyticTatMetrics(row);
+          const preTatSet: number|null = null;
+          const processingTatSet=metrics.analyticTatMinutes;
+          const postTatSet: number|null=null;
+          const totalTatSet: number|null=null;
 
           const preTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.collectionDuration);
-          const processingTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.processingDuration);
+          const processingTatActual=metrics.actualAnalyticTatMinutes;
           const postTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.resultEntryDuration);
           const totalTatActual = TestAscensionTurnAroundTime.normalizeDuration(row.turnaroundtime);
 
@@ -252,15 +253,17 @@ class TestAscensionTurnAroundTime {
           }
 
           return {
+               ...metrics,
+               analyticTAT:TestAscensionTurnAroundTime.formatDuration(metrics.actualAnalyticTatMinutes),
                ascensionId: row.ascensionid,
                billedon: row.billedon,
                test: row.testname,
 
                // Set TAT limits (expected)
-               setTat: row.tat,
-               setPreTat: row.pre_tat,
-               setProcessingTat: row.processing_tat,
-               setPostTat: row.post_Tat,
+               setTat: metrics.analyticTatMinutes,
+               setPreTat: null,
+               setProcessingTat: metrics.analyticTatMinutes,
+               setPostTat: null,
 
                // Actual timestamps
                collectionStartDate: row.collectionStartDate,
@@ -293,7 +296,7 @@ class TestAscensionTurnAroundTime {
                processingTATExceeded:
                     processingTatActual !== null && processingTatSet != null && processingTatActual > processingTatSet,
                postTATExceeded: postTatActual !== null && postTatSet != null && postTatActual > postTatSet,
-               tatExceeded: totalTatActual !== null && totalTatSet != null && totalTatActual > totalTatSet,
+               tatExceeded:metrics.analyticTatExceeded===true,
 
                // Consistency warning
                tatConsistencyWarning,
@@ -335,7 +338,7 @@ class TestAscensionTurnAroundTime {
           if (dateFrom && dateTo && dateFrom !== today && dateTo !== today) {
                const query = q_get_tat_analysis_archive_by_date;
                const rows = await promisifyQuery(tenantId, query, [dateFrom, dateTo]);
-               return rows;
+               return rows.map((row:any)=>{const metrics=analyticTatMetrics({...row,tat:null,setTat:null});return {...row,...metrics,analyticTargetNote:'Historical target units were not archived',analyticTAT:TestAscensionTurnAroundTime.formatDuration(metrics.actualAnalyticTatMinutes)};});
           } else {
                return await TestAscensionTurnAroundTime.getPaginatedTATData(tenantId, page, count, sorting, true);
           }

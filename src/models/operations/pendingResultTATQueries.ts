@@ -54,7 +54,7 @@ export function buildPendingResultTATPageQuery(
                CONCAT_WS(' ', np.firstname, np.middlename, np.lastname) AS patientName,
                tp.name AS testName,
                d.department,
-               td.tat AS configuredTat
+               CASE WHEN td.tat > 0 THEN CEIL(td.tat * CASE LOWER(COALESCE(td.tatEvaluation, 'min')) WHEN 'hour' THEN 60 WHEN 'hours' THEN 60 WHEN 'day' THEN 1440 WHEN 'days' THEN 1440 WHEN 'seconds' THEN 1/60 ELSE 1 END) ELSE NULL END AS configuredTat
                ${PENDING_RESULT_FROM_WHERE}
                AND TIMESTAMPDIFF(MINUTE, ta.ascension_date, NOW()) >= ?
                ORDER BY elapsedMinutes DESC, ta.id ASC

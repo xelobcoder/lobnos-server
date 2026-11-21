@@ -1,3 +1,4 @@
+import {assertPatientConsent} from '../patients/EConsent';
 import {assertResultLinearity} from '../results/ResultLinearityService';
 import KnexConnection from '../../database/KnexConnections';
 import ResultSettings from '../application/appsettings/result-settings/resultSettings';
@@ -70,6 +71,7 @@ export async function getResultReleaseWorkflows(
           const authorValidated = [...authorIds].some(id => validators.has(id));
           const differentValidatorRequired = Boolean(settings?.requireDifferentValidatorFromResultAuthor);
           const differentValidatorSatisfied = !differentValidatorRequired || authorIds.size > 0 && !authorValidated;
+          const explicitReleaseRequired=settings?.requireExplicitResultRelease!==false&&Number(settings?.requireExplicitResultRelease)!==0;
           const managerApprovalRequired = Boolean(settings?.requireManagerApprovalBeforeRelease);
           const managerApproval = managerEvents.find((event: any) =>
                Number(event.ascensionid) === ascensionid && Number(event.revision) === revision);
@@ -92,7 +94,7 @@ export async function getResultReleaseWorkflows(
           if (validationComplete && !differentValidatorSatisfied) releaseStatus = 'awaiting_different_validator';
           else if (validationComplete && managerApprovalRequired && !managerApproved) releaseStatus = 'awaiting_manager_approval';
           else if (released) releaseStatus = 'released';
-          else if (validationComplete) releaseStatus = 'awaiting_release';
+          else if (validationComplete) releaseStatus = explicitReleaseRequired?'awaiting_release':'release_optional';
           const releaseBlockedReason = released ? 'This result has already been signed and released.'
                : !validationComplete ? 'Complete the required result validations first.'
                : !differentValidatorSatisfied ? 'A validator who did not enter the result must approve it.'
@@ -108,6 +110,7 @@ export async function getResultReleaseWorkflows(
                validatorIds: [...validators],
                differentReleaserRequired: Boolean(settings?.requireDifferentReleaserFromValidator),
                differentValidatorRequired, differentValidatorSatisfied,
+               explicitReleaseRequired, availableForPrinting:validationComplete&&differentValidatorSatisfied&&(!managerApprovalRequired||managerApproved)&&(!explicitReleaseRequired||released),
                managerApprovalRequired, managerApproved,
                managerApprovedBy: managerApproval?.employeeid ?? null,
                managerApprovedAt: managerApproval?.created_at ?? null,
@@ -177,6 +180,7 @@ export class ResultReleaseService {
                     return controlsFail('The report to sign changed. Reload and review it before release.', 409);
                const currentTest=await trx('test_ascension').where({id:ascensionid}).first();
                await assertResultLinearity(trx,ascensionid,Number(currentTest?.testid));
+               await assertPatientConsent(trx,0,ascensionid);
                const currentRevision = await captureReportRevision(trx, ascensionid, 'release');
                if (currentRevision !== revision) return controlsFail('The result changed. Review the current result before releasing.', 409);
                const reportVersion = await archiveLaboratoryReport(trx, ascensionid, revision, report, 'release', undefined, false);

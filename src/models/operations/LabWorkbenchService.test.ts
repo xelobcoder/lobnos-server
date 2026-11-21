@@ -59,7 +59,7 @@ describe('laboratory work and actual material usage', () => {
           expect(stock.createBulk).not.toHaveBeenCalled();
      });
      it('claims work as the signed-in scientist and records an audit action', async () => {
-          const { store, service } = setup();
+          const { store, service } = setup({lab_access_settings:[{id:1,allow_claim:true}]});
           await service.update(actor, 1, { version: 0, assigned_employeeid: 7, reason: 'Starting my bench work' });
           expect(store.rows('lab_work_assignments')[0]).toMatchObject({ assigned_employeeid: 7, version: 1 });
           expect(store.rows('lab_work_actions')[0]).toMatchObject({ employeeid: 7, action: 'update' });
@@ -104,4 +104,10 @@ describe('laboratory work and actual material usage', () => {
           expect(store.rows('lab_consumption_records')).toHaveLength(0);
           expect(store.rows('lab_work_actions')).toHaveLength(0);
      });
+});
+
+it('routine target changes keep the Test Details analytic TAT in the same transaction',async()=>{
+ const {store,service}=setup({test_panels:[{id:3}],testdetails:[{testid:3,tat:1,tatEvaluation:'hour'}]});
+ await service.targets({...actor,role:'manager'},3,{routine_minutes:1563,urgent_minutes:null,stat_minutes:30});
+ expect(store.rows('testdetails')[0]).toMatchObject({tat:1563,tatEvaluation:'min'});expect(store.rows('test_panels')[0]).toMatchObject({lab_routine_tat_minutes:1563});
 });
