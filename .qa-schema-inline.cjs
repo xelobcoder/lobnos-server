@@ -1,1 +1,1 @@
-const K=require('./dist/src/database/KnexConnections').default;(async()=>{const d=await K(957782);console.log(JSON.stringify(await d('samplestatus').columnInfo()));process.exit()})()
+const K=require('./dist/src/database/KnexConnections').default;(async()=>{const d=await K(957782);if(!await d('dbotestresultapproval').where({ascensionid:10}).first())await d('dbotestresultapproval').insert({ascensionid:10,isapproved:0,printCount:0,minvalidation:1,maxvalidation:10});console.log('Synthetic approval initialized');process.exit()})()

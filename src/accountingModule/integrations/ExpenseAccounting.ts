@@ -1,3 +1,4 @@
+import {expenseUsesAccounting} from '../../models/Expenses/ExpenseAccountingMode';
 import KnexConnection from '../../database/KnexConnections';
 import { enqueuePosting } from '../services/AccountingOutboxService';
 import { IExpenseAccounting } from '../interfaces/IAccountingIntegrations';
@@ -51,6 +52,7 @@ function resolveCashAccountCode(method?: string | null): string {
 export async function enqueueExpenseAccrual(tenantId: number, expenseId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
+          if(!await expenseUsesAccounting(db,expenseId,true))return;
           const expense = await db('expensesrecord')
                .select('merchant', 'id', 'amount', 'category', 'branchid', 'employeeid', 'date', 'approvedby')
                .where({ id: expenseId })
@@ -107,6 +109,7 @@ export async function enqueueExpenseAccrual(tenantId: number, expenseId: number,
 export async function enqueueExpenseAccrualReversal(tenantId: number, expenseId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
+          if(!await expenseUsesAccounting(db,expenseId,false))return;
           const expense = await db('expensesrecord')
                .select('merchant', 'id', 'amount', 'category', 'branchid', 'employeeid')
                .where({ id: expenseId })
@@ -162,6 +165,8 @@ export async function enqueueExpenseAccrualReversal(tenantId: number, expenseId:
 export async function enqueueExpensePayment(tenantId: number, paymentId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
+          const modePayment=await db('expense_payments').where({id:paymentId}).first('expense_id');
+          if(modePayment && !await expenseUsesAccounting(db,Number(modePayment.expense_id)))return;
           const payment = await db('expense_payments as payment')
                .leftJoin('payment_accounts as account', 'account.id', 'payment.payment_account_id')
                .select('payment.id', 'payment.expense_id', 'payment.invoice_id', 'payment.amount', 'payment.method', 'payment.payment_date', 'payment.created_by', 'account.gl_account_code')
@@ -222,6 +227,8 @@ export async function enqueueExpensePayment(tenantId: number, paymentId: number,
 export async function enqueueExpensePaymentReversal(tenantId: number, paymentId: number, trx?: any): Promise<void> {
      try {
           const db = await resolveDb(tenantId, trx);
+          const modePayment=await db('expense_payments').where({id:paymentId}).first('expense_id');
+          if(modePayment && !await expenseUsesAccounting(db,Number(modePayment.expense_id)))return;
           const payment = await db('expense_payments as payment')
                .leftJoin('payment_accounts as account', 'account.id', 'payment.payment_account_id')
                .select('payment.id', 'payment.expense_id', 'payment.invoice_id', 'payment.amount', 'payment.method', 'account.gl_account_code')

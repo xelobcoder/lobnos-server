@@ -1,3 +1,4 @@
+import {expenseAccountingEnabled} from './ExpenseAccountingMode';
 import KnexConnection from '../../database/KnexConnections';
 import { AuthUser } from '../../middleware/authority';
 import { fundingAvailability } from './FundingAvailability';
@@ -33,18 +34,20 @@ export class PaymentAccountService {
                .where(permissionColumn, true)
                .andWhere((builder) => builder.whereNull('account.branchid').orWhere('account.branchid', actor.branch))
                .orderBy('account.name');
-          return Promise.all(accounts.map(async (account:any)=>({...account,...await fundingAvailability(connection,account.gl_account_code)})));
+          if(!await expenseAccountingEnabled(connection,actor.branch))return accounts.map(account=>({...account,accounting_enabled:false,available_balance:null,posted_balance:null,committed_amount:null}));
+          return Promise.all(accounts.map(async (account:any)=>({...account,...(account.gl_account_code==='standalone'?{accounting_enabled:false,available_balance:null,posted_balance:null,committed_amount:null}:await fundingAvailability(connection,account.gl_account_code))})));
      }
 
-     async managementOptions(actor: AuthUser): Promise<{ employees: any[]; ledgerAccounts: any[] }> {
+     async managementOptions(actor: AuthUser): Promise<{ employees: any[]; ledgerAccounts: any[]; accountingEnabled: boolean }> {
           const connection = await KnexConnection(this.tenantId);
           const employeesQuery = connection('roles').select('employeeid', 'username', 'role', 'branch as branchid').orderBy('username');
           if (actor.branch !== null) employeesQuery.where('branch', actor.branch);
+          const integrated=await expenseAccountingEnabled(connection,actor.branch);
           const [employees, ledgerAccounts] = await Promise.all([
                employeesQuery,
-               connection('acc_accounts').select('account_code', 'name', 'type', 'is_active').where({ type: 'asset', is_active: true }).orderBy('account_code'),
+               integrated ? connection('acc_accounts').select('account_code', 'name', 'type', 'is_active').where({ type: 'asset', is_active: true }).orderBy('account_code') : Promise.resolve([]),
           ]);
-          return { employees, ledgerAccounts };
+          return { employees, ledgerAccounts, accountingEnabled:integrated };
      }
 
      async listAll(branchid?: number | null): Promise<any[]> {
@@ -64,12 +67,13 @@ export class PaymentAccountService {
      async create(actor: AuthUser, input: CreatePaymentAccountInput): Promise<any> {
           const name = String(input.name || '').trim();
           const glAccountCode = String(input.glAccountCode || '').trim();
-          if (!name || !glAccountCode) throw new Error('Account name and GL account are required');
+          const integrated=await expenseAccountingEnabled(await KnexConnection(this.tenantId),actor.branch);
+          if (!name || integrated && !glAccountCode) throw new Error('Account name and GL account are required');
           if (!['cash', 'bank', 'mobile_money', 'other'].includes(input.accountType)) throw new Error('Invalid payment account type');
 
           const connection = await KnexConnection(this.tenantId);
           return connection.transaction(async (trx) => {
-               const glAccount = await trx('acc_accounts').where({ account_code: glAccountCode, is_active: true }).first();
+               const glAccount = integrated ? await trx('acc_accounts').where({ account_code: glAccountCode, is_active: true }).first() : true;
                if (!glAccount) throw new Error('GL account was not found or is inactive');
                if (input.bankAccountId) {
                     const bank = await trx('acc_bank_accounts').where({ id: input.bankAccountId, is_active: true }).first();
@@ -84,7 +88,7 @@ export class PaymentAccountService {
                     account_type: input.accountType,
                     currency: String(input.currency || 'GHS').toUpperCase(),
                     branchid,
-                    gl_account_code: glAccountCode,
+                    gl_account_code: integrated ? glAccountCode : 'standalone',
                     bank_account_id: input.bankAccountId || null,
                     is_active: true,
                     created_by: actor.employeeid,

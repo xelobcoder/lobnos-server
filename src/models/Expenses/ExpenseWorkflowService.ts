@@ -156,13 +156,15 @@ export class ExpenseWorkflowService {
           return branchSettings || connection('expense_control_settings').whereNull('branchid').first();
      }
 
-     async updateControls(actor: AuthUser, branchid: number | null, input: { allowSelfApproval: boolean; requireSeparatePayer: boolean; allowApprovalOverride: boolean }): Promise<any> {
+     async updateControls(actor: AuthUser, branchid: number | null, input: { accountingEnabled?: boolean; allowSelfApproval: boolean; requireSeparatePayer: boolean; allowApprovalOverride: boolean }): Promise<any> {
           if (typeof input.allowSelfApproval !== 'boolean' || typeof input.requireSeparatePayer !== 'boolean' || typeof input.allowApprovalOverride !== 'boolean') {
                throw new Error('All expense control values must be booleans');
           }
           const connection = await (this.dependencies.connectionFactory?.() || KnexConnection(this.tenantId));
           const existing = await connection('expense_control_settings').where({ branchid }).first();
+          if(input.accountingEnabled!==undefined && typeof input.accountingEnabled!=='boolean')throw new Error('Accounting mode must be boolean');
           const values = {
+               ...(input.accountingEnabled===undefined?{}:{accounting_enabled:input.accountingEnabled}),
                allow_self_approval: input.allowSelfApproval,
                require_separate_payer: input.requireSeparatePayer,
                allow_approval_override: input.allowApprovalOverride,

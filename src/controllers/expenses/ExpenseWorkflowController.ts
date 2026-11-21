@@ -31,6 +31,7 @@ export class ExpenseWorkflowController {
                if (actor.branch === null) throw new Error('Authenticated employee branch is required');
                const branchid = actor.branch;
                const result = await new ExpenseWorkflowService(actor.tenantId).updateControls(actor, branchid, {
+                    accountingEnabled: request.body?.accounting_enabled,
                     allowSelfApproval: request.body?.allow_self_approval ?? request.body?.allowSelfApproval,
                     requireSeparatePayer: request.body?.require_separate_payer ?? request.body?.requireSeparatePayer,
                     allowApprovalOverride: request.body?.allow_approval_override ?? request.body?.allowApprovalOverride,

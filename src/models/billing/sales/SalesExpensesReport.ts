@@ -66,6 +66,7 @@ export interface SalesExpensesReport {
           receipts: number; expensePayments: number; netCashMovement: number; outstanding: number;
           receiptCredits: number; receiptRefunds: number;
      };
+     expenseActivity?: Array<{id:number;name:string;amount:number;status:string;category:string;nonCash:boolean}>;
      inlineServices?: Array<{billingId:number;serviceId:number;name:string;department:string;amount:number;paid:number;outstanding:number}>;
      transactions: ReportTransaction[];
      receipts: ReportReceipt[];
@@ -278,6 +279,12 @@ export class SalesExpensesReportService {
                const report=assembleSalesReport(filters, branch, company, bills, services, receipts, expenses);
                report.notes.push(scope === 'operational' ? 'Includes open and closed billing activity.' : closure === '1=1' ? 'Legacy reporting: this database has no billing closure infrastructure.' : 'Only closed billing records are included in sales and receipts.');
                if(query.inlineDetails==='true'){
+                    const activity=await trx('expensesrecord as e').leftJoin('dboexpensecategory as c','c.id','e.category')
+                         .where('e.branchid',filters.branchid).where('e.date','>=',filters.start).where('e.date','<',filters.end)
+                         .select('e.id','e.name','e.amount','e.workflow_status as status','c.category').orderBy('e.id','desc').limit(500);
+                    report.expenseActivity=activity.map((row:any)=>({...row,amount:Number(row.amount),nonCash:/^bad[ _-]?debt$/i.test(String(row.category||''))}));
+                    report.notes.push('Expense activity lists creation-period records, separately from cash payments by payment date; non-cash adjustments do not reduce net cash movement. At most 500 activity records are shown.');
+
                     const serviceQuery=periodBills(trx('billing as bill'),filters).join('dboservices as service','service.billingid','bill.billingid')
                          .leftJoin('test_panels as panel',function(){this.on('panel.id','=','service.trackId').andOnVal('service.serviceCategory','<>','SERVICES');})
                          .leftJoin('additionalservices as additional',function(){this.on('additional.keyid','=','service.trackId').andOnVal('service.serviceCategory','=','SERVICES');})

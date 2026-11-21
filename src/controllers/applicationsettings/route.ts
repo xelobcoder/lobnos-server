@@ -1,3 +1,4 @@
+import {workflowPresetHandler} from './workflowPresetHandler';
 import express from 'express';
 import { checkTokenExists } from '../../middleware/validateTenancy';
 import { requireOwnerRole } from '../../middleware/authority';
@@ -32,6 +33,8 @@ import {
 } from "./handler";
 
 const router = express.Router();
+router.get("/api/v1/applicationsettings/workflow-presets",checkTokenExists,requireOwnerRole,workflowPresetHandler);
+router.post("/api/v1/applicationsettings/workflow-presets",checkTokenExists,requireOwnerRole,workflowPresetHandler);
 
 router.get("/api/v1/applicationsettings/pin-security", checkTokenExists, requireOwnerRole, getPinSecurityPolicy);
 router.put("/api/v1/applicationsettings/pin-security", checkTokenExists, requireOwnerRole, updatePinSecurityPolicy);

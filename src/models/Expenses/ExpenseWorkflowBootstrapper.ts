@@ -4,6 +4,7 @@ export async function bootstrapExpenseWorkflow(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
      if (!(await connection.schema.hasTable('expensesrecord'))) return;
 
+     if (!(await connection.schema.hasColumn('expensesrecord', 'accounting_integrated'))) await connection.schema.alterTable('expensesrecord', t => {t.boolean('accounting_integrated').nullable();});
      const amountColumn = await connection('expensesrecord').columnInfo('amount');
      if (!String(amountColumn?.type || '').toLowerCase().includes('decimal')) {
           await connection.schema.alterTable('expensesrecord', (table) => {
@@ -85,6 +86,7 @@ export async function bootstrapExpenseWorkflow(tenantId = 1): Promise<void> {
           });
      }
 
+     if (!(await connection.schema.hasColumn('expense_control_settings', 'accounting_enabled'))) await connection.schema.alterTable('expense_control_settings', t => {t.boolean('accounting_enabled').notNullable().defaultTo(true);});
      if (!(await connection.schema.hasTable('payment_accounts'))) {
           await connection.schema.createTable('payment_accounts', (table) => {
                table.increments('id').primary().unsigned();

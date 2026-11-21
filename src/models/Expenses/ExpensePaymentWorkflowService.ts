@@ -1,3 +1,4 @@
+import {expenseUsesAccounting} from './ExpenseAccountingMode';
 import KnexConnection from '../../database/KnexConnections';
 import { enqueueExpensePayment } from '../../accountingModule/integrations/ExpenseAccounting';
 import { AuthorityService } from '../../accountingModule/services/AuthorityService';
@@ -55,6 +56,7 @@ export class ExpensePaymentWorkflowService {
 
                const account = await trx('payment_accounts').where({ id: accountId, is_active: true }).first();
                if (!account) throw new Error('Payment source account was not found or is inactive');
+               if(account.gl_account_code==='standalone' && await expenseUsesAccounting(trx,expenseId))throw new Error('This integrated expense requires an Accounting-linked payment source.');
                if (account.branchid !== null && Number(account.branchid) !== Number(expense.branchid)) {
                     throw new Error('Payment source account does not belong to the expense branch');
                }

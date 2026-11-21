@@ -1,0 +1,5 @@
+import {Request,Response} from 'express';
+import KnexConnection from '../../database/KnexConnections';
+import {getAuthUser} from '../../middleware/authority';
+import {previewWorkflowPreset,applyWorkflowPreset,WORKFLOW_PRESETS} from '../../models/application/appsettings/WorkflowPresets';
+export async function workflowPresetHandler(req:Request,res:Response){try{const actor=getAuthUser(req)!;const db=await KnexConnection(actor.tenantId);if(req.method==='GET')return res.json({success:true,data:Object.entries(WORKFLOW_PRESETS).map(([key,p])=>({key,name:p.name,description:p.description}))});const key=String(req.body?.preset||'');if(req.body?.action==='preview')return res.json({success:true,data:await previewWorkflowPreset(db,key)});if(req.body?.action!=='apply'||req.body?.confirmed!==true||typeof req.body?.revision!=='string')return res.status(400).json({success:false,message:'Preview and confirm the preset before applying.'});return res.json({success:true,data:await applyWorkflowPreset(db,key,req.body.revision,actor.employeeid)});}catch(e:any){return res.status(e.statusCode||400).json({success:false,message:e.message||'Unable to apply workflow preset'});}}
