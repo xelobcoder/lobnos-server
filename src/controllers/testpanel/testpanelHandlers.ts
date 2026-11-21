@@ -634,7 +634,7 @@ async function importOneMasterTest(
                          isRequired: Number(rule.isRequired ?? 0),
                          result_type: rule.result_type ?? null,
                          reference_mode: rule.reference_mode ?? null,
-                         unit_code: rule.unit_code ?? null,
+                         linearity_enabled: rule.linearity_enabled, linearity_lower: rule.linearity_lower, linearity_upper: rule.linearity_upper, unit_code: rule.unit_code ?? null,
                          units: rule.units,
                          plan: rule.plan,
                          plain: rule.plain,

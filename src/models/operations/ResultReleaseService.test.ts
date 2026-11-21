@@ -15,7 +15,8 @@ const report = { records: [{ fieldid: 1, field: 'Hemoglobin', value: '145', unit
 beforeEach(() => {
     fixture = accountingSqlDatabase();
     fixture.native.exec(`
-        CREATE TABLE test_ascension(id INTEGER PRIMARY KEY, resultEntryEnd TEXT);
+        CREATE TABLE test_ascension(id INTEGER PRIMARY KEY, resultEntryEnd TEXT, testid INTEGER DEFAULT 3);
+        CREATE TABLE testcreationrules(id INTEGER PRIMARY KEY,testid INTEGER,linearity_enabled BOOLEAN,linearity_lower REAL,linearity_upper REAL,name TEXT,units TEXT);
         CREATE TABLE dbotestresultapproval(ascensionid INTEGER PRIMARY KEY, approval_revision INTEGER, approvedBy TEXT, minvalidation INTEGER, maxvalidation INTEGER, isapproved INTEGER, requires_revalidation INTEGER);
         CREATE TABLE test_results(ascensionid INTEGER, employeeid INTEGER);
         CREATE TABLE resultsettings(id INTEGER, resultsEntrySettings TEXT);
@@ -23,7 +24,7 @@ beforeEach(() => {
         CREATE TABLE lab_result_manager_approval_events(id INTEGER PRIMARY KEY, ascensionid INTEGER, revision INTEGER, employeeid INTEGER, reason TEXT, created_at TEXT, UNIQUE(ascensionid, revision));
         CREATE TABLE lab_result_release_events(id INTEGER PRIMARY KEY, ascensionid INTEGER, revision INTEGER, report_version_id INTEGER, employeeid INTEGER, signer_name TEXT, signature_hash TEXT, reason TEXT, created_at TEXT, UNIQUE(ascensionid, revision));
         CREATE TABLE lab_report_versions(id INTEGER PRIMARY KEY, ascensionid INTEGER, revision INTEGER, version_number INTEGER, snapshot TEXT, snapshot_hash TEXT, recorded_at TEXT, reason TEXT, signed_by INTEGER, signer_name TEXT, changes TEXT);
-        INSERT INTO test_ascension VALUES (1,'2026-11-20');
+        INSERT INTO test_ascension(id,resultEntryEnd) VALUES (1,'2026-11-20');
         INSERT INTO dbotestresultapproval VALUES (1,0,'7,8',2,3,1,0);
         INSERT INTO test_results VALUES (1,5);
         INSERT INTO resultsettings VALUES (1,'{}');
@@ -141,4 +142,11 @@ describe('result release authorization', () => {
         expect(readReportSnapshot(await fixture.db('lab_report_versions').where({id:original.id}).first())).toEqual(report);
         expect(await fixture.db('lab_result_release_events')).toHaveLength(2);
     });
+});
+
+it('blocks release when a numeric measurement is outside its analytical range',async()=>{
+ fixture.native.exec(`ALTER TABLE test_results ADD COLUMN testid INTEGER DEFAULT 3; ALTER TABLE test_results ADD COLUMN fieldid INTEGER DEFAULT 1; ALTER TABLE test_results ADD COLUMN value TEXT DEFAULT '145'; INSERT INTO testcreationrules VALUES(1,3,1,0,100,'Hemoglobin','g/L');`);
+ await expect(release()).rejects.toMatchObject({code:'LINEARITY_CHECK_BLOCKED',statusCode:409});
+ expect(await fixture.db('lab_result_release_events')).toHaveLength(0);
+ expect(await fixture.db('lab_report_versions')).toHaveLength(0);
 });

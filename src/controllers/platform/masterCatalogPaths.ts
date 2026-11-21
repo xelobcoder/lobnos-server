@@ -1,4 +1,5 @@
 const allowed = [
+ /^\/testpanel\/\d+\/validation-rules$/,
  /^\/testpanel\/(?:my-access|unit-catalogue|categories|list(?:\/(?:createcustom|updateprocedureManual|customtestrule))?|management\/list|calculations(?:\/preview)?|reportsettings|qc-requirement)$/,
  /^\/gettestpanel\/edit$/,
  /^\/test\/(?:getProcedureManual|getLiteraturereview|isLiteraturereview\/getLiterature)$/,

@@ -1,3 +1,4 @@
+import {assertResultLinearity} from '../results/ResultLinearityService';
 import KnexConnection from '../../database/KnexConnections';
 import ResultSettings from '../application/appsettings/result-settings/resultSettings';
 import { OperationsFailures } from './types';
@@ -19,6 +20,12 @@ export async function invalidateResultApprovals(trx: any, ascensionid: number, e
 /** Initial-entry bypass must never release an amended result awaiting revalidation. */
 export async function applyResultValidationBypass(trx: any, ascensionid: number, employeeid: number, enabled: boolean, tenantId: number) {
      if (!enabled) return;
+     const test=await trx('test_ascension').where({id:ascensionid}).first();
+     try{await assertResultLinearity(trx,ascensionid,Number(test?.testid));}catch(error:any){if(error.code==='LINEARITY_CHECK_BLOCKED')return;throw error;}
+     const bill=await trx('billing').where({billingid:test?.billingid}).first();
+     const delta=await evaluateResultDeltas(trx,{tenantId,ascensionid,testid:Number(test?.testid),patientid:Number(bill?.patientid||0)});
+     if(delta.blocking.length)return;
+     if(delta.violations.length)await recordDeltaEvents(trx,{ascensionid,testid:Number(test?.testid),patientid:Number(bill?.patientid||0)},delta.violations,employeeid);
      const settings = await ResultSettings.getResultEntrySettings(tenantId);
      if (typeof settings === 'object' && settings?.requireDifferentValidatorFromResultAuthor) return;
      if (!await canPerformResultAction(trx, ascensionid, 'validation', true)) return;
@@ -56,6 +63,7 @@ export class ResultApprovalService {
                }
                await assertResultPaymentPolicy(trx, ascensionid, 'validation', true);
 
+               await assertResultLinearity(trx,ascensionid,Number(ascension.testid));
                // Delta checks run inside the approval transaction. A blocking rule needs an explicit
                // supervisor acknowledgement reason; warnings are audited and allowed.
                const delta = await evaluateResultDeltas(trx, {

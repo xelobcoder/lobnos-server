@@ -35,6 +35,7 @@ export class MasterCatalogService {
  async ensure(){if(!this.ready)this.ready=this.bootstrap().catch(error=>{this.ready=null;throw error});return this.ready;}
  private async bootstrap(){
   await ensureParameterDefinitionSchema(this.db);
+  if(!await this.db.schema.hasColumn('test_panels','lab_routine_tat_minutes'))await this.db.schema.alterTable('test_panels',(t:any)=>t.integer('lab_routine_tat_minutes').unsigned().nullable());
   if(!await this.db.schema.hasColumn('test_panels','requires_qc'))await this.db.schema.alterTable('test_panels',(t:any)=>t.boolean('requires_qc').notNullable().defaultTo(false));
   if(!await this.db.schema.hasTable('lab_critical_policies'))await this.db.schema.createTable('lab_critical_policies',(t:any)=>{t.integer('rule_id').primary();t.integer('testid').notNullable();t.text('actions').notNullable();t.integer('version').defaultTo(1);t.integer('updated_by');t.datetime('updated_at')});
   if(!await this.db.schema.hasTable('lab_control_audit'))await this.db.schema.createTable('lab_control_audit',(t:any)=>{t.increments('id');t.string('entity',60);t.integer('entity_id');t.string('action',60);t.integer('employeeid');t.text('reason');t.text('metadata');t.datetime('created_at')});

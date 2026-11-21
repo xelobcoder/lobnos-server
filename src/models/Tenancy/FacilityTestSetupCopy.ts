@@ -24,7 +24,7 @@ type CopyInput = z.infer<typeof copyInput>;
 type Db = Knex | Knex.Transaction;
 type Row = Record<string, any>;
 
-const RULE_COLUMNS = ['result_type','reference_mode','unit_code','isRequired','name','field','value','hasunits','units','plan','plain','isValueTracked','textReference','upperlimit',
+const RULE_COLUMNS = ['result_type','reference_mode','unit_code','linearity_enabled','linearity_lower','linearity_upper','isRequired','name','field','value','hasunits','units','plan','plain','isValueTracked','textReference','upperlimit',
      'lowerlimit','category','options','undercategory','valueAlert','alert','upperLimitFemale','lowerLimitFemale',
      'upperLimitMale','lowerLimitMale','upperLimitChildren','lowerLimitChildren','upperLimitNeonates','lowerLimitNeonates'];
 const DETAILS_COLUMNS = ['procedureCode','pre_Tat','tat','post_Tat','tatCount','showtrend','hasGenderVariation',

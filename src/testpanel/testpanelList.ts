@@ -1,3 +1,6 @@
+import {ensureParameterDefinitionSchema} from '../models/TestCreation/parameterSchema';
+import {ensureResultSafetySchema} from '../models/results/ResultSafetySchema';
+import {analyticTatForSave,cleanReportValidationRules,saveReportValidationRules} from '../models/TestCreation/reportValidation';
 import { Request, Response } from "express";
 import { allFieldsHasValues } from "./categories";
 import { OperationsFailures } from "../models/operations/types";
@@ -354,6 +357,7 @@ export const testpanel = {
 
 	putSingleTestPanel: async (tenantId: number, request: Request, response: Response) => {
 		let changed = false;
+        let transaction:any;
 		try {
 			const { id } = request.body;
 
@@ -405,6 +409,10 @@ export const testpanel = {
 					instrumentation
 				} = request.body;
 
+				let analyticTat: ReturnType<typeof analyticTatForSave> | undefined;
+                let validationRules:ReturnType<typeof cleanReportValidationRules>|undefined;
+				try { if(request.body.reportValidationRules!==undefined)validationRules=cleanReportValidationRules(request.body.reportValidationRules); if(request.body.analyticTat !== undefined) analyticTat=analyticTatForSave(request.body.analyticTat); }
+				catch(error:any){return response.status(400).json({status:'error',message:error.message});}
 				const resolvedSampleContainerId = await resolveLookupId(tenantId, "samplecontainer", "id", "name", sample_container);
 				if (sample_container !== undefined && sample_container !== null && sample_container !== "" && resolvedSampleContainerId === null) {
 					return customError("invalid sample_container provided", 400, response);
@@ -420,7 +428,11 @@ export const testpanel = {
 					return customError("invalid category provided", 400, response);
 				}
 
-				const updateMainPanel = await promisifyQuery(tenantId, query, [
+				const configurationDb=await KnexConnection(tenantId);
+                if(validationRules!==undefined){await ensureParameterDefinitionSchema(configurationDb);await ensureResultSafetySchema(configurationDb);}
+                transaction=await configurationDb.transaction();
+                const updateQuery=async(sql:string,bindings:any[]) => (await transaction.raw(sql,bindings))[0];
+                const updateMainPanel = await updateQuery(query, [
 					name,
 					testprice,
 					resolvedSampleContainerId,
@@ -464,7 +476,7 @@ export const testpanel = {
 								WHERE testid = ?`;
 
 					const values = [
-						tat,
+						analyticTat?.tat ?? tat,
 						pre_Tat,
 						post_Tat,
 						hasManual,
@@ -481,7 +493,7 @@ export const testpanel = {
 						hasDrugs,
 						post_TatEvaluation,
 						pre_TatEvaluation,
-						tatEvaluation,
+						analyticTat ? "min" : tatEvaluation,
 						deviceInterfaceMapping,
 						reportitle,
 						method,
@@ -489,16 +501,20 @@ export const testpanel = {
 						testid,
 					];
 
-					const updateTestDetails = await promisifyQuery(tenantId, updatePanel, values);
-					await testPanelCache.invalidate(tenantId);
+					const updateTestDetails = await updateQuery(updatePanel, values);
+					if(analyticTat){await transaction("test_panels").where({id:testid}).update({lab_routine_tat_minutes:analyticTat.minutes || null});}
+					if(validationRules!==undefined)await saveReportValidationRules(transaction,Number(testid),validationRules,Number(employeeid));
+                    await transaction.commit();
+                    await testPanelCache.invalidate(tenantId);
 					changed = false;
-					response.send({ status: rowAffected(updateTestDetails) ? "success" : "failed" });
-				}
+					response.send({ status: "success" });
+				}else{await transaction.rollback();return response.status(404).json({status:"error",message:"Test panel not found"});}
 			}
-		} catch (err) {
-			if (changed) await testPanelCache.invalidate(tenantId);
+		} catch (err:any) {
+			if(transaction&&!transaction.isCompleted())await transaction.rollback();
+            if (changed) await testPanelCache.invalidate(tenantId);
 			logger.error(err);
-			response.send(err);
+			response.status(err.statusCode||500).json({status:"error",message:err.statusCode?err.message:"Unable to save test configuration. No changes were saved."});
 		}
 	},
 

@@ -1,3 +1,4 @@
+import {getReportValidation,putReportValidation} from './reportValidationHandlers';
 import {listUnits,addUnit} from '../../models/TestCreation/UnitCatalogue';
 import {masterCatalogContext} from '../../models/system-admin/MasterCatalogContext';
 import express, { Request, Response } from "express";
@@ -38,6 +39,8 @@ import { blockWhenMasterCatalogEnforced } from "../../testpanel/masterCatalog";
 import { getTestPanelStaffAccess, updateTestPanelStaffAccess } from "./testPanelStaffAccess";
 
 const router = express.Router();
+router.get('/api/v1/testpanel/:testid/validation-rules',requireTestPanelManagement,getReportValidation);
+router.put('/api/v1/testpanel/:testid/validation-rules',requireTestPanelManagement,putReportValidation);
 
 router.get('/api/v1/testpanel/my-access', async (req, res) => {
     const actor = getAuthUser(req);

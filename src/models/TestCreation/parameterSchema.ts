@@ -7,6 +7,12 @@ export function ensureParameterDefinitionSchema(db:any):Promise<void> {
    try {await db.schema.alterTable('testcreationrules',(table:any)=>table.string(column,64).nullable());}
    catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
   }
+  for(const column of ['linearity_lower','linearity_upper'])if(!await db.schema.hasColumn('testcreationrules',column)){
+   try{await db.schema.alterTable('testcreationrules',(table:any)=>table.decimal(column,20,8).nullable());}catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
+  }
+  if(!await db.schema.hasColumn('testcreationrules','linearity_enabled')){
+   try{await db.schema.alterTable('testcreationrules',(table:any)=>table.boolean('linearity_enabled').notNullable().defaultTo(false));}catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
+  }
   if(!await db.schema.hasColumn('testcreationrules','isRequired')) {
    try {await db.schema.alterTable('testcreationrules',(table:any)=>table.boolean('isRequired').notNullable().defaultTo(false));}
    catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
