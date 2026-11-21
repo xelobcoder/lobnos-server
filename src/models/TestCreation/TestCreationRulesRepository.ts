@@ -1,4 +1,6 @@
-import {ensureParameterRequiredColumn} from './parameterSchema';
+import {definitionForSave} from './parameterDefinition';
+import {unitForSave} from './UnitCatalogue';
+import {ensureParameterDefinitionSchema} from './parameterSchema';
 import KnexConnection from "../../database/KnexConnections";
 const parameterError = (message:string) => Object.assign(new Error(message),{statusCode:400});
 export interface TestCreationRule {
@@ -22,6 +24,9 @@ export interface TestCreationRule {
      options?: string;
      fieldid?: number;
      isRequired?: boolean | number | string;
+     result_type?: string | null;
+     reference_mode?: string | null;
+     unit_code?: string | null;
      undercategory?: boolean | number | string;
      categoryid?: number | string;
      valueAlert?: string;
@@ -73,12 +78,12 @@ class TestCreationRulesRepository {
 
      async create(rulesData: TestCreationRule[], testid: number): Promise<number[]> {
           const conn = await this.connection;
-          await ensureParameterRequiredColumn(conn);
+          await ensureParameterDefinitionSchema(conn);
           if (!Array.isArray(rulesData) || !rulesData.length) throw parameterError('Add at least one parameter');
           return conn.transaction(async (trx: any) => {
                const panel = await trx('test_panels').where({id:testid}).forUpdate().first('id');
                if (!panel) throw parameterError('Test panel not found');
-               const existingRules = await trx('testcreationrules').where({testid}).select('id','name','isRequired');
+               const existingRules = await trx('testcreationrules').where({testid}).select('*');
                const names = new Set<string>(), ids = new Set<number>();
                const resolved = rulesData.map(rule => {
                     const name = String(rule.name || '').trim();
@@ -99,7 +104,7 @@ class TestCreationRulesRepository {
                          if (ids.has(Number(existing.id))) throw parameterError('A parameter ID may appear only once');
                          ids.add(Number(existing.id));
                     }
-                    return {rule:{...rule,name},existing};
+                    return {rule:{...rule,name:existing && rule.name===existing.name ? existing.name : name},existing};
                });
                const removed = existingRules.filter((row:any) => !ids.has(Number(row.id)));
                if (removed.length) {
@@ -115,22 +120,24 @@ class TestCreationRulesRepository {
                for (const {rule:ruleData,existing:existingRule} of resolved) {
 
                     const updateData = {
+                         ...definitionForSave(ruleData),
+                         ...await unitForSave(ruleData),
                          name: ruleData.name,
                          isRequired: this.toTinyInt(ruleData.isRequired, this.toTinyInt(existingRule?.isRequired)),
                          field: ruleData.field,
                          value: ruleData.value,
-                         hasunits: this.toTinyInt(ruleData.hasunits),
+                         hasunits: ruleData.hasunits == null && existingRule ? existingRule.hasunits : this.toTinyInt(ruleData.hasunits),
                          units: ruleData.units,
-                         plan: ruleData.plan,
+                         plan: definitionForSave(ruleData).plan ?? ruleData.plan,
                          plain: ruleData.plain,
                          ordering: this.toNullableNumber(ruleData.ordering),
-                         isValueTracked: this.toTinyInt(ruleData.isValueTracked),
+                         isValueTracked: ruleData.isValueTracked == null && existingRule ? existingRule.isValueTracked : this.toTinyInt(ruleData.isValueTracked),
                          textReference: ruleData.textReference,
                          upperlimit: ruleData.upperlimit ?? ruleData.upperLimit,
                          lowerlimit: ruleData.lowerlimit ?? ruleData.lowerLimit,
                          category: ruleData.category,
                          options: ruleData.options,
-                         undercategory: this.toTinyInt(ruleData.undercategory),
+                         undercategory: ruleData.undercategory == null && existingRule ? existingRule.undercategory : this.toTinyInt(ruleData.undercategory),
                          categoryid: this.toNullableNumber(ruleData.categoryid),
                          valueAlert: ruleData.valueAlert,
                          alert: ruleData.alert,
@@ -168,7 +175,7 @@ class TestCreationRulesRepository {
      async findByTestId(testId: number): Promise<TestCreationRule[]> {
           try {
                const conn = await this.connection;
-               await ensureParameterRequiredColumn(conn);
+               await ensureParameterDefinitionSchema(conn);
                const result = await conn('testcreationrules')
                     .where('testid', testId)
                     .orderBy('ordering', 'asc');
@@ -181,7 +188,7 @@ class TestCreationRulesRepository {
      async findByTestIdAndId(testId: number, ruleId: number): Promise<TestCreationRule | undefined> {
           try {
                const conn = await this.connection;
-               await ensureParameterRequiredColumn(conn);
+               await ensureParameterDefinitionSchema(conn);
                const result = await conn('testcreationrules')
                     .where({ testid: testId, id: ruleId })
                     .first();
@@ -194,7 +201,7 @@ class TestCreationRulesRepository {
      async update(id: number, updates: Partial<TestCreationRule>): Promise<boolean> {
           try {
                const conn = await this.connection;
-               await ensureParameterRequiredColumn(conn);
+               await ensureParameterDefinitionSchema(conn);
                const result = await conn('testcreationrules')
                     .where('id', id)
                     .update(updates);
@@ -207,7 +214,7 @@ class TestCreationRulesRepository {
      async delete(id: number): Promise<boolean> {
           try {
                const conn = await this.connection;
-               await ensureParameterRequiredColumn(conn);
+               await ensureParameterDefinitionSchema(conn);
                const result = await conn('testcreationrules')
                     .where('id', id)
                     .delete();
@@ -220,7 +227,7 @@ class TestCreationRulesRepository {
      async deleteByTestId(testId: number): Promise<boolean> {
           try {
                const conn = await this.connection;
-               await ensureParameterRequiredColumn(conn);
+               await ensureParameterDefinitionSchema(conn);
                const result = await conn('testcreationrules')
                     .where('testid', testId)
                     .delete();

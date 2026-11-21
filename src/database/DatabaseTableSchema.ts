@@ -1843,6 +1843,9 @@ export type PrimeLimsTabletestconditions = {
 };
 
 export type PrimeLimsTabletestcreationrules = {
+  result_type?: string | null;
+  reference_mode?: string | null;
+  unit_code?: string | null;
   isRequired?: boolean | number;
   id: number;
   testid: number;

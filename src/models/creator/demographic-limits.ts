@@ -14,6 +14,7 @@ export type AgeGroup = "neonate" | "child" | "adult";
 
 export type DemographicLimitRule = {
      plan?: string;
+     reference_mode?: string | null;
      upperlimit?: string | null;
      lowerlimit?: string | null;
      upperLimitFemale?: string | null;
@@ -95,6 +96,12 @@ export function getAgeGroup(age?: number | string, ageType?: string, ageVariatio
 
 export function applyDemographicLimits<T extends DemographicLimitRule>(rule: T, gender: string, ageGroup: AgeGroup): T {
      if (rule.plan !== "limits") return rule;
+     if (rule.reference_mode && rule.reference_mode !== 'demographic') return rule;
+     if (rule.reference_mode === 'demographic' && ageGroup !== 'adult') {
+          const lower = ageGroup === 'neonate' ? rule.lowerLimitNeonates : rule.lowerLimitChildren;
+          const upper = ageGroup === 'neonate' ? rule.upperLimitNeonates : rule.upperLimitChildren;
+          return {...rule, ...(hasContent(lower) ? {lowerlimit:lower} : {}), ...(hasContent(upper) ? {upperlimit:upper} : {})} as T;
+     }
      const normalizedGender = (gender || "").toLowerCase().trim();
      const normalizedRule = { ...rule };
 

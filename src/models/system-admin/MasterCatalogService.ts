@@ -1,4 +1,6 @@
-import {ensureParameterRequiredColumn} from '../TestCreation/parameterSchema';
+import {definitionForSave} from '../TestCreation/parameterDefinition';
+import {unitForSave} from '../TestCreation/UnitCatalogue';
+import {ensureParameterDefinitionSchema} from '../TestCreation/parameterSchema';
 import { systemConfigConnection } from '../../database/connection';
 import { FacilityError } from '../Tenancy/FacilityInput';
 import { applyTestPanelsAfterInsert } from '../../database/appLevelTriggers';
@@ -32,7 +34,7 @@ export class MasterCatalogService {
  private ready:Promise<void>|null=null;
  async ensure(){if(!this.ready)this.ready=this.bootstrap().catch(error=>{this.ready=null;throw error});return this.ready;}
  private async bootstrap(){
-  await ensureParameterRequiredColumn(this.db);
+  await ensureParameterDefinitionSchema(this.db);
   if(!await this.db.schema.hasColumn('test_panels','requires_qc'))await this.db.schema.alterTable('test_panels',(t:any)=>t.boolean('requires_qc').notNullable().defaultTo(false));
   if(!await this.db.schema.hasTable('lab_critical_policies'))await this.db.schema.createTable('lab_critical_policies',(t:any)=>{t.integer('rule_id').primary();t.integer('testid').notNullable();t.text('actions').notNullable();t.integer('version').defaultTo(1);t.integer('updated_by');t.datetime('updated_at')});
   if(!await this.db.schema.hasTable('lab_control_audit'))await this.db.schema.createTable('lab_control_audit',(t:any)=>{t.increments('id');t.string('entity',60);t.integer('entity_id');t.string('action',60);t.integer('employeeid');t.text('reason');t.text('metadata');t.datetime('created_at')});
@@ -71,6 +73,7 @@ export class MasterCatalogService {
    if(name==='constraints'){const fieldColumn=fields.some((c:any)=>c.name==='fieldid')?'fieldid':'rule_id';const id=positive(data[fieldColumn]??before?.[fieldColumn]);if(!await trx('testcreationrules').where({id,testid}).first())fail('Choose a parameter belonging to this test');}
    if(name==='conditions'){const group=positive(data.conditionId??before?.conditionId);if(!await trx('testconditiondefinitions').where({id:group,testId:testid}).first())fail('Choose a condition group belonging to this test');}
    if(name==='panels'){for(const [key,table] of [['category','departments'],['sample','sampletype'],['sample_container','samplecontainer']])if(!await trx(table).where({id:positive(data[key]??before?.[key])}).first())fail(`Choose a valid ${key.replace('_',' ')}`);if(await trx('test_panels').whereRaw('LOWER(name) = LOWER(?)',[String(data.name??before?.name)]).modify((q:any)=>{if(recordid)q.whereNot('id',recordid)}).first())fail('A master test with this name already exists',409);}
+   if(name==='parameters')Object.assign(data,definitionForSave({...before,...data}),await unitForSave({...before,...data}));
    if(name==='calculations'){const merged={...before,...data};const inputs=JSON.parse(merged.input_parameters||'[]');if(!Array.isArray(inputs)||!inputs.length)fail('Choose formula input parameters');const ids=[positive(merged.output_field_id),...inputs.map((i:any)=>positive(i.fieldId))];const valid=await trx('testcreationrules').where({testid}).whereIn('id',ids).select('id');if(new Set(valid.map((r:any)=>Number(r.id))).size!==new Set(ids).size)fail('Formula parameters must belong to this test');try{validateFormula(merged.expression,inputs.map((i:any)=>i.token))}catch(error:any){fail(error.message||'Invalid calculation formula')}}
    for(const field of fields){if(['createdby','created_by','employeeid'].includes(field.name.toLowerCase())&&!recordid)data[field.name]=String(actor);if(['updatedby','updated_by'].includes(field.name.toLowerCase()))data[field.name]=actor;}
    let id=recordid;

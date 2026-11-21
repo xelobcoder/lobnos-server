@@ -1,3 +1,4 @@
+import {validateTypedResult} from '../TestCreation/parameterDefinition';
 import { createHmac } from 'crypto';
 import { decrypt_value, ENCRYPTION_KEY } from '../../utils/encryptionModels';
 
@@ -56,10 +57,11 @@ export async function beginResultSave(trx: any, context: ResultSaveContext, requ
         if (Number(row.billingid) !== billingid || Number(row.patientid) !== patientid)
             throw reject('Stored result ownership requires administrator review', 409);
     }
-    const rules = await trx('testcreationrules').where({ testid }).select('id');
+    const rules = await trx('testcreationrules').where({ testid }).select('id','name','result_type');
     const allowed = new Set(rules.map((rule: any) => Number(rule.id)));
     if (request.fields.some((field: any) => !allowed.has(Number(field.fieldid))))
         throw reject('A result parameter does not belong to this test', 400);
+    for(const field of request.fields){const rule=rules.find((row:any)=>Number(row.id)===Number(field.fieldid));if(rule)validateTypedResult(rule,field.originalvalue);}
     if (request.hasDrugs) {
         if (!Array.isArray(request.drugs)) throw reject('Drug results must be an array', 400);
         const drugIds = request.drugs.map((drug: any) => Number(drug.id));

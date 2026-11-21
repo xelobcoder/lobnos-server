@@ -470,3 +470,10 @@ describe("laboratory result save retry integrity (real Creator write path)", () 
           expect(two.store.rows("lab_work_actions")).toHaveLength(1);
      });
 });
+
+it('new numeric definitions reject nonnumeric entries atomically while legacy definitions retain their input behavior',async()=>{
+ const numeric=setup({testcreationrules:[{id:10,testid:3,name:'QA Numeric',result_type:'numeric'}]});
+ await expect(numeric.save(request({fields:[{...field(),originalvalue:'not numeric'}]}))).rejects.toThrow('valid numeric result');
+ expect(numeric.store.rows('test_results')).toEqual([]);
+ const legacy=setup();await expect(legacy.save(request({fields:[{...field(),originalvalue:'legacy text'}]}))).resolves.toMatchObject({changed:true});
+});

@@ -1,3 +1,5 @@
+import {listUnits,addUnit} from '../../models/TestCreation/UnitCatalogue';
+import {masterCatalogContext} from '../../models/system-admin/MasterCatalogContext';
 import express, { Request, Response } from "express";
 import {
 	getCategories,
@@ -53,6 +55,11 @@ router.get('/api/v1/testpanel/my-access', async (req, res) => {
 router.get('/api/v1/testpanel/staff-access', requireTestPanelDelegation, handleOverLoad(getTestPanelStaffAccess));
 router.put('/api/v1/testpanel/staff-access', requireTestPanelDelegation, handleOverLoad(updateTestPanelStaffAccess));
 
+router.get('/api/v1/testpanel/unit-catalogue',requireTestPanelView,handleOverLoad(async(_req,res)=>res.json({success:true,data:await listUnits()})));
+router.post('/api/v1/testpanel/unit-catalogue',requireTestPanelManagement,handleOverLoad(async(req,res)=>{
+ if(!masterCatalogContext.getStore())return res.status(403).json({status:'error',message:'Only the master administrator can add shared units'});
+ try{return res.status(201).json({success:true,data:await addUnit(req.body)})}catch(error:any){return res.status(error.statusCode||500).json({status:'error',message:error.statusCode?error.message:'Unable to add unit'})}
+}));
 // Category Routes
 router.get("/api/v1/testpanel/categories", requireTestPanelView, getCategories);
 router.post("/api/v1/testpanel/categories", requireTestPanelManagement, postCategories);
