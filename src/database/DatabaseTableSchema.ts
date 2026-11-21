@@ -1843,6 +1843,7 @@ export type PrimeLimsTabletestconditions = {
 };
 
 export type PrimeLimsTabletestcreationrules = {
+  isRequired?: boolean | number;
   id: number;
   testid: number;
   name: string;

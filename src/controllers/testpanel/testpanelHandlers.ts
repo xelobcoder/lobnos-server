@@ -631,6 +631,7 @@ async function importOneMasterTest(
                          field: rule.field,
                          value: rule.value,
                          hasunits: Number(rule.hasunits ?? 0),
+                         isRequired: Number(rule.isRequired ?? 0),
                          units: rule.units,
                          plan: rule.plan,
                          plain: rule.plain,

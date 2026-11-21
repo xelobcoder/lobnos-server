@@ -156,17 +156,19 @@ export const testCreationRuleUpdateHandler = async (request: Request<{}, {}, { t
 		const { testid, data } = request.body
 		const { tenantId } = request.query
 
-		const parsedTestId = parseInt(testid.toString());
-		if (!testid || !data)
+		const parsedTestId = Number(testid);
+		if (!Number.isSafeInteger(parsedTestId) || parsedTestId <= 0 || !Array.isArray(data))
 			return customError("testid  && data is required", 404, response)
 		if (data.length === 0)
 			return customError("wrong format provided", 404, response)
 		const tenantIdP = parseInt(tenantId.toString())
 
-		const createFields: number[] = await new TestCreationRulesRepository(tenantIdP).create(data, parsedTestId);
+		const repository = new TestCreationRulesRepository(tenantIdP);
+		const createFields: number[] = await repository.create(data, parsedTestId);
 		const status = createFields.length > 0 ? true : false
-		response.send({ status, message: status ? "fields created successfully" : "error occured creating fields" })
-	} catch (err) {
+		response.send({ status, message: status ? "fields created successfully" : "error occured creating fields", data: await repository.findByTestId(parsedTestId) })
+	} catch (err:any) {
+		if(err?.statusCode===400)return customError(err.message,400,response);
 		responseError(response)
 	}
 }

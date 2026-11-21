@@ -1,4 +1,6 @@
+import {ensureParameterRequiredColumn} from './parameterSchema';
 import KnexConnection from "../../database/KnexConnections";
+const parameterError = (message:string) => Object.assign(new Error(message),{statusCode:400});
 export interface TestCreationRule {
      id?: number;
      testid: number;
@@ -19,6 +21,7 @@ export interface TestCreationRule {
      category?: string;
      options?: string;
      fieldid?: number;
+     isRequired?: boolean | number | string;
      undercategory?: boolean | number | string;
      categoryid?: number | string;
      valueAlert?: string;
@@ -69,31 +72,51 @@ class TestCreationRulesRepository {
      }
 
      async create(rulesData: TestCreationRule[], testid: number): Promise<number[]> {
-          try {
-               const conn = await this.connection;
-               const existingRules: Array<{ id: number; name: string }> = await conn('testcreationrules')
-                    .where('testid', testid)
-                    .select('id', 'name');
-
-               const newRuleNames = rulesData.map(rule => rule.name);
-               const rulesToDelete = existingRules.filter(rule =>
-                    !newRuleNames.includes(rule.name)
-               );
-
-               if (rulesToDelete.length > 0) {
-                    await conn('testcreationrules')
-                         .whereIn('id', rulesToDelete.map(rule => rule.id))
-                         .delete();
+          const conn = await this.connection;
+          await ensureParameterRequiredColumn(conn);
+          if (!Array.isArray(rulesData) || !rulesData.length) throw parameterError('Add at least one parameter');
+          return conn.transaction(async (trx: any) => {
+               const panel = await trx('test_panels').where({id:testid}).forUpdate().first('id');
+               if (!panel) throw parameterError('Test panel not found');
+               const existingRules = await trx('testcreationrules').where({testid}).select('id','name','isRequired');
+               const names = new Set<string>(), ids = new Set<number>();
+               const resolved = rulesData.map(rule => {
+                    const name = String(rule.name || '').trim();
+                    const key = name.toLocaleLowerCase();
+                    if (!name || names.has(key)) throw parameterError('Parameter names must be present and unique within the panel');
+                    names.add(key);
+                    let existing: any;
+                    if (rule.id !== undefined && rule.id !== null) {
+                         const id = Number(rule.id);
+                         if (!Number.isSafeInteger(id) || id <= 0) throw parameterError('Invalid parameter ID');
+                         existing = existingRules.find((row:any) => Number(row.id) === id);
+                         if (!existing) throw parameterError('Parameter ID does not belong to this test panel. Refresh and retry.');
+                    } else {
+                         // Compatibility with older callers that submit unchanged definitions without IDs.
+                         existing = existingRules.find((row:any) => row.name === name);
+                    }
+                    if (existing) {
+                         if (ids.has(Number(existing.id))) throw parameterError('A parameter ID may appear only once');
+                         ids.add(Number(existing.id));
+                    }
+                    return {rule:{...rule,name},existing};
+               });
+               const removed = existingRules.filter((row:any) => !ids.has(Number(row.id)));
+               if (removed.length) {
+                    const removedIds = removed.map((row:any) => row.id);
+                    for (const table of ['test_results','test_results_ultrasound','test_results_audit_log']) {
+                         if (await trx.schema.hasTable(table) && await trx(table).whereIn('fieldid',removedIds).first())
+                              throw parameterError('A parameter with historical results cannot be removed');
+                    }
+                    await trx('testcreationrules').where({testid}).whereIn('id',removedIds).delete();
                }
-
                const insertedIds: number[] = [];
 
-               for (const ruleData of rulesData) {
-                    const existingRule = await conn('testcreationrules')
-                         .where({ testid, name: ruleData.name })
-                         .first();
+               for (const {rule:ruleData,existing:existingRule} of resolved) {
 
                     const updateData = {
+                         name: ruleData.name,
+                         isRequired: this.toTinyInt(ruleData.isRequired, this.toTinyInt(existingRule?.isRequired)),
                          field: ruleData.field,
                          value: ruleData.value,
                          hasunits: this.toTinyInt(ruleData.hasunits),
@@ -122,8 +145,8 @@ class TestCreationRulesRepository {
                     };
 
                     if (existingRule) {
-                         await conn('testcreationrules')
-                              .where({ testid, name: ruleData.name })
+                         await trx('testcreationrules')
+                              .where({ testid, id: existingRule.id })
                               .update(updateData);
                          insertedIds.push(existingRule.id);
                     } else {
@@ -132,21 +155,20 @@ class TestCreationRulesRepository {
                               name: ruleData.name,
                               ...updateData
                          };
-                         const result = await conn('testcreationrules')
+                         const result = await trx('testcreationrules')
                               .insert(insertData);
                          insertedIds.push(Array.isArray(result) ? result[0] : result);
                     }
                }
 
                return insertedIds;
-          } catch (error) {
-               throw error;
-          }
+          });
      }
 
      async findByTestId(testId: number): Promise<TestCreationRule[]> {
           try {
                const conn = await this.connection;
+               await ensureParameterRequiredColumn(conn);
                const result = await conn('testcreationrules')
                     .where('testid', testId)
                     .orderBy('ordering', 'asc');
@@ -159,6 +181,7 @@ class TestCreationRulesRepository {
      async findByTestIdAndId(testId: number, ruleId: number): Promise<TestCreationRule | undefined> {
           try {
                const conn = await this.connection;
+               await ensureParameterRequiredColumn(conn);
                const result = await conn('testcreationrules')
                     .where({ testid: testId, id: ruleId })
                     .first();
@@ -171,6 +194,7 @@ class TestCreationRulesRepository {
      async update(id: number, updates: Partial<TestCreationRule>): Promise<boolean> {
           try {
                const conn = await this.connection;
+               await ensureParameterRequiredColumn(conn);
                const result = await conn('testcreationrules')
                     .where('id', id)
                     .update(updates);
@@ -183,6 +207,7 @@ class TestCreationRulesRepository {
      async delete(id: number): Promise<boolean> {
           try {
                const conn = await this.connection;
+               await ensureParameterRequiredColumn(conn);
                const result = await conn('testcreationrules')
                     .where('id', id)
                     .delete();
@@ -195,6 +220,7 @@ class TestCreationRulesRepository {
      async deleteByTestId(testId: number): Promise<boolean> {
           try {
                const conn = await this.connection;
+               await ensureParameterRequiredColumn(conn);
                const result = await conn('testcreationrules')
                     .where('testid', testId)
                     .delete();
