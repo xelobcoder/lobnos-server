@@ -350,7 +350,11 @@ export class TenantRegistry {
 
           const byNumber = await this.connection(TENANTS_TABLE).where({ tenant_number: tenantId }).first('id', 'database_name');
           if (byNumber) {
-               throw new Error(`Configured tenant ${tenantId} belongs to "${byNumber.database_name}", not "${databaseName}". For an existing client database, run npm run tenants -- --register-local ${databaseName}, then set DEFAULT_TENANT_ID to the returned identity. Existing registrations must not be reassigned.`);
+               const newId = await this.firstFreeTenantNumber(this.connection);
+               await this.insertLocalTenant(newId, databaseName);
+               configuration.defaultTenantId = newId;
+               logger.warn(`[TenantRegistry] Configured tenant ${tenantId} belongs to "${byNumber.database_name}"; automatically registered "${databaseName}" as tenant ${newId}`);
+               return;
           }
 
           const newId = tenantId >= 100000 && tenantId <= 999999

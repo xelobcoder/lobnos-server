@@ -34,7 +34,10 @@ import { bootstrapPrescriptionTables } from "../models/prescriptions/Prescriptio
 import { bootstrapEntityOrderTables } from "../models/entityorders/EntityOrderBootstrapper";
 import { bootstrapEmailTables } from "../models/application/email/EmailBootstrapper";
 import { bootstrapPayrollTables } from "../models/payroll/PayrollBootstrapper";
-import { bootstrapTestReportSettingsTable } from "../models/application/appsettings/result-settings/TestReportSettingsBootstrapper";
+import {
+     bootstrapTestReportSettingsTable,
+     ensureTestReportSettingsTable,
+} from "../models/application/appsettings/result-settings/TestReportSettingsBootstrapper";
 import { bootstrapRefundTableSanitization } from "../models/billing/RefundBootstrapper";
 import { bootstrapStaffFocTables } from "../models/foc/StaffFocBootstrapper";
 import { bootstrapApplicationSettings } from "../models/application/appsettings/ApplicationSettingsBootstrapper";
@@ -53,7 +56,7 @@ import { listServedTenants } from "../models/Tenancy/TenantRegistry";
 
 export { listServedTenants };
 import { configuration } from "../hooks/configuration";
-import { systemConfigConnection } from "../database/connection";
+import { singleTenantKnexInstance, systemConfigConnection } from "../database/connection";
 import logger from "../hooks/logger";
 import { bootstrapResultSettings } from "../models/application/appsettings/result-settings/ResultSettingsBootstrapper";
 import { bootstrapSmsProviderSettings } from "../models/application/sms/SmsProviderBootstrapper";
@@ -90,6 +93,7 @@ export async function verifyMasterCatalog(): Promise<string[]> {
 
 /** Prepares every served tenant database. A tenant that cannot be reached is logged and skipped. */
 export async function bootstrapTenants(): Promise<{ readyTenants: number[]; accountingTenants: number[] }> {
+     await ensureTestReportSettingsTable(singleTenantKnexInstance);
      await bootstrapMasterControlDatabase();
      await verifyMasterCatalog();
      const readyTenants: number[] = [];

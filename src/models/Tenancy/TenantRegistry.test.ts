@@ -54,6 +54,26 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           expect(registry['insertLocalTenant']).not.toHaveBeenCalled();
      });
 
+     it('automatically assigns a fresh tenant ID when the configured ID belongs to another database', async () => {
+          mocks.config.defaultTenantId = 876954;
+          const query: any = {
+               where: vi.fn(() => query),
+               first: vi.fn()
+                    .mockResolvedValueOnce(null)
+                    .mockResolvedValueOnce({ id: 'VIT123', database_name: 'vit' }),
+          };
+          const connection = vi.fn(() => query);
+          const registry = new TenantRegistry(connection as any);
+          registry['firstFreeTenantNumber'] = vi.fn(async () => 654321);
+          registry['insertLocalTenant'] = vi.fn(async () => {});
+
+          await registry['registerLocalTenant']();
+
+          expect(registry['firstFreeTenantNumber']).toHaveBeenCalledWith(connection);
+          expect(registry['insertLocalTenant']).toHaveBeenCalledWith(654321, 'desktop_local');
+          expect(mocks.config.defaultTenantId).toBe(654321);
+     });
+
      it('maps the public identifier to its distinct internal tenant ID', async () => {
           const registry = new TenantRegistry();
           vi.spyOn(registry, 'listTenants').mockResolvedValue([
