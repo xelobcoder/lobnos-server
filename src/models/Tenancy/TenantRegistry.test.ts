@@ -3,6 +3,7 @@ import { Knex } from 'knex';
 
 const mocks = vi.hoisted(() => ({
      randomInt: vi.fn(),
+     databaseEmpty: vi.fn(),
      config: { defaultTenantId: 3, isMultiTenant: true, desktopStandalone: false, masterControlDatabase: 'test' },
 }));
 vi.mock('crypto', async (original) => ({
@@ -14,6 +15,7 @@ vi.mock('../../database/connection', () => ({
 }));
 vi.mock('../../hooks/configuration', () => ({ configuration: mocks.config }));
 vi.mock('../../hooks/logger', () => ({ default: { error: vi.fn(), warn: vi.fn(), info: vi.fn() } }));
+vi.mock('./TenantDatabaseState', () => ({ isDatabaseEmpty: mocks.databaseEmpty }));
 
 import { RegisteredTenant, TenantRegistry } from './TenantRegistry';
 
@@ -23,6 +25,7 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           mocks.randomInt.mockReset();
           mocks.config.defaultTenantId = 3;
           mocks.config.desktopStandalone = false;
+          mocks.databaseEmpty.mockReset().mockResolvedValue(false);
           vi.spyOn(TenantRegistry, 'ensureReady').mockResolvedValue(undefined);
      });
 
@@ -72,6 +75,47 @@ describe('organization registry login mapping and six-digit tenant IDs', () => {
           expect(registry['firstFreeTenantNumber']).toHaveBeenCalledWith(connection);
           expect(registry['insertLocalTenant']).toHaveBeenCalledWith(654321, 'desktop_local');
           expect(mocks.config.defaultTenantId).toBe(654321);
+     });
+
+     it('registers a table-free local database under a fresh provisioning tenant identity', async () => {
+          mocks.databaseEmpty.mockResolvedValue(true);
+          const query: any = {
+               where: vi.fn(() => query),
+               first: vi.fn()
+                    .mockResolvedValueOnce(null)
+                    .mockResolvedValueOnce(null),
+          };
+          const connection = vi.fn(() => query);
+          const registry = new TenantRegistry(connection as any);
+          registry['firstFreeTenantNumber'] = vi.fn(async () => 712345);
+          registry['insertLocalTenant'] = vi.fn(async () => {});
+
+          await registry['registerLocalTenant']();
+
+          expect(registry['firstFreeTenantNumber']).toHaveBeenCalledWith(connection);
+          expect(registry['insertLocalTenant']).toHaveBeenCalledWith(712345, 'desktop_local', 'provisioning');
+          expect(mocks.config.defaultTenantId).toBe(712345);
+     });
+
+     it('does not re-provision a table-free database with a closed lifecycle registration', async () => {
+          mocks.databaseEmpty.mockResolvedValue(true);
+          const query: any = {
+               where: vi.fn(() => query),
+               first: vi.fn().mockResolvedValue({
+                    id: 'PLS123456',
+                    tenant_number: 712345,
+                    status: 'active',
+                    deleted_at: new Date(),
+               }),
+               update: vi.fn(),
+          };
+          const connection = vi.fn(() => query);
+          const registry = new TenantRegistry(connection as any);
+
+          await registry['registerLocalTenant']();
+
+          expect(query.update).not.toHaveBeenCalled();
+          expect(mocks.config.defaultTenantId).toBe(712345);
      });
 
      it('maps the public identifier to its distinct internal tenant ID', async () => {

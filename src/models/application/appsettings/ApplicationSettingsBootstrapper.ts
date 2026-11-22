@@ -25,6 +25,7 @@ export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> 
                { name: 'sidebarTextColor', add: (table) => table.string('sidebarTextColor', 32).nullable() },
                { name: 'primaryColor', add: (table) => table.string('primaryColor', 32).nullable() },
                { name: 'secondaryColor', add: (table) => table.string('secondaryColor', 32).nullable() },
+               { name: 'ageVariationLimits', add: (table) => table.json('ageVariationLimits').nullable() },
                { name: 'commissionRecipientPolicy', add: (table) => table.enu('commissionRecipientPolicy', ['clinician', 'organization']).notNullable().defaultTo('clinician') },
                { name: 'moduleConfiguration', add: (table) => table.text('moduleConfiguration', 'longtext').nullable() },
           ];

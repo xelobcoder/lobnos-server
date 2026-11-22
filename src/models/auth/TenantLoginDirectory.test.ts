@@ -1,11 +1,16 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ findSessionById: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findSessionById: vi.fn(), tenant: vi.fn(), masterSessionActive: vi.fn() }));
 
 vi.mock('../../database/connection', () => ({ systemConfigConnection: {}, singleTenantKnexInstance: {} }));
 vi.mock('../../hooks/logger', () => ({ default: { error: vi.fn(), info: vi.fn(), warn: vi.fn() } }));
 vi.mock('../../models/settings/users/RolesRepository', () => ({ default: class {} }));
 vi.mock('../../models/Tenancy/tenancyRepo', () => ({ TenancyRepository: class {} }));
+vi.mock('../Tenancy/TenantRegistry', async importOriginal => {
+     const original = await importOriginal<typeof import('../Tenancy/TenantRegistry')>();
+     return { ...original, TenantRegistry: class { getTenant = mocks.tenant; } };
+});
+vi.mock('../Tenancy/MasterOwnerSession', () => ({ isMasterSessionActive: mocks.masterSessionActive }));
 vi.mock('../../models/security/repositories/loginlog.repo', () => ({
      ApplicationLoginLog: class {
           findSessionById = mocks.findSessionById;
@@ -16,6 +21,14 @@ import { formatLoginUsername, parseLoginUsername } from './TenantLoginDirectory'
 import { facilityCodeBase, facilityCodeCandidates, isValidFacilityCode } from '../Tenancy/TenantRegistry';
 import { hashDeviceFingerprint, verifyStaffSession } from '../../middleware/validateTenancy';
 import { deviceManagerRouteAllowed } from '../security/deviceManagerSession';
+import { configuration } from '../../hooks/configuration';
+import { DEVELOPER_SUPPORT_EMAIL } from '../Tenancy/DeveloperSessionPolicy';
+
+afterEach(() => {
+     mocks.findSessionById.mockReset();
+     mocks.tenant.mockReset();
+     mocks.masterSessionActive.mockReset();
+});
 
 describe('login usernames', () => {
      it('formats the public organization identifier + tenant-local account number', () => {
@@ -102,6 +115,38 @@ describe('verifyStaffSession', () => {
                .resolves.toEqual({ ok: true });
           const mismatch = await verifyStaffSession({ sid: 'cur', employeeid: 1, tid: 3, fph }, 1, 3, { headers: { 'x-device-id': 'device-b' } } as any);
           expect(mismatch.body).toMatchObject({ code: 'DEVICE_MISMATCH' });
+     });
+
+     it('confirms a master-bound developer session for the registered local tenant only', async () => {
+          const previousMode = configuration.isMultiTenant;
+          const previousTenantId = configuration.defaultTenantId;
+          configuration.isMultiTenant = false;
+          configuration.defaultTenantId = 42;
+          mocks.tenant.mockResolvedValue({ isActive: true });
+          mocks.masterSessionActive.mockResolvedValue(true);
+          mocks.findSessionById.mockResolvedValue({ loggedout: 0, logoutTime: future });
+          const claims = {
+               email: DEVELOPER_SUPPORT_EMAIL,
+               developerOwner: { masterSessionId: 'master-session' },
+               tid: 42,
+               employeeid: 1,
+               sid: 'developer-session',
+          };
+          const role = {
+               email: DEVELOPER_SUPPORT_EMAIL,
+               platform_support: 1,
+               activation: 1,
+               role: 'super-admin',
+          };
+
+          try {
+               await expect(verifyStaffSession(claims, 1, 42, request, role)).resolves.toEqual({ ok: true });
+               expect((await verifyStaffSession(claims, 1, 43, request, role)).body)
+                    .toMatchObject({ code: 'DEVELOPER_SESSION_DENIED' });
+          } finally {
+               configuration.isMultiTenant = previousMode;
+               configuration.defaultTenantId = previousTenantId;
+          }
      });
 
      it('binds Device Manager sessions to a signed scope, tenant, and required device identity', async () => {

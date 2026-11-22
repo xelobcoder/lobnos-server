@@ -3,6 +3,7 @@ import { singleTenantKnexInstance, systemConfigConnection } from '../../database
 import { configuration } from '../../hooks/configuration';
 import logger from '../../hooks/logger';
 import { randomInt } from 'crypto';
+import { isDatabaseEmpty } from './TenantDatabaseState';
 
 export const TENANTS_TABLE = 'prime_tenants';
 export const FACILITY_CODE_LENGTH = 6;
@@ -32,6 +33,7 @@ export interface RegisteredTenant {
      isActive: boolean;
      createdAt: Date | null;
      updatedAt: Date | null;
+     deletedAt: Date | null;
      suspendedAt: Date | null;
      archivedAt: Date | null;
 }
@@ -102,6 +104,7 @@ function toRegisteredTenant(row: any): RegisteredTenant | null {
           isActive: row.status === 'active' && !row.deleted_at,
           createdAt: row.created_at ?? null,
           updatedAt: row.updated_at ?? null,
+          deletedAt: row.deleted_at ?? null,
           suspendedAt: row.suspended_at ?? null,
           archivedAt: row.archived_at ?? null,
      };
@@ -190,6 +193,13 @@ export class TenantRegistry {
           if (rows.length > 1) throw new Error('Multiple registry entries reference the standalone desktop database');
           if (!rows.length || rows[0].status !== 'active' || rows[0].deleted_at) return null;
           return toRegisteredTenant(rows[0]);
+     }
+
+     async getLocalTenantRegistration(): Promise<RegisteredTenant | null> {
+          const databaseName = (singleTenantKnexInstance as any)?.client?.config?.connection?.database;
+          if (typeof databaseName !== 'string' || !databaseName) return null;
+          const row = await this.connection(TENANTS_TABLE).where({ database_name: databaseName }).first('*');
+          return row ? toRegisteredTenant(row) : null;
      }
 
      private async assertLocalTenantReady(): Promise<void> {
@@ -335,12 +345,19 @@ export class TenantRegistry {
           const databaseName = singleTenantKnexInstance.client.config?.connection?.database as string | undefined;
           const tenantId = configuration.defaultTenantId;
           if (!databaseName) return;
+          const emptyDatabase = await isDatabaseEmpty(singleTenantKnexInstance);
 
-          const byDatabase = await this.connection(TENANTS_TABLE).where({ database_name: databaseName }).first('id', 'tenant_number');
+          const byDatabase = await this.connection(TENANTS_TABLE)
+               .where({ database_name: databaseName })
+               .first('id', 'tenant_number', 'status', 'deleted_at', 'suspended_at', 'archived_at');
           if (byDatabase) {
                const registeredId = byDatabase.tenant_number
                     ? Number(byDatabase.tenant_number)
                     : await this.assignRandomTenantNumber(String(byDatabase.id), null);
+               const lifecycleClosed = byDatabase.deleted_at || byDatabase.suspended_at || byDatabase.archived_at;
+               if (emptyDatabase && !lifecycleClosed && ['active', 'failed', 'provisioning'].includes(byDatabase.status)) {
+                    await this.connection(TENANTS_TABLE).where({ id: byDatabase.id }).update({ status: 'provisioning' });
+               }
                configuration.defaultTenantId = registeredId;
                if (registeredId !== tenantId) {
                     logger.info(`[TenantRegistry] Local database ${databaseName} uses registered tenant ${registeredId} (configured default was ${tenantId})`);
@@ -351,19 +368,25 @@ export class TenantRegistry {
           const byNumber = await this.connection(TENANTS_TABLE).where({ tenant_number: tenantId }).first('id', 'database_name');
           if (byNumber) {
                const newId = await this.firstFreeTenantNumber(this.connection);
-               await this.insertLocalTenant(newId, databaseName);
+               if (emptyDatabase) await this.insertLocalTenant(newId, databaseName, 'provisioning');
+               else await this.insertLocalTenant(newId, databaseName);
                configuration.defaultTenantId = newId;
                logger.warn(`[TenantRegistry] Configured tenant ${tenantId} belongs to "${byNumber.database_name}"; automatically registered "${databaseName}" as tenant ${newId}`);
                return;
           }
 
-          const newId = tenantId >= 100000 && tenantId <= 999999
+          const newId = !emptyDatabase && tenantId >= 100000 && tenantId <= 999999
                ? tenantId : await this.firstFreeTenantNumber(this.connection);
-          await this.insertLocalTenant(newId, databaseName);
+          if (emptyDatabase) await this.insertLocalTenant(newId, databaseName, 'provisioning');
+          else await this.insertLocalTenant(newId, databaseName);
           configuration.defaultTenantId = newId;
      }
 
-     private async insertLocalTenant(tenantId: number, databaseName: string): Promise<void> {
+     private async insertLocalTenant(
+          tenantId: number,
+          databaseName: string,
+          status: 'active' | 'provisioning' = 'active',
+     ): Promise<void> {
           const local = singleTenantKnexInstance;
           const localConnection = local.client.config.connection as Knex.MySql2ConnectionConfig;
           const databaseHost = localConnection.host || 'localhost';
@@ -423,7 +446,7 @@ export class TenantRegistry {
                     sequence_number: sequence,
                     database_name: databaseName,
                     db_connection_string: `mysql://${databaseHost.includes(':') ? `[${databaseHost}]` : databaseHost}:${databasePort}/${databaseName}`,
-                    status: 'active',
+                    status,
                     provisioned_at: trx.fn.now(),
                     created_by: creator.id,
                     tenant_number: tenantId,

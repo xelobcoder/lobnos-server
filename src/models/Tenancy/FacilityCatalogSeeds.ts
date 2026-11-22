@@ -125,6 +125,8 @@ export async function applyFacilityCatalogSeeds(db: Knex, seeds: ReturnType<type
                await trx('testdetailcategory').update({ createdby: '1', updatedby: null });
                await trx('testconditiondefinitions').update({ createdBy: 1, updatedBy: null });
                await trx('testconditions').update({ createdBy: '1' });
+               await trx('test_panels').update({ price: 0 });
+               await trx('testdetails').update({ testcost: 0, testprice: 0 });
           } finally {
                await trx.raw('SET FOREIGN_KEY_CHECKS = 1');
           }

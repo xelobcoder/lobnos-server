@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { createFacilitySchema, isolateReferenceDdl, safeDatabaseIdentifier } from './FacilitySchema';
+import {
+     createFacilitySchema,
+     initializeEmptyFacilitySchema,
+     isolateReferenceDdl,
+     safeDatabaseIdentifier,
+} from './FacilitySchema';
 import { applyFacilityCatalogSeeds, loadFacilityCatalogSeeds, referenceInsertStatements } from './FacilityCatalogSeeds';
 import { exportedSqlStatements, loadFacilityStructureExports, structureFromExports } from './FacilityStructureExports';
 import { caseSensitiveCollation, TENANT_COLLATION } from '../../database/legacy-upgrade/SchemaCollationPolicy';
@@ -35,6 +40,27 @@ describe('facility schema isolation', () => {
           expect(queries.some(sql => /INSERT|SELECT \*/.test(sql))).toBe(false);
           expect(queries.some(sql => /IF NOT EXISTS/.test(sql))).toBe(false);
           expect(queries.some(sql => /SHOW CREATE|information_schema/.test(sql))).toBe(false);
+     });
+     it('selects the registered database and resumes only when partial initialization is allowed', async () => {
+          const queries: string[] = [];
+          const db: any = { query: async (sql: string) => {
+               queries.push(sql);
+               if (sql.startsWith('SELECT COUNT')) return [[{ tableCount: 1 }]];
+               return [[]];
+          } };
+          const structure = { tables: [{ name: 'roles', ddl: 'CREATE TABLE `roles` (`id` int)' }], objects: [] };
+
+          await expect(initializeEmptyFacilitySchema(db, structure, 'PLS123456'))
+               .rejects.toThrow('already contains tables');
+          expect(queries.slice(0, 2)).toEqual([
+               'USE ??',
+               'SELECT COUNT(*) AS tableCount FROM information_schema.tables WHERE table_schema = DATABASE()',
+          ]);
+          expect(queries.some(sql => sql.startsWith('CREATE TABLE'))).toBe(false);
+
+          queries.length = 0;
+          await initializeEmptyFacilitySchema(db, structure, 'PLS123456', true);
+          expect(queries).toContain('CREATE TABLE IF NOT EXISTS `roles` (`id` int)');
      });
 
      describe('authoritative structure exports', () => {
@@ -128,9 +154,13 @@ describe('source-controlled reference catalog', () => {
      });
      it.each([false, true])('pins FK changes to the transaction connection and restores them (failure=%s)', async fail => {
           const calls: string[] = [];
+          const updates: Array<{ table: string; value: Record<string, unknown> }> = [];
           const trx: any = (table: string) => ({
                delete: async () => { calls.push(`delete:${table}`); },
-               update: async () => { calls.push(`update:${table}`); },
+               update: async (value: Record<string, unknown>) => {
+                    calls.push(`update:${table}`);
+                    updates.push({ table, value });
+               },
           });
           trx.raw = async (sql: string) => {
                calls.push(sql);
@@ -146,5 +176,9 @@ describe('source-controlled reference catalog', () => {
                calls.findIndex(sql => sql === 'delete:samplecontainer'),
           );
           expect(calls.some(sql => /DROP|ALTER|USE /.test(sql))).toBe(false);
+          if (!fail) {
+               expect(updates).toContainEqual({ table: 'test_panels', value: { price: 0 } });
+               expect(updates).toContainEqual({ table: 'testdetails', value: { testcost: 0, testprice: 0 } });
+          }
      });
 });

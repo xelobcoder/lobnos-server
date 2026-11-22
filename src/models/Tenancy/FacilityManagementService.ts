@@ -360,7 +360,7 @@ export class FacilityManagementService {
 
      async listLicenseWindows() {
           const tenants = (await new TenantRegistry().listTenants()).filter(tenant =>
-               tenant.tenantId !== configuration.defaultTenantId && ['active', 'suspended'].includes(tenant.status));
+               !tenant.deletedAt && ['active', 'suspended'].includes(tenant.status));
           const rows = [];
           for (let offset = 0; offset < tenants.length; offset += 4) {
                rows.push(...await Promise.all(tenants.slice(offset, offset + 4).map(async ({ tenantId }) => {
@@ -380,7 +380,6 @@ export class FacilityManagementService {
      }
 
      async setLicenseExpiry(tenantId: number, endDate: string, reason: string, actor: FacilityActor) {
-          this.requireClient(tenantId, 'have its license changed from the facility list');
           if (licenseMode() !== 'legacy') throw new FacilityError('Signed installations require a signed certificate to adjust access', 409);
           const expiry = new Date(endDate + 'T23:59:59.999Z');
           const now = this.now();

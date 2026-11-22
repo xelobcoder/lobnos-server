@@ -44,7 +44,10 @@ export const hashDeviceFingerprint = (deviceId: unknown): string | null => {
 export const verifyStaffSession = async (decoded: JwtPayload | null, employeeid: number, tenantId: number, request: Request, roleRow?: any): Promise<SessionCheck> => {
      const supportIdentity = roleRow?.email === DEVELOPER_SUPPORT_EMAIL || Number(roleRow?.platform_support) === 1;
      if (decoded?.developerOwner || supportIdentity) {
-          if (!configuration.isMultiTenant || decoded?.tid !== tenantId ||
+          const localSingleTenantSession = !configuration.isMultiTenant &&
+               tenantId === configuration.defaultTenantId &&
+               Number(decoded?.tid) === configuration.defaultTenantId;
+          if ((!configuration.isMultiTenant && !localSingleTenantSession) || Number(decoded?.tid) !== tenantId ||
                Number(roleRow?.platform_support) !== 1 || roleRow?.email !== DEVELOPER_SUPPORT_EMAIL ||
                Number(roleRow?.activation) !== 1 || !isSuperAdminRole(roleRow?.role)) {
                return sessionFailure(403, 'DEVELOPER_SESSION_DENIED', 'This developer session is unavailable.');

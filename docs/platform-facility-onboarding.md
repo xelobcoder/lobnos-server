@@ -1,5 +1,20 @@
 # Platform facility onboarding (backend)
 
+## Empty local database bootstrap
+
+At startup, the registry checks the configured local database. If it has no
+tables and is eligible for onboarding, an unregistered database is assigned a
+new tenant identity and held in `provisioning` while the exported facility
+schema and allowlisted reference data are initialized. The tenant becomes
+`active` only after the required application bootstrappers complete. A marker
+table makes schema/reference initialization resumable after an interrupted
+startup; a non-empty database without that marker is not modified.
+
+Existing tenant identities are preserved. Deleted, suspended, and archived
+registrations are not automatically reactivated. This process does not create
+a staff account or publish a default password; use the platform's master
+administration workflow for access.
+
 ## Master-control location bootstrap recovery
 
 Location imports preserve facility region/district IDs and existing platform codes.
@@ -198,7 +213,7 @@ be the current registered default/control tenant ID.
   registry metadata. The platform-only response also includes `email`, `phone`,
   `countryId`, `stateId`, and `districtId` so a failed reservation can be safely
   prefilled for retry, plus isControlTenant:boolean (display hint only; the server
-  independently refuses control-tenant status/subscription changes). status is the
+  independently refuses control-tenant status changes). status is the
   lowercase registry value (ctive, suspended, provisioning, ailed, ...).
   Failed/provisioning facilities remain visible for diagnosis.
 * `POST /api/v1/platform/facilities`
@@ -343,10 +358,12 @@ continue to use its normal license checks.
    Build the backend and initialize the dedicated owner once with
    Run the initialization on each deployment against its own control database. The tenant super-admin signs in through the facility login and lands in the tenant workspace. The platform owner signs in at `/master-platform/login`.
 
-   `npm run master:init -- platform-owner --password-stdin`. Supply the
-   password through standard input. To copy an existing active super-admin
+   `pnpm master:init` creates the owner with username `plsmaster` and prompts
+   twice for a hidden, policy-compliant password. For non-interactive use,
+   provide the password through standard input with
+   `pnpm master:init --password-stdin`. To copy an existing active super-admin
    password hash during migration, use
-   `npm run master:init -- platform-owner --import-staff <tenantId> <employeeId>`.
+   `pnpm master:init --import-staff <tenantId> <employeeId>`.
    The import copies the hash once. Later tenant password or role changes do
    not affect the dedicated account.
 4. Deploy the authoritative **288 structure files** under
@@ -473,6 +490,10 @@ constraints requiring an already-existing staff account.
 * Runtime bootstrappers run in strict mode, including accounting. A suppressed
   query failure is still considered a provisioning failure. Legacy home-collection
   seeds referring to demo order 1 are not run for a new facility.
+  If the company profile is empty, startup creates the required profile row from
+  the active tenant registry metadata, leaving address and street blank for later editing.
+  An active default branch (ID 1) is created from the company profile when the
+  branch table is empty; any existing branch rows are preserved.
 * Selected locations replace tenant application-setting defaults. Company profile,
   activated initial **tenant admin** (not a platform super-admin), bcrypt password
   hash and encrypted renewed license are written transactionally. The license is
@@ -530,6 +551,21 @@ and body values are never returned or logged.
   from/to, reason, actor). Suspending sets `prime_tenants.suspended_at`; activating
   clears it. `updated_by` is not touched (it references `platform_users`).
 * Access is **manual only**: overdue periods never suspend or reactivate a facility.
+
+### Legacy license expiry
+
+`GET /api/v1/platform/facilities/license-windows` returns `{mode, facilities}`.
+The facilities list includes every active or suspended tenant, including the
+default/control tenant, with `{tenantId, status, expiresAt}`. Status is `missing`,
+`active`, `expired`, `inactive`, or `unavailable`.
+
+`PUT /api/v1/platform/facilities/:tenantId/license-window` accepts
+`{endDate: "YYYY-MM-DD", reason}`. In legacy-license mode, the platform admin can
+change the expiry of any active or suspended tenant, including the control
+tenant. The expiry must be in the future and within ten years; the change is
+audited with its previous and new expiry. This changes the legacy license window,
+not the subscription schedule or facility status. Signed-license mode returns
+409 and requires a renewed signed certificate instead.
 
 Enforcement on suspended tenants (unchanged paths, verified): new logins are denied by
 `resolveLoginTenant` (403 `TENANT_INACTIVE`), and **every** existing-session request is
@@ -743,21 +779,25 @@ stored and enforced through separate workflows today.
 
 | Work item | Dependencies | Acceptance criteria |
 | --- | --- | --- |
-| Extend or shorten a facility's license window | Define the effective end date, grace policy and interaction with signed offline licenses | A control admin previews and saves earlier or later expiry with a reason. The audit records the actor and both dates. The facility's effective access changes at the intended time. Historical invoices and payments remain intact. |
+| Signed-installation license expiry management | Define certificate renewal and its interaction with signed offline licenses | A renewed signed certificate updates effective access without enabling legacy license-window edits. |
 | Durable provisioning jobs | Facility reservation, per-facility lock, versioned schema bundles and a durable job store | Duplicate requests resolve to the same job. The admin can reload and see progress. An interrupted worker resumes or exposes a safe retry. Failed stages retain an actionable code and the tenant stays inactive. |
 | Fleet readiness and database upgrades | Durable jobs, compatible schema version tracking and deployment metadata | The platform lists each tenant's schema version and last check. A failed upgrade identifies the tenant and stage. Operators can verify a release on a clean facility and a populated upgrade fixture before widening rollout. |
 | Backup, restore and retirement | Verified tenant-to-database mapping, backup storage and retention policy | The platform shows backup age and verification status per tenant. A restore can be tested in an isolated database before cutover. Retirement has an auditable retention and deletion workflow. |
 
 ## Developer tenant switching
 
-Sign in at `/master-platform/login`. From the master facility list, select **Open facility** on an active client. The facility
-dashboard shows a **Developer session** banner with its name and a **Return to
-master platform** button. After returning, select another facility using the
-same master session. The active workspace is shared across tabs in one browser
-profile.
+Sign in at `/master-platform/login`. From the master facility list, select
+**Open facility** on an active client. To open the protected platform home,
+enable **Show protected platform home facility** and select **Open platform
+home** on its active row. The facility dashboard shows a **Developer session**
+banner with its name and a **Return to master platform** button. After
+returning, select another facility using the same master session. The active
+workspace is shared across tabs in one browser profile.
 
 The first visit initializes a dedicated password-disabled developer identity in
 that tenant. The facility's administrator and staff sessions remain independent.
+The configured local tenant may also be opened; single-tenant mode restricts
+developer sessions to that active registered local database.
 The developer session expires within 30 minutes or when the master session
 expires, whichever comes first. Target requests recheck the live master
 identity and session. The target identity is scoped to one tenant and cannot

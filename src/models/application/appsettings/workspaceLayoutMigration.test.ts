@@ -9,8 +9,13 @@ import { bootstrapApplicationSettings } from './ApplicationSettingsBootstrapper'
 describe('tenant workspace layout migration', () => {
      beforeEach(() => vi.clearAllMocks());
      function database(hasTable = true, hasColumn = false) {
-          const column = { notNullable: vi.fn().mockReturnThis(), defaultTo: vi.fn().mockReturnThis(), alter: vi.fn().mockReturnThis() };
-          const table = { enu: vi.fn(() => column), dropColumn: vi.fn() };
+          const column = {
+               notNullable: vi.fn().mockReturnThis(),
+               nullable: vi.fn().mockReturnThis(),
+               defaultTo: vi.fn().mockReturnThis(),
+               alter: vi.fn().mockReturnThis(),
+          };
+          const table = { enu: vi.fn(() => column), json: vi.fn(() => column), dropColumn: vi.fn() };
           const schema = {
                hasTable: vi.fn().mockResolvedValue(hasTable),
                hasColumn: vi.fn().mockResolvedValue(hasColumn),
@@ -66,6 +71,18 @@ describe('tenant workspace layout migration', () => {
           expect(mocks.connection).toHaveBeenCalledWith(42);
           expect(t.table.enu).toHaveBeenCalledWith('workspaceLayout', ['classic', 'zoho', 'claude', 'ribbon', 'slack']);
           expect(t.schema.alterTable).toHaveBeenCalledOnce();
+     });
+     it('adds ageVariationLimits when upgrading an existing application settings table', async () => {
+          const t = database();
+          t.schema.hasColumn.mockImplementation(async (_table, column) => column !== 'ageVariationLimits');
+          t.raw.mockResolvedValue([[{ Type: "enum('classic','zoho','claude','ribbon','slack','portal')" }]]);
+          mocks.connection.mockResolvedValue(t.db);
+
+          await bootstrapApplicationSettings(42);
+
+          expect(t.schema.alterTable).toHaveBeenCalledWith('applicationsettings', expect.any(Function));
+          expect(t.table.json).toHaveBeenCalledWith('ageVariationLimits');
+          expect(t.column.nullable).toHaveBeenCalled();
      });
      it('propagates migration failure instead of marking a tenant ready', async () => {
           const t = database();

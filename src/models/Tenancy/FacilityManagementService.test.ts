@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
      invalidate: vi.fn(), ready: vi.fn(), connect: vi.fn(), release: vi.fn(), query: vi.fn(), end: vi.fn(),
-     tenantConnection: vi.fn(), getModulePricing: vi.fn(),
+     tenantConnection: vi.fn(), getModulePricing: vi.fn(), tenants: vi.fn(),
+     getCurrentWindow: vi.fn(), validateLicense: vi.fn(), createWindow: vi.fn(),
 }));
 vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
 vi.mock('./tenantConnections', () => ({ releaseTenantConnection: mocks.release }));
@@ -13,7 +14,18 @@ vi.mock('../../database/connection', () => ({
 }));
 vi.mock('./TenantRegistry', () => ({
      TENANTS_TABLE: 'prime_tenants',
-     TenantRegistry: class { static ensureReady = mocks.ready; static invalidate = mocks.invalidate; },
+     TenantRegistry: class {
+          static ensureReady = mocks.ready;
+          static invalidate = mocks.invalidate;
+          listTenants = mocks.tenants;
+     },
+}));
+vi.mock('../settings/users/PrimeWindowAccessRepository', () => ({
+     default: class {
+          getCurrentWindow = mocks.getCurrentWindow;
+          validateLicense = mocks.validateLicense;
+          createWindow = mocks.createWindow;
+     },
 }));
 vi.mock('./FacilityModulePricingCatalog', async importOriginal => {
      const actual: any = await importOriginal();
@@ -184,6 +196,10 @@ describe('platform facility status and subscription management', () => {
           mocks.release.mockReset().mockResolvedValue(undefined);
           mocks.end.mockReset().mockResolvedValue(undefined);
           mocks.connect.mockReset().mockResolvedValue({ query: mocks.query, end: mocks.end });
+          mocks.tenants.mockReset().mockResolvedValue([]);
+          mocks.getCurrentWindow.mockReset().mockResolvedValue(null);
+          mocks.validateLicense.mockReset().mockResolvedValue(false);
+          mocks.createWindow.mockReset().mockResolvedValue(1);
           configuration.defaultTenantId = CONTROL;
           configuration.isMultiTenant = true;
           vi.stubEnv('DB_HOST', 'localhost');
@@ -634,6 +650,71 @@ describe('platform facility status and subscription management', () => {
                const view = await service.getSubscription(CLIENT);
                expect(view.periods.some(p => p.status === 'overdue')).toBe(true);
                expect(view.facilityStatus).toBe('active');
+          });
+     });
+
+     describe('legacy license window', () => {
+          it('lists the active control tenant alongside client windows', async () => {
+               vi.stubEnv('PLS_LICENSE_MODE', 'legacy');
+               mocks.tenants.mockResolvedValue([
+                    { tenantId: CONTROL, status: 'active', deletedAt: null },
+                    { tenantId: CLIENT, status: 'active', deletedAt: null },
+                    { tenantId: 444444, status: 'suspended', deletedAt: null },
+                    { tenantId: 333333, status: 'provisioning', deletedAt: null },
+                    { tenantId: 555555, status: 'active', deletedAt: new Date() },
+               ]);
+
+               const result = await service.listLicenseWindows();
+
+               expect(result).toMatchObject({
+                    mode: 'legacy',
+                    facilities: [
+                         { tenantId: CONTROL, status: 'missing', expiresAt: null },
+                         { tenantId: CLIENT, status: 'missing', expiresAt: null },
+                         { tenantId: 444444, status: 'missing', expiresAt: null },
+                    ],
+               });
+          });
+
+          it('allows the control tenant expiry to be changed with an audit event in legacy mode', async () => {
+               vi.stubEnv('PLS_LICENSE_MODE', 'legacy');
+               const current = {
+                    start_period: new Date('2026-01-01T00:00:00.000Z'),
+                    end_period: new Date('2026-10-01T00:00:00.000Z'),
+                    window_days: 3,
+                    loginDurationPerUser: 6,
+               };
+               mocks.getCurrentWindow.mockResolvedValue(current);
+               mocks.validateLicense.mockResolvedValue(false);
+
+               const result = await service.setLicenseExpiry(CONTROL, '2026-12-31', 'Extend platform access', actor);
+
+               expect(result).toEqual({ expiresAt: '2026-12-31T23:59:59.999Z' });
+               expect(mocks.createWindow).toHaveBeenCalledWith(
+                    current.start_period,
+                    new Date('2026-12-31T23:59:59.999Z'),
+                    3,
+                    true,
+                    6,
+               );
+               expect(db.table(EVENTS_TABLE)[0]).toMatchObject({
+                    tenant_id: CONTROL,
+                    action: 'license_expiry_changed',
+                    reason: 'Extend platform access',
+                    actor_tenant_id: CONTROL,
+                    actor_employee_id: 9,
+               });
+          });
+
+          it('still requires a signed certificate in signed-license mode', async () => {
+               vi.stubEnv('PLS_LICENSE_MODE', 'signed');
+
+               await expectError(
+                    service.setLicenseExpiry(CONTROL, '2026-12-31', 'Extend platform access', actor),
+                    409,
+                    /signed certificate/,
+               );
+               expect(mocks.tenantConnection).not.toHaveBeenCalled();
           });
      });
 

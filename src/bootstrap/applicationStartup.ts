@@ -51,8 +51,11 @@ import { bootstrapCalculationAndQcTables } from "../models/creator/calculations/
 import { up as bootstrapResultSaveSchema } from "../cron/command-line-tool-database/migrations/20261103_result_save_identity";
 import { up as bootstrapPharmacyReturnValue } from "../cron/command-line-tool-database/migrations/20261107_pharmacy_return_value";
 import { bootstrapAppointmentTables } from "../models/appointments/AppointmentBootstrapper";
+import { bootstrapDefaultBranch } from "../models/application/branches/BranchBootstrapper";
+import { bootstrapTenantCompanyProfile } from "../models/settings/CompanyProfileBootstrapper";
+import { initializeEmptyTenantDatabase } from "../models/Tenancy/EmptyTenantBootstrapper";
 import { startOptionalRedisCache } from "../services/cache/testPanelCache";
-import { listServedTenants } from "../models/Tenancy/TenantRegistry";
+import { listServedTenants, TenantRegistry, TENANTS_TABLE } from "../models/Tenancy/TenantRegistry";
 
 export { listServedTenants };
 import { configuration } from "../hooks/configuration";
@@ -93,12 +96,43 @@ export async function verifyMasterCatalog(): Promise<string[]> {
 
 /** Prepares every served tenant database. A tenant that cannot be reached is logged and skipped. */
 export async function bootstrapTenants(): Promise<{ readyTenants: number[]; accountingTenants: number[] }> {
-     await ensureTestReportSettingsTable(singleTenantKnexInstance);
      await bootstrapMasterControlDatabase();
      await verifyMasterCatalog();
+     await TenantRegistry.ensureReady();
+     let initializedLocalTenant: { tenantId: number; accountingReady: boolean } | undefined;
+     const localRegistration = await new TenantRegistry().getLocalTenantRegistration();
+     if (localRegistration?.status === "provisioning"
+          && !localRegistration.deletedAt
+          && !localRegistration.suspendedAt
+          && !localRegistration.archivedAt) {
+          await initializeEmptyTenantDatabase(localRegistration);
+          const runtime = await runApplicationBootstrappers(localRegistration.tenantId, true, { startWorkers: false });
+          if (!runtime.accountingReady) throw new Error("Empty local tenant runtime bootstrap is incomplete");
+          const activated = await systemConfigConnection(TENANTS_TABLE)
+               .where({ tenant_number: localRegistration.tenantId, status: "provisioning" })
+               .update({ status: "active", provisioned_at: systemConfigConnection.fn.now() });
+          if (activated !== 1) throw new Error("Empty local tenant could not be activated after initialization");
+          TenantRegistry.invalidate();
+          initializedLocalTenant = {
+               tenantId: localRegistration.tenantId,
+               accountingReady: runtime.accountingReady,
+          };
+          logger.info(
+               `[Bootstrap] Empty database initialized and registered as tenant ${localRegistration.tenantId}`,
+          );
+     }
+     await ensureTestReportSettingsTable(singleTenantKnexInstance);
      const readyTenants: number[] = [];
      const accountingTenants: number[] = [];
      for (const tenant of await listServedTenants()) {
+          if (initializedLocalTenant?.tenantId === tenant.tenantId) {
+               readyTenants.push(tenant.tenantId);
+               if (initializedLocalTenant.accountingReady) accountingTenants.push(tenant.tenantId);
+               logger.info(
+                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode} - ${tenant.name}) ready on ${tenant.databaseName}`,
+               );
+               continue;
+          }
           try {
                const { accountingReady } = await runApplicationBootstrappers(tenant.tenantId);
                readyTenants.push(tenant.tenantId);
@@ -121,6 +155,8 @@ export async function runApplicationBootstrappers(
      options: { startWorkers?: boolean } = {},
 ): Promise<{ accountingReady: boolean }> {
      await ensureTenantCollationDefault(await KnexConnection(tenantId));
+     await bootstrapTenantCompanyProfile(tenantId);
+     await bootstrapDefaultBranch(tenantId);
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
      // Registration must not depend on unrelated module bootstrappers finishing first.
      const patientContactDb = await KnexConnection(tenantId);

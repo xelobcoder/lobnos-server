@@ -1,6 +1,7 @@
 import { randomUUID } from "crypto";
 import jwt, { type JwtPayload } from "jsonwebtoken";
 import KnexConnection from "../../database/KnexConnections";
+import { singleTenantKnexInstance } from "../../database/connection";
 import { configuration } from "../../hooks/configuration";
 import AuthenticationRepository from "../settings/users/AuthenticationRepository";
 import { FacilityError } from "./FacilityInput";
@@ -13,9 +14,16 @@ export class DeveloperTenantSessionService {
      private management = new FacilityManagementService();
 
      async open(tenantId: number, owner: JwtPayload, previousToken?: unknown) {
-          if (tenantId === configuration.defaultTenantId) throw new FacilityError("Choose a client facility", 400);
           const target = await new TenantRegistry().getTenant(tenantId);
           if (!target?.isActive) throw new FacilityError("Choose an active client facility", 409);
+          const localDatabaseName = singleTenantKnexInstance.client.config?.connection?.database;
+          if (tenantId === configuration.defaultTenantId && target.databaseName !== localDatabaseName) {
+               throw new FacilityError("The configured local tenant does not match its registered database", 409);
+          }
+          if (!configuration.isMultiTenant &&
+               (tenantId !== configuration.defaultTenantId || target.databaseName !== localDatabaseName)) {
+               throw new FacilityError("Developer sessions are limited to the registered local facility in single-tenant mode", 409);
+          }
           const lifetime = Math.min(SUPPORT_SESSION_SECONDS, Math.floor(Number(owner.exp) - Date.now() / 1000));
           if (owner.master !== true || !Number.isSafeInteger(lifetime) || lifetime <= 0 || !owner.sid)
                throw new FacilityError("The developer session has expired", 401);
@@ -89,7 +97,7 @@ export class DeveloperTenantSessionService {
                parent?.masterSessionId !== owner.sid ||
                claims.email !== DEVELOPER_SUPPORT_EMAIL ||
                !Number.isSafeInteger(claims.tid) ||
-               claims.tid === configuration.defaultTenantId ||
+               (!configuration.isMultiTenant && claims.tid !== configuration.defaultTenantId) ||
                !Number.isSafeInteger(claims.employeeid) ||
                typeof claims.sid !== "string"
           ) {
