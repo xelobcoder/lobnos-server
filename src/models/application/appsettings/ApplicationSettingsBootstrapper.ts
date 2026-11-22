@@ -5,9 +5,18 @@ import { up as migrateWorkspacePortal } from '../../../cron/command-line-tool-da
 import { up as migrateRegistrationPrompts } from '../../../cron/command-line-tool-database/migrations/20261018_registration_prompt_settings';
 import { up as migrateStaffPinSecurity } from '../../../cron/command-line-tool-database/migrations/20261018_staff_pin_security';
 import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
+import RegionsDistrictsRepository from './repositories/regions-districts-repo';
+
+// Region/district pickers and the applicationsettings codes depend on these catalogs; converted databases may lack them.
+async function ensureRegionsAndDistricts(tenantId: number): Promise<void> {
+     const repo = new RegionsDistrictsRepository();
+     if (!(await repo.hasRegionsAndDistrictsTables(tenantId))) await repo.createRegionsAndDistrictsTables(tenantId);
+     if (!(await repo.regionsAndDistrictsHaveData(tenantId))) await repo.seedRegionsAndDistricts(tenantId);
+}
 
 export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> {
      const connection = await KnexConnection(tenantId);
+     await ensureRegionsAndDistricts(tenantId);
      await migrateWorkspaceLayout(connection);
      await migrateWorkspaceRibbon(connection);
      await migrateWorkspacePortal(connection);
@@ -28,11 +37,35 @@ export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> 
                { name: 'ageVariationLimits', add: (table) => table.json('ageVariationLimits').nullable() },
                { name: 'commissionRecipientPolicy', add: (table) => table.enu('commissionRecipientPolicy', ['clinician', 'organization']).notNullable().defaultTo('clinician') },
                { name: 'moduleConfiguration', add: (table) => table.text('moduleConfiguration', 'longtext').nullable() },
+               { name: 'emailModuleActivated', add: (table) => table.boolean('emailModuleActivated').notNullable().defaultTo(false) },
           ];
 
           for (const column of columns) {
                if (!(await connection.schema.hasColumn('applicationsettings', column.name))) {
                     await connection.schema.alterTable('applicationsettings', column.add);
+               }
+          }
+
+          // A database converted to a tenant may have the table but no row; settings writers require keyid 1.
+          // regioncode/districtcode store regions.id/districts.id, so they must point at rows that exist.
+          const existing = await connection('applicationsettings').where({ keyid: 1 }).first('keyid', 'regioncode', 'districtcode');
+          const resolves = existing
+               && await connection('regions').where({ id: existing.regioncode }).first('id')
+               && await connection('districts').where({ id: existing.districtcode, regionid: existing.regioncode }).first('id');
+          if (!resolves) {
+               const region = await connection('regions').where({ regioncode: 'NR' }).first('id');
+               const district = region && await connection('districts').where({ regionid: region.id, name: 'Tamale' }).first('id');
+               if (region && district) {
+                    if (existing) {
+                         await connection('applicationsettings').where({ keyid: 1 }).update({ regioncode: region.id, districtcode: district.id });
+                    } else {
+                         await connection('applicationsettings').insert({
+                              keyid: 1,
+                              smsSettings: JSON.stringify({ result: 'No', registration: 'Yes', sample: 'No', birthday: 'No' }),
+                              regioncode: region.id,
+                              districtcode: district.id,
+                         });
+                    }
                }
           }
      }

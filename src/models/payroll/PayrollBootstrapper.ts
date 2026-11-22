@@ -397,8 +397,9 @@ export async function bootstrapPayrollTables(tenantId = 1): Promise<void> {
                table.timestamp('updated_at').notNullable().defaultTo(connection.fn.now());
                table.foreign('deduction_id').references('id').inTable('payroll_employee_other_deductions').onDelete('CASCADE').onUpdate('CASCADE');
                table.foreign('employeeid').references('employeeid').inTable('roles').onDelete('CASCADE').onUpdate('CASCADE');
-               table.foreign('payroll_period_id').references('id').inTable('payroll_periods').onDelete('CASCADE').onUpdate('CASCADE');
-               table.foreign('payroll_transaction_id').references('id').inTable('payroll_transactions').onDelete('SET NULL').onUpdate('CASCADE');
+               // Default Knex names exceed MySQL's 64-character identifier limit for this table.
+               table.foreign('payroll_period_id', 'fk_other_deduction_ledger_period').references('id').inTable('payroll_periods').onDelete('CASCADE').onUpdate('CASCADE');
+               table.foreign('payroll_transaction_id', 'fk_other_deduction_ledger_txn').references('id').inTable('payroll_transactions').onDelete('SET NULL').onUpdate('CASCADE');
           });
      }
 

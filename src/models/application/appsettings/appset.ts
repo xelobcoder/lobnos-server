@@ -247,8 +247,9 @@ export default class ApplicationSettings {
 					withnessRefund: withnessRefund,
 					billingidPrefix,
 					patientIdGenerationMethod,
-					regioncode,
-					districtcode,
+					// Both columns are NOT NULL; keep the stored value when the form omits them.
+					regioncode: regioncode ?? existing?.regioncode ?? 9,
+					districtcode: districtcode ?? existing?.districtcode ?? 173,
 					billingsettings: billingsettings ? JSON.stringify(billingsettings) : null,
 					fontFamily: fontFamily || data.fontFamily || 'Arial',
 					allowResultEnteringUpaid: allowResultEnteringUpaid ?? 0,

@@ -159,6 +159,8 @@ export async function runApplicationBootstrappers(
      options: { startWorkers?: boolean } = {},
 ): Promise<{ accountingReady: boolean }> {
      await ensureTenantCollationDefault(await KnexConnection(tenantId));
+     // Convert before module bootstrappers so a later bootstrapper failure cannot leave legacy tables unconverted.
+     if (!strict) await enforceExistingTenantCollation(tenantId);
      await bootstrapTenantCompanyProfile(tenantId);
      await bootstrapDefaultBranch(tenantId);
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
