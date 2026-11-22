@@ -292,3 +292,21 @@ For detailed deployment instructions, see [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE
 
 **Distribution Build v1.0**  
 Prime Laboratory Software
+
+## Required facility provisioning exports
+
+Run `pnpm create-distribution` from `lobnos-server` (hyphenated command).
+The package must include `db-exports/primelabmaster/tables-structure` (288 SQL files)
+and `db-exports/primelabmaster/seeds` (9 catalogue SQL files), beside `dist`.
+All distribution builders now check these assets before packaging and after copying.
+
+For an already copied installation reporting “Required facility structure assets are missing”,
+copy the complete `db-exports/primelabmaster` folder from the matching release into the
+installed backend's `db-exports/primelabmaster`, then run:
+
+```sh
+node scripts/verify-distribution-exports.js
+```
+
+Restart the backend and retry facility provisioning. These files are provisioning inputs;
+copying them does not require importing a dump over an existing tenant database.

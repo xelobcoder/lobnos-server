@@ -7,6 +7,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { execFileSync, spawnSync } = require("node:child_process");
 const { parse } = require("dotenv");
+const { parseDatabaseEnvironment } = require("../../../lobnos/desktop/database-environment.cjs");
 
 const BACKEND_ROOT = path.resolve(__dirname, "..", "..");
 const DESKTOP_ROOT = path.resolve(BACKEND_ROOT, "..", "lobnos");
@@ -76,7 +77,7 @@ function parseArguments(argv) {
 
 function readEnv(filePath) {
 	try {
-		return parse(fs.readFileSync(filePath, "utf8"));
+		return parseDatabaseEnvironment(fs.readFileSync(filePath, "utf8"), parse);
 	} catch (error) {
 		if (error.code === "ENOENT") return {};
 		throw new Error("Unable to read configuration file.");

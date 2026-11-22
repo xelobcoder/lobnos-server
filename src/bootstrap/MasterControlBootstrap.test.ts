@@ -147,6 +147,32 @@ describe('master-control reference recovery', () => {
           );
      });
 
+     it('seeds empty facility location catalogs before importing platform references', async () => {
+          const facilityRegions: Record<string, unknown>[] = [];
+          const facilityDistricts: Record<string, unknown>[] = [];
+          mocks.facility.mockImplementation((table: string) => {
+               const records = table === 'regions' ? facilityRegions : facilityDistricts;
+               return {
+                    select: () => Object.assign(Promise.resolve(records), { orderBy: async () => records }),
+                    insert: (rows: Record<string, unknown>[]) => ({
+                         onConflict: () => ({
+                              merge: async () => records.push(...rows.map((row, index) => ({ ...row, id: records.length + index + 1 }))),
+                         }),
+                    }),
+               };
+          });
+          const connection = connectionHarness();
+
+          await bootstrapMasterControlDatabase();
+
+          expect(facilityRegions.length).toBeGreaterThan(0);
+          expect(facilityDistricts.length).toBeGreaterThan(0);
+          expect(connection.query).toHaveBeenCalledWith(
+               'INSERT INTO ??.platform_states (id, country_id, state_name, state_code) VALUES (?, ?, ?, ?)',
+               expect.any(Array),
+          );
+     });
+
      it('rolls back and leaves the repair migration pending when an insert fails', async () => {
           const connection = connectionHarness(true);
           await expect(bootstrapMasterControlDatabase()).rejects.toThrow('write failed');
@@ -182,6 +208,22 @@ describe('compatibleColumnMapping', () => {
                ],
                'catalog',
           )).toThrow('required columns are missing: required_name');
+     });
+
+     it('uses the initial admin as the author when older condition tables omit createdBy', () => {
+          const mapping = compatibleColumnMapping(
+               { id: 1, conditionName: 'Positive', testId: 7 },
+               [
+                    { COLUMN_NAME: 'id', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: 'auto_increment' },
+                    { COLUMN_NAME: 'conditionName', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
+                    { COLUMN_NAME: 'testId', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
+                    { COLUMN_NAME: 'createdBy', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
+               ],
+               'testconditiondefinitions',
+          );
+          const row = { id: 1, conditionName: 'Positive', testId: 7 };
+          expect(mapping.map(entry => entry.source ? row[entry.source] : entry.fallbackValue))
+               .toEqual([1, 'Positive', 7, 1]);
      });
 });
 

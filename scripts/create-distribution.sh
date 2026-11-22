@@ -11,6 +11,8 @@ PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 echo "🚀 Creating PLS Distribution Package..."
 echo ""
 
+node "$PROJECT_ROOT/scripts/verify-distribution-exports.js" "$PROJECT_ROOT"
+
 # Step 1: Build the application
 echo "📦 Step 1: Compiling TypeScript..."
 cd "$PROJECT_ROOT"
@@ -36,6 +38,9 @@ copy_dir() {
     cp -r "$src" "$dest"
   fi
 }
+
+copy_dir "$PROJECT_ROOT/db-exports" "$DISTRIBUTION_DIR/db-exports"
+node "$PROJECT_ROOT/scripts/verify-distribution-exports.js" "$DISTRIBUTION_DIR"
 
 copy_dir "$PROJECT_ROOT/dist" "$DISTRIBUTION_DIR/dist"
 copy_dir "$PROJECT_ROOT/scripts" "$DISTRIBUTION_DIR/scripts"

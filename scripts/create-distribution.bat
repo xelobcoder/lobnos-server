@@ -10,6 +10,9 @@ set "DISTRIBUTION_DIR=%PROJECT_ROOT%\distribution"
 echo 🚀 Creating PLS Distribution Package...
 echo.
 
+node "%PROJECT_ROOT%\scripts\verify-distribution-exports.js" "%PROJECT_ROOT%"
+if errorlevel 1 exit /b 1
+
 REM Step 1: Build the application
 echo 📦 Step 1: Compiling TypeScript...
 cd /d "%PROJECT_ROOT%"
@@ -32,6 +35,11 @@ echo.
 
 REM Step 3: Copy directories
 echo 📂 Step 3: Copying application files...
+
+xcopy "%PROJECT_ROOT%\db-exports" "%DISTRIBUTION_DIR%\db-exports" /E /I /Q /Y
+if errorlevel 1 exit /b 1
+node "%PROJECT_ROOT%\scripts\verify-distribution-exports.js" "%DISTRIBUTION_DIR%"
+if errorlevel 1 exit /b 1
 
 if exist "%PROJECT_ROOT%\dist" (
     echo   Copying dist...

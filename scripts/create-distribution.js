@@ -15,6 +15,7 @@ const PROJECT_ROOT = path.join(__dirname, "..");
 
 // Directories and files to include in distribution
 const INCLUDE_DIRS = [
+  "db-exports", // Required facility provisioning structure and catalogue SQL
   "dist", // Compiled application
   "scripts", // Setup and utility scripts
   "cert", // SSL certificates
@@ -24,6 +25,8 @@ const INCLUDE_DIRS = [
 
 const INCLUDE_FILES = [
   "package.json", // Dependencies and scripts
+  "pnpm-lock.yaml",
+  "pnpm-workspace.yaml",
   "package-lock.json", // Locked versions
   ".env.example", // Environment template
   "knexfile.ts", // Database configuration
@@ -36,7 +39,7 @@ const EXCLUDE_PATTERNS = [
   /node_modules\/.*\.map$/,
   /\.git/,
   /\.gitignore/,
-  /src\//,
+  /^src[\\/]/,
   /tsconfig/,
   /FlowCharts/,
   /backups/,
@@ -46,7 +49,8 @@ const EXCLUDE_PATTERNS = [
  * Check if file should be excluded
  */
 function shouldExclude(filePath) {
-  return EXCLUDE_PATTERNS.some((pattern) => pattern.test(filePath));
+  const relative = path.relative(PROJECT_ROOT, filePath).replace(/\\/g, "/");
+  return EXCLUDE_PATTERNS.some((pattern) => pattern.test(relative));
 }
 
 /**
@@ -239,68 +243,7 @@ function createVerificationScript() {
     return; // Already exists, skip
   }
 
-  const content = `#!/usr/bin/env node
-
-const fs = require('fs');
-const path = require('path');
-
-const REQUIRED_DIRS = [
-  'dist',
-  'node_modules',
-  'scripts',
-  'public',
-];
-
-const REQUIRED_FILES = [
-  'package.json',
-  '.env',
-  'knexfile.ts',
-];
-
-console.log('Verifying distribution package...\\n');
-
-let allGood = true;
-
-// Check directories
-console.log('Checking required directories:');
-REQUIRED_DIRS.forEach(dir => {
-  const exists = fs.existsSync(dir);
-  const status = exists ? 'OK' : 'MISSING';
-  console.log('  [' + status + '] ' + dir);
-  if (!exists) allGood = false;
-});
-
-console.log('\\nChecking required files:');
-REQUIRED_FILES.forEach(file => {
-  const exists = fs.existsSync(file);
-  const status = exists ? 'OK' : 'MISSING';
-  console.log('  [' + status + '] ' + file);
-  if (!exists) allGood = false;
-});
-
-// Check critical compiled files
-console.log('\\nChecking critical compiled files:');
-const criticalFiles = [
-  'dist/src/app.js',
-  'dist/src/start.js',
-];
-criticalFiles.forEach(file => {
-  const exists = fs.existsSync(file);
-  const status = exists ? 'OK' : 'MISSING';
-  console.log('  [' + status + '] ' + file);
-  if (!exists) allGood = false;
-});
-
-if (allGood) {
-  console.log('\\nDistribution package is complete and ready to deploy!');
-  process.exit(0);
-} else {
-  console.log('\\nSome files are missing. Check paths above.');
-  process.exit(1);
-}
-`;
-
-  fs.writeFileSync(scriptPath, content);
+  fs.copyFileSync(path.join(__dirname, 'verify-distribution.js'), scriptPath);
   fs.chmodSync(scriptPath, 0o755);
 }
 
@@ -309,6 +252,8 @@ if (allGood) {
  */
 function main() {
   console.log("Creating PLS Distribution Package...\\n");
+
+  require("./verify-distribution-exports").verifyExports(PROJECT_ROOT);
 
   // Step 1: Build the application
   console.log("Step 1: Compiling TypeScript...");
@@ -340,6 +285,7 @@ function main() {
       copyDir(srcPath, destPath, isNodeModules);
     }
   });
+  require("./verify-distribution-exports").verifyExports(DISTRIBUTION_DIR);
   console.log("Application files copied\\n");
 
   // Step 4: Copy configuration files
@@ -368,16 +314,12 @@ function main() {
   console.log("");
 
   // Step 8: Verify distribution
+  console.log("Installing production dependencies into the package...");
+  execSync("pnpm install --prod --frozen-lockfile --ignore-scripts --config.node-linker=hoisted", { cwd: DISTRIBUTION_DIR, stdio: "inherit" });
   console.log("Step 8: Verifying distribution...");
-  const currentDir = process.cwd();
-  try {
-    process.chdir(DISTRIBUTION_DIR);
-    require("./verify-distribution.js");
-  } catch (e) {
-    console.log("Verification complete.");
-    process.chdir(currentDir);
-  }
+  const result = require('child_process').spawnSync(process.execPath, [path.join(DISTRIBUTION_DIR, 'verify-distribution.js')], {stdio: 'inherit'});
+  if (result.error) throw result.error;
+  if (result.status !== 0) throw new Error('Distribution verification failed');
 }
-
-// Run main
-main();
+if (require.main === module) main();
+module.exports = {copyDir, shouldExclude};

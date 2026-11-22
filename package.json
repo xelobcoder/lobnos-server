@@ -62,12 +62,13 @@
           "tenants": "node --env-file=./.env ./node_modules/ts-node/dist/bin.js ./scripts/tenants.ts",
           "nginx:new-client": "node ./node_modules/ts-node/dist/bin.js ./scripts/generate-nginx-config.ts",
           "create-distribution": "node ./scripts/create-distribution.js",
-          "create-distribution:win": "powershell -NoProfile -ExecutionPolicy Bypass -File ./scripts/create-distribution.bat",
+          "create-distribution:win": "node ./scripts/create-distribution.js",
           "create-distribution:linux": "bash ./scripts/create-distribution.sh",
-          "verify-distribution": "node ./distribution/verify-distribution.js",
+          "verify-distribution": "node ./scripts/verify-distribution.js",
           "desktop:build:licensed": "node ./scripts/licensing/build-desktop.cjs",
           "desktop:configure-install-password": "node ./scripts/licensing/installation-verifier.cjs",
-          "license:sign-request": "node ./scripts/licensing/sign-request.cjs"
+          "license:sign-request": "node ./scripts/licensing/sign-request.cjs",
+          "create-deployment": "node ./scripts/create-deployment.cjs"
      },
      "keywords": [
           "high performance laboratory information system",

@@ -6,6 +6,7 @@ import logger from '../hooks/logger';
 import { isolateReferenceDdl, safeDatabaseIdentifier } from '../models/Tenancy/FacilitySchema';
 import { CONTROL_TABLES } from './standaloneProvisioning';
 import { EXPORTED_SOURCE_DATABASE, loadFacilityStructureExports } from '../models/Tenancy/FacilityStructureExports';
+import { seedRegionsAndDistricts } from '../models/application/appsettings/repositories/regions-districts-repo';
 
 const INITIAL_MIGRATION = '20261013_initial_master_control';
 const SANITIZE_CATALOG_AUTHORS_MIGRATION = '20261013_sanitize_catalog_authors';
@@ -36,9 +37,15 @@ interface TargetColumn {
 
 export function compatibleColumnMapping(sourceRow: Record<string, unknown>, targetColumns: TargetColumn[], table: string) {
      const sourceByName = new Map(Object.keys(sourceRow).map(name => [name.toLowerCase(), name]));
-     const mapping = targetColumns
-          .map(column => ({ target: column.COLUMN_NAME, source: sourceByName.get(column.COLUMN_NAME.toLowerCase()), column }))
-          .filter((entry): entry is { target: string; source: string; column: TargetColumn } => Boolean(entry.source));
+     const mapping = targetColumns.map(column => {
+          const source = sourceByName.get(column.COLUMN_NAME.toLowerCase());
+          // Older facility schemas omit condition author metadata; imported catalog entries use admin 1.
+          const fallbackValue = table.toLowerCase() === 'testconditiondefinitions'
+               && column.COLUMN_NAME.toLowerCase() === 'createdby'
+               ? 1
+               : undefined;
+          return { target: column.COLUMN_NAME, source, fallbackValue, column };
+     }).filter(entry => Boolean(entry.source) || entry.fallbackValue !== undefined);
      const mappedTargets = new Set(mapping.map(entry => entry.target));
      const missingRequired = targetColumns.filter(column =>
           !mappedTargets.has(column.COLUMN_NAME)
@@ -62,7 +69,7 @@ async function copyFacilityTable(connection: Connection, controlDatabase: string
           [controlDatabase, table]) as TargetColumn[];
      const mapping = compatibleColumnMapping(sourceRows[0], targetColumns, table);
      const columns = mapping.map(entry => entry.target);
-     const bindings = sourceRows.map(row => mapping.map(entry => row[entry.source]));
+     const bindings = sourceRows.map(row => mapping.map(entry => entry.source ? row[entry.source] : entry.fallbackValue));
      await connection.query('INSERT IGNORE INTO ??.?? (??) VALUES ?', [controlDatabase, table, columns, bindings]);
 }
 
@@ -280,11 +287,20 @@ async function seedPlatformReferences(connection: Connection, database: string):
      const [country] = await rows(connection, 'SELECT id FROM ??.platform_countries ORDER BY id LIMIT 1', [database]);
      if (!country) throw new Error('Master-control bootstrap requires at least one country');
 
+     let regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
+     let districts: FacilityDistrict[] = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
+     if (!regions.length || !districts.length) {
+          // Settings normally seeds these lazily; master bootstrap needs them before tenant bootstrappers run.
+          await seedRegionsAndDistricts(singleTenantKnexInstance);
+          regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
+          districts = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
+     }
+     if (!regions.length) throw new Error('Facility regions are empty; master-control bootstrap cannot derive location data');
+     if (!districts.length) throw new Error('Facility districts are empty; master-control bootstrap cannot derive location data');
+
      {
           const existingStates = await rows(connection, 'SELECT id FROM ??.platform_states', [database]);
           const existingIds = new Set(existingStates.map(state => Number(state.id)));
-          const regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
-          if (!regions.length) throw new Error('Facility regions are empty; master-control bootstrap cannot derive location data');
           for (const region of regions) {
                if (existingIds.has(Number(region.id))) continue;
                await connection.query(
@@ -296,8 +312,6 @@ async function seedPlatformReferences(connection: Connection, database: string):
      {
           const existingDistricts = await rows(connection,
                'SELECT id, state_id, district_code FROM ??.platform_districts', [database]) as PlatformDistrict[];
-          const districts: FacilityDistrict[] = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
-          if (!districts.length) throw new Error('Facility districts are empty; master-control bootstrap cannot derive location data');
           for (const district of planPlatformDistrictSeeds(districts, existingDistricts)) {
                const original = districts.find(source => source.id === district.id)!;
                if (district.code !== original.code.trim().toUpperCase()) {

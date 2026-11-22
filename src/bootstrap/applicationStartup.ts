@@ -118,6 +118,13 @@ export async function runApplicationBootstrappers(
 ): Promise<{ accountingReady: boolean }> {
      await ensureTenantCollationDefault(await KnexConnection(tenantId));
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
+     // Registration must not depend on unrelated module bootstrappers finishing first.
+     const patientContactDb = await KnexConnection(tenantId);
+     await bootstrapPatientContacts(patientContactDb);
+     await bootstrapPatientPhoneContacts(patientContactDb);
+     if (!await patientContactDb.schema.hasTable('patient_phone_contacts')) {
+          throw new Error('Patient contact schema is unavailable after startup migration');
+     }
      await bootstrapLoginAccountSchema(tenantId);
      await ensureLoginAttemptSecurity(await KnexConnection(tenantId));
      await ensureStaffAccessSchema(await KnexConnection(tenantId));
@@ -160,9 +167,6 @@ export async function runApplicationBootstrappers(
      await bootstrapAppointmentTables(tenantId);
      await bootstrapPatientPortal(tenantId);
      await bootstrapPatientDuplicates(await KnexConnection(tenantId));
-     const patientContactDb = await KnexConnection(tenantId);
-     await bootstrapPatientContacts(patientContactDb);
-     await bootstrapPatientPhoneContacts(patientContactDb);
      // Legacy seeds create checklist rows for demo order 1, not reference data.
      // A new facility must start with no home-collection transactions.
      if (!strict) await bootstrapHomeCollectionSeeds(tenantId);

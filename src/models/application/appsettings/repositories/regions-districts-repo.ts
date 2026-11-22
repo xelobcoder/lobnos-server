@@ -2,6 +2,7 @@ import KnexConnection from "../../../../database/KnexConnections";
 import { PrimeLimsTabledistricts, PrimeLimsTableregions } from "../../../../database/DatabaseTableSchema";
 import { REGIONS } from "../constants/regions";
 import { DISTRICTS, DISTRICT_ABBREVIATIONS } from "../constants/districts";
+import type { Knex } from "knex";
 
 export default class RegionsDistrictsRepository {
      async hasRegionsAndDistrictsTables(tenantId: number): Promise<boolean> {
@@ -38,34 +39,7 @@ export default class RegionsDistrictsRepository {
 
      async seedRegionsAndDistricts(tenantId: number): Promise<void> {
           const connection = await KnexConnection(tenantId);
-
-          await connection("regions")
-               .insert(REGIONS)
-               .onConflict(["regioncode"])
-               .merge();
-
-          const regions = await connection("regions").select("*").orderBy("regioncode");
-
-          const regionMap: Record<string, number> = {};
-          regions.forEach(region => {
-               regionMap[region.regioncode] = region.id;
-          });
-
-          const districtsToInsert = DISTRICTS.map(district => {
-               const firstLetter = district.code.charAt(0);
-               const regionCode = DISTRICT_ABBREVIATIONS[firstLetter];
-               const regionid = regionMap[regionCode];
-               return {
-                    name: district.name,
-                    code: district.code,
-                    regionid: regionid
-               };
-          });
-
-          await connection("districts")
-               .insert(districtsToInsert)
-               .onConflict(["code", "regionid"])
-               .merge();
+          await seedRegionsAndDistricts(connection);
      }
 
      async getApplicationSettingsRegionDistrictCode(tenantId: number): Promise<{ regioncode: number, districtcode: number } | undefined> {
@@ -93,4 +67,34 @@ export default class RegionsDistrictsRepository {
                .select("*")
                .first();
      }
+}
+
+export async function seedRegionsAndDistricts(connection: Knex): Promise<void> {
+     await connection("regions")
+          .insert(REGIONS)
+          .onConflict(["regioncode"])
+          .merge();
+
+     const regions = await connection("regions").select("*").orderBy("regioncode");
+
+     const regionMap: Record<string, number> = {};
+     regions.forEach(region => {
+          regionMap[region.regioncode] = region.id;
+     });
+
+     const districtsToInsert = DISTRICTS.map(district => {
+          const firstLetter = district.code.charAt(0);
+          const regionCode = DISTRICT_ABBREVIATIONS[firstLetter];
+          const regionid = regionMap[regionCode];
+          return {
+               name: district.name,
+               code: district.code,
+               regionid: regionid
+          };
+     });
+
+     await connection("districts")
+          .insert(districtsToInsert)
+          .onConflict(["code", "regionid"])
+          .merge();
 }
