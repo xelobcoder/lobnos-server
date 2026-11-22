@@ -80,6 +80,7 @@ router.get('/worklists/samples', PhysicalSampleController.worklist);
 router.get('/worklists/reviews', PhysicalSampleController.reviewWorklist);
 router.get('/worklists/communications', PhysicalSampleController.communicationWorklist);
 router.get('/worklists/samples/:id', PhysicalSampleController.auditDetail);
+router.get('/consent-mode', PhysicalSampleController.collectionConsentMode);
 router.get('/candidates', PhysicalSampleController.candidates);
 router.get('/barcode/:barcode', PhysicalSampleController.barcode);
 router.get('/ascension/:ascensionId', PhysicalSampleController.byAscension);

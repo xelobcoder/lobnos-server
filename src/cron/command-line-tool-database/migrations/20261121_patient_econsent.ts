@@ -1,3 +1,2 @@
-import {ensureConsentSchema} from '../../../models/patients/EConsent';
-export async function up(db:any){await ensureConsentSchema(db);}
-export async function down(){/* Retain signed records and audit events. */}
+export async function up(){/* Retired: existing consent records are retained, and new tenants do not create these tables. */}
+export async function down(){/* Retain legacy consent records and audit events. */}

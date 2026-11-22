@@ -1,4 +1,4 @@
-import {assertCollectionConsent} from '../patients/EConsent';
+import { assertCollectionConsent, getCollectionConsentMode, type CollectionConsentMode } from './CollectionConsentPolicy';
 import { randomUUID } from 'crypto';
 import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
@@ -235,6 +235,16 @@ export class PhysicalSampleService {
           }
 
           return { billingid, patientid: Number(rows[0].patientid), groups: groupPhysicalSampleCandidates(rows), samples: await this.listByBilling(billingid) };
+     }
+
+     async collectionConsentMode(billingid: number, branchId?: number | null): Promise<CollectionConsentMode> {
+          const connection = await KnexConnection(this.tenantId);
+          const billing = await connection('billing').select('branchid').where({ billingid }).first();
+          if (!billing) throw Object.assign(new Error('Billing order not found'), { statusCode: 404 });
+          if (branchId != null && Number(billing.branchid) !== Number(branchId)) {
+               throw Object.assign(new Error('Billing order is outside your branch'), { statusCode: 403 });
+          }
+          return getCollectionConsentMode(connection);
      }
 
      async create(input: CreatePhysicalSampleInput, actorEmployeeId: number, parentTransaction?: Knex.Transaction): Promise<any> {

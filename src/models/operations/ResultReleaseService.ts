@@ -1,4 +1,3 @@
-import {assertPatientConsent} from '../patients/EConsent';
 import {assertResultLinearity} from '../results/ResultLinearityService';
 import KnexConnection from '../../database/KnexConnections';
 import ResultSettings from '../application/appsettings/result-settings/resultSettings';
@@ -180,7 +179,6 @@ export class ResultReleaseService {
                     return controlsFail('The report to sign changed. Reload and review it before release.', 409);
                const currentTest=await trx('test_ascension').where({id:ascensionid}).first();
                await assertResultLinearity(trx,ascensionid,Number(currentTest?.testid));
-               await assertPatientConsent(trx,0,ascensionid);
                const currentRevision = await captureReportRevision(trx, ascensionid, 'release');
                if (currentRevision !== revision) return controlsFail('The result changed. Review the current result before releasing.', 409);
                const reportVersion = await archiveLaboratoryReport(trx, ascensionid, revision, report, 'release', undefined, false);

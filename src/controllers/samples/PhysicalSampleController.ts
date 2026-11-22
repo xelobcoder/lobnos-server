@@ -49,6 +49,24 @@ export class PhysicalSampleController {
           }
      }
 
+     static async collectionConsentMode(request: Request, response: Response): Promise<void> {
+          try {
+               const actor = getAuthUser(request)!;
+               const billingid = Number(request.query.billingid);
+               if (!Number.isInteger(billingid) || billingid <= 0) {
+                    response.status(400).json({ success: false, message: 'Valid billing ID is required' });
+                    return;
+               }
+               const mode = await new PhysicalSampleService(actor.tenantId).collectionConsentMode(billingid, actor.branch);
+               response.json({ success: true, data: { mode } });
+          } catch (error: any) {
+               response.status(error.statusCode || 500).json({
+                    success: false,
+                    message: error.statusCode ? error.message : 'Unable to load collection consent settings',
+               });
+          }
+     }
+
      static async create(request: Request, response: Response): Promise<void> {
           try {
                const actor = getAuthUser(request)!;

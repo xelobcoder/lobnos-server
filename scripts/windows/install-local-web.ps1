@@ -216,7 +216,7 @@ async function main() {
     fs.writeFileSync(file,source.replace("export const LOCAL_PORT = '2309';", "export const LOCAL_PORT = process.env.PLS_LOCAL_DB_PORT || '2309';"));
     const pipelineFile=path.join(backend,'src/bootstrap/standalonePipeline.ts');
     let pipeline=fs.readFileSync(pipelineFile,'utf8');
-    const reviewed=['20261121_parameter_definition_and_units','20261121_parameter_required','20261121_patient_econsent','20261121_report_validation_linearity'];
+    const reviewed=['20261121_parameter_definition_and_units','20261121_parameter_required','20261121_report_validation_linearity'];
     for(const name of reviewed){requireFile(path.join(backend,'src/cron/command-line-tool-database/migrations',name+'.ts'));if(!pipeline.includes("'"+name+"'"))pipeline=pipeline.replace("     '20261107_pharmacy_return_value',", "     '20261107_pharmacy_return_value',\n     '"+name+"',");}
     if(!pipeline.includes("!name.endsWith('.test' + extension)"))pipeline=pipeline.replace('name.endsWith(extension)',"name.endsWith(extension) && !name.endsWith('.test' + extension)");
     if(!pipeline.includes('migrationSource:'))pipeline=pipeline.replace('await db.migrate.latest({',`await db.migrate.latest({

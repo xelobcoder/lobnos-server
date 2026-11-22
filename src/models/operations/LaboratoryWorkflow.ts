@@ -1,4 +1,3 @@
-import {assertPatientConsent} from '../patients/EConsent';
 import KnexConnection from "../../database/KnexConnections";
 import type { Knex } from "knex";
 import ApplicationSettings from "../application/appsettings/appset";
@@ -202,7 +201,6 @@ export class LaboratoryWorkflowService {
           ) {
                throw Object.assign(new Error("Ordered test does not belong to this request"), { statusCode: 403 });
           }
-          await assertPatientConsent(db,patientid,id);
           const panel = await db("test_panels as panel")
                .join("departments as department", "department.id", "panel.category")
                .where("panel.id", row.testid)
