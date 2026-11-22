@@ -184,14 +184,21 @@ export enum OperationsStages {
   RELEASED = 'RELEASED'
 }
 
+export function currentResultReleaseCondition(ascensionId: string, revision: string, requireManagerApproval = false): string {
+  const signedRevision = `(EXISTS (SELECT 1 FROM lab_result_release_events re WHERE re.ascensionid = ${ascensionId} AND re.revision = ${revision})
+      OR EXISTS (SELECT 1 FROM lab_report_versions rv WHERE rv.ascensionid = ${ascensionId} AND rv.revision = ${revision} AND rv.signed_by IS NOT NULL))`;
+  const managerApproval = requireManagerApproval
+    ? ` AND EXISTS (SELECT 1 FROM lab_result_manager_approval_events ma WHERE ma.ascensionid = ${ascensionId} AND ma.revision = ${revision})`
+    : '';
+  return `(${signedRevision}${managerApproval})`;
+}
+
 export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false,
   policy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean } = {}): string | null {
   if (stage === OperationsStages.SIGN_RELEASE || stage === OperationsStages.RELEASED) {
     const validated = q_get_all_test_ready_for_various_stages(currentQuery, OperationsStages.VALIDATED, bypassProcessing, policy);
     const revision = 'COALESCE(dta.approval_revision, 0)';
-    const release = `((EXISTS (SELECT 1 FROM lab_result_release_events re WHERE re.ascensionid = ta.id AND re.revision = ${revision})
-      OR EXISTS (SELECT 1 FROM lab_report_versions rv WHERE rv.ascensionid = ta.id AND rv.revision = ${revision} AND rv.signed_by IS NOT NULL))
-      ${policy.requireManagerApproval ? `AND EXISTS (SELECT 1 FROM lab_result_manager_approval_events ma WHERE ma.ascensionid = ta.id AND ma.revision = ${revision})` : ''})`;
+    const release = currentResultReleaseCondition('ta.id', revision, Boolean(policy.requireManagerApproval));
     return validated + ` AND ${stage === OperationsStages.SIGN_RELEASE ? 'NOT ' : ''}${release}`;
   }
   let query = currentQuery;

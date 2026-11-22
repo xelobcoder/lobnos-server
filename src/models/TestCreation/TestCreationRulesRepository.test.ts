@@ -8,7 +8,8 @@ beforeEach(async()=>{
  fixture=accountingSqlDatabase();context.db=fixture.db;
  await fixture.db.schema.createTable('test_panels',t=>{t.integer('id').primary()});
  await fixture.db('test_panels').insert([{id:10},{id:20}]);
- await fixture.db.schema.createTable('testcreationrules',t=>{t.increments('id');t.integer('testid');t.string('name').notNullable();t.string('plan').notNullable();t.boolean('isRequired').defaultTo(false);t.string('result_type');t.string('reference_mode');t.string('unit_code');
+ await fixture.db.schema.createTable('testcreationrules',t=>{t.increments('id');t.integer('testid');t.string('name').notNullable();t.string('plan').notNullable();t.boolean('isRequired').defaultTo(false);t.boolean('manual_rerun_enabled').notNullable().defaultTo(false);t.string('result_type');t.string('reference_mode');t.string('unit_code');
+ t.boolean('linearity_enabled').notNullable().defaultTo(false);t.decimal('linearity_lower',20,8);t.decimal('linearity_upper',20,8);
  for(const key of ['field','value','hasunits','units','plain','ordering','isValueTracked','textReference','upperlimit','lowerlimit','category','options','undercategory','categoryid','valueAlert','alert','upperLimitFemale','lowerLimitFemale','upperLimitMale','lowerLimitMale','upperLimitChildren','lowerLimitChildren','upperLimitNeonates','lowerLimitNeonates'])t.string(key);
  });
  await fixture.db.schema.createTable('test_results',t=>{t.increments('id');t.integer('fieldid');t.string('field');t.string('value')});
@@ -31,6 +32,10 @@ it('rolls back the entire list when a later write fails',async()=>{
 it('persists required and zero limits and reloads them',async()=>{
  await repo.create([{id:7,testid:10,name:'Hemoglobin',plan:'limits',isRequired:true,lowerlimit:0,upperlimit:0} as any],10);
  const row=(await repo.findByTestId(10))[0];expect(row.isRequired).toBe(1);expect(Number(row.lowerlimit)).toBe(0);expect(Number(row.upperlimit)).toBe(0);
+});
+it('persists the per-parameter manual rerun enablement setting',async()=>{
+ await repo.create([{id:7,testid:10,name:'Hemoglobin',plan:'limits',manual_rerun_enabled:true} as any],10);
+ expect((await repo.findByTestId(10))[0].manual_rerun_enabled).toBe(1);
 });
 it('rejects an ID from another panel without changing either panel',async()=>{
  await fixture.db('testcreationrules').insert({id:8,testid:20,name:'Other',plan:'input'});

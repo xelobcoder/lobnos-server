@@ -5,6 +5,7 @@ import { roleAllowed } from '../../middleware/roles';
 import { controlsFail } from './LabAccessPolicy';
 import { captureReportRevision } from './ResultReleaseGuard';
 import { archiveLaboratoryReport, clinicalReportHash } from '../result/LaboratoryReportVersions';
+import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 
 export interface ResultReleaseActor {
      tenantId: number;
@@ -39,7 +40,7 @@ export async function getResultReleaseWorkflows(
 ) {
      const ids = [...new Set(ascensionids.map(Number).filter(id => Number.isSafeInteger(id) && id > 0))];
      if (!ids.length) return {} as Record<number, any>;
-     const [orders, approvals, settings, authors, managerEvents, releaseEvents, signedVersions] = await Promise.all([
+     const [orders, approvals, settings, authors, managerEvents, releaseEvents, signedVersions, instrumentAssignments] = await Promise.all([
           db('test_ascension').whereIn('id', ids).select('id', 'resultEntryEnd'),
           db('dbotestresultapproval').whereIn('ascensionid', ids),
           ResultSettings.getResultEntrySettings(tenantId),
@@ -47,7 +48,16 @@ export async function getResultReleaseWorkflows(
           db('lab_result_manager_approval_events').whereIn('ascensionid', ids),
           db('lab_result_release_events').whereIn('ascensionid', ids),
           db('lab_report_versions').whereIn('ascensionid', ids).whereNotNull('signed_by'),
+          db('lab_work_assignments').whereIn('ascensionid', ids).select('ascensionid', 'device_id'),
      ]);
+     const deviceIds = [...new Set(instrumentAssignments.map((row: any) => row.device_id).filter(Boolean).map(String))];
+     const unresolvedMaintenance = deviceIds.length
+          ? await db('pls_instrument_maintenance_runs').whereIn('device_id', deviceIds)
+               .where('status', 'awaiting_corrective_action').whereNotNull('schedule_id').select('device_id')
+          : [];
+     const assignmentByAscension = new Map<number, string>();
+     for (const assignment of instrumentAssignments) if (assignment.device_id) assignmentByAscension.set(Number(assignment.ascensionid), String(assignment.device_id));
+     const blockedDevices = new Set(unresolvedMaintenance.map((run: any) => String(run.device_id)));
      const orderById = new Map<number, any>(orders.map((row: any) => [Number(row.id), row]));
      const approvalById = new Map<number, any>(approvals.map((row: any) => [Number(row.ascensionid), row]));
      const authorsById = new Map<number, Set<number>>();
@@ -80,11 +90,12 @@ export async function getResultReleaseWorkflows(
           const signedVersion = releaseEvent ? null : signedVersions.find((version: any) =>
                Number(version.ascensionid) === ascensionid && Number(version.revision) === revision);
           const released = Boolean(validationComplete && differentValidatorSatisfied && (releaseEvent || signedVersion) && (!managerApprovalRequired || managerApproved));
+          const maintenanceBlocked = Boolean(assignmentByAscension.get(ascensionid) && blockedDevices.has(assignmentByAscension.get(ascensionid)!));
           const releaseAuthorized = canStaffReleaseResult(settings, actor);
           const actorIsAuthor = Boolean(actor && authorIds.has(Number(actor.employeeid)));
           const supervisor = Boolean(actor && roleAllowed(actor.role, ['admin', 'manager']));
           const canRelease = Boolean(actor && validationComplete && differentValidatorSatisfied &&
-               (!managerApprovalRequired || managerApproved) && !released && releaseAuthorized &&
+               (!managerApprovalRequired || managerApproved) && !released && !maintenanceBlocked && releaseAuthorized &&
                (!actorIsAuthor || supervisor || Boolean(settings?.allowResultAuthorToRelease)) &&
                (!settings?.requireDifferentReleaserFromValidator || !validators.has(Number(actor.employeeid))));
           const canApproveManager = Boolean(actor && roleAllowed(actor.role, ['admin', 'manager']) &&
@@ -95,6 +106,7 @@ export async function getResultReleaseWorkflows(
           else if (released) releaseStatus = 'released';
           else if (validationComplete) releaseStatus = explicitReleaseRequired?'awaiting_release':'release_optional';
           const releaseBlockedReason = released ? 'This result has already been signed and released.'
+               : maintenanceBlocked ? 'Result release is blocked by unresolved scheduled instrument maintenance corrective work.'
                : !validationComplete ? 'Complete the required result validations first.'
                : !differentValidatorSatisfied ? 'A validator who did not enter the result must approve it.'
                : managerApprovalRequired && !managerApproved ? 'Manager approval is required before release.'
@@ -109,11 +121,12 @@ export async function getResultReleaseWorkflows(
                validatorIds: [...validators],
                differentReleaserRequired: Boolean(settings?.requireDifferentReleaserFromValidator),
                differentValidatorRequired, differentValidatorSatisfied,
-               explicitReleaseRequired, availableForPrinting:validationComplete&&differentValidatorSatisfied&&(!managerApprovalRequired||managerApproved)&&(!explicitReleaseRequired||released),
+               explicitReleaseRequired, availableForPrinting:validationComplete&&differentValidatorSatisfied&&(!managerApprovalRequired||managerApproved)&&(!maintenanceBlocked||released)&&(!explicitReleaseRequired||released),
                managerApprovalRequired, managerApproved,
                managerApprovedBy: managerApproval?.employeeid ?? null,
                managerApprovedAt: managerApproval?.created_at ?? null,
                released, releaseStatus, resultReleasePolicy: settings?.resultReleasePolicy || 'selected_staff',
+               maintenanceBlocked,
                releasedBy: releaseEvent?.employeeid ?? signedVersion?.signed_by ?? null,
                releasedByName: releaseEvent?.signer_name ?? signedVersion?.signer_name ?? null,
                releasedAt: releaseEvent?.created_at ?? signedVersion?.recorded_at ?? null,
@@ -133,6 +146,7 @@ export class ResultReleaseService {
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async (trx: any) => {
                await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
+               await new InstrumentMaintenanceService(this.tenantId).assertAscensionClear(trx, ascensionid);
                const workflow = await getResultReleaseWorkflow(trx, this.tenantId, ascensionid, actor);
                if (workflow.revision !== revision) return controlsFail('The result changed. Reload before approving.', 409);
                if (!workflow.managerApprovalRequired) return controlsFail('Manager approval is not required for this facility', 409);
@@ -159,6 +173,7 @@ export class ResultReleaseService {
           const db = await KnexConnection(this.tenantId);
           return db.transaction(async (trx: any) => {
                await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
+               await new InstrumentMaintenanceService(this.tenantId).assertAscensionClear(trx, ascensionid);
                const workflow = await getResultReleaseWorkflow(trx, this.tenantId, ascensionid, actor);
                if (workflow.revision !== revision) return controlsFail('The result changed. Review the current result before releasing.', 409);
                if (!workflow.validationComplete) return controlsFail('Complete result validation before release', 409);

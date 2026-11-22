@@ -19,6 +19,9 @@ beforeEach(() => {
         CREATE TABLE testcreationrules(id INTEGER PRIMARY KEY,testid INTEGER,linearity_enabled BOOLEAN,linearity_lower REAL,linearity_upper REAL,name TEXT,units TEXT);
         CREATE TABLE dbotestresultapproval(ascensionid INTEGER PRIMARY KEY, approval_revision INTEGER, approvedBy TEXT, minvalidation INTEGER, maxvalidation INTEGER, isapproved INTEGER, requires_revalidation INTEGER);
         CREATE TABLE test_results(ascensionid INTEGER, employeeid INTEGER);
+        CREATE TABLE lab_work_assignments(ascensionid INTEGER, device_id TEXT);
+        CREATE TABLE devices(id TEXT PRIMARY KEY);
+        CREATE TABLE pls_instrument_maintenance_runs(id INTEGER, device_id TEXT, schedule_id INTEGER, status TEXT);
         CREATE TABLE resultsettings(id INTEGER, resultsEntrySettings TEXT);
         CREATE TABLE lab_critical_events(ascensionid INTEGER, resolved_at TEXT);
         CREATE TABLE lab_result_manager_approval_events(id INTEGER PRIMARY KEY, ascensionid INTEGER, revision INTEGER, employeeid INTEGER, reason TEXT, created_at TEXT, UNIQUE(ascensionid, revision));
@@ -55,6 +58,18 @@ describe('result release authorization', () => {
         expect((await workflow(manager)).canRelease).toBe(true);
         await release(manager);
         expect(await fixture.db('lab_result_release_events').first()).toMatchObject({employeeid: 12});
+    });
+    it('reports and rejects release while an assigned scheduled instrument has unresolved failed maintenance', async () => {
+        fixture.native.exec(`
+            INSERT INTO devices(id) VALUES ('analyzer-1');
+            INSERT INTO lab_work_assignments VALUES (1,'analyzer-1');
+            INSERT INTO pls_instrument_maintenance_runs(device_id,schedule_id,status) VALUES ('analyzer-1',4,'awaiting_corrective_action');
+        `);
+        const status = await workflow();
+        expect(status).toMatchObject({ canRelease: false, maintenanceBlocked: true });
+        expect(status.releaseBlockedReason).toContain('instrument maintenance');
+        await expect(release()).rejects.toMatchObject({ statusCode: 423, code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+        expect(await fixture.db('lab_result_release_events').first()).toBeUndefined();
     });
     it('allows managers to release in selected-staff mode without adding them to the scientist list', async () => {
         settings.resultReleasePolicy = 'selected_staff';

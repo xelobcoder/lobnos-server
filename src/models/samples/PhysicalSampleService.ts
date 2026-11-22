@@ -2,6 +2,7 @@ import { assertCollectionConsent, getCollectionConsentMode, type CollectionConse
 import { randomUUID } from 'crypto';
 import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
+import ApplicationSettings from '../application/appsettings/appset';
 import { collectionCenterSnapshot, collectionCentersTable } from './SampleCollectionCenters';
 
 export type PhysicalSampleStatus = 'planned' | 'collection_started' | 'collected' | 'received' | 'accepted' | 'rejected' | 'recollection_required';
@@ -18,6 +19,10 @@ const PHYSICAL_SAMPLE_TRANSITIONS: Record<PhysicalSampleStatus, PhysicalSampleSt
 
 export function canTransitionPhysicalSample(from: PhysicalSampleStatus, to: PhysicalSampleStatus): boolean {
      return PHYSICAL_SAMPLE_TRANSITIONS[from]?.includes(to) || false;
+}
+
+export function physicalSampleCandidatesAreRequired(settings: any): boolean {
+     return Number(settings?.byPassCollection) !== 1 || Number(settings?.byPassSampleValidation) !== 1;
 }
 
 export interface CreatePhysicalSampleInput {
@@ -221,8 +226,23 @@ export class PhysicalSampleService {
           };
      }
 
-     async candidates(billingid: number): Promise<{ billingid: number; patientid: number; groups: any[]; samples: any[] }> {
+     async candidates(billingid: number): Promise<{
+          billingid: number;
+          patientid: number;
+          groups: any[];
+          samples: any[];
+          workflow: { collection: 'active' | 'bypassed'; sampleValidation: 'active' | 'bypassed' };
+     }> {
           const connection = await KnexConnection(this.tenantId);
+          const settings = await new ApplicationSettings().getAllAppSettings(this.tenantId);
+          const workflow = {
+               collection: Number(settings?.byPassCollection) === 1 ? 'bypassed' as const : 'active' as const,
+               sampleValidation: Number(settings?.byPassSampleValidation) === 1 ? 'bypassed' as const : 'active' as const,
+          };
+          if (!physicalSampleCandidatesAreRequired(settings)) {
+               const billing = await connection('billing').select('patientid').where({ billingid }).first();
+               return { billingid, patientid: Number(billing?.patientid || 0), groups: [], samples: await this.listByBilling(billingid), workflow };
+          }
           const rows = await this.ascensionRequirementQuery(connection)
                .where('ascension.billingid', billingid)
                .whereNotExists(function (this: Knex.QueryBuilder) {
@@ -231,10 +251,10 @@ export class PhysicalSampleService {
                .orderBy('ascension.id');
           if (!rows.length) {
                const billing = await connection('billing').select('patientid').where({ billingid }).first();
-               return { billingid, patientid: Number(billing?.patientid || 0), groups: [], samples: await this.listByBilling(billingid) };
+               return { billingid, patientid: Number(billing?.patientid || 0), groups: [], samples: await this.listByBilling(billingid), workflow };
           }
 
-          return { billingid, patientid: Number(rows[0].patientid), groups: groupPhysicalSampleCandidates(rows), samples: await this.listByBilling(billingid) };
+          return { billingid, patientid: Number(rows[0].patientid), groups: groupPhysicalSampleCandidates(rows), samples: await this.listByBilling(billingid), workflow };
      }
 
      async collectionConsentMode(billingid: number, branchId?: number | null): Promise<CollectionConsentMode> {
@@ -362,6 +382,12 @@ export class PhysicalSampleService {
                const now = new Date();
                const update: any = { status, version: Number(sample.version || 1) + 1, updated_at: now };
                if (!canTransitionPhysicalSample(sample.status as PhysicalSampleStatus, status)) throw new Error(`Physical sample cannot move from ${sample.status} to ${status}`);
+               if (status === 'accepted' || status === 'rejected') {
+                    const settings = await trx('applicationsettings').where({ keyid: 1 }).first('byPassSampleValidation');
+                    if (Number(settings?.byPassSampleValidation) === 1) {
+                         throw new Error('Sample validation is bypassed for this facility; no sample assessment is required');
+                    }
+               }
 
                if (status === 'collected') {
                     if (sample.collection_center_id && options.collectionCenterId != null && Number(sample.collection_center_id) !== options.collectionCenterId) {

@@ -4,6 +4,11 @@ import { updateSampleStatusCollection } from "../types";
 import { q_get_pending_collected_but_unvalidated_samples, q_get_rejected_collected_samples } from "../../creator/queries";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../../hooks/helper";
 import { PrimeLimsTablesamplestatus } from "../../../database/DatabaseTableSchema";
+import ApplicationSettings from "../../application/appsettings/appset";
+
+export function isSampleValidationBypassed(settings: any): boolean {
+	return Number(settings?.byPassSampleValidation) === 1;
+}
 
 export class SampleHandler extends TestAscension {
 	public ascensionId: number;
@@ -27,6 +32,10 @@ export class SampleHandler extends TestAscension {
 	): Promise<{ status: boolean; message: string }> {
 		if (collection.length === 0) {
 			return { status: false, message: "No records provided for update." };
+		}
+		const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		if (isSampleValidationBypassed(settings)) {
+			return { status: false, message: "Sample validation is bypassed for this facility." };
 		}
 		for (let i = 0; i < collection.length; i++) {
 			try {
@@ -55,6 +64,12 @@ export class SampleHandler extends TestAscension {
 
 	public static async getPendingUnvalidatedSamples(tenantId: number, pagination: { count: number, page: number },
 		startdate?: Date | string, enddate?: Date | string, sortby: 'DESC' | 'ASC' = 'ASC', searchstring?: string, billingid?: number) {
+		const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		const sampleValidationBypassed = isSampleValidationBypassed(settings);
+		if (sampleValidationBypassed) {
+			return { samples: [], workflow: { sampleValidation: 'bypassed' as const } };
+		}
+
 		let query = q_get_pending_collected_but_unvalidated_samples;
 		const params: (Date | string | number)[] = [];
 
@@ -84,7 +99,10 @@ export class SampleHandler extends TestAscension {
 		query += ' GROUP BY b.billingid ORDER BY b.billedon ${sortby} LIMIT ? OFFSET ? ';
 		query = query.replace('${sortby}', sortby);
 		console.log({ query, params });
-		return await paginationQuery(pagination, query, params, tenantId);
+		return {
+			samples: await paginationQuery(pagination, query, params, tenantId),
+			workflow: { sampleValidation: 'active' as const },
+		};
 	}
 
 

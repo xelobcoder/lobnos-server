@@ -24,6 +24,7 @@ export interface TestCreationRule {
      options?: string;
      fieldid?: number;
      isRequired?: boolean | number | string;
+     manual_rerun_enabled?: boolean | number | string;
      result_type?: string | null;
      reference_mode?: string | null;
      unit_code?: string | null;
@@ -124,6 +125,7 @@ class TestCreationRulesRepository {
                          ...await unitForSave(ruleData),
                          name: ruleData.name,
                          isRequired: this.toTinyInt(ruleData.isRequired, this.toTinyInt(existingRule?.isRequired)),
+                         manual_rerun_enabled: this.toTinyInt(ruleData.manual_rerun_enabled, this.toTinyInt(existingRule?.manual_rerun_enabled)),
                          field: ruleData.field,
                          value: ruleData.value,
                          hasunits: ruleData.hasunits == null && existingRule ? existingRule.hasunits : this.toTinyInt(ruleData.hasunits),

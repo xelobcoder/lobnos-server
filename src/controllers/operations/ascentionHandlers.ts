@@ -177,9 +177,10 @@ export async function PendingTestAscensionHandler(request: Request<{}, {}, {}, {
         const tenantIdP = parseInt(tenantId.toString());
         const filter = request.query.filter ? request.query.filter.toString() : undefined;
         const sortby = request.query.sortby ? request.query.sortby.toString() : 'ASC';
+        const workflow = await TestAscension.getSampleCollectionWorkflow(tenantIdP);
         const pending = await TestAscension.
-            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC', billingid ? parseInt(billingid.toString()) : undefined);
-        response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success" });
+            getPendingSampleUncollected(tenantIdP, parsedCount, parsedPage, start_date as Date | string, end_date as Date | string, filter as string, sortby as 'ASC' | 'DESC', billingid ? parseInt(billingid.toString()) : undefined, workflow);
+        response.send({ tenantId, message: "success", statusCode: 200, result: pending, status: "success", workflow });
     } catch (err) {
         console.log(err);
         responseError(response);
@@ -335,7 +336,7 @@ export async function getPendingUnvalidatedSamplesHandler(request: Request<{}, {
         const searchStringP = searchString ? searchString.toString() : undefined;
         const billingidP = billingid ? parseInt(billingid) : undefined;
 
-        const List = await SampleHandler.getPendingUnvalidatedSamples(
+        const pending = await SampleHandler.getPendingUnvalidatedSamples(
             tenantIdP,
             { count: countP, page: pageP },
             startDateP,
@@ -345,7 +346,7 @@ export async function getPendingUnvalidatedSamplesHandler(request: Request<{}, {
             billingidP
         );
 
-        response.send({ result: List, statusCode: 200, status: "success" });
+        response.send({ result: pending.samples, workflow: pending.workflow, statusCode: 200, status: "success" });
     } catch (err) {
         responseError(response);
     }
@@ -401,6 +402,7 @@ export async function getAllPendingAscensionsHandler(request: Request<{}, {}, {}
             statusCode: 200,
             result: allPending.items,
             status: "success",
+            workflow: allPending.workflow,
             pagination: {
                 page: parsedPage,
                 count: parsedCount,

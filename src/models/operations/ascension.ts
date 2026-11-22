@@ -34,6 +34,14 @@ export class TestAscension {
 		this.ascensionId = ascensionId;
 	}
 
+	public static async getSampleCollectionWorkflow(tenantId: number): Promise<{ collection: 'active' | 'bypassed'; sampleValidation: 'active' | 'bypassed' }> {
+		const settings = await new ApplicationSettings().getAllAppSettings(tenantId);
+		return {
+			collection: Number(settings?.byPassCollection) === 1 ? 'bypassed' : 'active',
+			sampleValidation: Number(settings?.byPassSampleValidation) === 1 ? 'bypassed' : 'active',
+		};
+	}
+
 	public static async updateSampleAscensionstate(
 		tenantId: number,
 		ascensionId: number,
@@ -140,7 +148,9 @@ export class TestAscension {
 		return Client_PLS_Lifecycle[1]
 	}
 
-	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string, filter?: string, sortby: 'ASC' | 'DESC' = 'ASC', billingid?: number): Promise<any[]> {
+	public static async getPendingSampleUncollected(tenantId: number, count: number, page: number, start_date: Date | string, end_date: Date | string, filter?: string, sortby: 'ASC' | 'DESC' = 'ASC', billingid?: number, workflow?: { collection: 'active' | 'bypassed'; sampleValidation: 'active' | 'bypassed' }): Promise<any[]> {
+		const currentWorkflow = workflow || await this.getSampleCollectionWorkflow(tenantId);
+		if (currentWorkflow.collection === 'bypassed' && currentWorkflow.sampleValidation === 'bypassed') return [];
 		let query = q_pending_sample_uncollected;
 		let params: any[] = [];
 		if (billingid) {
@@ -162,7 +172,8 @@ export class TestAscension {
 			});
 		}
 		query += ` GROUP BY billingid ORDER BY b.billingid ${sortby} LIMIT ? OFFSET ?`;
-		return await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
+		const pending = await promisifyQuery(tenantId, query, [...params, count, (page - 1) * count]);
+		return pending.map((item: any) => ({ ...item, workflow: currentWorkflow }));
 	}
 
 	public static async getTransactionAscentionTestDetails(tenantId: number, billingid: number): Promise<any> {
@@ -180,7 +191,11 @@ export class TestAscension {
 		return (await new LaboratoryWorkflowService(tenantId).forAscensions(rows)).filter(row => row.workflow.canEnterResults) as [];
 	}
 
-	public static async getAllPendingAscensions(tenantId: number, count: number = 10, page: number = 1, startDate?: string, endDate?: string): Promise<{ items: any[]; total: number }> {
+	public static async getAllPendingAscensions(tenantId: number, count: number = 10, page: number = 1, startDate?: string, endDate?: string): Promise<{ items: any[]; total: number; workflow: { collection: 'active' | 'bypassed'; sampleValidation: 'active' | 'bypassed' } }> {
+		const workflow = await this.getSampleCollectionWorkflow(tenantId);
+		if (workflow.collection === 'bypassed' && workflow.sampleValidation === 'bypassed') {
+			return { items: [], total: 0, workflow };
+		}
 		let query = q_pending_sample_uncollected;
 		let countQuery = q_count_pending_sample_uncollected;
 		let params: any[] = [];
@@ -195,7 +210,7 @@ export class TestAscension {
 			promisifyQuery(tenantId, `${query} LIMIT ? OFFSET ?`, [...params, count, offset]),
 			promisifyQuery(tenantId, countQuery, params),
 		]);
-		return { items, total: Number(totals[0]?.total || 0) };
+		return { items: items.map((item: any) => ({ ...item, workflow })), total: Number(totals[0]?.total || 0), workflow };
 	}
 
 	public static async findAllBillingAssociatedTestAscensions(tenantId: number, billingid: number, onlyAscensionid: boolean = true): Promise<PrimeLimsTabletest_ascension[] | number[] | []> {

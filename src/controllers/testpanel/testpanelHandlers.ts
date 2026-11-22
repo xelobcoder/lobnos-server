@@ -633,6 +633,7 @@ async function importOneMasterTest(
                          value: rule.value,
                          hasunits: Number(rule.hasunits ?? 0),
                          isRequired: Number(rule.isRequired ?? 0),
+                         manual_rerun_enabled: Number(rule.manual_rerun_enabled ?? 0),
                          result_type: rule.result_type ?? null,
                          reference_mode: rule.reference_mode ?? null,
                          linearity_enabled: rule.linearity_enabled, linearity_lower: rule.linearity_lower, linearity_upper: rule.linearity_upper, unit_code: rule.unit_code ?? null,

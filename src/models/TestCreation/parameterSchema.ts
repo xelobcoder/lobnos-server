@@ -13,6 +13,9 @@ export function ensureParameterDefinitionSchema(db:any):Promise<void> {
   if(!await db.schema.hasColumn('testcreationrules','linearity_enabled')){
    try{await db.schema.alterTable('testcreationrules',(table:any)=>table.boolean('linearity_enabled').notNullable().defaultTo(false));}catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
   }
+  if(!await db.schema.hasColumn('testcreationrules','manual_rerun_enabled')){
+   try{await db.schema.alterTable('testcreationrules',(table:any)=>table.boolean('manual_rerun_enabled').notNullable().defaultTo(false));}catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}
+  }
   if(!await db.schema.hasColumn('testcreationrules','isRequired')) {
    try {await db.schema.alterTable('testcreationrules',(table:any)=>table.boolean('isRequired').notNullable().defaultTo(false));}
    catch(error:any){if(error.code!=='ER_DUP_FIELDNAME')throw error;}

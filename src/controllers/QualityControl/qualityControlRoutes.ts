@@ -10,6 +10,7 @@ import { ControlParameterController } from './ControlParameterController';
 import { QCReadingsController } from './QCReadingsController';
 import { QCDashboardController, QCSessionsController } from './QCDashboard';
 import { isAuthorizedRoleAdmin, isAuthorizedRoleScientistPhelobotomist } from '../../middleware/validateTenancy';
+import { InstrumentMaintenanceController, requireMaintenanceSupervisor } from './InstrumentMaintenanceController';
 
 const router = express.Router();
 // Targets and their device/material definitions use the same clinical authority
@@ -21,6 +22,7 @@ const deviceController = new DeviceController();
 const controlMaterialController = new ControlMaterialController();
 const controlParameterController = new ControlParameterController();
 const qcReadingsController = new QCReadingsController();
+const maintenanceController = new InstrumentMaintenanceController();
 
 
 
@@ -36,6 +38,19 @@ router.get('/api/v1/devices/calibration-due/:date', deviceController.getByCalibr
 router.get('/api/v1/devices/search/devices', deviceController.searchByName.bind(deviceController));
 router.get('/api/v1/devices', deviceController.getPaginated.bind(deviceController));
 router.delete('/api/v1/devices/:id', deviceController.delete.bind(deviceController));
+
+// Instrument maintenance reuses the QC device registry and the QC configuration authority.
+router.use('/api/v1/instrument-maintenance', requireQcConfigurationRole);
+router.get('/api/v1/instrument-maintenance/checklist', maintenanceController.checklist.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/checklist', requireMaintenanceSupervisor, maintenanceController.saveChecklist.bind(maintenanceController));
+router.put('/api/v1/instrument-maintenance/checklist/:id', requireMaintenanceSupervisor, maintenanceController.saveChecklist.bind(maintenanceController));
+router.get('/api/v1/instrument-maintenance/dashboard', maintenanceController.dashboard.bind(maintenanceController));
+router.get('/api/v1/instrument-maintenance/history', maintenanceController.history.bind(maintenanceController));
+router.get('/api/v1/instrument-maintenance/runs/:runId', maintenanceController.execution.bind(maintenanceController));
+router.put('/api/v1/instrument-maintenance/devices/:deviceId/schedule', requireMaintenanceSupervisor, maintenanceController.setSchedule.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/devices/:deviceId/executions', maintenanceController.execute.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/actions/:actionId/complete', maintenanceController.completeAction.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/runs/:runId/supervisor-review', requireMaintenanceSupervisor, maintenanceController.review.bind(maintenanceController));
 
 // Control Material Routes
 router.get('/api/v1/controlmaterials/search', controlMaterialController.searchByName.bind(controlMaterialController));

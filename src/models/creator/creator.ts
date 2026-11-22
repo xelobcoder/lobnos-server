@@ -33,6 +33,7 @@ import KnexConnection from "../../database/KnexConnections";
 import { encrypt_value } from "../../utils/encryptionModels";
 import { CalculationFormulaService } from './calculations/CalculationFormulaService';
 import { requireDailyQcAcceptance } from './calculations/QCEnforcementService';
+import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 import { buildStaleDrugReactionDelete } from './resultDrugReactions';
 import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
@@ -42,10 +43,12 @@ import ApplicationSettings from "../application/appsettings/appset";
 import { applyDemographicLimits, getAgeGroup } from "./demographic-limits";
 import { UltrasoundTemplateInput, UltrasoundTemplateRepository } from "../operations/imaging/UltrasoundTemplateRepository";
 import { beginResultSave, recordResultSaveRequest, resultSaveHasChanges, validateResultFields } from './ResultSaveGuard';
+import { ManualParameterRerunService } from '../operations/ManualParameterRerunService';
 
 export default class Creator {
 	resultSaveChanged = false;
 	resultSaveReplayed = false;
+	resultSaveStaged = false;
 	testid: number;
 
 	constructor(testid: number) {
@@ -302,6 +305,7 @@ export default class Creator {
 		const { csvid, ptid, testid, fields, employeeid, comments, ascensionid, isScan, hasDrugs, drugs } = requestBody;
 		this.resultSaveChanged = false;
 		this.resultSaveReplayed = false;
+		this.resultSaveStaged = false;
 		validateResultFields(fields);
 
 		if (!csvid || !ptid || !testid || !fields || (Array.isArray(fields) && fields.length == 0)) {
@@ -392,6 +396,14 @@ export default class Creator {
 			await connection.transaction(async (trx) => {
                     const save = await beginResultSave(trx, context, requestBody);
                     if (save.replayed) { this.resultSaveReplayed = true; return; }
+                    if (await new ManualParameterRerunService(tenantId).stageAnalyzerResults(
+                         trx, Number(ascensionid), Number(testid), fields as any[], Number(employeeid),
+                    )) {
+                         const rerunWork = await trx('lab_work_assignments').where({ ascensionid }).forUpdate().first('device_id');
+                         await new InstrumentMaintenanceService(tenantId).assertInstrumentClear(trx, rerunWork?.device_id);
+                         this.resultSaveStaged = true;
+                         return;
+                    }
                     if (!await this.canEnterResult(tenantId, Number(ascensionid), trx)) {
                          throw Object.assign(new Error('Result entry is disabled for unpaid services. Complete payment before saving results.'), {
                               statusCode: 403, code: 'UNPAID_RESULT_ENTRY_DISABLED',
@@ -410,6 +422,7 @@ export default class Creator {
                          (!Number.isSafeInteger(requestBody.expected_revision) || requestBody.expected_revision !== Number(revision?.approval_revision || 0)))
                          throw Object.assign(new Error('The result has changed. Reload and review the current result before saving your edits.'), { statusCode: 409 });
                     const currentQcWork = await trx('lab_work_assignments').where({ ascensionid }).first('device_id');
+                    await new InstrumentMaintenanceService(tenantId).assertInstrumentClear(trx, currentQcWork?.device_id);
                     await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: currentQcWork?.device_id || null }, trx);
                     await invalidateResultApprovals(trx, ascensionid, employeeid);
 				let previousImagingValues: Record<string, string> = {};

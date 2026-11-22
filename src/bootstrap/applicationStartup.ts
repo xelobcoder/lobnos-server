@@ -2,6 +2,7 @@ import { up as bootstrapPatientContacts } from "../cron/command-line-tool-databa
 import { up as bootstrapPatientPhoneContacts } from "../cron/command-line-tool-database/migrations/20261116_patient_phone_contacts";
 import { up as bootstrapPatientDuplicates } from "../cron/command-line-tool-database/migrations/20261114_patient_duplicate_candidates";
 import { ensureTenantCollationDefault, normalizeTenantCollation } from "../database/legacy-upgrade/TenantCollation";
+import { assertTenantCollation } from "../database/legacy-upgrade/TenantCollationAudit";
 import { processDueRecurringExpenses } from "../accountingModule/services/RecurringExpenseService";
 import { consultationDb } from "../models/consultation/ConsultationSchema";
 import { bootstrapNhisIdentifiers } from "../models/billing/NhisIdentifiers";
@@ -48,6 +49,9 @@ import { bootstrapPhysicalSampleTables } from "../models/samples/PhysicalSampleB
 import { bootstrapWalkInQueueTables } from "../models/queue/WalkInQueueBootstrapper";
 import { bootstrapSuspendedBillingTables } from "../models/billing/SuspendedBillingBootstrapper";
 import { bootstrapCalculationAndQcTables } from "../models/creator/calculations/CalculationBootstrapper";
+import { bootstrapInstrumentMaintenance } from "../models/QualityControl/InstrumentMaintenanceBootstrapper";
+import { ensureManualParameterRerunSchema } from "../models/operations/ManualParameterRerunSchema";
+import { ensureParameterDefinitionSchema } from "../models/TestCreation/parameterSchema";
 import { up as bootstrapResultSaveSchema } from "../cron/command-line-tool-database/migrations/20261103_result_save_identity";
 import { up as bootstrapPharmacyReturnValue } from "../cron/command-line-tool-database/migrations/20261107_pharmacy_return_value";
 import { bootstrapAppointmentTables } from "../models/appointments/AppointmentBootstrapper";
@@ -177,7 +181,10 @@ export async function runApplicationBootstrappers(
      await bootstrapBillingTables(tenantId);
      await bootstrapNhisIdentifiers(tenantId);
      await bootstrapCalculationAndQcTables(tenantId);
+     await bootstrapInstrumentMaintenance(tenantId);
      await bootstrapResultSaveSchema(await KnexConnection(tenantId));
+     await ensureManualParameterRerunSchema(await KnexConnection(tenantId));
+     await ensureParameterDefinitionSchema(await KnexConnection(tenantId));
      await bootstrapOperationsWorkflow(tenantId);
      await bootstrapOperationalControls(tenantId);
      await consultationDb(tenantId);
@@ -223,8 +230,30 @@ export async function runApplicationBootstrappers(
 
      // Bootstrappers can add tables after the initial conversion. Gate maintenance/provisioning completion on the final schema.
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
+     else await enforceExistingTenantCollation(tenantId);
      if (options.startWorkers !== false) startCrmReminderWorker(tenantId);
      return { accountingReady };
+}
+
+/**
+ * Existing tenants are converted on every startup so legacy and newly created tables cannot drift.
+ * normalizeTenantCollation validates unique keys and foreign-key membership before altering anything.
+ * Set TENANT_COLLATION_AUTOFIX=false to audit and log only.
+ */
+async function enforceExistingTenantCollation(tenantId: number): Promise<void> {
+     const db = await KnexConnection(tenantId);
+     try {
+          if (process.env.TENANT_COLLATION_AUTOFIX === "false") {
+               await assertTenantCollation(db);
+          } else {
+               const result = await normalizeTenantCollation(db);
+               if (result.changedTables.length) {
+                    logger.warn(`[Bootstrap] Tenant ${tenantId}: converted ${result.changedTables.length} table(s) to utf8mb4_unicode_ci`);
+               }
+          }
+     } catch (error: any) {
+          logger.error(`[Bootstrap] Tenant ${tenantId}: collation is not compliant and could not be fixed automatically: ${error?.message || error}`);
+     }
 }
 
 export function startApplicationBackgroundWorkers(tenantIds: number[], options: { accountingReady: boolean }): void {

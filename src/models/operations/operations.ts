@@ -14,6 +14,7 @@ import {
      q_log_result_entry,
      q_qualifiedToProcessByDepartment,
      q_ultrasound_waitingList,
+     currentResultReleaseCondition,
 } from "./queries";
 import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
@@ -183,6 +184,13 @@ export default class Operations {
      ): Promise<any> {
           try {
                const params: any[] = [];
+               const resultSettings = await ResultSettings.getResultEntrySettings(tenantid);
+               const currentRevision = 'COALESCE((SELECT dta.approval_revision FROM dbotestresultapproval dta WHERE dta.ascensionid = ta.id LIMIT 1), 0)';
+               const releaseCondition = currentResultReleaseCondition(
+                    'ta.id',
+                    currentRevision,
+                    Boolean(resultSettings?.requireManagerApprovalBeforeRelease),
+               );
                let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
 
                if (filters?._dateFrom && filters._dateFrom !== "all") {
@@ -236,6 +244,9 @@ export default class Operations {
 								COALESCE(tp.name, CONCAT('Test-', ta.testid)),
 								' (',
 								CASE
+									WHEN ${releaseCondition}
+										THEN 'Released'
+
 									WHEN ta.resultEntryEnd IS NOT NULL 
 										THEN CONCAT('Completed @ ', DATE_FORMAT(ta.resultEntryEnd, '%h:%i %p'))
 

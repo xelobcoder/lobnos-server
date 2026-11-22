@@ -3,7 +3,7 @@ import knex from 'knex';
 
 vi.mock('../../database/KnexConnections', () => ({ default: vi.fn() }));
 
-import { canTransitionPhysicalSample, groupPhysicalSampleCandidates, PhysicalSampleService } from './PhysicalSampleService';
+import { canTransitionPhysicalSample, groupPhysicalSampleCandidates, physicalSampleCandidatesAreRequired, PhysicalSampleService } from './PhysicalSampleService';
 import KnexConnection from '../../database/KnexConnections';
 import { q_get_pending_collected_but_unvalidated_samples } from '../creator/queries';
 import { bootstrapPhysicalSampleTables } from './PhysicalSampleBootstrapper';
@@ -77,6 +77,14 @@ describe('physical sample transition rules', () => {
      it('keeps accepted and rejected samples terminal', () => {
           expect(canTransitionPhysicalSample('accepted', 'rejected')).toBe(false);
           expect(canTransitionPhysicalSample('rejected', 'accepted')).toBe(false);
+     });
+});
+
+describe('physical sample collection worklist', () => {
+     it('hides unlinked collection candidates only when collection and sample validation are both bypassed', () => {
+          expect(physicalSampleCandidatesAreRequired({ byPassCollection: 1, byPassSampleValidation: 1 })).toBe(false);
+          expect(physicalSampleCandidatesAreRequired({ byPassCollection: 1, byPassSampleValidation: 0 })).toBe(true);
+          expect(physicalSampleCandidatesAreRequired({ byPassCollection: 0, byPassSampleValidation: 1 })).toBe(true);
      });
 });
 

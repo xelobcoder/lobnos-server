@@ -34,6 +34,7 @@ import { loadReleasedLaboratoryReport } from "../../models/result/LaboratoryRepo
 import { loadLaboratoryReportBatch } from "../../models/result/LaboratoryReportBatch";
 import { testpanel } from "../../testpanel/testpanelList";
 import logger from "../../hooks/logger";
+import { ManualParameterRerunService } from "../../models/operations/ManualParameterRerunService";
 
 // export const getPatientTestTrend = async (req: Request, res: IResponse): Promise<void> => {
 //   const { patientid, testid, test, instances } = req.query;
@@ -73,7 +74,7 @@ export const resultEntry = async (req: Request, response: Response): Promise<voi
 			const connection = await KnexConnection(tenantIdP);
                const approval = await connection('dbotestresultapproval').where({ ascensionid: Number(ascensionId) }).first();
                const requiresRevalidation = Number(approval?.requires_revalidation) === 1;
-               response.send({ status: 'success', statusCode: 200, changed: creator.resultSaveChanged, replayed: creator.resultSaveReplayed, requires_revalidation: requiresRevalidation, approval_revision: Number(approval?.approval_revision || 0), message: creator.resultSaveReplayed ? 'This save was already committed. No values were reapplied; reload to review the current result.' : requiresRevalidation ? 'Results saved. Previous validation was invalidated; validate this revision again before release.' : 'Results saved successfully' });
+               response.send({ status: 'success', statusCode: 200, changed: creator.resultSaveChanged, staged: creator.resultSaveStaged, replayed: creator.resultSaveReplayed, requires_revalidation: requiresRevalidation, approval_revision: Number(approval?.approval_revision || 0),                message: creator.resultSaveStaged ? 'Rerun values staged for explicit confirmation; current results were not changed.' : creator.resultSaveReplayed ? 'This save was already committed. No values were reapplied; reload to review the current result.' : requiresRevalidation ? 'Results saved. Previous validation was invalidated; validate this revision again before release.' : 'Results saved successfully' });
 		} else {
 			response.send({ status: "failed", statusCode: 404, message: "error occured saving results" });
 		}
@@ -88,6 +89,65 @@ export const resultEntry = async (req: Request, response: Response): Promise<voi
 		}
 		responseError(response, err);
 	}
+};
+
+export const startManualParameterRerun = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const actor = getAuthUser(req);
+          if (!actor) return void res.status(401).json({ status: 'error', message: 'Authentication required' });
+          const { ascensionid, fieldIds } = req.body || {};
+          const result = await new ManualParameterRerunService(actor.tenantId).start(actor, Number(ascensionid), fieldIds);
+          res.status(201).json({ status: 'success', data: result });
+     } catch (error: any) {
+          if (error?.statusCode) return void res.status(error.statusCode).json({ status: 'error', message: error.message });
+          responseError(res, error);
+     }
+};
+
+export const stageManualParameterRerunValues = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const actor = getAuthUser(req);
+          if (!actor) return void res.status(401).json({ status: 'error', message: 'Authentication required' });
+          const result = await new ManualParameterRerunService(actor.tenantId).stageManualResults(
+               actor, Number(req.body?.ascensionid), req.body?.fields,
+          );
+          res.json({ status: 'success', data: result, message: 'Manual rerun values staged. Confirm them to update the report.' });
+     } catch (error: any) {
+          if (error?.statusCode) return void res.status(error.statusCode).json({ status: 'error', message: error.message });
+          responseError(res, error);
+     }
+};
+
+export const getManualParameterRerun = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const actor = getAuthUser(req);
+          if (!actor) return void res.status(401).json({ status: 'error', message: 'Authentication required' });
+          const rerun = await new ManualParameterRerunService(actor.tenantId).get(actor, Number(req.params.ascensionid));
+          if (!rerun) return void res.status(404).json({ status: 'error', message: 'No parameter rerun found' });
+          res.json({ status: 'success', data: rerun });
+     } catch (error: any) {
+          if (error?.statusCode) return void res.status(error.statusCode).json({ status: 'error', message: error.message });
+          responseError(res, error);
+     }
+};
+
+export const confirmManualParameterRerun = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const actor = getAuthUser(req);
+          if (!actor) return void res.status(401).json({ status: 'error', message: 'Authentication required' });
+          const result = await new ManualParameterRerunService(actor.tenantId).confirm(
+               actor, Number(req.body?.ascensionid), req.body?.fieldIds,
+          );
+          if (result.confirmedFieldIds?.length) InAppNotificationService.publish(actor.tenantId, {
+               eventCode: 'RESULT_ENTERED', module: 'result', title: 'Rerun result confirmed',
+               message: `Confirmed rerun values for ordered test #${req.body.ascensionid}; the revised report requires validation.`,
+               referenceType: 'ascension', referenceId: Number(req.body.ascensionid), actorEmployeeId: actor.employeeid,
+          }).catch(() => { });
+          res.json({ status: 'success', data: result });
+     } catch (error: any) {
+          if (error?.statusCode) return void res.status(error.statusCode).json({ status: 'error', message: error.message });
+          responseError(res, error);
+     }
 };
 
 

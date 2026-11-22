@@ -24,7 +24,11 @@ import {
        recordBulkResultDelivery,
        recordResultHandover,
        getResultDeliveryChain,
-       getResultRecordUndelivered
+       getResultRecordUndelivered,
+       startManualParameterRerun,
+       stageManualParameterRerunValues,
+       getManualParameterRerun,
+       confirmManualParameterRerun
 } from "./resultHandlers"
 import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear, getResultValueAnalyticsHandler } from './resultanalysis'
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
@@ -45,6 +49,10 @@ const router = express.Router();
 
 // router.get(`/api/v1/result/patientrend/single`, getPatientTestTrend);
 router.post("/api/v1/result/entry/customtest", requireResultEntryRole, resultEntry);
+router.post("/api/v1/result/manual-rerun", requireResultEntryRole, startManualParameterRerun);
+router.post("/api/v1/result/manual-rerun/manual-values", requireResultEntryRole, stageManualParameterRerunValues);
+router.post("/api/v1/result/manual-rerun/confirm", requireResultEntryRole, confirmManualParameterRerun);
+router.get("/api/v1/result/manual-rerun/:ascensionid", requireLaboratoryWorkflowRole, getManualParameterRerun);
 router.get("/api/v1/testpanel/list/customtestrule/previous", handleOverLoad(getPreviousResultEntryRecordsIfAny));
 router.get("/api/v1/testpanel/list/customtestrule/previous/comments", getResultCommentsHandler);
 router.get("/api/v1/result/entry/customtest/drugs", resultEntryDrugsHandler)

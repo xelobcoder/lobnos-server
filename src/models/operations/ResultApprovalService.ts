@@ -6,6 +6,7 @@ import ImagingResultAuditRepository from './imaging/ImagingResultAuditRepository
 import { assertResultPaymentPolicy, canPerformResultAction } from './ResultPaymentPolicy';
 import { DeltaCheckBlockedError, evaluateResultDeltas, recordDeltaEvents } from '../results/ResultDeltaService';
 import { normalizeRole } from '../../middleware/roles';
+import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 
 export async function invalidateResultApprovals(trx: any, ascensionid: number, employeeid: number) {
      const previous = await trx('dbotestresultapproval').where({ ascensionid }).forUpdate().first();
@@ -49,6 +50,7 @@ export class ResultApprovalService {
           if (imaging) await ImagingResultAuditRepository.ensureTable(this.tenantId);
           return db.transaction(async trx => {
                const ascension = await trx('test_ascension').where({ id: ascensionid }).forUpdate().first();
+               await new InstrumentMaintenanceService(this.tenantId).assertAscensionClear(trx, ascensionid);
                const bill = await trx('billing').where({ billingid: ascension.billingid }).first();
                if (branchid != null && Number(bill?.branchid) !== Number(branchid)) throw Object.assign(new Error('Ordered test belongs to another branch'), { statusCode: 403 });
                if (!ascension.resultEntryEnd) throw Object.assign(new Error('Save the test results before approval'), { statusCode: 409 });
