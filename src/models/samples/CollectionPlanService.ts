@@ -59,7 +59,7 @@ export class CollectionPlanService {
                if (await trx('test_ascension_samples').whereIn('ascension_id', ids).first()) throw new Error('These tests already have physical containers. Reload the collection screen before planning');
                const created: any[] = [];
                for (const [index, container] of plan.containers.entries()) {
-                    created.push(await samples.create({ consent:input.consent,consentActor:actor,billingid: plan.billingid, ...container, action: 'start', allowAdditional: true,
+                    created.push(await samples.create({ consent: input.consent, billingid: plan.billingid, ...container, action: 'start', allowAdditional: true,
                          collectionCenterId: plan.collectionCenterId, collectionBranchId: actor.branch,
                          manualOverride: { sampleTypeId: container.sampleTypeId, containerTypeId: container.containerTypeId, reason: plan.reason },
                          idempotencyKey: `PLAN:${plan.key}:${index}` }, actor.employeeid, trx));

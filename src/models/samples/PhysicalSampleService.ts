@@ -1,4 +1,4 @@
-import {assertPatientConsent,recordCollectionConsents} from '../patients/EConsent';
+import {assertCollectionConsent} from '../patients/EConsent';
 import { randomUUID } from 'crypto';
 import type { Knex } from 'knex';
 import KnexConnection from '../../database/KnexConnections';
@@ -22,7 +22,6 @@ export function canTransitionPhysicalSample(from: PhysicalSampleStatus, to: Phys
 
 export interface CreatePhysicalSampleInput {
      consent?:any;
-     consentActor?:any;
      billingid: number;
      ascensionIds: number[];
      action?: 'start' | 'collect' | 'receive';
@@ -260,8 +259,7 @@ export class PhysicalSampleService {
                if (rows.length !== ascensionIds.length) throw new Error('One or more test ascensions were not found');
                if (rows.some((row: any) => Number(row.billingid) !== input.billingid)) throw new Error('All tests must belong to the same billing order');
                if (new Set(rows.map((row: any) => Number(row.patientid))).size !== 1) throw new Error('All tests must belong to the same patient');
-               if(input.consent&&input.consentActor)await recordCollectionConsents(trx,input.consentActor,Number((rows[0] as any).patientid),ascensionIds,input.consent);
-               for(const id of ascensionIds)await assertPatientConsent(trx,Number((rows[0] as any).patientid),id);
+               const collectionConsent = await assertCollectionConsent(trx, input.consent);
 
                const requirementKeys = new Set(rows.map((row: any) => [row.sample_type_id || 0, row.container_type_id || 0, String(row.unit || '').trim().toLowerCase()].join(':')));
                if (requirementKeys.size !== 1 && !input.manualOverride) throw new Error('Selected tests require different specimen or container types');
@@ -318,8 +316,10 @@ export class PhysicalSampleService {
                     created_at: now,
                })));
                const initialStatus = action === 'receive' ? 'received' : action === 'collect' ? 'collected' : 'collection_started';
+               const eventMetadata:any=actual?{manual_override:true,actual:{...actual,quantity:input.quantity,unit:input.unit},original_requirements:rows.map((row:any)=>({ascension_id:row.ascension_id,test_name:row.test_name,sample_type_id:row.sample_type_id,sample_type_name:row.sample_type_name,container_type_id:row.container_type_id,container_type_name:row.container_type_name,quantity:row.qty_required,unit:row.unit}))}:{};
+               if(collectionConsent?.confirmed)eventMetadata.collection_consent={confirmed:true,mode:collectionConsent.mode,actor_employeeid:actorEmployeeId};
                await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: initialStatus, from_status: null, to_status: initialStatus, actor_employeeid: actorEmployeeId, reason: input.manualOverride?.reason || (action === 'receive' ? 'Externally collected sample received by the laboratory' : null), sample_version: 1, idempotency_key: input.idempotencyKey ? `${input.idempotencyKey}:event` : null,
-                    ...(actual ? { metadata: JSON.stringify({ manual_override: true, actual: { ...actual, quantity: input.quantity, unit: input.unit }, original_requirements: rows.map((row: any) => ({ ascension_id: row.ascension_id, test_name: row.test_name, sample_type_id: row.sample_type_id, sample_type_name: row.sample_type_name, container_type_id: row.container_type_id, container_type_name: row.container_type_name, quantity: row.qty_required, unit: row.unit })) }) } : {}), created_at: now });
+                    ...(Object.keys(eventMetadata).length ? { metadata: JSON.stringify(eventMetadata) } : {}), created_at: now });
                if (action === 'receive') {
                     await trx('test_ascension').whereIn('id', ascensionIds).update({
                          collectionStartDate: trx.raw('COALESCE(collectionStartDate, ?)', [now]),
@@ -333,7 +333,7 @@ export class PhysicalSampleService {
           });
      }
 
-     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { consent?:any;consentActor?:any;expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput; collectionCenterId?: number; collectionBranchId?: number | null } = {}): Promise<any> {
+     async transition(sampleId: number, status: PhysicalSampleStatus, actorEmployeeId: number, reason?: string, options: { consent?: any; expectedVersion?: number; idempotencyKey?: string; communication?: SampleRejectionCommunicationInput; collectionCenterId?: number; collectionBranchId?: number | null } = {}): Promise<any> {
           const allowed: PhysicalSampleStatus[] = ['collected', 'received', 'accepted', 'rejected'];
           if (!allowed.includes(status)) throw new Error('Unsupported sample transition');
           const connection = await KnexConnection(this.tenantId);
@@ -348,8 +348,7 @@ export class PhysicalSampleService {
                }
                const links = await trx('test_ascension_samples').where({ sample_id: sampleId });
                const ascensionIds = links.map((link: any) => Number(link.ascension_id));
-               if((status==='collection_started'||status==='collected')&&options.consent&&options.consentActor)await recordCollectionConsents(trx,options.consentActor,Number(sample.patientid),ascensionIds,options.consent);
-               if(status==='collection_started'||status==='collected')for(const id of ascensionIds)await assertPatientConsent(trx,Number(sample.patientid),Number(id));
+               const collectionConsent=(status==='collection_started'||status==='collected')?await assertCollectionConsent(trx,options.consent):null;
                const now = new Date();
                const update: any = { status, version: Number(sample.version || 1) + 1, updated_at: now };
                if (!canTransitionPhysicalSample(sample.status as PhysicalSampleStatus, status)) throw new Error(`Physical sample cannot move from ${sample.status} to ${status}`);
@@ -368,7 +367,7 @@ export class PhysicalSampleService {
                     await trx('test_ascension').whereIn('id', ascensionIds).whereNull('collectionStartDate').update({ collectionStartDate: sample.collection_started_at || now, sampleCollectedBy: actorEmployeeId });
                     await trx('physical_samples').where({ id: sampleId }).update(update);
                     await this.synchronizeCollectedAscensions(trx, ascensionIds, now, actorEmployeeId);
-                    await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: 'collected', from_status: sample.status, to_status: 'collected', actor_employeeid: actorEmployeeId, reason: null, sample_version: update.version, idempotency_key: options.idempotencyKey || null, created_at: now });
+                    await trx('physical_sample_events').insert({ sample_id: sampleId, event_type: 'collected', from_status: sample.status, to_status: 'collected', actor_employeeid: actorEmployeeId, reason: null, sample_version: update.version, idempotency_key: options.idempotencyKey || null, ...(collectionConsent?.confirmed?{metadata:JSON.stringify({collection_consent:{confirmed:true,mode:collectionConsent.mode,actor_employeeid:actorEmployeeId}})}:{}), created_at: now });
                     return this.detail(sampleId, trx);
                } else if (status === 'received') {
                     update.received_at = now;

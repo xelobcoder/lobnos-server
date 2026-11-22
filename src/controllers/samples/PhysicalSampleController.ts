@@ -53,7 +53,7 @@ export class PhysicalSampleController {
           try {
                const actor = getAuthUser(request)!;
                const sample = await new PhysicalSampleService(actor.tenantId).create({
-                    consent:request.body?.consent,consentActor:actor,
+                    consent: request.body?.consent,
                     billingid: Number(request.body?.billingid),
                     ascensionIds: request.body?.ascensionIds || request.body?.ascension_ids || [],
                     action: request.body?.action,
@@ -93,7 +93,7 @@ export class PhysicalSampleController {
                     actor.employeeid,
                     request.body?.reason,
                     {
-                         consent:request.body?.consent,consentActor:actor,
+                         consent: request.body?.consent,
                          expectedVersion: request.body?.expectedVersion ?? request.body?.expected_version,
                          idempotencyKey: request.body?.idempotencyKey ?? request.body?.idempotency_key,
                          communication: request.body?.communication,

@@ -102,15 +102,23 @@ describe('sample validation worklist', () => {
                const trx: any = vi.fn((table: string) => {
                     const query: any = {};
                     for (const method of ['whereIn', 'whereNull', 'where', 'forUpdate']) query[method] = vi.fn(() => query);
-                    query.first = vi.fn(async () => table === 'sample_collection_centers' ? { id: 2, name: 'Market Center' } : alreadyLinked ? { id: 10 } : undefined);
+                    query.first = vi.fn(async () => table === 'resultsettings'
+                         ? { resultsEntrySettings: '{"electronicConsentMode":"required"}' }
+                         : table === 'sample_collection_centers' ? { id: 2, name: 'Market Center' } : alreadyLinked ? { id: 10 } : undefined);
                     query.update = vi.fn(async () => 1);
                     query.insert = vi.fn(async (data: any) => { inserts.push({ table, data }); return [10]; });
                     return query;
                });
+               trx.schema = { hasTable: vi.fn(async () => true) };
                vi.mocked(KnexConnection).mockResolvedValue({ transaction: async (callback: any) => callback(trx) } as any);
-               const result = await service.create({ billingid: 3, ascensionIds: [101], action: 'collect', collectionCenterId: 2, collectionBranchId: 4 }, 5);
+               await expect(service.create({ billingid: 3, ascensionIds: [101], action: 'collect', collectionCenterId: 2, collectionBranchId: 4 }, 5))
+                    .rejects.toMatchObject({ code: 'CONSENT_REQUIRED' });
+               await expect(service.create({ billingid: 3, ascensionIds: [101], action: 'receive' }, 5))
+                    .rejects.toMatchObject({ code: 'CONSENT_REQUIRED' });
+               expect(inserts).toHaveLength(0);
+               const result = await service.create({ billingid: 3, ascensionIds: [101], action: 'collect', consent: { confirmed: true }, collectionCenterId: 2, collectionBranchId: 4 }, 5);
                expect(result).toEqual({ id: 10, barcode: 'sample-barcode' });
-               expect(requirements.forUpdate).toHaveBeenCalledOnce();
+               expect(requirements.forUpdate).toHaveBeenCalledTimes(3);
                const physical = inserts.find(item => item.table === 'physical_samples')!.data;
                expect(physical).toMatchObject({
                     patientid: 4, billingid: 3, status: 'collected', collected_by: 5,
@@ -120,10 +128,11 @@ describe('sample validation worklist', () => {
                expect(physical.collected_at).toBeInstanceOf(Date);
                expect(physical.accepted_at).toBeUndefined();
                expect(inserts.find(item => item.table === 'physical_sample_events')!.data).toMatchObject({ event_type: 'collected', actor_employeeid: 5 });
+               expect(JSON.parse(inserts.find(item => item.table === 'physical_sample_events')!.data.metadata)).toMatchObject({ collection_consent: { confirmed: true, mode: 'required', actor_employeeid: 5 } });
                expect(inserts.find(item => item.table === 'test_ascension_samples')!.data).toMatchObject([{ sample_id: 10, ascension_id: 101, is_required: true }]);
                alreadyLinked = true;
                const count = inserts.length;
-               await expect(service.create({ billingid: 3, ascensionIds: [101], action: 'collect' }, 5)).rejects.toThrow('already linked');
+               await expect(service.create({ billingid: 3, ascensionIds: [101], action: 'collect', consent: { confirmed: true } }, 5)).rejects.toThrow('already linked');
                expect(inserts).toHaveLength(count);
           });
      });

@@ -1,6 +1,6 @@
 import {beforeEach,afterEach,expect,it} from 'vitest';
 import {accountingSqlDatabase} from '../../testSupport/accountingSqlDatabase';
-import {EConsentService,ensureConsentSchema,assertPatientConsent,recordCollectionConsents} from './EConsent';
+import {EConsentService,ensureConsentSchema,assertPatientConsent,assertCollectionConsent,recordCollectionConsents} from './EConsent';
 let fixture:ReturnType<typeof accountingSqlDatabase>,service:EConsentService;
 const actor={employeeid:7,tenantId:123456,branch:1,role:'admin'};
 beforeEach(async()=>{fixture=accountingSqlDatabase();fixture.native.exec(`CREATE TABLE resultsettings(id INTEGER PRIMARY KEY,resultsEntrySettings TEXT);INSERT INTO resultsettings VALUES(1,'{"electronicConsentMode":"required"}');CREATE TABLE new_patients(patientid INTEGER PRIMARY KEY,firstname TEXT,lastname TEXT,middlename TEXT,fullpatientid TEXT,age INTEGER,agetype TEXT);INSERT INTO new_patients VALUES(1,'QA','Child',NULL,'QA-1',10,'years');INSERT INTO new_patients VALUES(2,'QA','Adult',NULL,'QA-2',30,'years');CREATE TABLE billing(billingid INTEGER PRIMARY KEY,patientid INTEGER,branchid INTEGER);INSERT INTO billing VALUES(1,1,1),(2,2,2);CREATE TABLE test_panels(id INTEGER PRIMARY KEY,name TEXT);INSERT INTO test_panels VALUES(3,'QA Test');CREATE TABLE test_ascension(id INTEGER PRIMARY KEY,testid INTEGER,billingid INTEGER);INSERT INTO test_ascension VALUES(5,3,1),(6,3,2);`);await ensureConsentSchema(fixture.db);service=new EConsentService(fixture.db,actor);});
@@ -36,6 +36,17 @@ it('a changed signed snapshot cannot satisfy a required consent policy',async()=
 
 it('optional and disabled consent policies do not impose collection or release holds',async()=>{
  for(const mode of ['optional','off']){await fixture.db('resultsettings').where({id:1}).update({resultsEntrySettings:JSON.stringify({electronicConsentMode:mode})});await fixture.db.transaction(trx=>assertPatientConsent(trx,1,5));}
+});
+
+it('collection consent is one optional checkbox, required without published wording, and fully bypassed when off',async()=>{
+ const context=await service.collectionContext(1);expect(context).toMatchObject({mode:'required',canProceed:true,templates:[],needsConfiguration:false});
+ await expect(assertCollectionConsent(fixture.db,undefined)).rejects.toMatchObject({code:'CONSENT_REQUIRED',statusCode:409});
+ await expect(assertCollectionConsent(fixture.db,{confirmed:true})).resolves.toMatchObject({mode:'required',confirmed:true});
+ await fixture.db('resultsettings').where({id:1}).update({resultsEntrySettings:JSON.stringify({electronicConsentMode:'optional'})});
+ await expect(assertCollectionConsent(fixture.db,undefined)).resolves.toMatchObject({mode:'optional',confirmed:false});
+ await expect(assertCollectionConsent(fixture.db,{confirmed:true})).resolves.toMatchObject({mode:'optional',confirmed:true});
+ await fixture.db('resultsettings').where({id:1}).update({resultsEntrySettings:JSON.stringify({electronicConsentMode:'off'})});
+ await expect(assertCollectionConsent(fixture.db,{confirmed:true})).resolves.toMatchObject({mode:'off',confirmed:false});
 });
 
 it('one collection confirmation records general and procedure consent atomically, with verbal attestation and no repeated signature typing',async()=>{
