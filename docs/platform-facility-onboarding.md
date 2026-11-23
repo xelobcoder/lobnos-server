@@ -409,7 +409,7 @@ continue to use its normal license checks.
    them at startup; use **Recover interrupted setup** for any such facility still
    marked `provisioning`. Then use **Retry provisioning**: it drops the
    retained failed database and rebuilds it.
-6. Deploy `db-exports/primelabmaster/seeds/primelabmaster_*.sql` for the nine
+6. Deploy `db-exports/primelabmaster/seeds/primelabmaster_*.sql` for the
    allowlisted catalog tables alongside the server tree. These assets are required,
    not silently skipped in the compiled server. Compile with `pnpm.cmd build`.
 
@@ -441,28 +441,51 @@ the master database or repair failed facilities automatically.
 The supplied SQL seed directory is
 `db-exports/primelabmaster/seeds` (absolute path in this checkout:
 `D:\Primelabsys\PHIMS\primelabsys-current-working-version\lobnos-server\db-exports\primelabmaster\seeds`),
-not `db-exports/seeds`. Only these SQL tables/files are loaded:
+not `db-exports/seeds`. The versioned catalog snapshot is loaded for newly
+provisioned facilities and for the one-time master-control catalog repair:
 
-`samplecontainer`, `sampletype`, `testdetailcategory`, `test_panels`,
-`testdetails`, `testcreationrules`, `testconditiondefinitions`, `testconditions`,
-`test_report_settings`, from `primelabmaster_<table>.sql`.
+`departments`, `samplecontainer`, `sampletype`, `testdetailcategory`,
+`test_panels`, `testdetails`, `testcreationrules`, `testconditiondefinitions`,
+`testconditions`, `test_report_settings`, `setupliteraturereview`,
+`customtestcreation`, and `calculated_parameter_formulas`, from
+`primelabmaster_<table>.sql`. Master-control bootstrap loads these assets without
+reading the configured facility database, so its catalog is present even before
+any facility database is registered.
+
+In **Platform Administration > Master test catalogue > Departments, samples and
+containers**, the platform administrator can create master reference items.
+Staff with test-panel management permission can preview and import missing items
+from their facility's departments, sample types, and sample container screens.
+Matching facility records are never overwritten; conflicting container details
+are shown in the preview.
+
+The master bootstrap adds common missing specimen and container names and a
+`None` option where absent. New container specifications are left unspecified
+until configured by the administrator. It assigns recognized ultrasound/USG
+panels and panels with ultrasound result fields to the Ultrasound department;
+it does not change the sample or container selected on existing panels.
+The update is a one-time transaction with a migration marker, and does not
+change existing facility databases.
 
 Existing TypeScript reference seeds under
 `src/cron/command-line-tool-database/Seeds` provide `regions`,
 `samplecontainer`, `applicationsettings`, `paymentmodes`, `sampletype`,
 `districts`, `registrationsettings`, `shifts` and projected `departments`.
-Catalog samplecontainer/sampletype snapshots replace their initial generic seed
-rows. Runtime bootstrappers add their existing reference/system defaults. Neither
+The catalog department snapshot replaces the generic department rows and its
+manager is normalized to the facility's initial administrator. Catalog
+samplecontainer/sampletype snapshots replace their initial generic seed rows.
+Runtime bootstrappers add their existing reference/system defaults. Neither
 the legacy employee/default-password seed nor the destructive branch reset nor
 demo home-collection transactions are loaded.
 
-The catalog load uses one Knex transaction/connection for FK disable, reverse-order
-clears, explicit-column INSERTs and reference-author normalization. FK checks are
-restored in `finally` on success or error; this is not an unpinned pooled session
-toggle. These are fresh target tables only, never reference/control-tenant data.
-Author references are normalized to the future initial admin ID 1, which is
-created before activation. The inspected noncatalog reference seeds have no FK
-constraints requiring an already-existing staff account.
+The facility catalog load uses one Knex transaction/connection for FK disable,
+reverse-order clears, explicit-column INSERTs and reference-author normalization.
+FK checks are restored in `finally` on success or error; this is not an unpinned
+pooled session toggle. Master-control bootstrap uses a separate additive,
+one-time migration and never deletes existing catalog rows. Author references
+are normalized to the future initial admin ID 1, which is created before
+activation. The inspected noncatalog reference seeds have no FK constraints
+requiring an already-existing staff account.
 
 ## Initialization and data safety
 

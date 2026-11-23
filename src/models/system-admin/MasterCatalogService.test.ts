@@ -14,7 +14,7 @@ beforeEach(async()=>{fixture=accountingSqlDatabase();fixture.native.exec(`
  CREATE TABLE field_constraints(id INTEGER PRIMARY KEY,testid INTEGER,fieldid INTEGER,action TEXT);
  CREATE TABLE calculated_parameter_formulas(id INTEGER PRIMARY KEY,testid INTEGER,output_field_id INTEGER,input_parameters TEXT);
  CREATE TABLE testdetails(id INTEGER PRIMARY KEY,testid INTEGER,testcost INTEGER,testprice INTEGER,updatedby INTEGER,childrenlimit TEXT,instrumentation TEXT);CREATE TABLE setupliteraturereview(id INTEGER PRIMARY KEY,testid INTEGER,literature TEXT);CREATE TABLE test_results(id INTEGER PRIMARY KEY,value TEXT);INSERT INTO test_results VALUES(1,'145 g/L');
- `);service=new MasterCatalogService(fixture.db);vi.spyOn(service,'ensure').mockResolvedValue();vi.spyOn(service,'fields').mockImplementation(async name=>{const table:any={panels:'test_panels',parameters:'testcreationrules',groups:'testdetailcategory',constraints:'field_constraints'};const info=await fixture.db(table[name]).columnInfo();return Object.keys(info).map(key=>({name:key,type:key==='price'?'int':'varchar',auto:key==='id'&&name!=='panels'||key==='categoryid'&&name==='groups',required:false,default:null,choices:key==='plan'?['input','options']:null}))});});
+ `);service=new MasterCatalogService(fixture.db);vi.spyOn(service,'ensure').mockResolvedValue();vi.spyOn(service,'fields').mockImplementation(async name=>{const table:any={panels:'test_panels',parameters:'testcreationrules',groups:'testdetailcategory',constraints:'field_constraints',departments:'departments',samples:'sampletype',containers:'samplecontainer'};const info=await fixture.db(table[name]).columnInfo();return Object.keys(info).map(key=>({name:key,type:key==='price'?'int':'varchar',auto:key==='id'&&name!=='panels'||key==='categoryid'&&name==='groups',required:false,default:null,choices:key==='plan'?['input','options']:null}))});});
 afterEach(()=>fixture.db.destroy());
 const panel=()=>service.save('panels',{name:'QA Master FBC',category:1,sample:1,sample_container:1,price:40,unit:'mL'},7);
 it('creates and edits master panels and parameters, audits writes and preserves unrelated results',async()=>{
@@ -39,4 +39,13 @@ it('validates category and parameter ownership in master groups and conditions',
  const created=await panel();
  await expect(service.save('parameters',{name:'Bad',plan:'input',categoryid:999},7,created.id)).rejects.toMatchObject({statusCode:400});
  await expect(service.save('constraints',{fieldid:999,action:'hide'},7,created.id)).rejects.toMatchObject({statusCode:400});
+});
+it('creates master references and rejects names already present regardless of case or spacing',async()=>{
+ await service.save('departments',{department:'Radiology'},7);
+ await service.save('samples',{name:'Whole Blood'},7);
+ await service.save('containers',{name:'Heparin Tube'},7);
+ await expect(service.save('samples',{name:' whole   blood '},7)).rejects.toMatchObject({statusCode:409});
+ await expect(service.save('containers',{name:' edta '},7)).rejects.toMatchObject({statusCode:409});
+ expect(await fixture.db('departments').where({department:'Radiology'}).first()).toBeTruthy();
+ expect(await fixture.db('master_catalog_audit')).toHaveLength(3);
 });

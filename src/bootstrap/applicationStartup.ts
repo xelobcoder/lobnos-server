@@ -67,26 +67,14 @@ import { singleTenantKnexInstance, systemConfigConnection } from "../database/co
 import logger from "../hooks/logger";
 import { bootstrapResultSettings } from "../models/application/appsettings/result-settings/ResultSettingsBootstrapper";
 import { bootstrapSmsProviderSettings } from "../models/application/sms/SmsProviderBootstrapper";
-import { bootstrapMasterControlDatabase } from "./MasterControlBootstrap";
+import { bootstrapMasterControlDatabase, MASTER_CONTROL_CATALOG_TABLES } from "./MasterControlBootstrap";
 import {
      hasCurrentTenantBootstrap, recordTenantBootstrapCompletion, tenantStartupMigrationEnabled,
 } from './TenantStartupMigration';
 
-/** Master test catalog every tenant imports tests from (lives in the master control database). */
-const MASTER_CATALOG_TABLES = [
-     "test_panels",
-     "testdetails",
-     "testdetailcategory",
-     "testconditions",
-     "testcreationrules",
-     "sampletype",
-     "samplecontainer",
-     "departments",
-];
-
 export async function verifyMasterCatalog(): Promise<string[]> {
      const missing: string[] = [];
-     for (const table of MASTER_CATALOG_TABLES) {
+     for (const table of MASTER_CONTROL_CATALOG_TABLES) {
           if (!(await systemConfigConnection.schema.hasTable(table))) missing.push(table);
      }
      if (missing.length > 0) {
@@ -95,7 +83,7 @@ export async function verifyMasterCatalog(): Promise<string[]> {
           );
      } else {
           logger.info(
-               `[Bootstrap] Master catalog ${configuration.masterControlDatabase} ready (${MASTER_CATALOG_TABLES.length} tables)`,
+               `[Bootstrap] Master catalog ${configuration.masterControlDatabase} ready (${MASTER_CONTROL_CATALOG_TABLES.length} tables)`,
           );
      }
      return missing;

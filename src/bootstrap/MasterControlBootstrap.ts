@@ -6,17 +6,21 @@ import logger from '../hooks/logger';
 import { isolateReferenceDdl, safeDatabaseIdentifier } from '../models/Tenancy/FacilitySchema';
 import { CONTROL_TABLES } from './standaloneProvisioning';
 import { EXPORTED_SOURCE_DATABASE, loadFacilityStructureExports } from '../models/Tenancy/FacilityStructureExports';
+import { loadFacilityCatalogSeeds } from '../models/Tenancy/FacilityCatalogSeeds';
 import { seedRegionsAndDistricts } from '../models/application/appsettings/repositories/regions-districts-repo';
+import { REGIONS } from '../models/application/appsettings/constants/regions';
+import { DISTRICTS, DISTRICT_ABBREVIATIONS } from '../models/application/appsettings/constants/districts';
+import { enrichMasterReferenceCatalog } from '../models/Tenancy/MasterReferenceCatalog';
 
 const INITIAL_MIGRATION = '20261013_initial_master_control';
 const SANITIZE_CATALOG_AUTHORS_MIGRATION = '20261013_sanitize_catalog_authors';
 const PLATFORM_REFERENCES_MIGRATION = '20261015_reconcile_platform_references';
+const CATALOG_SNAPSHOT_MIGRATION = '20261123_seed_master_catalog_snapshot';
+const REFERENCE_CATALOG_MIGRATION = '20261123_enrich_master_reference_catalog';
+const FETAL_ULTRASOUND_MIGRATION = '20261123_classify_twin_fetal_ultrasound';
 const LOCK_NAME = 'pls-master-control-bootstrap-v1';
 
-function environmentDatabase(): string {
-     const name = process.env.NODE_ENV === 'production' ? process.env.PRODUCTION_DATABASE : process.env.DATABASE;
-     return safeDatabaseIdentifier(String(name || ''));
-}
+export const MASTER_CONTROL_CATALOG_TABLES = CONTROL_TABLES;
 
 async function rows(connection: Connection, sql: string, values: any[] = []): Promise<any[]> {
      const [result] = await connection.query(sql, values);
@@ -26,51 +30,6 @@ async function rows(connection: Connection, sql: string, values: any[] = []): Pr
 async function tableIsEmpty(connection: Connection, database: string, table: string): Promise<boolean> {
      const result = await rows(connection, 'SELECT 1 FROM ??.?? LIMIT 1', [database, table]);
      return result.length === 0;
-}
-
-interface TargetColumn {
-     COLUMN_NAME: string;
-     IS_NULLABLE: 'YES' | 'NO';
-     COLUMN_DEFAULT: unknown;
-     EXTRA: string;
-}
-
-export function compatibleColumnMapping(sourceRow: Record<string, unknown>, targetColumns: TargetColumn[], table: string) {
-     const sourceByName = new Map(Object.keys(sourceRow).map(name => [name.toLowerCase(), name]));
-     const mapping = targetColumns.map(column => {
-          const source = sourceByName.get(column.COLUMN_NAME.toLowerCase());
-          // Older facility schemas omit condition author metadata; imported catalog entries use admin 1.
-          const fallbackValue = table.toLowerCase() === 'testconditiondefinitions'
-               && column.COLUMN_NAME.toLowerCase() === 'createdby'
-               ? 1
-               : undefined;
-          return { target: column.COLUMN_NAME, source, fallbackValue, column };
-     }).filter(entry => Boolean(entry.source) || entry.fallbackValue !== undefined);
-     const mappedTargets = new Set(mapping.map(entry => entry.target));
-     const missingRequired = targetColumns.filter(column =>
-          !mappedTargets.has(column.COLUMN_NAME)
-          && column.IS_NULLABLE === 'NO'
-          && column.COLUMN_DEFAULT === null
-          && !column.EXTRA.toLowerCase().includes('auto_increment'),
-     );
-     if (missingRequired.length) {
-          throw new Error(`Facility table ${table} cannot seed the master schema; required columns are missing: ${missingRequired.map(column => column.COLUMN_NAME).join(', ')}`);
-     }
-     if (!mapping.length) throw new Error(`Facility table ${table} has no columns compatible with the master schema`);
-     return mapping;
-}
-
-async function copyFacilityTable(connection: Connection, controlDatabase: string, table: string): Promise<void> {
-     if (!(await tableIsEmpty(connection, controlDatabase, table))) return;
-     const sourceRows = await singleTenantKnexInstance(table).select('*');
-     if (!sourceRows.length) return;
-     const targetColumns = await rows(connection, `SELECT COLUMN_NAME, IS_NULLABLE, COLUMN_DEFAULT, EXTRA
-          FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`,
-          [controlDatabase, table]) as TargetColumn[];
-     const mapping = compatibleColumnMapping(sourceRows[0], targetColumns, table);
-     const columns = mapping.map(entry => entry.target);
-     const bindings = sourceRows.map(row => mapping.map(entry => entry.source ? row[entry.source] : entry.fallbackValue));
-     await connection.query('INSERT IGNORE INTO ??.?? (??) VALUES ?', [controlDatabase, table, columns, bindings]);
 }
 
 async function seedCatalogAuthors(connection: Connection, controlDatabase: string): Promise<void> {
@@ -126,8 +85,8 @@ export function removeCatalogForeignKeys(ddl: string): string {
 
 async function installControlCatalogSchema(connection: Connection, controlDatabase: string): Promise<void> {
      const structure = loadFacilityStructureExports();
-     const catalogTables = structure.tables.filter(table => CONTROL_TABLES.includes(table.name));
-     if (catalogTables.length !== CONTROL_TABLES.length) throw new Error('The reviewed master-control catalog schema is incomplete');
+     const catalogTables = structure.tables.filter(table => MASTER_CONTROL_CATALOG_TABLES.includes(table.name));
+     if (catalogTables.length !== MASTER_CONTROL_CATALOG_TABLES.length) throw new Error('The reviewed master-control catalog schema is incomplete');
      const existing = await rows(connection, `SELECT TABLE_NAME FROM INFORMATION_SCHEMA.TABLES
           WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'`, [controlDatabase]);
      const missing = new Set(missingControlCatalogTables(catalogTables.map(table => table.name),
@@ -147,13 +106,46 @@ async function installControlCatalogSchema(connection: Connection, controlDataba
      }
 }
 
-async function seedControlCatalog(connection: Connection, controlDatabase: string): Promise<void> {
-     // Master catalog author rows are disabled placeholders; staff credentials and PII never leave the facility DB.
-     await connection.query('DELETE FROM ??.roles', [controlDatabase]);
-     for (const table of CONTROL_TABLES.filter(table => table !== 'roles')) {
-          await copyFacilityTable(connection, controlDatabase, table);
+async function seedMasterCatalogSnapshot(connection: Connection, controlDatabase: string): Promise<void> {
+     const seeds = loadFacilityCatalogSeeds();
+     const seededTables = new Set<string>();
+     await connection.beginTransaction();
+     try {
+          await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+          for (const seed of seeds) {
+               if (!(await tableIsEmpty(connection, controlDatabase, seed.table))) {
+                    logger.warn(`[Bootstrap] Preserving existing master catalog table ${seed.table}; snapshot seed skipped`);
+                    continue;
+               }
+               for (const statement of seed.statements) {
+                    const prefix = `INSERT INTO \`${seed.table}\``;
+                    if (!statement.startsWith(prefix)) throw new Error(`Unexpected seed table for master catalog: ${seed.table}`);
+                    await connection.query(statement.replace(prefix, `INSERT INTO \`${controlDatabase}\`.\`${seed.table}\``));
+               }
+               seededTables.add(seed.table);
+          }
+          if (seededTables.has('departments')) {
+               await connection.query(`UPDATE \`${controlDatabase}\`.departments SET departmentManager = 'Master catalog', employeeid = 1`);
+          }
+          if (seededTables.has('testdetails')) await connection.query(`UPDATE \`${controlDatabase}\`.testdetails SET updatedby = 1`);
+          if (seededTables.has('testdetailcategory')) {
+               await connection.query(`UPDATE \`${controlDatabase}\`.testdetailcategory SET createdby = 1, updatedby = NULL`);
+          }
+          if (seededTables.has('testconditiondefinitions')) {
+               await connection.query(`UPDATE \`${controlDatabase}\`.testconditiondefinitions SET createdBy = 1, updatedBy = NULL`);
+          }
+          if (seededTables.has('testconditions')) await connection.query(`UPDATE \`${controlDatabase}\`.testconditions SET createdBy = 1`);
+          if (seededTables.has('calculated_parameter_formulas')) {
+               await connection.query(`UPDATE \`${controlDatabase}\`.calculated_parameter_formulas SET created_by = 1`);
+          }
+          await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)', [controlDatabase, CATALOG_SNAPSHOT_MIGRATION]);
+          await connection.commit();
+     } catch (error) {
+          await connection.rollback();
+          throw error;
+     } finally {
+          await connection.query('SET FOREIGN_KEY_CHECKS = 1');
      }
-     await seedCatalogAuthors(connection, controlDatabase);
 }
 
 async function installPlatformSchema(connection: Connection, database: string): Promise<void> {
@@ -246,6 +238,28 @@ interface FacilityDistrict {
      regionid: number;
 }
 
+function bundledLocationReferences(): {
+     regions: Array<{ id: number; name: string; regioncode: string }>;
+     districts: FacilityDistrict[];
+} {
+     const regions = REGIONS.map((region, index) => ({ ...region, id: index + 1 }));
+     const regionIds = new Map(regions.map(region => [region.regioncode, region.id]));
+     const districts = DISTRICTS.map((district, index) => {
+          const regionCode = DISTRICT_ABBREVIATIONS[district.code.charAt(0)];
+          const regionid = regionIds.get(regionCode);
+          if (!regionid) throw new Error(`Bundled district ${district.code} has no region mapping`);
+          return { ...district, id: index + 1, regionid };
+     });
+     return { regions, districts };
+}
+
+function isMissingFacilityReferenceSource(error: unknown): boolean {
+     if (!error || typeof error !== 'object') return false;
+     const source = error as { code?: string; originalError?: { code?: string }; cause?: { code?: string } };
+     const code = source.code || source.originalError?.code || source.cause?.code;
+     return ['ER_BAD_DB_ERROR', 'ER_NO_DB_ERROR', 'ER_NO_SUCH_TABLE'].includes(String(code));
+}
+
 interface PlatformDistrict {
      id: number;
      state_id: number;
@@ -287,13 +301,21 @@ async function seedPlatformReferences(connection: Connection, database: string):
      const [country] = await rows(connection, 'SELECT id FROM ??.platform_countries ORDER BY id LIMIT 1', [database]);
      if (!country) throw new Error('Master-control bootstrap requires at least one country');
 
-     let regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
-     let districts: FacilityDistrict[] = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
-     if (!regions.length || !districts.length) {
-          // Settings normally seeds these lazily; master bootstrap needs them before tenant bootstrappers run.
-          await seedRegionsAndDistricts(singleTenantKnexInstance);
+     let regions: Array<{ id: number; name: string; regioncode: string }>;
+     let districts: FacilityDistrict[];
+     try {
           regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
           districts = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
+          if (!regions.length || !districts.length) {
+               // Settings normally seeds these lazily; master bootstrap needs them before tenant bootstrappers run.
+               await seedRegionsAndDistricts(singleTenantKnexInstance);
+               regions = await singleTenantKnexInstance('regions').select('id', 'name', 'regioncode');
+               districts = await singleTenantKnexInstance('districts').select('id', 'name', 'code', 'regionid');
+          }
+     } catch (error) {
+          if (!isMissingFacilityReferenceSource(error)) throw error;
+          logger.warn('[Bootstrap] Facility database reference tables unavailable; using bundled locations for master control');
+          ({ regions, districts } = bundledLocationReferences());
      }
      if (!regions.length) throw new Error('Facility regions are empty; master-control bootstrap cannot derive location data');
      if (!districts.length) throw new Error('Facility districts are empty; master-control bootstrap cannot derive location data');
@@ -332,7 +354,6 @@ async function seedPlatformReferences(connection: Connection, database: string):
 export async function bootstrapMasterControlDatabase(): Promise<void> {
      if (configuration.desktopStandalone) return;
      const database = safeDatabaseIdentifier(configuration.masterControlDatabase);
-     environmentDatabase();
      const production = process.env.NODE_ENV === 'production';
      const connection = await mysql.createConnection({
           ...databaseTlsOptions(process.env.SYSTEM_CONFIG_DB_HOST || (production ? process.env.PRODUCTION_DB_HOSTNAME : process.env.DB_HOST), 'SYSTEM_CONFIG_DB'),
@@ -365,10 +386,42 @@ export async function bootstrapMasterControlDatabase(): Promise<void> {
           // an incomplete schema is repaired from reviewed assets, without a legacy master DB.
           await installPlatformSchema(connection, database);
           await installControlCatalogSchema(connection, database);
-          const completed = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?', [database, INITIAL_MIGRATION]);
-          if (!completed.length) {
-               await seedControlCatalog(connection, database);
+          const catalogSeeded = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
+               [database, CATALOG_SNAPSHOT_MIGRATION]);
+          if (!catalogSeeded.length) await seedMasterCatalogSnapshot(connection, database);
+          const referencesSeeded = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
+               [database, REFERENCE_CATALOG_MIGRATION]);
+          if (!referencesSeeded.length) {
+               await connection.beginTransaction();
+               try {
+                    await enrichMasterReferenceCatalog((sql, values = []) => rows(connection, sql, values), database);
+                    await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+                         [database, REFERENCE_CATALOG_MIGRATION]);
+                    await connection.commit();
+               } catch (error) {
+                    await connection.rollback();
+                    throw error;
+               }
           }
+          const fetalClassified = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
+               [database, FETAL_ULTRASOUND_MIGRATION]);
+          if (!fetalClassified.length) {
+               await connection.beginTransaction();
+               try {
+                    const departments = await rows(connection,
+                         'SELECT id FROM ??.departments WHERE LOWER(TRIM(department)) = ?', [database, 'ultrasound']);
+                    if (departments.length !== 1) throw new Error('Exactly one ultrasound department is required');
+                    await connection.query('UPDATE ??.test_panels SET category = ? WHERE LOWER(TRIM(name)) = ?',
+                         [database, departments[0].id, 'twin fetal anomally']);
+                    await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+                         [database, FETAL_ULTRASOUND_MIGRATION]);
+                    await connection.commit();
+               } catch (error) {
+                    await connection.rollback();
+                    throw error;
+               }
+          }
+          const completed = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?', [database, INITIAL_MIGRATION]);
           const references = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
                [database, PLATFORM_REFERENCES_MIGRATION]);
           if (!completed.length || !references.length) {

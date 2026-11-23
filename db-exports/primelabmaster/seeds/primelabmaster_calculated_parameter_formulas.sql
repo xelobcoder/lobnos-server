@@ -1,0 +1,1 @@
+INSERT INTO `calculated_parameter_formulas` VALUES (1,100151,1033,'ALBUMIN * LANV','[{\"unit\":\"IU/L\",\"token\":\"ALBUMIN\",\"fieldId\":303},{\"unit\":\"IU/L\",\"token\":\"LANV\",\"fieldId\":302}]',NULL,2,'[]',1,'2026-10-05',NULL,1,1,'2026-10-05 08:23:31');

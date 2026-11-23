@@ -73,6 +73,14 @@ export class MasterCatalogService {
    if(name==='parameters'){if(!data.field&&!before?.field)data.field=data.name;const category=Number(data.categoryid||0);if(category&&!await trx('testdetailcategory').where({categoryid:category,testid,deleted:0}).first())fail('Choose a group belonging to this test');}
    if(name==='constraints'){const fieldColumn=fields.some((c:any)=>c.name==='fieldid')?'fieldid':'rule_id';const id=positive(data[fieldColumn]??before?.[fieldColumn]);if(!await trx('testcreationrules').where({id,testid}).first())fail('Choose a parameter belonging to this test');}
    if(name==='conditions'){const group=positive(data.conditionId??before?.conditionId);if(!await trx('testconditiondefinitions').where({id:group,testId:testid}).first())fail('Choose a condition group belonging to this test');}
+   if(['departments','samples','containers'].includes(name)){
+    const key=name==='departments'?'department':'name';
+    const value=String(data[key]??before?.[key]??'').trim().replace(/\s+/g,' ');
+    if(!value)fail(`Enter ${key}`);
+    const existing=await trx(module.table).select(module.key,key);
+    if(existing.some((row:any)=>Number(row[module.key])!==recordid&&String(row[key]).trim().replace(/\s+/g,' ').toLowerCase()===value.toLowerCase()))fail('A catalogue item with this name already exists',409);
+    if(key in data)data[key]=value;
+   }
    if(name==='panels'){for(const [key,table] of [['category','departments'],['sample','sampletype'],['sample_container','samplecontainer']])if(!await trx(table).where({id:positive(data[key]??before?.[key])}).first())fail(`Choose a valid ${key.replace('_',' ')}`);if(await trx('test_panels').whereRaw('LOWER(name) = LOWER(?)',[String(data.name??before?.name)]).modify((q:any)=>{if(recordid)q.whereNot('id',recordid)}).first())fail('A master test with this name already exists',409);}
    if(name==='parameters')Object.assign(data,definitionForSave({...before,...data}),await unitForSave({...before,...data}));
    if(name==='calculations'){const merged={...before,...data};const inputs=JSON.parse(merged.input_parameters||'[]');if(!Array.isArray(inputs)||!inputs.length)fail('Choose formula input parameters');const ids=[positive(merged.output_field_id),...inputs.map((i:any)=>positive(i.fieldId))];const valid=await trx('testcreationrules').where({testid}).whereIn('id',ids).select('id');if(new Set(valid.map((r:any)=>Number(r.id))).size!==new Set(ids).size)fail('Formula parameters must belong to this test');try{validateFormula(merged.expression,inputs.map((i:any)=>i.token))}catch(error:any){fail(error.message||'Invalid calculation formula')}}

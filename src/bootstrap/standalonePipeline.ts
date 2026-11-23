@@ -11,6 +11,10 @@ export const LOCAL_MIGRATIONS = [
      '20261114_patient_duplicate_candidates',
      '20261115_patient_contact_ownership',
      '20261116_patient_phone_contacts',
+     '20261121_parameter_definition_and_units',
+     '20261121_parameter_required',
+     '20261121_patient_econsent',
+     '20261121_report_validation_linearity',
      '20261104_clinician_session_revocation',
      '20260716_drop_tax_configuration_relief_columns',
      '20260716_drop_tax_configuration_statutory_columns',
@@ -89,7 +93,7 @@ export function verifyLocalPipelineAssets(): void {
      const extension = __filename.endsWith('.ts') ? '.ts' : '.js';
      const directory = path.join(root, 'migrations');
      try {
-          const actual = fs.readdirSync(directory).filter(name => name.endsWith(extension)).sort();
+          const actual = fs.readdirSync(directory).filter(name => name.endsWith(extension) && !name.includes('.test.')).sort();
           const expected = LOCAL_MIGRATIONS.map(name => name + extension).sort();
           if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error();
           for (const name of LOCAL_REFERENCE_MODULES) {

@@ -26,5 +26,5 @@ export async function seedFacilityReferences(db: Knex, catalog: ReturnType<typeo
           return { insert: (rows: Array<{ department: string }>) =>
                db(table).insert(rows.map(row => ({ department: row.department, departmentManager: adminName, employeeid: 1 }))) };
      });
-     await applyFacilityCatalogSeeds(db, catalog);
+     await applyFacilityCatalogSeeds(db, catalog, adminName);
 }

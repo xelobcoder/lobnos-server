@@ -50,7 +50,7 @@ describe('standalone provisioning (mocked MySQL only)', () => {
      it('validates every authoritative object, all catalogs and pipeline prerequisites offline', () => {
           expect(() => validateProvisionStructure(structure)).not.toThrow();
           expect(() => verifyLocalPipelineAssets()).not.toThrow();
-          expect(loadFacilityCatalogSeeds()).toHaveLength(9);
+          expect(loadFacilityCatalogSeeds()).toHaveLength(13);
           expect(structure.tables.every(table => /ENGINE=InnoDB\b/.test(table.ddl))).toBe(true);
      });
      it('refuses incomplete/externally dependent assets before connecting', async () => {

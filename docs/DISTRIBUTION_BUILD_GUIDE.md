@@ -297,7 +297,7 @@ Prime Laboratory Software
 
 Run `pnpm create-distribution` from `lobnos-server` (hyphenated command).
 The package must include `db-exports/primelabmaster/tables-structure` (288 SQL files)
-and `db-exports/primelabmaster/seeds` (9 catalogue SQL files), beside `dist`.
+and `db-exports/primelabmaster/seeds` (13 catalogue SQL files), beside `dist`.
 All distribution builders now check these assets before packaging and after copying.
 
 For an already copied installation reporting “Required facility structure assets are missing”,

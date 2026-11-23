@@ -5,9 +5,8 @@ vi.mock('../database/connection', () => ({ singleTenantKnexInstance: mocks.facil
 vi.mock('mysql2/promise', () => ({ default: { createConnection: mocks.connect } }));
 vi.mock('../hooks/logger', () => ({ default: { info: vi.fn(), warn: mocks.warn } }));
 
-import { bootstrapMasterControlDatabase, compatibleColumnMapping, missingControlCatalogTables, planPlatformDistrictSeeds, removeCatalogForeignKeys } from './MasterControlBootstrap';
+import { bootstrapMasterControlDatabase, MASTER_CONTROL_CATALOG_TABLES, missingControlCatalogTables, planPlatformDistrictSeeds, removeCatalogForeignKeys } from './MasterControlBootstrap';
 import { loadFacilityStructureExports } from '../models/Tenancy/FacilityStructureExports';
-import { CONTROL_TABLES } from './standaloneProvisioning';
 import { configuration } from '../hooks/configuration';
 import { DISTRICTS } from '../models/application/appsettings/constants/districts';
 
@@ -92,13 +91,16 @@ describe('master-control reference recovery', () => {
                     if (sql.includes('GET_LOCK')) return [[{ acquired: 1 }]];
                     if (sql.includes('INFORMATION_SCHEMA.SCHEMATA')) return [[{ SCHEMA_NAME: 'master_test' }]];
                     if (sql.includes("TABLE_NAME = 'pls_master_migrations'")) return [[{ TABLE_NAME: 'pls_master_migrations' }]];
-                    if (sql.includes('INFORMATION_SCHEMA.TABLES')) return [CONTROL_TABLES.map(TABLE_NAME => ({ TABLE_NAME }))];
+                    if (sql.includes('INFORMATION_SCHEMA.TABLES')) return [MASTER_CONTROL_CATALOG_TABLES.map(TABLE_NAME => ({ TABLE_NAME }))];
                     if (sql.startsWith('SELECT name FROM ??.pls_master_migrations')) {
-                         return [values[1] === '20261015_reconcile_platform_references'
+                         return [values[1] === '20261123_seed_master_catalog_snapshot'
+                              || values[1] === '20261015_reconcile_platform_references'
                               || (!initialComplete && values[1] === '20261013_initial_master_control')
                               ? [] : [{ name: values[1] }]];
                     }
-                    if (sql.includes('SELECT 1 FROM ??.??')) return [[{ present: 1 }]];
+                    if (sql.includes('SELECT 1 FROM ??.??')) {
+                         return [MASTER_CONTROL_CATALOG_TABLES.includes(String(values[1])) ? [] : [{ present: 1 }]];
+                    }
                     if (sql.includes('SELECT id FROM ??.platform_countries')) return [[{ id: 1 }]];
                     if (sql.includes('SELECT id FROM ??.platform_states')) return [[{ id: 3 }]];
                     if (sql.includes('SELECT id, state_id, district_code')) {
@@ -122,8 +124,8 @@ describe('master-control reference recovery', () => {
           const inserts = connection.query.mock.calls.filter(([sql]) => sql.startsWith('INSERT INTO ??.platform_districts'));
           expect(inserts.map(([, values]) => values.slice(1))).toEqual([[61, 1, 3, 'Tano South', 'HTD61']]);
           expect(mocks.warn).toHaveBeenCalledWith(expect.stringContaining('HT imported as HTD61'));
-          expect(connection.beginTransaction).toHaveBeenCalledOnce();
-          expect(connection.commit).toHaveBeenCalledOnce();
+          expect(connection.beginTransaction).toHaveBeenCalledTimes(2);
+          expect(connection.commit).toHaveBeenCalledTimes(2);
           expect(connection.rollback).not.toHaveBeenCalled();
           expect(connection.query).toHaveBeenCalledWith('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
                [configuration.masterControlDatabase, '20261015_reconcile_platform_references']);
@@ -134,6 +136,7 @@ describe('master-control reference recovery', () => {
           await bootstrapMasterControlDatabase();
           const markers = connection.query.mock.calls.filter(([sql]) => sql.startsWith('INSERT INTO ??.pls_master_migrations'));
           expect(markers.map(([, values]) => values[1])).toEqual([
+               '20261123_seed_master_catalog_snapshot',
                '20261013_initial_master_control', '20261015_reconcile_platform_references',
           ]);
           const insertOrder = connection.query.mock.invocationCallOrder[
@@ -177,53 +180,55 @@ describe('master-control reference recovery', () => {
           const connection = connectionHarness(true);
           await expect(bootstrapMasterControlDatabase()).rejects.toThrow('write failed');
           expect(connection.rollback).toHaveBeenCalledOnce();
-          expect(connection.commit).not.toHaveBeenCalled();
-          expect(connection.query.mock.calls.some(([sql]) => sql.startsWith('INSERT INTO ??.pls_master_migrations'))).toBe(false);
+          expect(connection.commit).toHaveBeenCalledOnce();
+          expect(connection.query.mock.calls.some(([sql, values]) =>
+               sql.startsWith('INSERT INTO ??.pls_master_migrations') && values[1] !== '20261123_seed_master_catalog_snapshot',
+          )).toBe(false);
           expect(connection.end).toHaveBeenCalledOnce();
      });
-});
 
-describe('compatibleColumnMapping', () => {
-     it('maps facility and master columns case-insensitively and ignores legacy-only fields', () => {
-          const mapping = compatibleColumnMapping(
-               { id: 1, createdBy: 3, legacyValue: 'ignored' },
-               [
-                    { COLUMN_NAME: 'id', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: 'auto_increment' },
-                    { COLUMN_NAME: 'createdby', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
-               ],
-               'testconditiondefinitions',
-          );
-          expect(mapping.map(entry => [entry.target, entry.source])).toEqual([
-               ['id', 'id'],
-               ['createdby', 'createdBy'],
-          ]);
+     it('seeds the empty master catalog from checked-in assets without copying facility catalog tables', async () => {
+          const connection = connectionHarness();
+          await bootstrapMasterControlDatabase();
+
+          const snapshotInserts = connection.query.mock.calls
+               .map(([sql]) => String(sql))
+               .filter(sql => sql.startsWith(`INSERT INTO \`${configuration.masterControlDatabase}\`.`));
+          expect(snapshotInserts.some(sql => sql.includes('departments`'))).toBe(true);
+          expect(snapshotInserts.some(sql => sql.includes('test_panels`'))).toBe(true);
+          expect(snapshotInserts.some(sql => sql.includes('testcreationrules`'))).toBe(true);
+          expect(mocks.facility.mock.calls.map(([table]) => table)).not.toContain('test_panels');
      });
 
-     it('fails before insertion when the existing master table requires unavailable data', () => {
-          expect(() => compatibleColumnMapping(
-               { id: 1 },
-               [
-                    { COLUMN_NAME: 'id', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: 'auto_increment' },
-                    { COLUMN_NAME: 'required_name', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
-               ],
-               'catalog',
-          )).toThrow('required columns are missing: required_name');
+     it('records the reference upgrade only after its catalog changes succeed', async () => {
+          const connection = connectionHarness();
+          const previous = connection.query.getMockImplementation()!;
+          connection.query.mockImplementation(async (sql: string, values: unknown[] = []) => {
+               if (sql.startsWith('SELECT name FROM ??.pls_master_migrations') && values[1] === '20261123_enrich_master_reference_catalog') return [[]];
+               if (sql.startsWith('SELECT id, name FROM ??.??')) return [[]];
+               if (sql.startsWith('SELECT id, department AS name FROM ??.??')) return [[{ id: 6, name: 'Ultrasound' }]];
+               if (sql.includes('MAX(CASE WHEN r.plan')) return [[{ id: 100240, name: 'TESTICULAR DOPPLER', category: 0, imaging: 0 }]];
+               return previous(sql, values);
+          });
+          await bootstrapMasterControlDatabase();
+          expect(connection.query).toHaveBeenCalledWith('UPDATE ??.?? SET category = ? WHERE id = ?',
+               [configuration.masterControlDatabase, 'test_panels', 6, 100240]);
+          expect(connection.query).toHaveBeenCalledWith('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+               [configuration.masterControlDatabase, '20261123_enrich_master_reference_catalog']);
      });
 
-     it('uses the initial admin as the author when older condition tables omit createdBy', () => {
-          const mapping = compatibleColumnMapping(
-               { id: 1, conditionName: 'Positive', testId: 7 },
-               [
-                    { COLUMN_NAME: 'id', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: 'auto_increment' },
-                    { COLUMN_NAME: 'conditionName', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
-                    { COLUMN_NAME: 'testId', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
-                    { COLUMN_NAME: 'createdBy', IS_NULLABLE: 'NO', COLUMN_DEFAULT: null, EXTRA: '' },
-               ],
-               'testconditiondefinitions',
-          );
-          const row = { id: 1, conditionName: 'Positive', testId: 7 };
-          expect(mapping.map(entry => entry.source ? row[entry.source] : entry.fallbackValue))
-               .toEqual([1, 'Positive', 7, 1]);
+     it('uses bundled platform locations when the facility database is absent', async () => {
+          mocks.facility.mockImplementation(() => {
+               const error: any = new Error('facility database is absent');
+               error.code = 'ER_BAD_DB_ERROR';
+               throw error;
+          });
+          const connection = connectionHarness();
+
+          await bootstrapMasterControlDatabase();
+
+          expect(mocks.warn).toHaveBeenCalledWith(expect.stringContaining('using bundled locations'));
+          expect(connection.query.mock.calls.some(([sql]) => String(sql).startsWith('INSERT INTO ??.platform_states'))).toBe(true);
      });
 });
 
@@ -254,7 +259,7 @@ describe('master-control catalog schema reconciliation', () => {
 
      it('keeps every reviewed master catalog table DDL valid without REFERENCES constraints', () => {
           const structure = loadFacilityStructureExports();
-          for (const name of CONTROL_TABLES) {
+          for (const name of MASTER_CONTROL_CATALOG_TABLES) {
                const ddl = structure.tables.find(table => table.name === name)!.ddl;
                const result = removeCatalogForeignKeys(ddl);
                expect(result, name).not.toMatch(/FOREIGN KEY|REFERENCES/i);

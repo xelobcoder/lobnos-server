@@ -126,11 +126,14 @@ describe('source-controlled reference catalog', () => {
           expect(statement).toContain(wrongTest);
           expect(statement).toContain(configured);
      });
-     it('normalizes all 12 actual exported empty ultrasound field types', () => {
+     it('normalizes exported legacy empty plans to supported result types', () => {
           const [statement] = loadFacilityCatalogSeeds().find(seed => seed.table === 'testcreationrules')!.statements;
-          expect(statement.match(/'ultrasoundFields'/g)).toHaveLength(22);
-          for (const id of [604, 622, 623, 625, 626, 632, 633, 776, 777, 878, 879, 892]) {
+          expect(statement.match(/'ultrasoundFields'/g)).toHaveLength(16);
+          for (const id of [604, 622, 623, 625, 626, 632, 633, 776, 777, 878, 879, 892, 979, 980, 981, 982]) {
                expect(statement).toMatch(new RegExp(`\\(${id},\\d+,'[^']*','','',0,'','ultrasoundFields',`));
+          }
+          for (const id of [261, 262, 263, 264, 265]) {
+               expect(statement).toMatch(new RegExp(`\\(${id},100114,'[^']*','','',0,'','input',`));
           }
      });
      it('loads real reference assets without appended unrelated DDL or default accounts', () => {
@@ -167,7 +170,12 @@ describe('source-controlled reference catalog', () => {
                if (fail && sql.startsWith('INSERT INTO')) throw new Error('seed failure');
           };
           const db: any = { transaction: async (action: any) => action(trx) };
-          const operation = applyFacilityCatalogSeeds(db, [{ table: 'sampletype', statements: ["INSERT INTO `sampletype` (`id`,`name`,`addedon`) VALUES (1,'test',CURRENT_TIMESTAMP);"] }]);
+          const operation = applyFacilityCatalogSeeds(db, [
+               { table: 'sampletype', statements: ["INSERT INTO `sampletype` (`id`,`name`,`addedon`) VALUES (1,'test',CURRENT_TIMESTAMP);"] },
+               { table: 'departments', statements: ["INSERT INTO `departments` (`id`,`department`,`departmentManager`,`employeeid`) VALUES (1,'test','Administrator',1);"] },
+               { table: 'test_panels', statements: ["INSERT INTO `test_panels` (`id`,`name`) VALUES (1,'test');"] },
+               { table: 'testdetails', statements: ["INSERT INTO `testdetails` (`id`,`testid`) VALUES (1,1);"] },
+          ]);
           if (fail) await expect(operation).rejects.toThrow('seed failure');
           else await operation;
           expect(calls[0]).toBe('SET FOREIGN_KEY_CHECKS = 0');
@@ -178,7 +186,8 @@ describe('source-controlled reference catalog', () => {
           expect(calls.some(sql => /DROP|ALTER|USE /.test(sql))).toBe(false);
           if (!fail) {
                expect(updates).toContainEqual({ table: 'test_panels', value: { price: 0 } });
-               expect(updates).toContainEqual({ table: 'testdetails', value: { testcost: 0, testprice: 0 } });
+               expect(updates).toContainEqual({ table: 'departments', value: { departmentManager: 'Platform administrator', employeeid: 1 } });
+               expect(updates).toContainEqual({ table: 'testdetails', value: { updatedby: 1, testcost: 0, testprice: 0 } });
           }
      });
 });

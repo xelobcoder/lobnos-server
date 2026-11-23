@@ -72,7 +72,7 @@ async function initialize(request: LocalProvisionRequest): Promise<void> {
                // The legacy reference modules delete/reinsert some tables. Only use them for
                // this owned, still-empty installation, with the checkpoint in the SAME transaction.
                for (const table of [...FACILITY_CATALOG_TABLES, 'regions', 'districts', 'registrationfields',
-                    'shifts', 'paymentmodes', 'applicationsettings', 'departments', 'branch', 'roles', 'companyprofile']) {
+                    'shifts', 'paymentmodes', 'applicationsettings', 'branch', 'roles', 'companyprofile']) {
                     if (await trx(table).first()) throw new Error('Uncheckpointed reference data exists; automatic seeding refused');
                }
                await trx('branch').insert({ branchid: 1, name: state.organizationName, address: '', email: '',
@@ -93,20 +93,16 @@ async function initialize(request: LocalProvisionRequest): Promise<void> {
                const marker = await trx('pls_local_installation').where({ owner_id: state.installationId }).forUpdate().first();
                if (!marker) throw new LocalProvisionError('Control installation checkpoint is missing. Seeding was refused.');
                if (marker.seeded) return;
-               for (const table of [...FACILITY_CATALOG_TABLES, 'departments', 'roles']) {
+               for (const table of [...FACILITY_CATALOG_TABLES, 'roles']) {
                     if (await trx(table).first()) throw new Error('Uncheckpointed control catalog exists; automatic seeding refused');
                }
                // Catalog definitions have author FKs to roles. Keep a disabled local author
                // instead of dangling IDs or copying any staff/patient records from the source.
                await trx('roles').insert({ employeeid: 1, username: 'Local catalog author', role: 'admin',
                     password: passwordHash, activation: 0, email: `catalog.${state.tenantId}@pls.local`, mobile: '' });
-               await applyFacilityCatalogSeeds(trx, catalog);
-               await require('../cron/command-line-tool-database/Seeds/07_departments').seed((table: string) => {
-                    if (table !== 'departments') throw new Error('Unexpected reference table');
-                    return { insert: (rows: any[]) => trx(table).insert(rows.map(row => ({
-                         department: row.department, departmentManager: 'Local administrator', employeeid: 1,
-                    }))) };
-               });
+               await applyFacilityCatalogSeeds(trx, catalog, 'Local administrator');
+               const { enrichStandaloneMasterReferenceCatalog } = require('../models/Tenancy/MasterReferenceCatalog');
+               await enrichStandaloneMasterReferenceCatalog(trx, LOCAL_CONTROL_DATABASE);
                await trx('pls_local_installation').where({ owner_id: state.installationId }).update({ seeded: true });
           });
           stage = 'strict runtime bootstrappers';

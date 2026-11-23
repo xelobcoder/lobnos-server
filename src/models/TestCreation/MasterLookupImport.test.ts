@@ -24,3 +24,10 @@ it('normalizes whitespace and rejects missing or invalid source IDs without part
  const service=new MasterLookupImport(source.db,destination.db);expect((await service.preview('samples'))[0].status).toBe('existing');
  expect(await service.apply('samples',[100],7)).toEqual({imported:0,skipped:1});await expect(service.apply('samples',[100,999],7)).rejects.toMatchObject({statusCode:409});await expect(service.apply('invalid',[100],7)).rejects.toMatchObject({statusCode:400});
 });
+it('distinguishes unknown container volume from zero without replacing facility values',async()=>{
+ await source.db('samplecontainer').insert({id:100,name:'HEPARIN TUBE',volume_capacity:null});
+ await destination.db('samplecontainer').insert({name:'HEPARIN TUBE',volume_capacity:0});
+ const service=new MasterLookupImport(source.db,destination.db);
+ expect((await service.preview('containers'))[0]).toMatchObject({status:'conflict',details:expect.stringContaining('Volume unspecified')});
+ expect(await service.apply('containers',[100],7)).toEqual({imported:0,skipped:1});
+});

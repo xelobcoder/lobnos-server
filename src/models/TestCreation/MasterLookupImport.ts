@@ -5,8 +5,8 @@ function spec(kind:string){return (Object.prototype.hasOwnProperty.call(specs,ki
 export class MasterLookupImport {
  constructor(private source:any,private destination:any){}
  async preview(kind:string){const s=spec(kind);const [source,local]=await Promise.all([this.source(s.table).select('id',...s.fields).orderBy(s.key),this.destination(s.table).select('*')]);
- return source.map((row:any)=>{const matches=local.filter((l:any)=>normalize(l[s.key])===normalize(row[s.key]));const conflict=matches.length>1||matches.some((l:any)=>kind==='containers'&&['volume_capacity','material','color','is_reusable'].some(key=>['volume_capacity','is_reusable'].includes(key)?Number(l[key]??0)!==Number(row[key]??0):normalize(l[key])!==normalize(row[key])));
- return {id:Number(row.id),name:row[s.key],details:kind==='containers'?`${row.volume_capacity??0} mL · ${row.material??''} · ${row.color??''}`:'',status:matches.length?(conflict?'conflict':'existing'):'new',values:Object.fromEntries(s.fields.map(key=>[key,row[key]]))};});}
+ return source.map((row:any)=>{const matches=local.filter((l:any)=>normalize(l[s.key])===normalize(row[s.key]));const conflict=matches.length>1||matches.some((l:any)=>kind==='containers'&&['volume_capacity','material','color','is_reusable'].some(key=>['volume_capacity','is_reusable'].includes(key)?(l[key]==null||row[key]==null?l[key]!=null||row[key]!=null:Number(l[key])!==Number(row[key])):normalize(l[key])!==normalize(row[key])));
+ return {id:Number(row.id),name:row[s.key],details:kind==='containers'?`${row.volume_capacity==null?'Volume unspecified':`${row.volume_capacity} mL`} · ${row.material||'Material unspecified'} · ${row.color||'Color unspecified'}`:'',status:matches.length?(conflict?'conflict':'existing'):'new',values:Object.fromEntries(s.fields.map(key=>[key,row[key]]))};});}
  async apply(kind:string,ids:any,employeeid:number){const s=spec(kind);
  if(!Array.isArray(ids)||!ids.length||ids.length>1000||ids.some(id=>!Number.isSafeInteger(id)||id<1)||new Set(ids).size!==ids.length)fail('Select valid master items to import');
  // Serialize imports per lookup kind, including facilities whose lookup tables are empty.
