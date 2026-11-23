@@ -150,4 +150,19 @@ describe('instrument maintenance recurrence and status lifecycle', () => {
           expect(cleared.status).toBe('cleared');
           expect(cleared.reviewed_by).toBe(90);
      });
+     it('requires a completed task, one completed action per failed check, and an independent reviewer', async () => {
+          const db = queryDb(); state.connection.mockResolvedValue(db);
+          state.store[T.runs] = [{ id: 5, status: 'awaiting_corrective_action', performed_by: 7 }];
+          state.store[T.checks] = [{ id: 6, run_id: 5, result: 'fail' }, { id: 8, run_id: 5, result: 'fail' }];
+          state.store[T.actions] = [{ id: 1, run_id: 5, check_id: 6, status: 'completed', completed_by: 9 }, { id: 2, run_id: 5, check_id: 6, status: 'completed', completed_by: 9 }];
+          state.store[T.tasks] = [{ id: 3, run_id: 5, status: 'pending' }];
+          const service = new InstrumentMaintenanceService(2);
+          await expect(service.supervisorReview(5, 10, 'Verified')).rejects.toThrow('failed-check');
+          state.store[T.actions][1].check_id = 8;
+          await expect(service.supervisorReview(5, 10, 'Verified')).rejects.toThrow('Complete the maintenance task');
+          state.store[T.tasks][0].status = 'completed';
+          await expect(service.supervisorReview(5, 7, 'Verified')).rejects.toThrow('independent supervisor');
+          await expect(service.supervisorReview(5, 9, 'Verified')).rejects.toThrow('independent supervisor');
+          await expect(service.supervisorReview(5, 10, 'Verified')).resolves.toMatchObject({ status: 'cleared' });
+     });
 });

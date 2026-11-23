@@ -121,7 +121,7 @@ export async function getResultReleaseWorkflows(
                validatorIds: [...validators],
                differentReleaserRequired: Boolean(settings?.requireDifferentReleaserFromValidator),
                differentValidatorRequired, differentValidatorSatisfied,
-               explicitReleaseRequired, availableForPrinting:validationComplete&&differentValidatorSatisfied&&(!managerApprovalRequired||managerApproved)&&(!maintenanceBlocked||released)&&(!explicitReleaseRequired||released),
+               explicitReleaseRequired, availableForPrinting:validationComplete&&differentValidatorSatisfied&&(!managerApprovalRequired||managerApproved)&&!maintenanceBlocked&&(!explicitReleaseRequired||released),
                managerApprovalRequired, managerApproved,
                managerApprovedBy: managerApproval?.employeeid ?? null,
                managerApprovedAt: managerApproval?.created_at ?? null,

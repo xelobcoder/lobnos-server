@@ -80,6 +80,16 @@ describe('result release authorization', () => {
         expect(await workflow()).toMatchObject({ canRelease: false, maintenanceBlocked: true, availableForPrinting: false });
         await expect(release()).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
     });
+    it('blocks direct printing when signing is optional and the assigned instrument is held', async () => {
+        fixture.native.exec(`
+            UPDATE resultsettings SET resultsEntrySettings='{"requireExplicitResultRelease":false}';
+            INSERT INTO devices(id) VALUES ('analyzer-1');
+            INSERT INTO lab_work_assignments VALUES (1,'analyzer-1');
+            INSERT INTO pls_instrument_maintenance_runs(device_id,status) VALUES ('analyzer-1','awaiting_corrective_action');
+        `);
+        await expect(captureReportRevision(fixture.db, 1, 'print')).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+        expect((await workflow()).availableForPrinting).toBe(false);
+    });
     it('allows managers to release in selected-staff mode without adding them to the scientist list', async () => {
         settings.resultReleasePolicy = 'selected_staff';
         const manager = {...actor, employeeid: 12, role: 'manager'};

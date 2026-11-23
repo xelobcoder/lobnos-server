@@ -399,8 +399,7 @@ export default class Creator {
                     if (await new ManualParameterRerunService(tenantId).stageAnalyzerResults(
                          trx, Number(ascensionid), Number(testid), fields as any[], Number(employeeid),
                     )) {
-                         const rerunWork = await trx('lab_work_assignments').where({ ascensionid }).forUpdate().first('device_id');
-                         await new InstrumentMaintenanceService(tenantId).assertInstrumentClear(trx, rerunWork?.device_id);
+                         await new InstrumentMaintenanceService(tenantId).assertAscensionClear(trx, Number(ascensionid));
                          this.resultSaveStaged = true;
                          return;
                     }
@@ -422,7 +421,7 @@ export default class Creator {
                          (!Number.isSafeInteger(requestBody.expected_revision) || requestBody.expected_revision !== Number(revision?.approval_revision || 0)))
                          throw Object.assign(new Error('The result has changed. Reload and review the current result before saving your edits.'), { statusCode: 409 });
                     const currentQcWork = await trx('lab_work_assignments').where({ ascensionid }).first('device_id');
-                    await new InstrumentMaintenanceService(tenantId).assertInstrumentClear(trx, currentQcWork?.device_id);
+                    await new InstrumentMaintenanceService(tenantId).assertAscensionClear(trx, Number(ascensionid));
                     await requireDailyQcAcceptance(tenantId, testid, { branchid: Number(qcBill?.branchid), deviceId: currentQcWork?.device_id || null }, trx);
                     await invalidateResultApprovals(trx, ascensionid, employeeid);
 				let previousImagingValues: Record<string, string> = {};

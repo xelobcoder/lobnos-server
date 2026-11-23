@@ -57,12 +57,14 @@ describe('schedule-specific maintenance tasks', () => {
           const saved = await fixture.db('pls_instrument_maintenance_tasks').where({ id: task.id }).first();
           expect(JSON.parse(saved.snapshot).checklist[0].min).toBe(35);
      });
-     it('rolls back missing failure details, blocks the instrument and requires corrective completion and review', async () => {
+     it('retains the immediate hold when direct completion lacks details, then requires corrective completion and review', async () => {
           await service.savePlan(input, 7);
           const task = (await service.list()).tasks[0];
           await expect(service.completeTask(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 42 }] }, 7)).rejects.toThrow('Failure reason');
-          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(0);
-          const result = await service.completeTask(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 42 }], failure_reason: 'Out of range',
+          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(1);
+          await expect(new InstrumentMaintenanceService(12).assertInstrumentClear(fixture.db, device)).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+          const revision = (await service.list()).tasks[0].revision;
+          const result = await service.completeTask(task.id, { task_revision: revision, checks: [{ index: 0, value: 42 }], failure_reason: 'Out of range',
                observations: 'Temperature high', corrective_action: 'Inspect heater' }, 7);
           expect(result.result).toBe('fail');
           const legacy = new InstrumentMaintenanceService(12);
@@ -100,24 +102,27 @@ describe('schedule-specific maintenance tasks', () => {
           await legacy.supervisorReview(first.run_id, 9, 'Verification completed');
           await expect(legacy.assertInstrumentClear(fixture.db, device)).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
      });
-     it('rolls back a completion if the next occurrence cannot be created', async () => {
+     it('commits failure and reports a completed next-occurrence collision without duplicating it', async () => {
           const plan = await service.savePlan(input, 7);
           const task = (await service.list()).tasks[0];
           await fixture.db('pls_instrument_maintenance_tasks').insert({
                plan_id: plan.id, due_date: '2026-01-03', snapshot: '{}', status: 'completed',
           });
-          await expect(service.completeTask(task.id, {
+          const result = await service.completeTask(task.id, {
                task_revision: task.revision, checks: [{ index: 0, value: 42 }],
                failure_reason: 'Out of range', observations: 'High', corrective_action: 'Inspect',
-          }, 7)).rejects.toThrow();
-          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(0);
-          expect(await fixture.db('pls_instrument_corrective_actions')).toHaveLength(0);
-          expect((await fixture.db('pls_instrument_maintenance_tasks').where({ id: task.id }).first()).status).toBe('pending');
+          }, 7);
+          expect(result.scheduling_conflict).toMatch(/already exists/);
+          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(1);
+          expect(await fixture.db('pls_instrument_corrective_actions')).toHaveLength(1);
+          expect((await fixture.db('pls_instrument_maintenance_tasks').where({ id: task.id }).first()).status).toBe('completed');
+          expect(await fixture.db('pls_instrument_maintenance_tasks')).toHaveLength(2);
+          expect((await service.list()).plans[0].scheduling_conflict).toBe(true);
+          await expect(new InstrumentMaintenanceService(12).assertInstrumentClear(fixture.db, device)).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
      });
-     it('persists partial passing drafts without permitting an unrecorded failure or stale edits', async () => {
+     it('preserves partial passing draft and rejects stale edits', async () => {
           const plan = await service.savePlan(input, 7);
           const task = (await service.list()).tasks[0];
-          await expect(service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 42 }] }, 7)).rejects.toThrow('cannot be saved as a draft');
           await service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 36.5 }], observations: 'Started' }, 7);
           const draft = (await service.list()).tasks[0];
           expect(draft.draft.checks[0].value).toBe(36.5);
@@ -125,6 +130,74 @@ describe('schedule-specific maintenance tasks', () => {
           await expect(service.savePlan(input, 7, plan.id)).rejects.toThrow('draft');
           await service.saveDraft(task.id, { task_revision: draft.revision, checks: [] }, 7);
           await expect(service.savePlan(input, 7, plan.id)).resolves.toBeDefined();
+     });
+     it('immediately blocks on failure, preserves evidence and completes the same run with documentation', async () => {
+          await service.savePlan(input, 7);
+          const task = (await service.list()).tasks[0];
+          const saved = await service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 42 }], failure_only: true }, 7);
+          const pending = (await service.list()).tasks[0];
+          expect(saved.hold).toBe(true);
+          expect(pending.draft.failure_evidence[0]).toMatchObject({ index: 0, value: 42, reported_by: 7 });
+          expect(pending.draft.failure_evidence[0].reported_at).toMatch(/^\d{4}-/);
+          expect(await fixture.db('pls_instrument_corrective_actions')).toHaveLength(0);
+          const runId = (await fixture.db('pls_instrument_maintenance_tasks').where({ id: task.id }).first()).run_id;
+          await expect(new InstrumentMaintenanceService(12).assertInstrumentClear(fixture.db, device)).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+          await expect(service.completeTask(task.id, { task_revision: pending.revision, checks: [{ index: 0, value: 36 }, { index: 1, value: 'completed' }] }, 7)).rejects.toThrow('cannot be cleared');
+          await expect(service.completeTask(task.id, { task_revision: pending.revision, checks: [{ index: 0, value: 42 }] }, 7)).rejects.toThrow('Failure reason');
+          const retained = await service.saveDraft(task.id, { task_revision: pending.revision, checks: [], observations: 'Started' }, 7);
+          expect(retained.draft.checks[0]).toMatchObject({ value: 42, result: 'fail' });
+          const completed = await service.completeTask(task.id, { task_revision: retained.revision, checks: [{ index: 0, value: 42 }],
+               failure_reason: 'Out of range', observations: 'High', corrective_action: 'Inspect' }, 7);
+          expect(completed.run_id).toBe(runId);
+          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(1);
+          expect(await fixture.db('pls_instrument_corrective_actions').where({ run_id: runId })).toHaveLength(1);
+          const history = (await service.list()).failure_history;
+          expect(history[0]).toMatchObject({ task_id: task.id, reported_by: 7, check_title: 'Bath temperature', value: 42, run_state: 'completed' });
+          expect(history[0].reported_at).toMatch(/^\d{4}-/);
+     });
+     it('merges stale reports and retains each staff member and measurement without retry duplicates', async () => {
+          await service.savePlan(input, 7);
+          const task = (await service.list()).tasks[0];
+          await service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 42 }], failure_only: true }, 7);
+          const second = await service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 43 }], failure_only: true }, 8);
+          expect(second.merged_stale).toBe(true);
+          await service.saveDraft(task.id, { task_revision: task.revision, checks: [{ index: 0, value: 43 }], failure_only: true }, 8);
+          const current = (await service.list()).tasks[0];
+          expect(current.draft.failure_evidence.map((e: any) => [e.value, e.reported_by])).toEqual([[42, 7], [43, 8]]);
+          expect(await fixture.db('pls_instrument_maintenance_checks')).toHaveLength(2);
+          const result = await service.completeTask(task.id, { task_revision: current.revision, checks: [{ index: 0, value: 42 }],
+               failure_reason: 'Out of range', observations: 'High', corrective_action: 'Inspect' }, 9);
+          expect(await fixture.db('pls_instrument_corrective_actions').where({ run_id: result.run_id })).toHaveLength(2);
+          const history = (await service.list()).failure_history;
+          expect(history.map((e: any) => [e.value, e.reported_by])).toEqual([[42, 7], [43, 8]]);
+     });
+     it('creates a linked nonrecurring follow-up for a late failure without altering completed task history', async () => {
+          const plan = await service.savePlan(input, 7);
+          const original = (await service.list()).tasks[0];
+          const complete = await service.completeTask(original.id, { task_revision: original.revision,
+               checks: [{ index: 0, value: 36 }, { index: 1, value: 'completed' }] }, 7);
+          const before = await fixture.db('pls_instrument_maintenance_tasks').where({ id: original.id }).first();
+          const late = await service.saveDraft(original.id, { task_revision: original.revision, checks: [{ index: 0, value: 42 }], failure_only: true }, 8);
+          expect(late.id).not.toBe(original.id);
+          const after = await fixture.db('pls_instrument_maintenance_tasks').where({ id: original.id }).first();
+          expect(after).toEqual(before);
+          expect(after.run_id).toBe(complete.run_id);
+          const follow = (await service.list()).tasks.find((t: any) => t.id === late.id);
+          expect(follow.snapshot).toMatchObject({ follow_up_of_task_id: original.id, follow_up_of_run_id: complete.run_id, checklist });
+          expect((await service.list()).plans).toHaveLength(1);
+          await expect(new InstrumentMaintenanceService(12).assertInstrumentClear(fixture.db, device)).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+          const retry = await service.saveDraft(original.id, { task_revision: original.revision, checks: [{ index: 0, value: 42 }], failure_only: true }, 8);
+          expect(retry.id).toBe(late.id);
+          expect(await fixture.db('pls_instrument_maintenance_checks').where({ run_id: follow.run_id, result: 'fail' })).toHaveLength(1);
+          const finished = await service.completeTask(late.id, { task_revision: retry.revision, checks: [{ index: 0, value: 42 }],
+               failure_reason: 'Out of range', observations: 'High', corrective_action: 'Inspect' }, 8);
+          expect(finished.run_id).toBe(follow.run_id);
+          expect(finished.next_due_date).toBeNull();
+          expect(await fixture.db('pls_instrument_maintenance_tasks').where({ plan_id: plan.id })).toHaveLength(2);
+          const retriedAfter = await service.saveDraft(original.id, { task_revision: original.revision, checks: [{ index: 0, value: 42 }], failure_only: true }, 8);
+          expect(retriedAfter.completed).toBe(true);
+          expect(await fixture.db('pls_instrument_maintenance_runs')).toHaveLength(2);
+          expect((await service.list()).failure_history).toContainEqual(expect.objectContaining({ task_id: late.id, reported_by: 8, follow_up_of_task_id: original.id }));
      });
      it('records only one run and next occurrence on concurrent completion attempts', async () => {
           await service.savePlan(input, 7);

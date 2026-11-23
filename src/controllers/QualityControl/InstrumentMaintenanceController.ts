@@ -59,7 +59,10 @@ export class InstrumentMaintenanceController {
           catch (error) { return sendError(res, error); }
      }
      async history(req: Request, res: Response) {
-          try { const { service } = context(req); return res.json(await service.history(req.query.deviceId ? String(req.query.deviceId) : undefined)); }
+          try { const { service } = context(req); return res.json(await service.history({
+               deviceId: req.query.deviceId ? String(req.query.deviceId) : undefined,
+               page: req.query.page, count: req.query.count, search: req.query.search, status: req.query.status,
+          })); }
           catch (error) { return sendError(res, error); }
      }
      async execution(req: Request, res: Response) {

@@ -1,6 +1,7 @@
 import { controlsFail } from "./LabAccessPolicy";
 import { assertCriticalRelease } from "./CriticalActionService";
 import { assertResultPaymentPolicy } from './ResultPaymentPolicy';
+import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 
 async function resultEntryPolicy(db: any) {
      const row = await db('resultsettings').where({ id: 1 }).first('resultsEntrySettings');
@@ -23,6 +24,7 @@ function printReleaseFail(message: string): never {
 }
 
 export async function captureReportRevision(db: any, ascensionid: number, channel: 'print' | 'release' = 'print') {
+     if (channel === 'print') await InstrumentMaintenanceService.assertAscensionClear(db, ascensionid);
      const order = await db('test_ascension').where({ id: ascensionid }).first('resultEntryEnd');
      if (!order?.resultEntryEnd) return controlsFail('Save the test results before release', 409);
      const approval = await db("dbotestresultapproval").where({ ascensionid }).first();

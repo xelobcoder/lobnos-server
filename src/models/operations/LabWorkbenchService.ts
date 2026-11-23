@@ -43,8 +43,10 @@ export class LabWorkbenchService {
                ),
                devices: await db("devices")
                     .where({ status: "active" })
-                    .whereNotIn("id", db("pls_instrument_maintenance_runs").where({ status: "awaiting_corrective_action" }).select("device_id"))
-                    .select("id", "deviceName")
+                    .select("id", "deviceName", db.raw(
+                         "EXISTS (SELECT 1 FROM ?? AS r WHERE r.device_id = devices.id AND r.status = ?) AS maintenance_blocked",
+                         ["pls_instrument_maintenance_runs", "awaiting_corrective_action"],
+                    ))
                     .orderBy("deviceName"),
                supervisor: supervisor(actor),
           };
@@ -205,14 +207,23 @@ export class LabWorkbenchService {
                          values.due_at = input.due_at === null ? null : new Date(input.due_at);
                     }
                     if (input.device_id !== undefined) {
-                         if (
-                              input.device_id !== null &&
-                              !(await trx("devices").where({ id: input.device_id, status: "active" }).first())
-                         )
-                              fail("Select an active analyzer");
-                         if (input.device_id !== null && input.device_id !== "")
-                              await new InstrumentMaintenanceService(this.tenantId).assertInstrumentClear(trx, input.device_id);
-                         values.device_id = input.device_id || null;
+                         const newDevice = input.device_id || null;
+                         const oldDevice = previous?.device_id || null;
+                         if (newDevice !== oldDevice) {
+                              if (oldDevice) {
+                                   await new InstrumentMaintenanceService(this.tenantId).assertInstrumentClear(trx, oldDevice);
+                                   if (!supervisor(actor) || !reason)
+                                        fail("A supervisor and a reason are required to change an assigned analyzer", 403);
+                              }
+                              if (await trx("test_results").where({ ascensionid: id }).first("ascensionid"))
+                                   fail("The analyzer cannot be changed after results have been recorded; follow the laboratory rerun procedure", 409);
+                              if (newDevice) {
+                                   if (!(await trx("devices").where({ id: newDevice, status: "active" }).first()))
+                                        fail("Select an active analyzer");
+                                   await new InstrumentMaintenanceService(this.tenantId).assertInstrumentClear(trx, newDevice);
+                              }
+                              values.device_id = newDevice;
+                         }
                     }
                }
                if (previous) await trx("lab_work_assignments").where({ ascensionid: id }).update(values);

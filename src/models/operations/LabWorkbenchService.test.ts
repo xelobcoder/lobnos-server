@@ -74,6 +74,25 @@ describe('laboratory work and actual material usage', () => {
                .rejects.toMatchObject({ statusCode: 423, code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
           expect(store.rows('lab_work_assignments')).toHaveLength(0);
      });
+     it('does not let a held analyzer be removed or replaced to bypass a hold', async () => {
+          const { service } = setup({
+               lab_work_assignments: [{ ascensionid: 1, version: 1, device_id: 'a' }],
+               devices: [{ id: 'a', status: 'active' }, { id: 'b', status: 'active' }],
+               pls_instrument_maintenance_runs: [{ id: 1, device_id: 'a', status: 'awaiting_corrective_action' }],
+          });
+          for (const device of ['', 'b']) await expect(service.update({ ...actor, role: 'admin' }, 1, { version: 1, device_id: device, reason: 'Change' }))
+               .rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+     });
+     it('requires a supervisor and reason for reassignment and preserves recorded result attribution', async () => {
+          const { service } = setup({ lab_work_assignments: [{ ascensionid: 1, version: 1, device_id: 'a' }],
+               devices: [{ id: 'a', status: 'active' }, { id: 'b', status: 'active' }] });
+          await expect(service.update(actor, 1, { version: 1, device_id: 'b', reason: 'Change' })).rejects.toThrow('supervisor');
+          await expect(service.update({ ...actor, role: 'admin' }, 1, { version: 1, device_id: 'b' })).rejects.toThrow('reason');
+          const withResults = setup({ lab_work_assignments: [{ ascensionid: 1, version: 1, device_id: 'a' }],
+               devices: [{ id: 'a', status: 'active' }], test_results: [{ ascensionid: 1 }] });
+          await expect(withResults.service.update({ ...actor, role: 'admin' }, 1, { version: 1, device_id: '', reason: 'Change' }))
+               .rejects.toThrow('after results');
+     });
      it('rejects a stale reassignment and another branch', async () => {
           const { store, service } = setup({ lab_work_assignments: [{ ascensionid: 1, version: 2, assigned_employeeid: 7 }] });
           await expect(service.update(actor, 1, { version: 1, assigned_employeeid: 7 })).rejects.toThrow('changed');

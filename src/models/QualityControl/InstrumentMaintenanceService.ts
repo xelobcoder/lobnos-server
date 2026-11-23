@@ -114,29 +114,55 @@ export class InstrumentMaintenanceService {
                due: dueItems,
                overdue: dueItems.filter((item: any) => item.dueStatus === 'overdue'),
                upcoming: schedules.filter((item: any) => isoDate(item.next_due_date) > today),
-               history: await this.history(),
                blocked: await this.blockedInstruments(),
           };
      }
 
-     async history(deviceId?: string) {
+     async history(filters: { deviceId?: string; page?: unknown; count?: unknown; search?: unknown; status?: unknown } = {}) {
           const db = await this.db();
+          const page = filters.page === undefined ? 1 : Number(filters.page);
+          const count = filters.count === undefined ? 20 : Number(filters.count);
+          if (!Number.isSafeInteger(page) || page < 1 || !Number.isSafeInteger(count) || count < 1 || count > 100)
+               throw fail('Invalid history pagination', 400);
+          const status = filters.status == null ? '' : String(filters.status);
+          if (status && !['awaiting_supervisor_review', 'awaiting_corrective_action', 'cleared'].includes(status))
+               throw fail('Invalid maintenance status', 400);
+          const search = filters.search == null ? '' : String(filters.search).trim();
+          if (search.length > 100) throw fail('History search is too long', 400);
           const query = db(`${T.runs} as r`).join('devices as d', 'd.id', 'r.device_id')
-               .select('r.*', 'd.deviceName', 'd.model')
-               .orderBy('r.performed_at', 'desc');
-          if (deviceId) query.where('r.device_id', deviceId);
-          return query;
+               .leftJoin(`${T.tasks} as t`, 't.run_id', 'r.id');
+          if (filters.deviceId) query.where('r.device_id', filters.deviceId);
+          if (status) query.where('r.status', status);
+          if (search) query.where(function (this: any) {
+               this.where('d.deviceName', 'like', `%${search}%`).orWhere('d.model', 'like', `%${search}%`);
+               if (/^\d+$/.test(search)) this.orWhere('r.id', Number(search));
+          });
+          const total = await query.clone().count('r.id as total').first();
+          const rows = await query.select('r.*', 'd.deviceName', 'd.model', 't.snapshot as task_snapshot')
+               .orderBy('r.performed_at', 'desc').orderBy('r.id', 'desc')
+               .limit(count).offset((page - 1) * count);
+          const data = rows.map((row: any) => {
+               const snapshot = row.task_snapshot ? JSON.parse(row.task_snapshot) : null;
+               const { task_snapshot, ...run } = row;
+               return { ...run, activity_title: snapshot?.title || null, activity_type: snapshot?.activity_type || null };
+          });
+          return { data, total: Number(total?.total || 0), page, count };
      }
 
      async execution(runId: number) {
           const db = await this.db();
           const run = await db(T.runs).where({ id: positiveInt(runId, 'maintenance execution') }).first();
           if (!run) throw Object.assign(new Error('Maintenance execution not found'), { statusCode: 404 });
-          const [checks, actions] = await Promise.all([
+          const [checks, actions, task] = await Promise.all([
                db(T.checks).where({ run_id: run.id }).orderBy('id'),
                db(T.actions).where({ run_id: run.id }).orderBy('id'),
+               db(T.tasks).where({ run_id: run.id }).first('id', 'plan_id', 'status', 'snapshot', 'responses', 'draft', 'draft_by', 'failure_reason'),
           ]);
-          return { ...run, checks, correctiveActions: actions };
+          return { ...run, checks, correctiveActions: actions, task: task ? {
+               id: task.id, plan_id: task.plan_id, status: task.status, snapshot: JSON.parse(task.snapshot),
+               responses: task.responses ? JSON.parse(task.responses) : null,
+               draft: task.draft ? JSON.parse(task.draft) : null, draft_by: task.draft_by, failure_reason: task.failure_reason,
+          } : null };
      }
 
      async blockedInstruments() {
@@ -221,14 +247,20 @@ export class InstrumentMaintenanceService {
                const run = await trx(T.runs).where({ id: positiveInt(runId, 'maintenance execution') }).forUpdate().first();
                if (!run) throw Object.assign(new Error('Maintenance execution not found'), { statusCode: 404 });
                if (run.status === 'cleared') return run;
+               const reviewer = positiveInt(actorId, 'supervisor');
                const failures = await trx(T.checks).where({ run_id: run.id, result: 'fail' });
                if (failures.length) {
                     const actions = await trx(T.actions).where({ run_id: run.id });
                     const unfinished = actions.filter((action: any) => action.status !== 'completed').length;
-                    if (!canSupervisorClearMaintenance(failures.length, actions.length, unfinished)) throw fail('Complete all failed-check corrective actions before supervisor clearance');
+                    if (!canSupervisorClearMaintenance(failures.length, actions.length, unfinished) ||
+                         failures.some((check: any) => !actions.some((action: any) => Number(action.check_id) === Number(check.id) && action.status === 'completed')))
+                         throw fail('Complete all failed-check corrective actions before supervisor clearance');
+                    const task = await trx(T.tasks).where({ run_id: run.id }).first();
+                    if (task && task.status !== 'completed') throw fail('Complete the maintenance task before supervisor clearance');
                     if (!String(comment || '').trim()) throw fail('Describe how the instrument was verified before clearance', 400);
+                    if (Number(run.performed_by) === reviewer || actions.some((action: any) => Number(action.completed_by) === reviewer))
+                         throw fail('An independent supervisor must verify failed maintenance and corrective work', 403);
                }
-               const reviewer = positiveInt(actorId, 'supervisor');
                await trx(T.runs).where({ id: run.id }).update({
                     status: 'cleared', reviewed_by: reviewer, reviewed_at: trx.fn.now(),
                     review_comment: comment == null ? null : String(comment), updated_at: trx.fn.now(),
@@ -237,7 +269,7 @@ export class InstrumentMaintenanceService {
           });
      }
 
-     async assertInstrumentClear(trx: any, deviceId?: string | null): Promise<void> {
+     static async assertInstrumentClear(trx: any, deviceId?: string | null): Promise<void> {
           if (!deviceId) return;
           // Execution locks this same registry row before recording checks. Serializing here closes
           // the check-vs-save race: a result cannot pass while a failed run commits concurrently.
@@ -249,9 +281,17 @@ export class InstrumentMaintenanceService {
           // Failed runs remain blocking even when they were ad hoc or the schedule is later deactivated.
      }
 
-     async assertAscensionClear(trx: any, ascensionId: number): Promise<void> {
+     async assertInstrumentClear(trx: any, deviceId?: string | null): Promise<void> {
+          return InstrumentMaintenanceService.assertInstrumentClear(trx, deviceId);
+     }
+
+     static async assertAscensionClear(trx: any, ascensionId: number): Promise<void> {
           const work = await trx('lab_work_assignments').where({ ascensionid: ascensionId }).forUpdate().first('device_id');
-          await this.assertInstrumentClear(trx, work?.device_id);
+          await InstrumentMaintenanceService.assertInstrumentClear(trx, work?.device_id);
+     }
+
+     async assertAscensionClear(trx: any, ascensionId: number): Promise<void> {
+          return InstrumentMaintenanceService.assertAscensionClear(trx, ascensionId);
      }
 }
 
