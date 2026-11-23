@@ -38,6 +38,19 @@ describe('portal booking slots', () => {
           expect(slotHour('24:00')).toBeNull();
           expect(slotHour(undefined)).toBeNull();
      });
+
+     it('rejects ambiguous and nonexistent local DST wall times', () => {
+          const previous = process.env.TZ;
+          try {
+               process.env.TZ = 'America/New_York';
+               const before = new Date('2026-01-01T00:00:00Z');
+               expect(bookingSlots('2026-03-08', 2, 3, 1, new Map(), before)[0].available).toBe(false);
+               expect(bookingSlots('2026-11-01', 1, 2, 1, new Map(), before)[0].available).toBe(false);
+               expect(bookingSlots('2026-11-01', 3, 4, 1, new Map(), before)[0].available).toBe(true);
+          } finally {
+               if (previous === undefined) delete process.env.TZ; else process.env.TZ = previous;
+          }
+     });
 });
 
 describe('portal notification messages', () => {

@@ -182,6 +182,15 @@ export class MarketplaceService {
           return { enquiryId: Number(id), accepted: true };
      }
 
+     async publicStatistics() {
+          const row = await db(TENANTS_TABLE).where({ status: 'active' })
+               .whereNull('deleted_at').whereBetween('tenant_number', [1, 999999]).count({ total: '*' }).first();
+          if (row?.total === null || row?.total === undefined) throw new Error('Invalid facility count');
+          const activeFacilities = Number(row.total);
+          if (!Number.isSafeInteger(activeFacilities) || activeFacilities < 0) throw new Error('Invalid facility count');
+          return { activeFacilities };
+     }
+
      async listFacilities(search?: unknown) {
           if (search !== undefined && (typeof search !== 'string' || search.length > 120)) throw new MarketplaceError('Invalid search', 400);
           const needle = typeof search === 'string' ? search.trim() : '';

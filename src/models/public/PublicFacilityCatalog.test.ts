@@ -3,12 +3,12 @@ import express from 'express';
 import type { Server } from 'http';
 
 const mocks = vi.hoisted(() => ({
-     standing: vi.fn(), connection: vi.fn(), log: vi.fn(),
+     standing: vi.fn(), connection: vi.fn(), log: vi.fn(), profiles: [] as any[],
 }));
 vi.mock('../../database/KnexConnections', () => ({ default: mocks.connection }));
 vi.mock('./PublicFacilityRegistry', () => ({
      PublicFacilityRegistry: class {
-          all = async () => parsePublicFacilities();
+          all = async () => mocks.profiles;
           publicationAllowed = async () => true;
      },
 }));
@@ -53,7 +53,7 @@ beforeEach(() => {
      vi.clearAllMocks();
      configuration.isMultiTenant = true;
      configuration.defaultTenantId = 3;
-     vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([facility]));
+     mocks.profiles = [facility];
      mocks.standing.mockResolvedValue(true);
 });
 afterEach(() => {
@@ -63,8 +63,8 @@ afterEach(() => {
 
 describe('public facility opt-in registry', () => {
      it('publishes nothing by default', () => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', '');
-          expect(parsePublicFacilities()).toEqual([]);
+          mocks.profiles = [];
+          expect(parsePublicFacilities('[]')).toEqual([]);
      });
      it('allows local portal HTTP only with explicit loopback permission, never remote HTTP', () => {
           const local = { ...facility, facilityLoginUrl: 'http://localhost:2377/authentications/login' };
@@ -91,7 +91,7 @@ describe('public facility opt-in registry', () => {
           expect(() => parsePublicFacilities(JSON.stringify([{ ...facility, tenantId: 4 }]))).toThrow('single-tenant');
      });
      it('publishes explicit fields only, without tenant identifiers or private input fields', async () => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, secret: 'not public', email: 'not-approved@example.test' }]));
+          mocks.profiles = [{ ...facility, secret: 'not public', email: 'not-approved@example.test' }];
           const result = await new PublicFacilityCatalog().list();
           expect(result.facilities).toHaveLength(1);
           expect(result.facilities[0]).not.toHaveProperty('tenantId');
@@ -100,10 +100,10 @@ describe('public facility opt-in registry', () => {
           expect(mocks.connection).not.toHaveBeenCalled();
      });
      it('does not expose unapproved or inactive facilities', async () => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, published: false }]));
+          mocks.profiles = [{ ...facility, published: false }];
           expect(await new PublicFacilityCatalog().list()).toEqual({ facilities: [] });
           expect(mocks.standing).not.toHaveBeenCalled();
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([facility]));
+          mocks.profiles = [facility];
           mocks.standing.mockResolvedValue(false);
           expect(await new PublicFacilityCatalog().list()).toEqual({ facilities: [] });
      });
@@ -111,7 +111,7 @@ describe('public facility opt-in registry', () => {
 
 describe('public cash tariff catalog', () => {
      it('splits explicitly classified panels using the same unique live tariff IDs and prices', async () => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, panelIds: [12] }]));
+          mocks.profiles = [{ ...facility, panelIds: [12] }];
           database([
                { id: 10, name: 'Synthetic test', description: null, price: '5.00' },
                { id: 12, name: 'Synthetic panel', description: 'Public panel explanation', price: '22.50' },
@@ -122,7 +122,7 @@ describe('public cash tariff catalog', () => {
           expect(result.facility).not.toHaveProperty('panelIds');
      });
      it('publishes copied panels only after explicit selection', async () => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, panelIds: [12] }]));
+          mocks.profiles = [{ ...facility, panelIds: [12] }];
           const { db } = database([
                { id: 10, name: 'Regular test', price: 5 },
                { id: 11, name: 'Hidden copy', price: 10, copy_requires_publication: 1 },
@@ -145,8 +145,15 @@ describe('public cash tariff catalog', () => {
           expect(db.mock.calls.map(([table]) => table)).not.toContain('billing');
           expect(db.mock.calls.map(([table]) => table)).not.toContain('new_patients');
      });
+     it('reads the current tariff again on each request', async () => {
+          const { testQuery } = database([{ id: 10, name: 'Synthetic test', description: null, price: '10.00' }]);
+          const catalog = new PublicFacilityCatalog();
+          expect((await catalog.catalog(facility.slug)).tests[0].price).toBe(10);
+          testQuery.orderBy.mockResolvedValue([{ id: 10, name: 'Synthetic test', description: null, price: '15.50' }]);
+          expect((await catalog.catalog(facility.slug)).tests[0].price).toBe(15.5);
+     });
      it.each([{ published: false }, { catalogPublished: false }])('requires separate catalog approval %j', changes => {
-          vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...facility, ...changes }]));
+          mocks.profiles = [{ ...facility, ...changes }];
           return expect(new PublicFacilityCatalog().catalog(facility.slug)).rejects.toMatchObject({ statusCode: 404 });
      });
      it('does not connect to unknown, malformed or inactive tenant catalogs', async () => {

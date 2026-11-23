@@ -95,6 +95,7 @@ function facilityAdmin(staff: any) {
 }
 
 router.get(`${base}/facilities`, handle(req => service.listFacilities(req.query.q), ['q']));
+router.get(`${base}/statistics`, handle(() => service.publicStatistics()));
 router.get(`${base}/facilities/:slug/catalog`, handle(req => service.publicCatalog(req.params.slug)));
 router.post(`${base}/registrations`, handle(req => service.register(req.body), [], 202));
 router.post(`${base}/bookings`, handle(req => service.createBooking(req.body), [], 201));

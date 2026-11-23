@@ -1,9 +1,9 @@
 import { Knex } from 'knex';
 import { bootstrapPatientPortal } from './PatientPortalBootstrapper';
-import { PatientPortalSettings, PatientPortalSettingsService } from './PatientPortalSettings';
+import { normalizePatientPortalSettings, PatientPortalSettings, PatientPortalSettingsService } from './PatientPortalSettings';
 import { PatientPortalError } from './PatientPortalAccountService';
 import { PatientPortalResultService } from './PatientPortalResultService';
-import { APPOINTMENT_TYPES } from '../appointments/appointmentValidation';
+import { APPOINTMENT_TYPES, CANCELLED_APPOINTMENT_STATUSES } from '../appointments/appointmentValidation';
 import { getAllCompanyProfiles } from '../settings/companyProfile';
 import { bookingSlots, isBookableDate, MAX_BOOKING_DAYS_AHEAD, slotHour } from './portalBookingSlots';
 
@@ -213,15 +213,15 @@ export class PatientPortalRecordsService {
 
      private async appointmentCounts(db: Knex | Knex.Transaction, date: string): Promise<Map<number, number>> {
           const rows: any[] = await db('appointments').where('appointment_date', date)
-               .andWhere(q => q.whereNull('status').orWhereNot('status', 'cancelled'))
+               .whereRaw("LOWER(COALESCE(status, '')) NOT IN (?, ?, ?)", [...CANCELLED_APPOINTMENT_STATUSES])
                .select(db.raw('HOUR(appointment_time) AS hour'), db.raw('COUNT(*) AS total'))
                .groupByRaw('HOUR(appointment_time)');
           return new Map(rows.map(row => [Number(row.hour), Number(row.total)]));
      }
 
-     async requestAppointment(patientid: number, input: { date?: unknown; time?: unknown; type?: unknown; reason?: unknown }) {
+     async requestAppointment(patientid: number, input: { date?: unknown; time?: unknown; type?: unknown; reason?: unknown }, serviceIds?: number[]) {
           const settings = await new PatientPortalSettingsService(this.tenantId).get();
-          if (!settings.appointment_requests_enabled || !settings.appointment_request_practitioner) {
+          if (!settings.portal_enabled || !settings.appointment_requests_enabled || !settings.appointment_request_practitioner) {
                throw new PatientPortalError('Online appointment requests are not available for this facility', 403, 'APPOINTMENTS_DISABLED');
           }
           const date = String(input.date || '');
@@ -239,20 +239,33 @@ export class PatientPortalRecordsService {
           const connection = await this.connection();
           return connection.transaction(async trx => {
                // Lock the settings row so concurrent bookings cannot both take the last place in a slot.
-               await trx('patient_portal_settings').where({ keyid: 1 }).forUpdate().first();
+               const lockedRow = await trx('patient_portal_settings').where({ keyid: 1 }).forUpdate().first();
+               if (!lockedRow) throw new PatientPortalError('Online appointment requests are not available for this facility', 403, 'APPOINTMENTS_DISABLED');
+               const currentSettings = normalizePatientPortalSettings(lockedRow);
+               if (!currentSettings.portal_enabled || !currentSettings.appointment_requests_enabled || !currentSettings.appointment_request_practitioner ||
+                    hour < currentSettings.booking_start_hour || hour >= currentSettings.booking_end_hour) {
+                    throw new PatientPortalError('Online appointment requests are not available for this facility', 403, 'APPOINTMENTS_DISABLED');
+               }
+               const practitioner = await trx('roles').where({ employeeid: currentSettings.appointment_request_practitioner }).first('employeeid');
+               if (!practitioner) throw new PatientPortalError('Online appointment requests are not available for this facility', 403, 'APPOINTMENTS_DISABLED');
+               const duplicate = await trx('appointments').where({ patientid, appointment_date: date, appointment_time: time })
+                    .whereRaw("LOWER(COALESCE(status, '')) NOT IN (?, ?, ?)", [...CANCELLED_APPOINTMENT_STATUSES]).first('refid');
+               if (duplicate) throw new PatientPortalError('You already have an appointment at that time', 409, 'DUPLICATE_APPOINTMENT');
                const open = await trx('appointments').where({ patientid, status: 'pending' })
                     .andWhere('appointment_date', '>=', todayIso()).count({ total: '*' }).first();
                if (Number((open as any)?.total || 0) >= 3) {
                     throw new PatientPortalError('You already have pending appointment requests. Please wait for the facility to respond.', 409, 'TOO_MANY_REQUESTS');
                }
-               const slot = bookingSlots(date, settings.booking_start_hour, settings.booking_end_hour,
-                    settings.appointment_slot_capacity, await this.appointmentCounts(trx, date)).find(item => item.time === time);
+               const slot = bookingSlots(date, currentSettings.booking_start_hour, currentSettings.booking_end_hour,
+                    currentSettings.appointment_slot_capacity, await this.appointmentCounts(trx, date)).find(item => item.time === time);
                if (!slot?.available) throw new PatientPortalError('That time slot is no longer available. Please choose another.', 409, 'SLOT_FULL');
                const [refid] = await trx('appointments').insert({
                     patientid, duration: 30, status: 'pending', appointment_time: time, appointment_date: date,
                     inviteMethod: 'email', purpose: reason, title: 'Patient portal appointment request', preference: 'in person',
-                    practioner: settings.appointment_request_practitioner, location: 'Facility', appointment_type: type,
-                    notes: 'Requested by the patient through the patient portal',
+                    practioner: currentSettings.appointment_request_practitioner, location: 'Facility', appointment_type: type,
+                    notes: serviceIds ? 'Requested by the patient through the patient portal; patient consented to send this request to the facility' :
+                         'Requested by the patient through the patient portal',
+                    ...(serviceIds ? { service_ids: JSON.stringify(serviceIds) } : {}),
                });
                return { refid: Number(refid) };
           });

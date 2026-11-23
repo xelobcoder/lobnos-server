@@ -216,7 +216,7 @@ catalog or a public copy of private tenant/billing data.
 - The core resolves approved slugs to tenant connections; the browser cannot
   choose tenant IDs or obtain private payer concessions.
 - Facility and catalog publication require separate operator-controlled approval
-  flags in `PUBLIC_FACILITY_DIRECTORY_JSON`. Default publication is empty.
+  flags stored in the platform public-profile database. Default publication is empty.
 - Descriptions come from the facility's test catalog. If absent, disclose that the
   laboratory has not supplied one; do not invent clinical descriptions,
   preparation instructions, diagnoses or medical advice.

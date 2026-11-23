@@ -61,6 +61,7 @@ import homeCollectionRouter from "./controllers/operations/homeCollection/routes
 import PatientAnalytics from "./controllers/analytics/patient-analytics/patient-analytics-route";
 import { checkTokenExists, ValidateTenancyAgreement } from "./middleware/validateTenancy";
 import { patientPortalRouter, publicPatientPortalRouter } from "./controllers/patient-portal/route";
+import publicAppointmentBookingRouter from "./controllers/patient-portal/publicAppointmentBooking";
 import { clinicianPortalRouter } from "./controllers/clinician-portal/route";
 import { facilityModuleAccess } from "./middleware/facilityModuleAccess";
 import masterAuthRouter from "./controllers/platform/masterAuth";
@@ -190,6 +191,7 @@ app.use(financialLockSettingsRouter);
 app.use(financialDayLimit);
 app.use("/api/v1/operations/control", operationalControlRoutes);
 app.use("/api/v1/queue", walkInQueueRouter);
+app.use(publicAppointmentBookingRouter);
 app.use(patientPortalRouter);
 app.use(consultationRouter);
 app.use(createTenantPaymentsRouter());

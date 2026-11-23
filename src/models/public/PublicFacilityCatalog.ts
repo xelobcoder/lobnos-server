@@ -59,8 +59,7 @@ function destination(value: unknown): string | undefined {
      return url.toString();
 }
 
-export function parsePublicFacilities(raw = process.env.PUBLIC_FACILITY_DIRECTORY_JSON): PublishedFacility[] {
-     if (!raw) return [];
+export function parsePublicFacilities(raw: string): PublishedFacility[] {
      if (raw.length > 500_000) throw new Error('Public facility configuration exceeds the size limit');
      const records: unknown = JSON.parse(raw);
      if (!Array.isArray(records) || records.length > 200) throw new Error('Invalid public facility configuration');

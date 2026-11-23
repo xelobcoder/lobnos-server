@@ -36,6 +36,7 @@ vi.mock('../database/connection', () => {
           const table = tableName.split(/\s+as\s+/i)[0];
           const filters: Array<(row: any) => boolean> = [];
           const alias = tableName.split(/\s+as\s+/i)[1] || table;
+          let counting = false;
           let joins: Array<{ tableName: string; left: string; right: string }> = [];
           const normalize = (column: string) => column.split('.').pop()!;
           const records = () => {
@@ -73,6 +74,11 @@ vi.mock('../database/connection', () => {
                     return query;
                },
                whereNull(column: string) { filters.push(row => row[normalize(column)] == null); return query; },
+               whereBetween(column: string, values: number[]) {
+                    filters.push(row => row[normalize(column)] != null && row[normalize(column)] >= values[0] && row[normalize(column)] <= values[1]);
+                    return query;
+               },
+               count() { counting = true; return query; },
                andWhere(callback: any) {
                     const clauses: Array<(row: any) => boolean> = [];
                     const builder: any = {
@@ -91,6 +97,7 @@ vi.mock('../database/connection', () => {
                limit() { return query; },
                forUpdate() { return query; },
                first: async (...columns: string[]) => {
+                    if (counting) return { total: records().filter(record => matches(record, filters)).length };
                     const row = records().find(record => matches(record, filters));
                     if (!row || !columns.length) return row;
                     return Object.fromEntries(columns.map(selection => {
@@ -132,6 +139,7 @@ vi.mock('../database/connection', () => {
 });
 
 vi.mock('../models/Tenancy/TenantRegistry', () => ({
+     TENANTS_TABLE: 'prime_tenants',
      TenantRegistry: class { async requireTenant() { return { isActive: true }; } },
 }));
 vi.mock('../models/public/PublicFacilityCatalog', () => ({
@@ -208,6 +216,7 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
                description: 'Description', currency: 'GHS',
                adminEmail: 'admin@example.invalid', adminPassword: 'a-strong-passphrase7',
           });
+
           expect((await service.listFacilities()).facilities).toHaveLength(0);
           expect(state.tables.marketplace_facilities[0].status).toBe('pending');
           expect(state.tables.marketplace_staff[0].password_hash).not.toBe('a-strong-passphrase7');
@@ -215,6 +224,21 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
           expect(state.tables.marketplace_facilities[0].status).toBe('approved');
           expect((await service.listFacilities()).facilities).toHaveLength(1);
           expect(state.tables.marketplace_audit.map(row => row.event_type)).toContain('facility_approved');
+     });
+
+     it('counts current active PLS registrations without exposing their identities', async () => {
+          state.tables.prime_tenants = [
+               { tenant_number: 1, status: 'active', deleted_at: null },
+               { tenant_number: 2, status: 'suspended', deleted_at: null },
+               { tenant_number: 3, status: 'active', deleted_at: '2025-01-01' },
+               { tenant_number: null, status: 'active', deleted_at: null },
+               { tenant_number: 0, status: 'active', deleted_at: null },
+               { tenant_number: 1000000, status: 'active', deleted_at: null },
+          ];
+          const service = new MarketplaceService();
+          expect(await service.publicStatistics()).toEqual({ activeFacilities: 1 });
+          state.tables.prime_tenants.push({ tenant_number: 4, status: 'active', deleted_at: null });
+          expect(await service.publicStatistics()).toEqual({ activeFacilities: 2 });
      });
 
      it('stores staff tokens hashed, enforces expiry, logout, and facility approval scope', async () => {
@@ -311,6 +335,7 @@ describe('Marketplace independent approval, sessions, and booking workflow', () 
      it('requires explicit complete catalog mapping before linking and preserves booking snapshots on success', async () => {
           const service = new MarketplaceService();
           state.tables.marketplace_facilities[0].status = 'approved';
+          state.tables.public_facility_profiles = [{ tenant_id: 9, profile_json: '{}' }];
           state.tables.marketplace_catalog_items.push({
                id: 20, facility_id: 1, item_type: 'test', active: true, name: 'CBC',
           });

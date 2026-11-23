@@ -33,8 +33,19 @@ export function bookingSlots(date: string, startHour: number, endHour: number, c
      for (let hour = startHour; hour < endHour; hour++) {
           const time = `${String(hour).padStart(2, '0')}:00`;
           const count = booked.get(hour) || 0;
-          const starts = new Date(`${date}T${time}:00`).getTime();
-          slots.push({ time, booked: count, capacity, available: count < capacity && starts >= earliest });
+          const localStart = new Date(`${date}T${time}:00`);
+          const starts = localStart.getTime();
+          // Reject DST gaps and repeated wall times: an appointment stores only local date/time,
+          // not an offset, so either occurrence would otherwise be ambiguous.
+          const sameWallTime = (candidate: Date) => localDateIso(candidate) === date &&
+               candidate.getHours() === hour && candidate.getMinutes() === 0;
+          let unambiguous = sameWallTime(localStart);
+          for (let minutes = 1; unambiguous && minutes <= 180; minutes++) {
+               if (sameWallTime(new Date(starts - minutes * 60_000)) || sameWallTime(new Date(starts + minutes * 60_000))) {
+                    unambiguous = false;
+               }
+          }
+          slots.push({ time, booked: count, capacity, available: unambiguous && count < capacity && starts >= earliest });
      }
      return slots;
 }

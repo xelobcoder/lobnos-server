@@ -51,6 +51,8 @@ describe('facility activation enforcement', () => {
      it.each(['/api/v1/pharmacy/sales', '/api/v1/inventory/items', '/api/v1/email/queue',
           '/api/v1/sms/events', '/api/v1/prime/sms-analytics/job-status-counts',
           '/api/v1/interfacing/devices', '/api/v1/devices/interfacing/verified/devices',
+          '/api/v1/patient-portal/facilities/example-lab/appointments',
+          '/api/v1/patient-portal/facilities/example-lab/appointments/availability',
           '/api/v1/patient/individual/analytics', '/api/v1/patient/individual/analytics/yearly',
           '/API/V1/Pharmacy/sales', '/api/v1/EMAIL/queue'])('blocks disabled module %s', async path => {
           const next = await invoke(path);

@@ -23,7 +23,8 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/(?:applicationsettings\/smsupdate|application\/sms\/create\/template\/columns)(?:\/|$)/i.test(path)) return 'sms';
      if (/^\/api\/v1\/(?:interfacing\/devices|devices\/interfacing)(?:\/|$)/i.test(path)) return 'deviceInterfacing';
      if (/^\/api\/v1\/(?:commission(?:-payments)?)(?:\/|$)/i.test(path)) return 'commissions';
-     if (/^\/api\/v1\/appointments?(?:\/|$)/i.test(path)) return 'appointments';
+     if (/^\/api\/v1\/appointments?(?:\/|$)/i.test(path) ||
+          /^\/api\/v1\/patient-portal\/facilities\/[^/]+\/appointments(?:\/|$)/i.test(path)) return 'appointments';
      if (/^\/api\/v1\/expenses?(?:\/|$)/i.test(path) ||
           /^\/api\/v1\/(?:outsourced\/cases\/mark-expense|supplier-payments\/mark-expense)(?:\/|$)/i.test(path)) return 'expenses';
      if (/^\/api\/v1\/consultation\/(?:encounters|pending)(?:\/|$)/i.test(path)) return 'consultations';

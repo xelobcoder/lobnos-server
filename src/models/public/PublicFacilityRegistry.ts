@@ -34,7 +34,6 @@ export class PublicFacilityRegistry {
      constructor(private db: Knex = systemConfigConnection) {}
 
      async all(db: Knex | Knex.Transaction = this.db): Promise<PublishedFacility[]> {
-          const configured = parsePublicFacilities();
           const stored = await db(PUBLIC_PROFILES_TABLE).select('tenant_id', 'profile_json');
           const profiles = stored.map(row => {
                const profile = parsePublicFacilities(JSON.stringify([
@@ -43,13 +42,10 @@ export class PublicFacilityRegistry {
                if (profile.tenantId !== Number(row.tenant_id)) throw new Error('Public registry tenant mismatch');
                return profile;
           });
-          // A persisted admin decision overrides an environment entry for that tenant, including unpublication.
-          const overridden = new Set(profiles.map(profile => profile.tenantId));
-          const merged = [...configured.filter(profile => !overridden.has(profile.tenantId)), ...profiles];
-          if (new Set(merged.map(profile => profile.slug)).size !== merged.length) {
+          if (new Set(profiles.map(profile => profile.slug)).size !== profiles.length) {
                throw new Error('Public registry slug conflict');
           }
-          return merged;
+          return profiles;
      }
 
      async publicationAllowed(profile: PublishedFacility): Promise<boolean> {

@@ -74,8 +74,11 @@ describe('admin-managed public facility registry', () => {
           expect(await new PublicFacilityRegistry().get(8)).toEqual({ profile: null });
           expect(state.tables.public_facility_profile_audit[0]).toMatchObject({ tenant_id: 7, actor_tenant_id: 99, actor_employee_id: 9 });
      });
-     it('lets a saved unpublication override a trusted environment entry', async () => {
+     it('uses only stored profiles even if an environment entry exists', async () => {
           vi.stubEnv('PUBLIC_FACILITY_DIRECTORY_JSON', JSON.stringify([{ ...profile, tenantId: 7 }]));
+          expect(await new PublicFacilityCatalog().list()).toEqual({ facilities: [] });
+          await new PublicFacilityRegistry().put(7, profile, actor);
+          expect((await new PublicFacilityCatalog().list()).facilities).toHaveLength(1);
           await new PublicFacilityRegistry().put(7, { ...profile, published: false, catalogPublished: false }, actor);
           expect(await new PublicFacilityCatalog().list()).toEqual({ facilities: [] });
      });

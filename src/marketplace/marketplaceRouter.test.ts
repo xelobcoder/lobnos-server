@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
      platformAuthorized: true,
      service: {
           listFacilities: vi.fn(),
+          publicStatistics: vi.fn(),
           publicCatalog: vi.fn(),
           register: vi.fn(),
           createBooking: vi.fn(),
@@ -94,6 +95,16 @@ describe('marketplace HTTP contract', () => {
           expect(response.status).toBe(400);
           expect(response.headers.get('cache-control')).toContain('no-store');
           expect(mocks.service.trackBooking).not.toHaveBeenCalled();
+     });
+
+     it('serves an uncached aggregate count without accepting tenant parameters', async () => {
+          mocks.service.publicStatistics.mockResolvedValue({ activeFacilities: 4 });
+          const response = await fetch(`${baseUrl}/statistics`);
+          expect(response.status).toBe(200);
+          expect(response.headers.get('cache-control')).toContain('no-store');
+          expect(await response.json()).toEqual({ status: 'success', result: { activeFacilities: 4 } });
+          const invalid = await fetch(`${baseUrl}/statistics?tenantId=1`);
+          expect(invalid.status).toBe(400);
      });
 
      it('accepts website enquiries only with the configured bearer token', async () => {
