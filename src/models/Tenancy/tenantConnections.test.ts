@@ -33,6 +33,8 @@ async function configure(values: Record<string, string>) {
 }
 beforeEach(async () => {
      for (const name of settings) vi.stubEnv(name, undefined);
+     vi.stubEnv("PLS_LEGACY_SCHEMA_UPGRADE", undefined);
+     vi.stubEnv("TENANT_STARTUP_MIGRATION", undefined);
      vi.useFakeTimers();
      vi.resetModules();
      vi.clearAllMocks();
@@ -71,6 +73,43 @@ afterEach(() => {
 });
 
 describe("bounded tenant pool lifecycle", () => {
+     it("keeps zero-date checks unchanged outside legacy upgrades", async () => {
+          vi.stubEnv("TENANT_STARTUP_MIGRATION", "false");
+          await configure({});
+          await api.KnexConnectionTenant(160757);
+          const conn = { query: vi.fn((_sql: string, callback: (error: Error | null) => void) => callback(null)) };
+          const done = vi.fn();
+
+          (mocks.instances[0].config.pool.afterCreate as Function)(conn, done);
+
+          expect(conn.query).toHaveBeenCalledWith(
+               "SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))",
+               expect.any(Function),
+          );
+          await api.releaseTenantConnection(160757);
+     });
+
+     it("relaxes zero-date checks during a tenant startup migration", async () => {
+          vi.stubEnv("TENANT_STARTUP_MIGRATION", "True");
+          await configure({});
+          await api.KnexConnectionTenant(160757);
+          const conn = { query: vi.fn((_sql: string, callback: (error: Error | null) => void) => callback(null)) };
+          const done = vi.fn();
+
+          (mocks.instances[0].config.pool.afterCreate as Function)(conn, done);
+
+          expect(conn.query).toHaveBeenCalledWith(
+               expect.stringContaining("'NO_ZERO_DATE', ''"),
+               expect.any(Function),
+          );
+          expect(conn.query).toHaveBeenCalledWith(
+               expect.stringContaining("'NO_ZERO_IN_DATE', ''"),
+               expect.any(Function),
+          );
+          expect(done).toHaveBeenCalledWith(null, conn);
+          await api.releaseTenantConnection(160757);
+     });
+
      it("coalesces registry lookups and lazily creates only the requested API's pool", async () => {
           const instances = await Promise.all(Array.from({ length: 10 }, () => api.KnexConnectionTenant(1)));
           expect(new Set(instances).size).toBe(1);

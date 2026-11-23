@@ -62,8 +62,28 @@ compliant; convert those tables through the maintenance path before activation.
 Strict facility provisioning and client migration bootstrap normalize and verify
 collation both before and after the runtime bootstrappers, before starting workers
 or reporting readiness. This includes tables introduced during that upgrade.
-Ordinary application startup does not rebuild existing tables automatically.
-Keep writes paused throughout strict migration bootstrap as well as conversion.
+`TENANT_STARTUP_MIGRATION=true` forces the full strict application bootstrap for
+every active registered tenant at startup. It applies the codebase's reviewed
+schema and data bootstrappers and records a completion version only after all
+steps and the final collation check succeed. Run it during a backed-up maintenance
+window with application and worker writes paused. A failure prevents the server
+from reporting startup success; fix the reported migration issue and rerun.
+During this migration, tenant connections temporarily omit `NO_ZERO_DATE` and
+`NO_ZERO_IN_DATE` so table rebuilds preserve historical zero-date values. After
+all tenants complete successfully, set `TENANT_STARTUP_MIGRATION=false` and
+restart the application to restore normal SQL mode. Startup then checks one small
+per-tenant completion marker and skips the full bootstrap for tenants already at
+the current version. An unmarked or outdated tenant is bootstrapped once before
+it is served. New tenant provisioning always runs the strict bootstrap regardless
+of this setting. Whenever a code change adds
+or changes a tenant schema/data bootstrap, increment
+`TENANT_BOOTSTRAP_STATE_VERSION` so installations with the setting off still
+apply that upgrade once.
+
+This setting controls the application's tenant bootstrappers; it does not replace
+the assessed compatibility plan and reviewed SQL steps above, nor does it disable
+master-control database initialization. Keep writes paused throughout strict
+migration bootstrap as well as conversion.
 The authoritative exported schema files remain historical source assets; their
 DDL is normalized before execution, and regression tests cover every exported table.
 

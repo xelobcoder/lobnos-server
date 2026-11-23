@@ -1,15 +1,21 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ connection: vi.fn(), query: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connection: vi.fn(), query: vi.fn(), migrateBillingLayout: vi.fn() }));
 vi.mock('../../../database/KnexConnections', () => ({ default: mocks.connection }));
 vi.mock('../../../hooks/helper', () => ({ promisifyQuery: mocks.query }));
 vi.mock('./services/regions-districts-service', () => ({ default: class {} }));
+vi.mock('../../../cron/command-line-tool-database/migrations/20261025_billing_layout', () => ({
+     up: mocks.migrateBillingLayout,
+}));
 
 import ApplicationSettings from './appset';
 import { isWorkspaceLayout } from './workspaceLayout';
 
 describe('workspace layout settings', () => {
-     beforeEach(() => vi.clearAllMocks());
+     beforeEach(() => {
+          vi.clearAllMocks();
+          mocks.migrateBillingLayout.mockResolvedValue(undefined);
+     });
 
      it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal'])('accepts %s', value => {
           expect(isWorkspaceLayout(value)).toBe(true);
@@ -67,6 +73,7 @@ describe('workspace layout settings', () => {
           t.builder.update.mockResolvedValue(1);
           mocks.connection.mockResolvedValue(t.db);
           await new ApplicationSettings().updateApplicationSettings(42, { workspaceLayout: 'zoho' } as any);
+          expect(mocks.migrateBillingLayout).toHaveBeenCalledWith(t.db);
           // Only the dedicated validated PATCH writes this column; the legacy settings form cannot reset it.
           expect(t.builder.update).toHaveBeenCalledOnce();
           expect(t.builder.update.mock.calls[0][0]).not.toHaveProperty('workspaceLayout');

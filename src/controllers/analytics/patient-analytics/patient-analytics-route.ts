@@ -8,6 +8,7 @@ import {
      getActivationStatusHandler,
      getUniqueIdentifiersHandler,
      getOccupationDistributionHandler,
+     getCombinedAttributesHandler,
      getMissingDataAnalysisHandler,
      getDuplicateRecordsHandler,
      getDashboardsHandler,
@@ -29,6 +30,7 @@ router.get('/api/v1/patient-analytics/patient-registration-over-time', getPatien
 router.get('/api/v1/patient-analytics/activation-status', getActivationStatusHandler);
 router.get('/api/v1/patient-analytics/unique-identifiers', getUniqueIdentifiersHandler);
 router.get('/api/v1/patient-analytics/occupation-distribution', getOccupationDistributionHandler);
+router.get('/api/v1/patient-analytics/combined-attributes', getCombinedAttributesHandler);
 router.get('/api/v1/patient-analytics/missing-data-analysis', getMissingDataAnalysisHandler);
 router.get('/api/v1/patient-analytics/duplicate-records', getDuplicateRecordsHandler);
 router.get('/api/v1/patient-analytics/dashboards', getDashboardsHandler);
@@ -49,6 +51,7 @@ router.get('/api/v1/patient-analytics/routes', (req, res) => {
           { endpoint: '/api/v1/patient-analytics/designation', description: 'Retrieve designation distribution of patients.' },
           { endpoint: '/api/v1/patient-analytics/unique-identifiers', description: 'Retrieve duplicate unique identifiers of patients.' },
           { endpoint: '/api/v1/patient-analytics/occupation-distribution', description: 'Retrieve occupation distribution of patients.' },
+          { endpoint: '/api/v1/patient-analytics/combined-attributes', description: 'Retrieve combined gender, marital status, and occupation distribution.' },
           { endpoint: '/api/v1/patient-analytics/missing-data-analysis', description: 'Retrieve analysis on missing data fields.' },
           { endpoint: '/api/v1/patient-analytics/duplicate-records', description: 'Retrieve duplicate records of patients.' },
           { endpoint: '/api/v1/patient-analytics/registration-date-vs-activation', description: 'Retrieve registration date versus activation status.' },

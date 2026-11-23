@@ -1,5 +1,6 @@
 import { randomBytes, randomInt } from "crypto";
 import type { Knex } from "knex";
+import { isSuperAdminRole } from "../../middleware/roles";
 import { FacilityError } from "./FacilityInput";
 import { DEVELOPER_SUPPORT_EMAIL } from "./DeveloperSessionPolicy";
 
@@ -32,7 +33,7 @@ export async function ensureDeveloperSupportIdentity(trx: Knex.Transaction) {
                username: "Platform Developer",
                firstname: "Platform Developer",
                email: DEVELOPER_SUPPORT_EMAIL,
-               role: "super-admin",
+               role: "super_admin",
                activation: 1,
                branch: branch.branchid,
                platform_support: true,
@@ -42,7 +43,7 @@ export async function ensureDeveloperSupportIdentity(trx: Knex.Transaction) {
           });
           row = await trx("roles").where({ employeeid }).first();
      }
-     if (Number(row?.platform_support) !== 1 || row.role !== "super-admin" || Number(row.activation) !== 1) {
+     if (Number(row?.platform_support) !== 1 || !isSuperAdminRole(row.role) || Number(row.activation) !== 1) {
           throw new FacilityError("The developer identity for this facility needs repair", 409);
      }
      if (Number(row.branch) !== Number(branch.branchid)) {

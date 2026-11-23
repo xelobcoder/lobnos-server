@@ -7,6 +7,7 @@ import {
      q_patient_analytics_activation_status,
      q_patient_analytics_unique_identifiers,
      q_patient_analytics_occupation_distribution,
+     q_patient_analytics_combined_attributes,
      q_patient_analytics_missing_data_analysis,
      q_patient_analytics_duplicate_records,
      q_patient_analytics_dashboards,
@@ -47,6 +48,10 @@ export class PatientAnalytics {
 
      async getOccupationDistribution(tenantId: number): Promise<any> {
           return await promisifyQuery(tenantId, q_patient_analytics_occupation_distribution, []);
+     }
+
+     async getCombinedAttributes(tenantId: number): Promise<any> {
+          return await promisifyQuery(tenantId, q_patient_analytics_combined_attributes, []);
      }
 
 

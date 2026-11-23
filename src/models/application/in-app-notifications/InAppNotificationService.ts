@@ -1,4 +1,21 @@
 import KnexConnection from '../../../database/KnexConnections';
+import { bootstrapInAppNotificationTables } from './InAppNotificationBootstrapper';
+
+const notificationSchemaReady = new Map<number, Promise<void>>();
+
+async function ensureNotificationSchema(tenantId: number): Promise<void> {
+     let initialization = notificationSchemaReady.get(tenantId);
+     if (!initialization) {
+          initialization = bootstrapInAppNotificationTables(tenantId);
+          notificationSchemaReady.set(tenantId, initialization);
+     }
+     try {
+          await initialization;
+     } catch (error) {
+          if (notificationSchemaReady.get(tenantId) === initialization) notificationSchemaReady.delete(tenantId);
+          throw error;
+     }
+}
 
 export type InAppNotificationInput = {
      eventCode: string;
@@ -14,6 +31,7 @@ export type InAppNotificationInput = {
 
 export class InAppNotificationService {
      static async publish(tenantId: number, input: InAppNotificationInput): Promise<number> {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           const [notificationId] = await connection('in_app_notifications').insert({
                event_code: input.eventCode,
@@ -31,6 +49,7 @@ export class InAppNotificationService {
      }
 
      static async getInbox(tenantId: number, employeeId: number, limit: number, unreadOnly: boolean) {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           const query = connection('in_app_notifications as notification')
                .leftJoin('in_app_notification_reads as read', function () {
@@ -61,6 +80,7 @@ export class InAppNotificationService {
      }
 
      static async getUnreadCount(tenantId: number, employeeId: number): Promise<number> {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           const count = await connection('in_app_notifications as notification')
                .leftJoin('in_app_notification_reads as read', function () {
@@ -75,6 +95,7 @@ export class InAppNotificationService {
      }
 
      static async markRead(tenantId: number, employeeId: number, notificationId: number): Promise<void> {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           await connection('in_app_notification_reads')
                .insert({ notification_id: notificationId, employeeid: employeeId, read_at: connection.fn.now() })
@@ -83,6 +104,7 @@ export class InAppNotificationService {
      }
 
      static async dismiss(tenantId: number, employeeId: number, notificationId: number): Promise<void> {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           await connection('in_app_notification_reads')
                .insert({ notification_id: notificationId, employeeid: employeeId, dismissed_at: connection.fn.now() })
@@ -91,6 +113,7 @@ export class InAppNotificationService {
      }
 
      static async markAllRead(tenantId: number, employeeId: number): Promise<void> {
+          await ensureNotificationSchema(tenantId);
           const connection = await KnexConnection(tenantId);
           await connection.raw(`
                INSERT INTO in_app_notification_reads (notification_id, employeeid, read_at)

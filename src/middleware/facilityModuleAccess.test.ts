@@ -51,6 +51,7 @@ describe('facility activation enforcement', () => {
      it.each(['/api/v1/pharmacy/sales', '/api/v1/inventory/items', '/api/v1/email/queue',
           '/api/v1/sms/events', '/api/v1/prime/sms-analytics/job-status-counts',
           '/api/v1/interfacing/devices', '/api/v1/devices/interfacing/verified/devices',
+          '/api/v1/patient/individual/analytics', '/api/v1/patient/individual/analytics/yearly',
           '/API/V1/Pharmacy/sales', '/api/v1/EMAIL/queue'])('blocks disabled module %s', async path => {
           const next = await invoke(path);
           expect(mocks.error).toHaveBeenCalledWith(expect.stringMatching(/not (?:activated|authorized)/), 403, expect.anything());
@@ -132,6 +133,7 @@ describe('facility activation enforcement', () => {
           ['/api/v1/commission-payments/tracking/12', 'commissions'],
           ['/api/v1/commission/configs', 'commissions'],
           ['/api/v1/patient-analytics/dashboards', 'analytics'],
+          ['/api/v1/patient/individual/analytics/yearly', 'analytics'],
           ['/api/v1/clinician/anal/monthly/15', 'analytics'],
           ['/api/v1/appointments/month', 'appointments'],
           ['/api/v1/appointment/reminder', 'appointments'],
@@ -147,6 +149,7 @@ describe('facility activation enforcement', () => {
      it.each([
           ['/api/v1/commission-payments/tracking/12', 'commissions'],
           ['/api/v1/patient-analytics/dashboards', 'analytics'],
+          ['/api/v1/patient/individual/analytics/yearly', 'analytics'],
           ['/api/v1/appointments/month', 'appointments'],
           ['/api/v1/expenses/records', 'expenses'],
           ['/api/v1/records/consulation', 'consultations'],

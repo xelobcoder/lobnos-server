@@ -59,6 +59,13 @@ FROM new_patients
 GROUP BY occupation;
 `;
 
+export const q_patient_analytics_combined_attributes = `
+SELECT gender, marital_status, occupation, COUNT(*) AS patient_count
+FROM new_patients
+GROUP BY gender, marital_status, occupation
+ORDER BY patient_count DESC;
+`;
+
 
 export const q_patient_analytics_missing_data_analysis = `
 SELECT
@@ -87,9 +94,9 @@ HAVING COUNT(*) > 1;
 export const q_patient_analytics_dashboards = `
 SELECT
     COUNT(*) AS total_patients,
-    SUM(CASE WHEN activation_status = 'TRUE' THEN 1 ELSE 0 END) AS active_patients,
-    SUM(CASE WHEN gender = 'male' THEN 1 ELSE 0 END) AS male_patients,
-    SUM(CASE WHEN gender = 'female' THEN 1 ELSE 0 END) AS female_patients
+    COALESCE(SUM(CASE WHEN activation_status = 'TRUE' THEN 1 ELSE 0 END), 0) AS active_patients,
+    COALESCE(SUM(CASE WHEN gender = 'male' THEN 1 ELSE 0 END), 0) AS male_patients,
+    COALESCE(SUM(CASE WHEN gender = 'female' THEN 1 ELSE 0 END), 0) AS female_patients
 FROM new_patients;
 `;
 
@@ -117,7 +124,7 @@ ORDER BY DAYOFWEEK(date);
 export const q_patient_analytics_contact_completeness = `
 SELECT
     COUNT(*) as total,
-    SUM(CASE WHEN NULLIF(TRIM(email), '') IS NOT NULL AND NULLIF(TRIM(mobile_number), '') IS NOT NULL THEN 1 ELSE 0 END) as complete_contact
+    COALESCE(SUM(CASE WHEN NULLIF(TRIM(email), '') IS NOT NULL AND NULLIF(TRIM(mobile_number), '') IS NOT NULL THEN 1 ELSE 0 END), 0) as complete_contact
 FROM new_patients;
 `;
 

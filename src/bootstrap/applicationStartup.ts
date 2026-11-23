@@ -68,6 +68,9 @@ import logger from "../hooks/logger";
 import { bootstrapResultSettings } from "../models/application/appsettings/result-settings/ResultSettingsBootstrapper";
 import { bootstrapSmsProviderSettings } from "../models/application/sms/SmsProviderBootstrapper";
 import { bootstrapMasterControlDatabase } from "./MasterControlBootstrap";
+import {
+     hasCurrentTenantBootstrap, recordTenantBootstrapCompletion, tenantStartupMigrationEnabled,
+} from './TenantStartupMigration';
 
 /** Master test catalog every tenant imports tests from (lives in the master control database). */
 const MASTER_CATALOG_TABLES = [
@@ -100,6 +103,7 @@ export async function verifyMasterCatalog(): Promise<string[]> {
 
 /** Prepares every served tenant database. A tenant that cannot be reached is logged and skipped. */
 export async function bootstrapTenants(): Promise<{ readyTenants: number[]; accountingTenants: number[] }> {
+     const forceMigration = tenantStartupMigrationEnabled();
      await bootstrapMasterControlDatabase();
      await verifyMasterCatalog();
      await TenantRegistry.ensureReady();
@@ -125,7 +129,7 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
                `[Bootstrap] Empty database initialized and registered as tenant ${localRegistration.tenantId}`,
           );
      }
-     await ensureTestReportSettingsTable(singleTenantKnexInstance);
+     if (forceMigration) await ensureTestReportSettingsTable(singleTenantKnexInstance);
      const readyTenants: number[] = [];
      const accountingTenants: number[] = [];
      for (const tenant of await listServedTenants()) {
@@ -137,8 +141,17 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
                );
                continue;
           }
+          const currentBootstrap = await hasCurrentTenantBootstrap(await KnexConnection(tenant.tenantId));
+          if (!forceMigration && currentBootstrap) {
+               readyTenants.push(tenant.tenantId);
+               accountingTenants.push(tenant.tenantId);
+               logger.info(
+                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode} - ${tenant.name}) startup migration skipped; schema version is current`,
+               );
+               continue;
+          }
           try {
-               const { accountingReady } = await runApplicationBootstrappers(tenant.tenantId);
+               const { accountingReady } = await runApplicationBootstrappers(tenant.tenantId, true, { startWorkers: false });
                readyTenants.push(tenant.tenantId);
                if (accountingReady) accountingTenants.push(tenant.tenantId);
                logger.info(
@@ -146,8 +159,9 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
                );
           } catch (error: any) {
                logger.error(
-                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode}) skipped, database ${tenant.databaseName} unavailable: ${error?.message || error}`,
+                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode}) strict migration failed for database ${tenant.databaseName}: ${error?.message || error}`,
                );
+               throw error;
           }
      }
      return { readyTenants, accountingTenants };
@@ -164,6 +178,7 @@ export async function runApplicationBootstrappers(
      await bootstrapTenantCompanyProfile(tenantId);
      await bootstrapDefaultBranch(tenantId);
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
+     await bootstrapInAppNotificationTables(tenantId);
      // Registration must not depend on unrelated module bootstrappers finishing first.
      const patientContactDb = await KnexConnection(tenantId);
      await bootstrapPatientContacts(patientContactDb);
@@ -201,7 +216,6 @@ export async function runApplicationBootstrappers(
      await bootstrapExpenseWorkflow(tenantId);
      await bootstrapPayrollTables(tenantId);
      await bootstrapNotificationDefinitions(tenantId);
-     await bootstrapInAppNotificationTables(tenantId);
      await bootstrapEmailTables(tenantId);
      await bootstrapSmsProviderSettings(tenantId);
      await bootstrapResultValueAnalyticsTables(tenantId, strict);
@@ -233,15 +247,12 @@ export async function runApplicationBootstrappers(
      // Bootstrappers can add tables after the initial conversion. Gate maintenance/provisioning completion on the final schema.
      if (strict) await normalizeTenantCollation(await KnexConnection(tenantId));
      else await enforceExistingTenantCollation(tenantId);
+     if (strict) await recordTenantBootstrapCompletion(await KnexConnection(tenantId));
      if (options.startWorkers !== false) startCrmReminderWorker(tenantId);
      return { accountingReady };
 }
 
-/**
- * Existing tenants are converted on every startup so legacy and newly created tables cannot drift.
- * normalizeTenantCollation validates unique keys and foreign-key membership before altering anything.
- * Set TENANT_COLLATION_AUTOFIX=false to audit and log only.
- */
+/** Non-strict fallback for direct bootstrap callers; normal startup uses the versioned strict migration. */
 async function enforceExistingTenantCollation(tenantId: number): Promise<void> {
      const db = await KnexConnection(tenantId);
      try {
@@ -260,6 +271,7 @@ async function enforceExistingTenantCollation(tenantId: number): Promise<void> {
 
 export function startApplicationBackgroundWorkers(tenantIds: number[], options: { accountingReady: boolean }): void {
      startOptionalRedisCache();
+     for (const tenantId of tenantIds) startCrmReminderWorker(tenantId);
      if (!options.accountingReady || tenantIds.length === 0) return;
 
      try {

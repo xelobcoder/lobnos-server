@@ -97,13 +97,32 @@ export const getOccupationDistributionHandler = async (req: Request, res: Respon
      }
 };
 
+export const getCombinedAttributesHandler = async (req: Request, res: Response): Promise<void> => {
+     try {
+          const { tenantId } = req.query;
+          const result = await analytics.getCombinedAttributes(parseInt(tenantId.toString()));
+          if (!Array.isArray(result)) {
+               res.status(500).json({ error: 'Invalid combined patient attributes response' });
+               return;
+          }
+          res.status(200).json(result);
+     } catch (error) {
+          console.error(error);
+          res.status(500).json({ error: 'Error fetching combined patient attributes data' });
+     }
+};
+
 
 
 export const getMissingDataAnalysisHandler = async (req: Request, res: Response): Promise<void> => {
      try {
           const { tenantId } = req.query;
           const result = await analytics.getMissingDataAnalysis(parseInt(tenantId.toString()));
-          res.status(200).json(Array.isArray(result) ? result[0] : []);
+          if (!Array.isArray(result) || result.length !== 1 || !result[0] || typeof result[0] !== 'object') {
+               res.status(500).json({ error: 'Invalid missing data analysis response' });
+               return;
+          }
+          res.status(200).json(result[0]);
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching missing data analysis' });
@@ -125,7 +144,11 @@ export const getDashboardsHandler = async (req: Request, res: Response): Promise
      try {
           const { tenantId } = req.query;
           const result = await analytics.getDashboards(parseInt(tenantId.toString()));
-          res.status(200).json(Array.isArray(result) ? result : []);
+          if (!Array.isArray(result) || result.length !== 1 || !result[0] || typeof result[0] !== 'object') {
+               res.status(500).json({ error: 'Invalid patient dashboards response' });
+               return;
+          }
+          res.status(200).json(result);
      } catch (error) {
           console.error(error);
           res.status(500).json({ error: 'Error fetching dashboards data' });
@@ -169,6 +192,10 @@ export const getContactCompletenessHandler = async (req: Request, res: Response)
      try {
           const { tenantId } = req.query;
           const result = await analytics.getContactCompleteness(parseInt(tenantId.toString()));
+          if (!Array.isArray(result) || result.length !== 1 || !result[0] || typeof result[0] !== 'object') {
+               res.status(500).json({ error: 'Invalid contact completeness response' });
+               return;
+          }
           res.status(200).json(result);
      } catch (error) {
           console.error(error);

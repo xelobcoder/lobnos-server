@@ -23,6 +23,7 @@ import RegionsDistrictsService from "./services/regions-districts-service";
 import { isWorkspaceLayout, WorkspaceLayout } from "./workspaceLayout";
 import { isBillingLayout } from './billingLayout';
 import {isLabCheckoutMode} from '../../billing/LabCashierWorkflow';
+import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
 
 
 
@@ -141,6 +142,7 @@ export default class ApplicationSettings {
 		if (data.labCheckoutMode !== undefined && !isLabCheckoutMode(data.labCheckoutMode)) throw new Error('Invalid laboratory checkout mode');
 		if (data.billingLayout !== undefined && !isBillingLayout(data.billingLayout)) throw new Error('Invalid billing layout');
 		const connection = await KnexConnection(tenantId);
+		await migrateBillingLayout(connection);
 		const {
 			bulkregistration,
 			emailNotification,

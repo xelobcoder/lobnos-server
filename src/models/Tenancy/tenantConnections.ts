@@ -45,6 +45,8 @@ const IDLE_MS = positiveSetting("TENANT_DB_IDLE_TIMEOUT_MS", 5 * 60_000, 2147483
 const MYSQL_MAX = positiveSetting("TENANT_DB_MYSQL_POOL_MAX", 5);
 const KNEX_MAX = positiveSetting("TENANT_DB_KNEX_POOL_MAX", 5);
 const CONNECTION_BUDGET = positiveSetting("TENANT_DB_CONNECTION_BUDGET", 100);
+const LEGACY_SCHEMA_UPGRADE = process.env.PLS_LEGACY_SCHEMA_UPGRADE === "true" ||
+     process.env.TENANT_STARTUP_MIGRATION?.trim().toLowerCase() === "true";
 if (MYSQL_MAX > CONNECTION_BUDGET || KNEX_MAX > CONNECTION_BUDGET) {
      throw new Error("Each tenant DB pool maximum must fit within TENANT_DB_CONNECTION_BUDGET");
 }
@@ -232,7 +234,10 @@ function knexFor(id: number, entry: TenantConnection): Knex {
           pool: {
                min: 0, max: KNEX_MAX, idleTimeoutMillis: 30000,
                afterCreate: (conn: any, done: Function) => {
-                    conn.query("SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))",
+                    const mode = LEGACY_SCHEMA_UPGRADE
+                         ? "SET SESSION sql_mode = (SELECT REPLACE(REPLACE(REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''), 'NO_ZERO_DATE', ''), 'NO_ZERO_IN_DATE', ''))"
+                         : "SET SESSION sql_mode = (SELECT REPLACE(@@sql_mode, 'ONLY_FULL_GROUP_BY', ''))";
+                    conn.query(mode,
                          (err: any) => done(err, conn));
                },
           },

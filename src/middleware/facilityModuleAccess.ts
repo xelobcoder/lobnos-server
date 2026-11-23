@@ -31,7 +31,7 @@ export function moduleForApiPath(path: string): FacilityModule | null {
      if (/^\/api\/v1\/prescriptions(?:\/|$)/i.test(path)) return 'pharmacy';
      if (/^\/api\/v1\/records\/consul(?:t)?ations?(?:\/|$)/i.test(path)) return 'consultations';
      if (/^\/api\/v1\/(?:operations\/imaging|ultrasound|testpanel\/list\/ultrasound|result\/entry\/ultrasound)(?:\/|$)/i.test(path)) return 'imaging';
-     if (/^\/api\/v1\/(?:analytics|patient-analytics|clinician\/anal|testascension|ascension\/analytics|ascension\/phelobotomistAnalyticsSummary)(?:\/|$)/i.test(path) ||
+     if (/^\/api\/v1\/(?:analytics|patient-analytics|patient\/individual\/analytics|clinician\/anal|testascension|ascension\/analytics|ascension\/phelobotomistAnalyticsSummary)(?:\/|$)/i.test(path) ||
           /^\/api\/v1\/financials\/billing\/summary(?:\/|$)/i.test(path) ||
           /^\/api\/v1\/outsourced\/(?:profit-per-test|profit-by-case|cases(?:-profit)?)(?:\/|$)/i.test(path)) return 'analytics';
      return null;
