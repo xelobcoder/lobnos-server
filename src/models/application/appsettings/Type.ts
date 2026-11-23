@@ -105,11 +105,11 @@ export type ApplicationSettingsData = {
 
 
 export type ApplicationBillSettings = {
-     startTime: number,
-     endTime: number,
-     hasNightAdjustments: boolean,
-     nightAdjustmentMode: boolean,
-     nightAdjustmentValue: boolean
+     startTime: string,
+     endTime: string,
+     hasNightAdjustment: boolean,
+     nightAdjustmentMode: string,
+     nightAdjustmentValue: string
 }
 
 

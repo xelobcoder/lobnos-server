@@ -105,9 +105,12 @@ export class DeviceRepository {
         try {
             const conn = await this.connection;
             const [total] = await conn('devices').count('id as count');
+            const devices = () => conn('devices').select('devices.*',
+                conn.raw('EXISTS (SELECT 1 FROM ?? AS r WHERE r.device_id = devices.id AND r.status = ?) AS maintenance_blocked',
+                    ['pls_instrument_maintenance_runs', 'awaiting_corrective_action']));
 
             if (!page || !count) {
-                const data = await conn('devices')
+                const data = await devices()
                     .orderBy('createdAt', 'desc');
                 return {
                     data,
@@ -118,7 +121,7 @@ export class DeviceRepository {
             }
 
             const offset = (page - 1) * count;
-            const data = await conn('devices')
+            const data = await devices()
                 .orderBy('createdAt', 'desc')
                 .limit(count)
                 .offset(offset);

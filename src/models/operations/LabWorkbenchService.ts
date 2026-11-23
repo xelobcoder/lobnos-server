@@ -8,6 +8,7 @@ import { LAB_EFFECTIVE_DUE_SQL } from "./LabDeadlines";
 import { LaboratoryWorkflowService } from "./LaboratoryWorkflow";
 import { getDailyQcStatus } from "../creator/calculations/QCEnforcementService";
 import { InventoryTransactionModel } from "../inventory/InventoryTransaction";
+import { InstrumentMaintenanceService } from "../QualityControl/InstrumentMaintenanceService";
 
 const fail = (message: string, statusCode = 400): never => {
      throw Object.assign(new Error(message), { statusCode });
@@ -42,6 +43,7 @@ export class LabWorkbenchService {
                ),
                devices: await db("devices")
                     .where({ status: "active" })
+                    .whereNotIn("id", db("pls_instrument_maintenance_runs").where({ status: "awaiting_corrective_action" }).select("device_id"))
                     .select("id", "deviceName")
                     .orderBy("deviceName"),
                supervisor: supervisor(actor),
@@ -208,6 +210,8 @@ export class LabWorkbenchService {
                               !(await trx("devices").where({ id: input.device_id, status: "active" }).first())
                          )
                               fail("Select an active analyzer");
+                         if (input.device_id !== null && input.device_id !== "")
+                              await new InstrumentMaintenanceService(this.tenantId).assertInstrumentClear(trx, input.device_id);
                          values.device_id = input.device_id || null;
                     }
                }

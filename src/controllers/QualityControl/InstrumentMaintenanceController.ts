@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { getAuthUser } from '../../middleware/authority';
 import { roleAllowed } from '../../middleware/roles';
 import { InstrumentMaintenanceService } from '../../models/QualityControl/InstrumentMaintenanceService';
+import { MaintenanceTaskService } from '../../models/QualityControl/MaintenanceTaskService';
 
 function context(req: Request) {
      const actor = getAuthUser(req);
@@ -23,6 +24,24 @@ export function requireMaintenanceSupervisor(req: Request, res: Response, next: 
 }
 
 export class InstrumentMaintenanceController {
+     async plansAndTasks(req: Request, res: Response) {
+          try { const { actor } = context(req); return res.json(await new MaintenanceTaskService(Number(actor.tenantId)).list()); }
+          catch (error) { return sendError(res, error); }
+     }
+     async savePlan(req: Request, res: Response) {
+          try {
+               const { actor } = context(req);
+               return res.json(await new MaintenanceTaskService(Number(actor.tenantId)).savePlan(req.body, actor.employeeid, req.params.planId ? Number(req.params.planId) : undefined));
+          } catch (error) { return sendError(res, error); }
+     }
+     async completeTask(req: Request, res: Response) {
+          try { const { actor } = context(req); return res.json(await new MaintenanceTaskService(Number(actor.tenantId)).completeTask(Number(req.params.taskId), req.body, actor.employeeid)); }
+          catch (error) { return sendError(res, error); }
+     }
+     async saveDraft(req: Request, res: Response) {
+          try { const { actor } = context(req); return res.json(await new MaintenanceTaskService(Number(actor.tenantId)).saveDraft(Number(req.params.taskId), req.body, actor.employeeid)); }
+          catch (error) { return sendError(res, error); }
+     }
      async checklist(req: Request, res: Response) {
           try { const { service } = context(req); return res.json(await service.listChecklist()); }
           catch (error) { return sendError(res, error); }

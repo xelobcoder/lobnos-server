@@ -1,9 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mocks = vi.hoisted(() => ({ connection: vi.fn(), query: vi.fn(), migrateBillingLayout: vi.fn() }));
+const mocks = vi.hoisted(() => ({ connection: vi.fn(), query: vi.fn(), migrateBillingLayout: vi.fn(), bootstrap: vi.fn() }));
 vi.mock('../../../database/KnexConnections', () => ({ default: mocks.connection }));
 vi.mock('../../../hooks/helper', () => ({ promisifyQuery: mocks.query }));
 vi.mock('./services/regions-districts-service', () => ({ default: class {} }));
+vi.mock('./ApplicationSettingsBootstrapper', () => ({ bootstrapApplicationSettings: mocks.bootstrap }));
 vi.mock('../../../cron/command-line-tool-database/migrations/20261025_billing_layout', () => ({
      up: mocks.migrateBillingLayout,
 }));
@@ -25,15 +26,15 @@ describe('workspace layout settings', () => {
      });
 
      it.each(['classic', 'zoho', 'claude', 'ribbon', 'slack', 'portal', undefined, null, 'invalid'])('exposes %j as normal application settings', async value => {
-          mocks.query.mockResolvedValue([{ keyid: 1, workspaceLayout: value, services: '{"enabled":true}' }]);
+          mocks.query.mockResolvedValue([{ keyid: 1, workspaceLayout: value, services: '{"enabled":true}', billingsettings: '{"hasNightAdjustment":false}' }]);
           const result = await new ApplicationSettings().getAllAppSettings(42);
-          expect(mocks.query).toHaveBeenCalledWith(42, 'SELECT * FROM applicationsettings');
+          expect(mocks.query).toHaveBeenCalledWith(42, 'SELECT * FROM applicationsettings WHERE keyid = 1');
           expect(result.workspaceLayout).toBe(isWorkspaceLayout(value) ? value : 'classic');
           expect(result.services).toEqual({ enabled: true });
      });
-     it('preserves the empty settings contract', async () => {
+     it('reports an initialization failure rather than returning empty settings', async () => {
           mocks.query.mockResolvedValue([]);
-          expect(await new ApplicationSettings().getAllAppSettings(42)).toBeNull();
+          await expect(new ApplicationSettings().getAllAppSettings(42)).rejects.toThrow('Unable to initialize');
      });
 
      function tenant(existing: any = { keyid: 1, workspaceLayout: 'classic', headerColor: '#fff' }) {
@@ -105,6 +106,13 @@ describe('workspace layout settings', () => {
                isSmsServicesConnected: 1,
           });
      });
+     it('preserves configured billing settings when the general settings form omits them', async () => {
+          const configured = { hasNightAdjustment: true, nightAdjustmentValue: '8', nightAdjustmentMode: 'absolute', startTime: '22:00', endTime: '06:00' };
+          const t = tenant({ keyid: 1, services: '{}', billingsettings: JSON.stringify(configured) });
+          mocks.connection.mockResolvedValue(t.db);
+          await new ApplicationSettings().updateApplicationSettings(42, {} as any);
+          expect(JSON.parse(t.builder.update.mock.calls[0][0].billingsettings)).toEqual(configured);
+     });
      it('treats an unchanged application settings update as successful', async () => {
           const t = tenant({ keyid: 1, smsActivated: 0, services: '{}' });
           mocks.connection.mockResolvedValue(t.db);
@@ -125,7 +133,7 @@ describe('workspace layout settings', () => {
           mocks.connection.mockResolvedValue(t.db);
           await new ApplicationSettings().updateApplicationSettings(42, { billingLayout } as any);
           expect(t.builder.update).toHaveBeenCalledWith(expect.objectContaining({ billingLayout }));
-          mocks.query.mockResolvedValue([{ keyid: 1, billingLayout }]);
+          mocks.query.mockResolvedValue([{ keyid: 1, billingLayout, billingsettings: '{"hasNightAdjustment":false}' }]);
           expect((await new ApplicationSettings().getAllAppSettings(42))?.billingLayout).toBe(billingLayout);
      });
      it('preserves billing layout when an older settings client omits the new field', async () => {

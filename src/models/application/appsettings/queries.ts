@@ -1,4 +1,4 @@
-export const q_application_setting: string = `SELECT * FROM applicationsettings`;
+export const q_application_setting: string = `SELECT * FROM applicationsettings WHERE keyid = 1`;
 
 export const q_active_tax = `SELECT * FROM tax WHERE apply = 'Yes'`;
 

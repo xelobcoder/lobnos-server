@@ -1,3 +1,5 @@
+import { DEFAULT_BILLING_SETTINGS } from '../../../models/application/appsettings/billingSettingsDefaults';
+
 exports.seed = function (knex) {
   // Deletes ALL existing entries
   return knex('applicationsettings')
@@ -37,13 +39,7 @@ exports.seed = function (knex) {
             isSmsServicesConnected: 0,
             isEmailServicesConnected: 0,
           }),
-          billingsettings: JSON.stringify({
-            hasNightAdjustment: true,
-            nightAdjustmentValue: '5',
-            nightAdjustmentMode: 'absolute',
-            startTime: '00:00',
-            endTime: '23:00',
-          }),
+          billingsettings: JSON.stringify(DEFAULT_BILLING_SETTINGS),
           regioncode: 9,
           districtcode: 173,
         },

@@ -64,6 +64,16 @@ describe('laboratory work and actual material usage', () => {
           expect(store.rows('lab_work_assignments')[0]).toMatchObject({ assigned_employeeid: 7, version: 1 });
           expect(store.rows('lab_work_actions')[0]).toMatchObject({ employeeid: 7, action: 'update' });
      });
+     it('rejects assigning an analyzer with an unresolved maintenance failure', async () => {
+          const { store, service } = setup({
+               lab_access_settings: [{ id: 1, allow_claim: true }],
+               devices: [{ id: 'analyzer-1', status: 'active' }],
+               pls_instrument_maintenance_runs: [{ id: 1, device_id: 'analyzer-1', status: 'awaiting_corrective_action' }],
+          });
+          await expect(service.update(actor, 1, { version: 0, assigned_employeeid: 7, device_id: 'analyzer-1' }))
+               .rejects.toMatchObject({ statusCode: 423, code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+          expect(store.rows('lab_work_assignments')).toHaveLength(0);
+     });
      it('rejects a stale reassignment and another branch', async () => {
           const { store, service } = setup({ lab_work_assignments: [{ ascensionid: 1, version: 2, assigned_employeeid: 7 }] });
           await expect(service.update(actor, 1, { version: 1, assigned_employeeid: 7 })).rejects.toThrow('changed');

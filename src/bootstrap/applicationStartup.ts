@@ -131,10 +131,16 @@ export async function bootstrapTenants(): Promise<{ readyTenants: number[]; acco
           }
           const currentBootstrap = await hasCurrentTenantBootstrap(await KnexConnection(tenant.tenantId));
           if (!forceMigration && currentBootstrap) {
+               try {
+                    await bootstrapInstrumentMaintenance(tenant.tenantId);
+               } catch (error: any) {
+                    logger.error(`[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode}) maintenance schema upgrade failed for database ${tenant.databaseName}: ${error?.message || error}`);
+                    throw error;
+               }
                readyTenants.push(tenant.tenantId);
                accountingTenants.push(tenant.tenantId);
                logger.info(
-                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode} - ${tenant.name}) startup migration skipped; schema version is current`,
+                    `[Bootstrap] Tenant ${tenant.tenantId} (${tenant.facilityCode} - ${tenant.name}) startup migration skipped; schema version is current, maintenance schema verified`,
                );
                continue;
           }

@@ -4,6 +4,9 @@ This document explains how billing calculations are performed in the backend cod
 
 ## Current financial controls
 
+- Missing or empty tenant billing-adjustment settings are initialized and
+  persisted with time-based adjustment disabled and a zero adjustment. Existing
+  configured settings are preserved when other application settings are saved.
 - Laboratory and Pharmacy transaction endpoints enforce a maximum **48 hours
   from midnight UTC of the financial date** to close an active branch day.
   For example, activity dated 2 November must be closed before 4 November at

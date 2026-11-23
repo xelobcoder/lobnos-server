@@ -41,6 +41,11 @@ router.delete('/api/v1/devices/:id', deviceController.delete.bind(deviceControll
 
 // Instrument maintenance reuses the QC device registry and the QC configuration authority.
 router.use('/api/v1/instrument-maintenance', requireQcConfigurationRole);
+router.get('/api/v1/instrument-maintenance/plans', maintenanceController.plansAndTasks.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/plans', requireMaintenanceSupervisor, maintenanceController.savePlan.bind(maintenanceController));
+router.put('/api/v1/instrument-maintenance/plans/:planId', requireMaintenanceSupervisor, maintenanceController.savePlan.bind(maintenanceController));
+router.post('/api/v1/instrument-maintenance/tasks/:taskId/complete', maintenanceController.completeTask.bind(maintenanceController));
+router.put('/api/v1/instrument-maintenance/tasks/:taskId/draft', maintenanceController.saveDraft.bind(maintenanceController));
 router.get('/api/v1/instrument-maintenance/checklist', maintenanceController.checklist.bind(maintenanceController));
 router.post('/api/v1/instrument-maintenance/checklist', requireMaintenanceSupervisor, maintenanceController.saveChecklist.bind(maintenanceController));
 router.put('/api/v1/instrument-maintenance/checklist/:id', requireMaintenanceSupervisor, maintenanceController.saveChecklist.bind(maintenanceController));

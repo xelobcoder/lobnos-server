@@ -151,6 +151,14 @@ The following items from the clinical safety table are **not** delivered by this
 - **G9** critical-result read-back verification and escalation timers.
 - **G10** calibration/maintenance and lot-to-lot QC.
 
+### Instrument maintenance holds
+
+The maintenance workspace supports multiple recurring schedules per QC instrument. Each schedule creates a pending task with its own checklist; editing a schedule updates its pending task, while completed task snapshots remain unchanged. Incomplete passing checks may be saved as a draft, which must be completed or discarded before the schedule can be edited. A failed response cannot be saved as a draft; it must be recorded with corrective details to place the instrument on hold. Completing a task creates the next occurrence from its scheduled due date, including overdue occurrences. Templates are starting points only: the laboratory must verify the instructions and configure instrument-specific numeric limits against the manufacturer's procedures.
+
+Numeric limits are inclusive and are checked by the server. A failed response makes the record fail; recording it requires a failure reason, observation and corrective action. The instrument is shown as out of service until every failed record has its corrective actions completed and is cleared by an authorized supervisor with documented verification. Existing legacy schedules and checklist records remain available separately.
+
+The hold prevents assignment to the instrument in the laboratory workbench and blocks result entry, approval and release when the ordered test is assigned to that instrument. It is not a physical interlock: staff must withdraw the analyzer from use, correctly assign instruments to ordered tests, and follow local procedures for external interfaces or workflows that do not identify the instrument.
+
 ## 6. Sample collection consent
 
 Formal E-consent forms, template publishing, signature capture, withdrawal workflows and result-entry/release gates have been removed. Existing patient-consent records and tables are retained; they are no longer read or changed by the application.

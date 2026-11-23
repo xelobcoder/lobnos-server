@@ -3,8 +3,15 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({ connection: vi.fn() }));
 vi.mock('../../../database/KnexConnections', () => ({ default: mocks.connection }));
+vi.mock('./repositories/regions-districts-repo', () => ({
+     default: class {
+          async hasRegionsAndDistrictsTables() { return true; }
+          async regionsAndDistrictsHaveData() { return true; }
+     },
+}));
 import { up, down } from '../../../cron/command-line-tool-database/migrations/20261012_workspace_layout';
 import { bootstrapApplicationSettings } from './ApplicationSettingsBootstrapper';
+import { DEFAULT_BILLING_SETTINGS } from './billingSettingsDefaults';
 
 describe('tenant workspace layout migration', () => {
      beforeEach(() => vi.clearAllMocks());
@@ -22,7 +29,19 @@ describe('tenant workspace layout migration', () => {
                alterTable: vi.fn(async (_name, action) => action(table)),
           };
           const raw = vi.fn().mockResolvedValue([[{ Type: "enum('classic','zoho','claude','ribbon','slack')" }]]);
-          return { db: { schema, raw } as any, table, column, schema, raw };
+          const applicationFirst = vi.fn().mockResolvedValue({ keyid: 1, regioncode: 1, districtcode: 2 });
+          const insert = vi.fn().mockResolvedValue([1]);
+          const db: any = vi.fn((name: string) => {
+               const builder = {
+                    where: vi.fn().mockReturnThis(),
+                    first: name === 'applicationsettings' ? applicationFirst : vi.fn().mockResolvedValue({ id: name === 'regions' ? 1 : 2 }),
+                    insert,
+               };
+               return builder;
+          });
+          db.schema = schema;
+          db.raw = raw;
+          return { db, table, column, schema, raw, applicationFirst, insert };
      }
      it('adds the exact non-null enum and defaults existing/new rows to classic', async () => {
           const t = database();
@@ -98,5 +117,14 @@ describe('tenant workspace layout migration', () => {
           expect(t.column.alter).toHaveBeenCalledOnce();
           expect(t.column.defaultTo).toHaveBeenCalledWith('classic');
           expect(t.schema.alterTable).toHaveBeenCalledOnce();
+     });
+     it('includes disabled billing defaults when a missing settings row is provisioned', async () => {
+          const t = database(true, true);
+          t.applicationFirst.mockResolvedValue(undefined);
+          mocks.connection.mockResolvedValue(t.db);
+          await bootstrapApplicationSettings(42);
+          expect(t.insert).toHaveBeenCalledWith(expect.objectContaining({
+               keyid: 1, billingsettings: JSON.stringify(DEFAULT_BILLING_SETTINGS),
+          }));
      });
 });

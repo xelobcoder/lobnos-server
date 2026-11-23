@@ -226,6 +226,7 @@ export class InstrumentMaintenanceService {
                     const actions = await trx(T.actions).where({ run_id: run.id });
                     const unfinished = actions.filter((action: any) => action.status !== 'completed').length;
                     if (!canSupervisorClearMaintenance(failures.length, actions.length, unfinished)) throw fail('Complete all failed-check corrective actions before supervisor clearance');
+                    if (!String(comment || '').trim()) throw fail('Describe how the instrument was verified before clearance', 400);
                }
                const reviewer = positiveInt(actorId, 'supervisor');
                await trx(T.runs).where({ id: run.id }).update({
@@ -241,7 +242,7 @@ export class InstrumentMaintenanceService {
           // Execution locks this same registry row before recording checks. Serializing here closes
           // the check-vs-save race: a result cannot pass while a failed run commits concurrently.
           await trx('devices').where({ id: deviceId }).forUpdate().first('id');
-          const unresolved = await trx(T.runs).where({ device_id: deviceId, status: 'awaiting_corrective_action' }).first('id');
+          const unresolved = await trx(T.runs).where({ device_id: deviceId, status: 'awaiting_corrective_action' }).forUpdate().first('id');
           if (unresolved) throw Object.assign(new Error('Result processing/release is blocked: unresolved instrument maintenance corrective work requires supervisor clearance'), {
                statusCode: 423, code: 'INSTRUMENT_MAINTENANCE_BLOCKED',
           });

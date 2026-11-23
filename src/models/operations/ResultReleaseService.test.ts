@@ -71,6 +71,15 @@ describe('result release authorization', () => {
         await expect(release()).rejects.toMatchObject({ statusCode: 423, code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
         expect(await fixture.db('lab_result_release_events').first()).toBeUndefined();
     });
+    it('reports an unresolved maintenance hold even when the run has no legacy schedule', async () => {
+        fixture.native.exec(`
+            INSERT INTO devices(id) VALUES ('analyzer-1');
+            INSERT INTO lab_work_assignments VALUES (1,'analyzer-1');
+            INSERT INTO pls_instrument_maintenance_runs(device_id,schedule_id,status) VALUES ('analyzer-1',NULL,'awaiting_corrective_action');
+        `);
+        expect(await workflow()).toMatchObject({ canRelease: false, maintenanceBlocked: true, availableForPrinting: false });
+        await expect(release()).rejects.toMatchObject({ code: 'INSTRUMENT_MAINTENANCE_BLOCKED' });
+    });
     it('allows managers to release in selected-staff mode without adding them to the scientist list', async () => {
         settings.resultReleasePolicy = 'selected_staff';
         const manager = {...actor, employeeid: 12, role: 'manager'};

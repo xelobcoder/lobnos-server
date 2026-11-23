@@ -53,7 +53,7 @@ export async function getResultReleaseWorkflows(
      const deviceIds = [...new Set(instrumentAssignments.map((row: any) => row.device_id).filter(Boolean).map(String))];
      const unresolvedMaintenance = deviceIds.length
           ? await db('pls_instrument_maintenance_runs').whereIn('device_id', deviceIds)
-               .where('status', 'awaiting_corrective_action').whereNotNull('schedule_id').select('device_id')
+               .where('status', 'awaiting_corrective_action').select('device_id')
           : [];
      const assignmentByAscension = new Map<number, string>();
      for (const assignment of instrumentAssignments) if (assignment.device_id) assignmentByAscension.set(Number(assignment.ascensionid), String(assignment.device_id));
@@ -106,7 +106,7 @@ export async function getResultReleaseWorkflows(
           else if (released) releaseStatus = 'released';
           else if (validationComplete) releaseStatus = explicitReleaseRequired?'awaiting_release':'release_optional';
           const releaseBlockedReason = released ? 'This result has already been signed and released.'
-               : maintenanceBlocked ? 'Result release is blocked by unresolved scheduled instrument maintenance corrective work.'
+               : maintenanceBlocked ? 'Result release is blocked by unresolved instrument maintenance corrective work.'
                : !validationComplete ? 'Complete the required result validations first.'
                : !differentValidatorSatisfied ? 'A validator who did not enter the result must approve it.'
                : managerApprovalRequired && !managerApproved ? 'Manager approval is required before release.'

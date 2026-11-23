@@ -6,6 +6,7 @@ import { up as migrateRegistrationPrompts } from '../../../cron/command-line-too
 import { up as migrateStaffPinSecurity } from '../../../cron/command-line-tool-database/migrations/20261018_staff_pin_security';
 import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
 import RegionsDistrictsRepository from './repositories/regions-districts-repo';
+import { DEFAULT_BILLING_SETTINGS } from './billingSettingsDefaults';
 
 // Region/district pickers and the applicationsettings codes depend on these catalogs; converted databases may lack them.
 async function ensureRegionsAndDistricts(tenantId: number): Promise<void> {
@@ -59,12 +60,17 @@ export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> 
                     if (existing) {
                          await connection('applicationsettings').where({ keyid: 1 }).update({ regioncode: region.id, districtcode: district.id });
                     } else {
-                         await connection('applicationsettings').insert({
-                              keyid: 1,
-                              smsSettings: JSON.stringify({ result: 'No', registration: 'Yes', sample: 'No', birthday: 'No' }),
-                              regioncode: region.id,
-                              districtcode: district.id,
-                         });
+                         try {
+                              await connection('applicationsettings').insert({
+                                   keyid: 1,
+                                   smsSettings: JSON.stringify({ result: 'No', registration: 'Yes', sample: 'No', birthday: 'No' }),
+                                   billingsettings: JSON.stringify(DEFAULT_BILLING_SETTINGS),
+                                   regioncode: region.id,
+                                   districtcode: district.id,
+                              });
+                         } catch (error: any) {
+                              if (error?.code !== 'ER_DUP_ENTRY' || !await connection('applicationsettings').where({ keyid: 1 }).first('keyid')) throw error;
+                         }
                     }
                }
           }

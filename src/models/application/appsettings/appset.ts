@@ -24,6 +24,8 @@ import { isWorkspaceLayout, WorkspaceLayout } from "./workspaceLayout";
 import { isBillingLayout } from './billingLayout';
 import {isLabCheckoutMode} from '../../billing/LabCashierWorkflow';
 import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
+import { bootstrapApplicationSettings } from './ApplicationSettingsBootstrapper';
+import { DEFAULT_BILLING_SETTINGS, parseBillingSettings } from './billingSettingsDefaults';
 
 
 
@@ -32,7 +34,12 @@ type numberBoolean = 0 | 1;
 
 export default class ApplicationSettings {
 	public async getAllAppSettings(tenantId: number): Promise<ApplicationSettingsData | null> {
-		const result = await promisifyQuery(tenantId, q_application_setting);
+		let result = await promisifyQuery(tenantId, q_application_setting);
+		if (!result.length) {
+			await bootstrapApplicationSettings(tenantId);
+			result = await promisifyQuery(tenantId, q_application_setting);
+			if (!result.length) throw new Error('Unable to initialize application settings for this tenant');
+		}
 		if (result.length > 0) {
 			let record = result[0];
 			record.workspaceLayout = isWorkspaceLayout(record.workspaceLayout) ? record.workspaceLayout : 'classic';
@@ -42,8 +49,18 @@ export default class ApplicationSettings {
 				(record.services) : null
 			record.smsSettings = record?.smsSettings != null ? jsonify
 				(record.smsSettings) : null
-			record.billingsettings = record?.billingsettings != null ? jsonify
-				(record.billingsettings) : null
+			record.billingsettings = parseBillingSettings(record.billingsettings);
+			if (!record.billingsettings) {
+				const connection = await KnexConnection(tenantId);
+				record.billingsettings = await connection.transaction(async trx => {
+					const current = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first('billingsettings');
+					if (!current) throw new Error('Application settings no longer exist');
+					const settings = parseBillingSettings(current.billingsettings);
+					if (settings) return settings;
+					await trx('applicationsettings').where({ keyid: 1 }).update({ billingsettings: JSON.stringify(DEFAULT_BILLING_SETTINGS) });
+					return { ...DEFAULT_BILLING_SETTINGS };
+				});
+			}
 			return record
 		}
 		return null
@@ -206,7 +223,7 @@ export default class ApplicationSettings {
 
 		try {
 			const result = await connection.transaction(async (trx) => {
-				const existing = await trx('applicationsettings').where({ keyid: 1 }).first();
+				const existing = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
 				const normalizedSmsActivated = smsActivated === undefined
 					? (Number(existing?.smsActivated) === 1 ? 1 : 0)
 					: (Number(smsActivated) === 1 ? 1 : 0);
@@ -252,7 +269,7 @@ export default class ApplicationSettings {
 					// Both columns are NOT NULL; keep the stored value when the form omits them.
 					regioncode: regioncode ?? existing?.regioncode ?? 9,
 					districtcode: districtcode ?? existing?.districtcode ?? 173,
-					billingsettings: billingsettings ? JSON.stringify(billingsettings) : null,
+					billingsettings: JSON.stringify(parseBillingSettings(billingsettings) ?? parseBillingSettings(existing?.billingsettings) ?? DEFAULT_BILLING_SETTINGS),
 					fontFamily: fontFamily || data.fontFamily || 'Arial',
 					allowResultEnteringUpaid: allowResultEnteringUpaid ?? 0,
 					allowPrintingUnpaid: allowPrintingUnpaid ?? 0,
@@ -364,10 +381,17 @@ export default class ApplicationSettings {
 	}
 
 	static updateApplicationBillSettings = async (tenantId: number, data: ApplicationBillSettings) => {
-		const connection = await KnexConnection(tenantId)
-		const result = await connection("applicationsettings").update({
-			"billingsettings": JSON.stringify(data)
-		}).where({ "keyid": 1 })
-		return result;
+		const settings = parseBillingSettings(data);
+		if (!settings) throw new Error('Billing settings are required');
+		const connection = await KnexConnection(tenantId);
+		if (!await connection('applicationsettings').where({ keyid: 1 }).first('keyid')) {
+			await bootstrapApplicationSettings(tenantId);
+		}
+		return connection.transaction(async trx => {
+			const existing = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first('keyid');
+			if (!existing) throw new Error('Unable to initialize application settings for this tenant');
+			await trx('applicationsettings').where({ keyid: 1 }).update({ billingsettings: JSON.stringify(settings) });
+			return 1;
+		});
 	}
 }

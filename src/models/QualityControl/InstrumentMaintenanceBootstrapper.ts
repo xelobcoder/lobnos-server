@@ -6,6 +6,8 @@ const TABLES = {
      runs: 'pls_instrument_maintenance_runs',
      checks: 'pls_instrument_maintenance_checks',
      actions: 'pls_instrument_corrective_actions',
+     plans: 'pls_instrument_maintenance_plans',
+     tasks: 'pls_instrument_maintenance_tasks',
 } as const;
 
 /** Idempotent tenant upgrade. All DDL uses the tenant's established Knex connection. */
@@ -92,6 +94,59 @@ export async function bootstrapInstrumentMaintenance(tenantId: number): Promise<
                table.foreign('check_id').references(`${TABLES.checks}.id`).onDelete('RESTRICT').onUpdate('CASCADE');
                table.index(['run_id', 'status']);
           });
+     }
+     if (!await db.schema.hasTable(TABLES.plans)) {
+          await db.schema.createTable(TABLES.plans, (table: any) => {
+               table.charset('utf8mb4');
+               table.collate('utf8mb4_unicode_ci');
+               table.increments('id').primary();
+               table.specificType('device_id', 'CHAR(36) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci').notNullable();
+               table.string('title', 255).notNullable();
+               table.string('activity_type', 80).notNullable();
+               table.enu('frequency', ['daily', 'weekly', 'monthly', 'quarterly', 'annual']).notNullable();
+               table.integer('interval').unsigned().notNullable().defaultTo(1);
+               table.date('next_due_date').notNullable();
+               table.integer('assigned_to').unsigned().nullable();
+               table.text('instructions').nullable();
+               table.text('checklist', 'longtext').notNullable();
+               table.boolean('active').notNullable().defaultTo(true);
+               table.integer('created_by').unsigned().notNullable();
+               table.integer('updated_by').unsigned().notNullable();
+               table.timestamps(true, true);
+               table.foreign('device_id').references('devices.id').onDelete('RESTRICT').onUpdate('CASCADE');
+               table.index(['device_id', 'active']);
+          });
+     }
+     if (!await db.schema.hasTable(TABLES.tasks)) {
+          await db.schema.createTable(TABLES.tasks, (table: any) => {
+               table.charset('utf8mb4');
+               table.collate('utf8mb4_unicode_ci');
+               table.increments('id').primary();
+               table.integer('plan_id').unsigned().notNullable();
+               table.date('due_date').notNullable();
+               table.text('snapshot', 'longtext').notNullable();
+               table.text('draft', 'longtext').nullable();
+               table.integer('draft_by').unsigned().nullable();
+               table.text('responses', 'longtext').nullable();
+               table.string('failure_reason', 1000).nullable();
+               table.enu('status', ['pending', 'completed']).notNullable().defaultTo('pending');
+               table.integer('revision').unsigned().notNullable().defaultTo(1);
+               table.integer('run_id').unsigned().nullable();
+               table.timestamps(true, true);
+               table.foreign('plan_id').references(`${TABLES.plans}.id`).onDelete('RESTRICT').onUpdate('CASCADE');
+               table.foreign('run_id').references(`${TABLES.runs}.id`).onDelete('RESTRICT').onUpdate('CASCADE');
+               table.unique(['plan_id', 'due_date']);
+               table.index(['status', 'due_date']);
+          });
+     }
+     if (!await db.schema.hasColumn(TABLES.tasks, 'revision')) {
+          await db.schema.alterTable(TABLES.tasks, (table: any) => table.integer('revision').unsigned().notNullable().defaultTo(1));
+     }
+     if (!await db.schema.hasColumn(TABLES.tasks, 'draft')) {
+          await db.schema.alterTable(TABLES.tasks, (table: any) => table.text('draft', 'longtext').nullable());
+     }
+     if (!await db.schema.hasColumn(TABLES.tasks, 'draft_by')) {
+          await db.schema.alterTable(TABLES.tasks, (table: any) => table.integer('draft_by').unsigned().nullable());
      }
 }
 

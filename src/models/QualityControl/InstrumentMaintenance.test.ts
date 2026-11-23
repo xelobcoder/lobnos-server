@@ -54,10 +54,11 @@ beforeEach(() => {
 });
 
 describe('instrument maintenance tenant bootstrap', () => {
-     it('idempotently creates only the five tenant maintenance tables beside the QC device registry', async () => {
+     it('idempotently creates the tenant maintenance tables beside the QC device registry', async () => {
           const created: string[] = [];
           const schema: any = {
                hasTable: vi.fn(async (name: string) => name === 'devices' || created.includes(name)),
+               hasColumn: vi.fn().mockResolvedValue(true),
                createTable: vi.fn(async (name: string, define: (table: any) => void) => {
                     created.push(name);
                     const table: any = new Proxy({}, { get: (_target, method) => (..._args: any[]) => table });
@@ -78,6 +79,22 @@ describe('instrument maintenance tenant bootstrap', () => {
           state.connection.mockResolvedValue(db);
           await expect(bootstrapInstrumentMaintenance(4)).rejects.toThrow('QC devices registry');
           expect(db.schema.createTable).not.toHaveBeenCalled();
+     });
+     it('repairs missing task draft and revision columns without replacing existing tables', async () => {
+          const columns = new Set<string>();
+          const schema: any = {
+               hasTable: vi.fn().mockResolvedValue(true),
+               hasColumn: vi.fn(async (_table: string, name: string) => columns.has(name)),
+               alterTable: vi.fn(async (_table: string, define: (table: any) => void) => {
+                    const chain: any = new Proxy({}, { get: () => () => chain });
+                    define(new Proxy({}, { get: (_target, method) => (name: string) => { columns.add(name); return chain; } }));
+               }),
+          };
+          state.connection.mockResolvedValue({ schema });
+          await bootstrapInstrumentMaintenance(77);
+          expect([...columns]).toEqual(['revision', 'draft', 'draft_by']);
+          await bootstrapInstrumentMaintenance(77);
+          expect(schema.alterTable).toHaveBeenCalledTimes(3);
      });
 });
 
