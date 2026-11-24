@@ -1,4 +1,5 @@
 import { Knex } from 'knex';
+import { createHash } from 'crypto';
 import { systemConfigConnection } from '../../database/connection';
 import { FacilityError } from '../Tenancy/FacilityInput';
 import { TenantRegistry, TENANTS_TABLE } from '../Tenancy/TenantRegistry';
@@ -8,7 +9,14 @@ import { parsePublicFacilities, PublishedFacility } from './PublicFacilityCatalo
 export const PUBLIC_PROFILES_TABLE = 'public_facility_profiles';
 export const PUBLIC_PROFILE_AUDIT_TABLE = 'public_facility_profile_audit';
 
-/** Startup only. Public reads never perform DDL or infer publication permission. */
+function generatedSlug(name: string, stableId: string): string {
+     const base = name.normalize('NFKD').replace(/[\u0300-\u036f]/g, '').toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 60).replace(/-+$/g, '') || 'laboratory';
+     const suffix = createHash('sha256').update(stableId).digest('hex').slice(0, 10);
+     return `${base}-${suffix}`;
+}
+
+/** Startup only. Active tenant profiles are generated at read time; public reads never perform DDL. */
 export async function bootstrapPublicFacilityRegistry(db: Knex = systemConfigConnection) {
      if (!await db.schema.hasTable(PUBLIC_PROFILES_TABLE)) {
           await db.schema.createTable(PUBLIC_PROFILES_TABLE, table => {
@@ -34,13 +42,51 @@ export class PublicFacilityRegistry {
      constructor(private db: Knex = systemConfigConnection) {}
 
      async all(db: Knex | Knex.Transaction = this.db): Promise<PublishedFacility[]> {
+          const tenants = (await new TenantRegistry().listActiveTenants()).sort((a, b) => a.name.localeCompare(b.name));
+          if (!tenants.length) return [];
+          const activeIds = new Set(tenants.map(tenant => tenant.tenantId));
           const stored = await db(PUBLIC_PROFILES_TABLE).select('tenant_id', 'profile_json');
-          const profiles = stored.map(row => {
-               const profile = parsePublicFacilities(JSON.stringify([
+          const savedByTenant = new Map<number, PublishedFacility>();
+          for (const row of stored) {
+               const tenantId = Number(row.tenant_id);
+               if (!activeIds.has(tenantId)) continue;
+               const saved = parsePublicFacilities(JSON.stringify([
                     typeof row.profile_json === 'string' ? JSON.parse(row.profile_json) : row.profile_json,
                ]))[0];
-               if (profile.tenantId !== Number(row.tenant_id)) throw new Error('Public registry tenant mismatch');
-               return profile;
+               if (saved.tenantId !== tenantId) throw new Error('Public registry tenant mismatch');
+               if (saved.published) savedByTenant.set(tenantId, saved);
+          }
+          const [linkedRows, states, districts] = await Promise.all([
+               db('marketplace_facilities').select('linked_tenant_id', 'slug', 'status', 'integration_state'),
+               Promise.all([...new Set(tenants.map(tenant => tenant.stateId).filter((id): id is number => id !== null))]
+                    .map(id => db('platform_states').where({ id }).first('id', 'state_name'))),
+               Promise.all([...new Set(tenants.map(tenant => tenant.districtId).filter((id): id is number => id !== null))]
+                    .map(id => db('platform_districts').where({ id }).first('id', 'district_name'))),
+          ]);
+          const stateById = new Map(states.filter(Boolean).map(row => [Number(row.id), String(row.state_name)]));
+          const districtById = new Map(districts.filter(Boolean).map(row => [Number(row.id), String(row.district_name)]));
+          const profiles = tenants.map(tenant => {
+               const saved = savedByTenant.get(tenant.tenantId);
+               const linked = linkedRows.filter(row => Number(row.linked_tenant_id) === tenant.tenantId);
+               const approvedLinked = linked.length > 0 && linked.every(row =>
+                    row.status === 'approved' && row.integration_state === 'linked');
+               const slug = saved?.slug || (approvedLinked ? linked[0].slug : generatedSlug(tenant.name, String(tenant.platformId)));
+               return {
+                    ...(saved || {}),
+                    slug,
+                    tenantId: tenant.tenantId,
+                    name: tenant.name,
+                    region: saved?.region || stateById.get(Number(tenant.stateId)) || '',
+                    locality: saved?.locality || districtById.get(Number(tenant.districtId)) || '',
+                    description: saved?.description || '',
+                    currency: saved?.currency || 'GHS',
+                    published: true,
+                    catalogPublished: true,
+                    panelIds: saved?.panelIds || [],
+               } as PublishedFacility;
+          }).filter(profile => {
+               const linked = linkedRows.filter(row => Number(row.linked_tenant_id) === profile.tenantId);
+               return linked.every(row => row.slug === profile.slug && row.status === 'approved' && row.integration_state === 'linked');
           });
           if (new Set(profiles.map(profile => profile.slug)).size !== profiles.length) {
                throw new Error('Public registry slug conflict');
