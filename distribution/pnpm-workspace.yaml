@@ -1,5 +1,0 @@
-allowBuilds:
-  bcrypt: true
-  msgpackr-extract: false
-ignoredBuiltDependencies:
-  - bcrypt

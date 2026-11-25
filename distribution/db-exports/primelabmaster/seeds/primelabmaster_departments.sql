@@ -1,1 +1,0 @@
-INSERT INTO `departments` VALUES (1,'HEMATOLOGY','Master catalog',1),(2,'SEROLOGY','Master catalog',1),(3,'MICROBIOLOGY','Master catalog',1),(4,'CHEMICAL PATHOLOGY','Master catalog',1),(5,'ENDOCRINOLOGY','Master catalog',1),(6,'Ultrasound','Master catalog',1),(7,'PATHOLOGY','Master catalog',1),(8,'TESTING DEPARTMWNT','Master catalog',1);
