@@ -16,10 +16,7 @@ export class StaffFocService implements IStaffFocService {
           let account = await this.repo.getAccount(tenantId, employeeId, targetYear);
 
           if (!account) {
-               // Auto-provision account if staff exists and is active in roles
-               const conn = await KnexConnection(tenantId);
-               const staff = await conn('roles').where({ employeeid: employeeId, activation: 1 }).first();
-               if (staff) {
+               if (await this.repo.isActiveStaff(tenantId, employeeId)) {
                     const policy = await this.repo.getPolicy(tenantId);
                     const limitAmount = Number(policy?.limit_amount || 1000.00);
                     const periodStart = `${targetYear}-01-01`;
@@ -252,12 +249,10 @@ export class StaffFocService implements IStaffFocService {
                await this.repo.updateTransactionStatus(tenantId, transactionId, 'approved', approverEmployeeId, trx);
                await enqueueStaffFocBenefit(tenantId, transactionId, trx);
 
-               const serviceRows = await trx('dboservices')
-                    .where({ billingid: tx.billingid })
-                    .orderBy('serviceid', 'asc');
+               const serviceRows = await this.repo.getBillingServices(tx.billingid, trx);
                const existingFoc = serviceRows
-                    .filter((row: any) => Number(row.foc_transaction_id) === transactionId)
-                    .reduce((total: number, row: any) => total + Number(row.foc_amount || 0), 0);
+                    .filter(row => Number(row.foc_transaction_id) === transactionId)
+                    .reduce((total, row) => total + Number(row.foc_amount || 0), 0);
                let remainingFoc = Math.max(0, focCoverage - existingFoc);
                for (const serviceRow of serviceRows) {
                     if (remainingFoc <= 0) break;
@@ -269,38 +264,28 @@ export class StaffFocService implements IStaffFocService {
                     const paidAfterFoc = existingPaid + serviceFoc;
                     const outstandingAfterFoc = Math.max(0, servicePayable - paidAfterFoc);
 
-                    await trx('dboservices')
-                         .where({ serviceid: serviceRow.serviceid })
-                         .update({
-                              foc_amount: existingServiceFoc + serviceFoc,
-                              foc_transaction_id: transactionId,
-                              paidamount: paidAfterFoc,
-                              outstanding: outstandingAfterFoc,
-                              paymentstatus: outstandingAfterFoc === 0 ? 'Paid' : 'partial',
-                         });
+                    await this.repo.updateBillingService(serviceRow.serviceid, {
+                         foc_amount: existingServiceFoc + serviceFoc,
+                         foc_transaction_id: transactionId,
+                         paidamount: paidAfterFoc,
+                         outstanding: outstandingAfterFoc,
+                         paymentstatus: outstandingAfterFoc === 0 ? 'Paid' : 'partial',
+                    }, trx);
                     remainingFoc = Math.max(0, remainingFoc - serviceFoc);
                }
 
-               const billingTotals = await trx('dboservices')
-                    .where({ billingid: tx.billingid })
-                    .sum({ totalpayable: 'totalpayable' })
-                    .sum({ settled: 'paidamount' })
-                    .sum({ foc: 'foc_amount' })
-                    .sum({ outstanding: 'outstanding' })
-                    .first();
+               const billingTotals = await this.repo.getBillingTotals(tx.billingid, trx);
                const billingPayable = Number(billingTotals?.totalpayable || 0);
                const billingFoc = Number(billingTotals?.foc || 0);
                const cashPaid = Math.max(0, Number(billingTotals?.settled || 0) - billingFoc);
                const billingOutstanding = Number(billingTotals?.outstanding || 0);
-               await trx('billing')
-                    .where({ billingid: tx.billingid })
-                    .update({
-                         paid: cashPaid,
-                         outstanding: billingOutstanding,
-                         balance: Math.max(0, cashPaid - Math.max(0, billingPayable - billingFoc)),
-                         status: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
-                         clientstatus: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
-                    });
+               await this.repo.updateBilling(tx.billingid, {
+                    paid: cashPaid,
+                    outstanding: billingOutstanding,
+                    balance: Math.max(0, cashPaid - Math.max(0, billingPayable - billingFoc)),
+                    status: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
+                    clientstatus: billingOutstanding === 0 ? 'paid' : cashPaid + billingFoc > 0 ? 'partial' : 'pending',
+               }, trx);
 
                await trx.commit();
                return true;
@@ -336,53 +321,38 @@ export class StaffFocService implements IStaffFocService {
 
                await this.repo.updateAccountBalance(tenantId, lockedAccount.id, newUsed, newRemaining, trx);
 
-               const serviceRows = await trx('dboservices')
-                    .where({
-                         billingid: tx.billingid,
-                         foc_transaction_id: transactionId,
-                    })
-                    .select('serviceid', 'totalpayable', 'paidamount', 'foc_amount');
+               const serviceRows = await this.repo.getBillingServicesForReversal(tx.billingid, transactionId, trx);
 
                for (const serviceRow of serviceRows) {
                     const serviceFocAmount = Number(serviceRow.foc_amount || 0);
                     const paidAfterReversal = Math.max(0, Number(serviceRow.paidamount || 0) - serviceFocAmount);
                     const outstandingAfterReversal = Math.max(0, Number(serviceRow.totalpayable || 0) - paidAfterReversal);
 
-                    await trx('dboservices')
-                         .where({ serviceid: serviceRow.serviceid })
-                         .update({
-                              foc_amount: 0,
-                              paidamount: paidAfterReversal,
-                              outstanding: outstandingAfterReversal,
-                              paymentstatus: outstandingAfterReversal === 0
-                                   ? 'Paid'
-                                   : paidAfterReversal > 0
-                                        ? 'partial'
-                                        : 'pending',
-                         });
+                    await this.repo.updateBillingService(serviceRow.serviceid, {
+                         foc_amount: 0,
+                         paidamount: paidAfterReversal,
+                         outstanding: outstandingAfterReversal,
+                         paymentstatus: outstandingAfterReversal === 0
+                              ? 'Paid'
+                              : paidAfterReversal > 0
+                                   ? 'partial'
+                                   : 'pending',
+                    }, trx);
                }
 
-               const billingTotals = await trx('dboservices')
-                    .where({ billingid: tx.billingid })
-                    .sum({ totalpayable: 'totalpayable' })
-                    .sum({ settled: 'paidamount' })
-                    .sum({ foc: 'foc_amount' })
-                    .sum({ outstanding: 'outstanding' })
-                    .first();
+               const billingTotals = await this.repo.getBillingTotals(tx.billingid, trx);
                const billingPayable = Number(billingTotals?.totalpayable || 0);
                const billingFoc = Number(billingTotals?.foc || 0);
                const billingPaid = Math.max(0, Number(billingTotals?.settled || 0) - billingFoc);
                const billingOutstanding = Math.max(0, Number(billingTotals?.outstanding || billingPayable - billingPaid));
 
-               await trx('billing')
-                    .where({ billingid: tx.billingid })
-                    .update({
-                         paid: billingPaid,
-                         outstanding: billingOutstanding,
-                         balance: Math.max(0, billingPaid - Math.max(0, billingPayable - billingFoc)),
-                         status: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
-                         clientstatus: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
-                    });
+               await this.repo.updateBilling(tx.billingid, {
+                    paid: billingPaid,
+                    outstanding: billingOutstanding,
+                    balance: Math.max(0, billingPaid - Math.max(0, billingPayable - billingFoc)),
+                    status: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
+                    clientstatus: billingOutstanding === 0 ? 'paid' : billingPaid + billingFoc > 0 ? 'partial' : 'pending',
+               }, trx);
 
                await this.repo.updateTransactionStatus(tenantId, transactionId, 'reversed', revokerEmployeeId, trx, reason);
                await enqueueStaffFocBenefitReversal(tenantId, transactionId, reason, trx);

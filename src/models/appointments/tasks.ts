@@ -1,4 +1,4 @@
-import { PrimeLimsTabletasks } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletasks } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 
 

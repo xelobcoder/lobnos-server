@@ -1,4 +1,4 @@
-import { PrimeLimsTableprivateinsurance } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableprivateinsurance } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 
 export default class InsuranceClass {

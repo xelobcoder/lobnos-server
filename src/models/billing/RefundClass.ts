@@ -25,7 +25,7 @@ import {
 	q_services_refund_status_is_approved,
 	q_services_refund_status_is_completed,
 } from '../services/queries';
-import { PrimeLimsTablebilling, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices } from '../../database/DatabaseTableSchema';
+import { PrimeLimsTablebilling, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices } from "../../interfaces/database";
 import { Billing } from '../../../obso/billing';
 import { UpdatePreviousWitnessNoteBodyParams, updateRefundCashRequestBodyType, Witness } from '../../controllers/billing/sales/type';
 import { CommissionTrackingRepository } from '../commissions/commission-configurations/repositories/CommissionTrackingRepository';

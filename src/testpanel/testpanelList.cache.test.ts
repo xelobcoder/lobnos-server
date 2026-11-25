@@ -44,6 +44,7 @@ function response() {
 	const res: Response = Object.create(express.response);
 	res.send = vi.fn<Response["send"]>().mockReturnValue(res);
 	res.status = vi.fn<Response["status"]>().mockReturnValue(res);
+	res.json = vi.fn<Response["json"]>().mockReturnValue(res);
 	return res;
 }
 
@@ -152,21 +153,37 @@ describe("test-panel cache integration", () => {
 
 	it("invalidates single edits only after both catalogue and detail writes finish", async () => {
 		const order: string[] = [];
-		mocks.query.mockImplementation(async (_tenant, query: string) => {
-			order.push(query.includes("UPDATE test_panels") ? "panel" : "details");
-			return { affectedRows: 1 };
-		});
+		const trx = {
+			raw: vi.fn(async (query: string) => {
+				order.push(query.includes("UPDATE test_panels") ? "panel" : "details");
+				return [{ affectedRows: 1 }];
+			}),
+			commit: vi.fn(async () => { order.push("commit"); }),
+			rollback: vi.fn(),
+			isCompleted: vi.fn().mockReturnValue(false),
+		};
+		mocks.connection.mockResolvedValue({ transaction: async () => trx });
 		mocks.invalidate.mockImplementation(async () => { order.push("invalidate"); });
 		const res = response();
 		vi.mocked(res.send).mockImplementation(() => { order.push("response"); return res; });
 		await testpanel.putSingleTestPanel(12, request({ id: 1, testid: 1 }, {}), res);
-		expect(order).toEqual(["panel", "details", "invalidate", "response"]);
+		expect(order).toEqual(["panel", "details", "commit", "invalidate", "response"]);
 	});
 
-	it("invalidates a single edit if the main write committed but details failed", async () => {
-		mocks.query.mockResolvedValueOnce({ affectedRows: 1 }).mockRejectedValueOnce(new Error("Details failed"));
-		await testpanel.putSingleTestPanel(12, request({ id: 1, testid: 1 }, {}), response());
+	it("rolls back and invalidates a single edit if the detail write fails", async () => {
+		const trx = {
+			raw: vi.fn().mockResolvedValueOnce([{ affectedRows: 1 }]).mockRejectedValueOnce(new Error("Details failed")),
+			commit: vi.fn(),
+			rollback: vi.fn(),
+			isCompleted: vi.fn().mockReturnValue(false),
+		};
+		mocks.connection.mockResolvedValue({ transaction: async () => trx });
+		const res = response();
+		await testpanel.putSingleTestPanel(12, request({ id: 1, testid: 1 }, {}), res);
+		expect(trx.rollback).toHaveBeenCalledOnce();
+		expect(trx.commit).not.toHaveBeenCalled();
 		expect(mocks.invalidate).toHaveBeenCalledWith(12);
+		expect(res.status).toHaveBeenCalledWith(500);
 	});
 
 	it("invalidates sample type changes and test renames, but not rejected renames", async () => {

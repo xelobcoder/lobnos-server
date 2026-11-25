@@ -1,6 +1,6 @@
 import { marketerRouteAllowed } from './marketerAccess';
 import { NextFunction, Request, Response } from "express";
-import { customError, responseError } from "../hooks/helper";
+import { customError } from "../hooks/helper";
 import { OperationsFailures } from "../models/operations/types";
 import { TenancyRepository } from "../models/Tenancy/tenancyRepo";
 import { configuration, effectiveTenantId } from "../hooks/configuration";
@@ -20,6 +20,7 @@ import { DEVELOPER_SUPPORT_EMAIL } from '../models/Tenancy/DeveloperSessionPolic
 import { isSuperAdminRole } from './roles';
 import { staffAccessVersionMatches } from '../models/auth/StaffAccessSchema';
 import { isStaffPasswordExpired, staffPasswordChangeRouteAllowed } from '../models/auth/StaffPasswordPolicy';
+import logger from '../hooks/logger';
 
 type SessionCheck = { ok: boolean; statusCode?: number; body?: Record<string, unknown> };
 
@@ -155,11 +156,13 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (isNaN(tenantId)) return customError('tenantId is required', 400, response);
 
           const tokenValue = primeUserHeader.toString();
-          const status = await new TokenValidator().validateAccessToken(tokenValue);
+          const validator = new TokenValidator();
+          validator.initializeSecretKey();
+          const status = await validator.validateAccessToken(tokenValue);
           if (status?.expired === undefined) return customError("Invalid Token Provided", 401, response);
           if (status.expired) return customError('Token expired', 401, response);
 
-          const decoded = await new TokenValidator().decodeAccessToken(tokenValue);
+          const decoded = await validator.decodeAccessToken(tokenValue);
           if (decoded?.clientType === 'device-manager' &&
                !deviceManagerRouteAllowed(request.method, request.path.replace(/\/$/, ''))) {
                return customError('Device Manager sessions may only access device integration APIs', 403, response);
@@ -231,7 +234,11 @@ export const checkTokenExists = async (request: Request, response: Response, nex
           if (activeRole === 'marketer' && !marketerRouteAllowed(request.method, request.path)) return customError('Marketer sessions may only access referral acquisition services', 403, response);
           next();
      } catch (error) {
-          return customError('Invalid token', 401, response);
+          const code = typeof error === 'object' && error !== null && 'code' in error ? error.code : undefined;
+          logger.error('[checkTokenExists] Unable to verify session', {
+               code: typeof code === 'string' && /^[A-Z0-9_]{1,64}$/.test(code) ? code : undefined,
+          });
+          return customError('Unable to verify your session. Please try again later.', 503, response);
      }
 };
 
@@ -286,34 +293,3 @@ export const isAuthorizedRoleAdmin = async (request: Request<any, any, any, any>
      request.query.tenantId = String(actor.tenantId);
      next();
 };
-
-export const isAuthorizedRoleAdminOrAccountant = async (request: Request, response: Response, next: NextFunction) => {
-     try {
-          const tenantId = parseInt(String(request.query.tenantId), 10);
-          const employeeid = request.query.requesterEmployeeid
-               || request.query.employeeid
-               || request.body?.employeeid
-               || request.body?.employeeId
-               || request.body?.approverEmployeeId
-               || request.body?.revokerEmployeeId;
-
-          if (!tenantId || !employeeid) return customError('tenantId and employeeid are required', 400, response);
-
-          const userdata = await new RolesRepository(tenantId).getRoleById(parseInt(String(employeeid), 10));
-          const role = String(userdata?.role || '').toLowerCase().trim().replace(/_/g, '-');
-          const allowedRoles = [
-               'admin',
-               'super-admin',
-               'superadmin',
-               'accountant'
-          ];
-
-          if (!roleAllowed(role, allowedRoles)) {
-               return customError(OperationsFailures.dontHaveAccessPermission, 403, response);
-          }
-
-          next();
-     } catch (err) {
-          responseError(response);
-     }
-}

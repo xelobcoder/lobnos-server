@@ -5,7 +5,7 @@ import { Clinician, ClinicianFilterParams } from "../../models/clincians/types";
 import { responseError, customError } from "../../hooks/helper";
 import logger from "../../hooks/logger";
 import ClinicianClass from "../../models/clincians/clinicianClass";
-import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableclinicianbasicinfo } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 import { decrypt_value } from "../../utils/encryptionModels";
 

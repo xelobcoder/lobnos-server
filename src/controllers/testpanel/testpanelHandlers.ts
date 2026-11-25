@@ -14,6 +14,7 @@ import { applyTestPanelsAfterInsert } from "../../database/appLevelTriggers";
 import { generateNextTestPanelId } from "../../testpanel/testPanelId";
 import { testPanelCache } from "../../services/cache/testPanelCache";
 import { ensureMasterTestLinkColumn, MASTER_TEST_LINK_COLUMN } from "../../testpanel/masterCatalog";
+import { TestPanelRepository } from "../../testpanel/TestPanelRepository";
 
 
 // Category Handlers
@@ -208,12 +209,9 @@ export const putTestPanelQcRequirement = async (req: Request, res: Response) => 
                return customError('testid and boolean requiresQc are required', 400, res);
           }
 
-          const connection = await KnexConnection(tenantId);
-          const existingTest = await connection('test_panels').select('id').where({ id: testId }).first();
-          if (!existingTest) return customError('Test panel not found', 404, res);
-          const updated = await connection('test_panels')
-               .where({ id: testId })
-               .update({ requires_qc: rawRequirement ? 1 : 0 });
+          const { found, updated } = await new TestPanelRepository()
+               .updateQcRequirement(tenantId, testId, Boolean(rawRequirement));
+          if (!found) return customError('Test panel not found', 404, res);
           if (updated > 0) await testPanelCache.invalidate(tenantId);
           res.send({ status: 'success', testid: testId, requiresQc: Boolean(rawRequirement) });
      } catch (error) {

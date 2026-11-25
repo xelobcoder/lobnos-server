@@ -16,7 +16,7 @@ import { CreationRule, previewReportView, resultEntryType } from "../../models/c
 import resultEncrptionReferer from "../../models/creator/resultEncryptionReferer";
 import Creator from "../../models/creator/creator";
 import { Billing } from "../../../obso/billing";
-import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletest_ascension, PrimeLimsTabletest_panels } from "../../interfaces/database";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
 import { testAscensionTableTypes } from "../../models/billing/billingclientTypes";
 import RolesRepository, { IEmployee } from "../../models/settings/users/RolesRepository";

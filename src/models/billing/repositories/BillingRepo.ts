@@ -1,4 +1,4 @@
-import { PrimeLimsTablebilling } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling } from "../../../interfaces/database";
 import KnexConnection from "../../../database/KnexConnections";
 import { lockMutableBill, withBillingClosure } from '../BillingFinancialGuard';
 

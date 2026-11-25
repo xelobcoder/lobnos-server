@@ -13,7 +13,12 @@ async function resultEntryPolicy(db: any) {
      }
 }
 
-export async function explicitResultReleaseRequired(db:any){const policy=await resultEntryPolicy(db);return policy.requireExplicitResultRelease!==false&&policy.requireExplicitResultRelease!==0;}
+export function isExplicitResultReleaseRequired(value: unknown) {
+     if (value === false || value === 0) return false;
+     return typeof value !== 'string' || !['false', '0'].includes(value.trim().toLowerCase());
+}
+
+export async function explicitResultReleaseRequired(db:any){const policy=await resultEntryPolicy(db);return isExplicitResultReleaseRequired(policy.requireExplicitResultRelease);}
 
 function validatorIds(value: unknown) {
      return new Set(String(value ?? '').split(',').map(Number).filter(id => Number.isSafeInteger(id) && id > 0));
@@ -53,7 +58,7 @@ export async function assertResultFormallyReleased(db: any, ascensionid: number,
           const manager = await db('lab_result_manager_approval_events').where({ ascensionid, revision }).first('id');
           if (!manager) return printReleaseFail('Manager approval is required before release.');
      }
-     if(policy.requireExplicitResultRelease===false||policy.requireExplicitResultRelease===0)return;
+     if(!isExplicitResultReleaseRequired(policy.requireExplicitResultRelease))return;
      const event = await db('lab_result_release_events').where({ ascensionid, revision }).first('id');
      const signed = event ? null : await db('lab_report_versions').where({ ascensionid, revision }).whereNotNull('signed_by').first('id');
      if (!event && !signed) return printReleaseFail('This result has not been signed and released.');

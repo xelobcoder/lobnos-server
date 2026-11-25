@@ -1,6 +1,6 @@
 import { Knex } from "knex";
 import KnexConnection from "../../../database/KnexConnections";
-import { PrimeLimsTablebilling, PrimeLimsTabledboservices, PrimeLimsTablebillinghx } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTabledboservices, PrimeLimsTablebillinghx } from "../../../interfaces/database";
 
 export class TransactionManagementRepository {
     private tenantId: number;

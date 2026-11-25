@@ -1,4 +1,4 @@
-import { PrimeLimsTablepatients_credentials } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTablepatients_credentials } from "../../interfaces/database";
 
 export interface IPatient {
   getTransactionsByDate(tenantId:number, patientid: number, to?: string, from?: string): Promise<any>;

@@ -22,6 +22,15 @@ describe("lab stage queries", () => {
           expect(sql).toContain('lab_result_manager_approval_events');
           expect(sql.includes('AND NOT ((EXISTS')).toBe(stage === OperationsStages.SIGN_RELEASE);
      });
+     it('does not queue signing when explicit result release is disabled', () => {
+          const signRelease = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, OperationsStages.SIGN_RELEASE, false,
+               {requireExplicitResultRelease:false})!;
+          const released = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, OperationsStages.RELEASED, false,
+               {requireExplicitResultRelease:false})!;
+          expect(signRelease).toContain('AND 1 = 0');
+          expect(signRelease).not.toContain('lab_result_release_events');
+          expect(released).not.toContain('lab_result_release_events');
+     });
      it('checks release records against the supplied current revision', () => {
           const sql = currentResultReleaseCondition('ta.id', 'current_revision', true);
           expect(sql).toContain('re.ascensionid = ta.id AND re.revision = current_revision');

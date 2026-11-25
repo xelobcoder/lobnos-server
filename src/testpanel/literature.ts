@@ -1,4 +1,4 @@
-import { PrimeLimsTablesetupliteraturereview } from "../database/DatabaseTableSchema";
+import { PrimeLimsTablesetupliteraturereview } from "../interfaces/database";
 import { promisifyQuery } from "../hooks/helper";
 import logger from "../hooks/logger";
 import { q_get_literature_review_by_testid, q_insert_literature_review, q_select_literature_review, q_update_literature_review_by_testid } from "./queries";
@@ -28,7 +28,7 @@ class TestLiteratureSetup {
           const data = await promisifyQuery(tenantId, q_select_literature_review, [testid]);
           if (data.length === 0) return false;
           const { useLiterature } = data[0];
-          return useLiterature === 1;
+          return Number(useLiterature) === 1;
      }
 
      async getResultLiterature(tenantId: number, testid: number): Promise<{ can: boolean, literature?: string }> {

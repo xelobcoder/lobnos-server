@@ -1,5 +1,5 @@
 import KnexConnection from "../../../../database/KnexConnections";
-import { PrimeLimsTabledistricts, PrimeLimsTableregions } from "../../../../database/DatabaseTableSchema";
+import { PrimeLimsTabledistricts, PrimeLimsTableregions } from "../../../../interfaces/database";
 import { REGIONS } from "../constants/regions";
 import { DISTRICTS, DISTRICT_ABBREVIATIONS } from "../constants/districts";
 import type { Knex } from "knex";

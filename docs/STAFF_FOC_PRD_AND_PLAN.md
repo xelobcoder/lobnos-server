@@ -129,6 +129,10 @@ CREATE TABLE IF NOT EXISTS `staff_foc_transaction` (
 - `POST /api/v1/foc/transactions/:id/reverse` — Reverse an approved FOC transaction
 - `GET /api/v1/foc/reports/summary` — High-level FOC analytics dashboard data (FOC Value, Beneficiaries, Services, Breakdown by Staff/Department)
 
+FOC transaction requests, approvals, and reversals record the authenticated employee as the actor.
+Client-supplied `requested_by`, `approverEmployeeId`, and `revokerEmployeeId` do not determine the actor.
+Transaction reports, summary reports, limit adjustments, approvals, and reversals require an authenticated administrator, super-admin, or accountant.
+
 ---
 
 ## 5. Billing & Checkout Integration (`lobnos` & `lobnos-server`)
@@ -168,6 +172,10 @@ CREATE TABLE IF NOT EXISTS `staff_foc_transaction` (
    - `repositories/StaffFocRepository.ts`
    - `services/StaffFocService.ts`
 2. Implement balance calculation, concurrency row-locking (`SELECT FOR UPDATE`), policy enforcement, and audit logs.
+
+Current implementation: the FOC repository owns the active-staff lookup and billing queries used
+by approval and reversal. The service still coordinates Knex transactions and benefit calculations;
+repository updates and accounting enqueue operations share the same transaction.
 
 ### Phase 3: Controllers & API Routes (Backend)
 1. Create `src/controllers/foc/StaffFocController.ts` and `src/controllers/foc/routes.ts`.

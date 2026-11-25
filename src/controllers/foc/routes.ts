@@ -1,6 +1,7 @@
 import express from 'express';
 import { StaffFocController } from './StaffFocController';
-import { checkTokenExists, isAuthorizedRoleAdminOrAccountant } from '../../middleware/validateTenancy';
+import { checkTokenExists } from '../../middleware/validateTenancy';
+import { requireAccountingRole } from '../../middleware/authority';
 
 const router = express.Router();
 
@@ -11,12 +12,12 @@ router.post('/api/v1/foc/transactions', checkTokenExists, StaffFocController.pro
 
 // Query FOC accounts and transactions
 router.get('/api/v1/foc/accounts', checkTokenExists, StaffFocController.getAllAccounts);
-router.get('/api/v1/foc/transactions', checkTokenExists, isAuthorizedRoleAdminOrAccountant, StaffFocController.getTransactions);
-router.get('/api/v1/foc/reports/summary', checkTokenExists, isAuthorizedRoleAdminOrAccountant, StaffFocController.getSummaryReport);
+router.get('/api/v1/foc/transactions', checkTokenExists, requireAccountingRole, StaffFocController.getTransactions);
+router.get('/api/v1/foc/reports/summary', checkTokenExists, requireAccountingRole, StaffFocController.getSummaryReport);
 
 // Admin / Approval endpoints
-router.put('/api/v1/foc/accounts/staff/:employeeid/limit', checkTokenExists, isAuthorizedRoleAdminOrAccountant, StaffFocController.updateLimit);
-router.post('/api/v1/foc/transactions/:id/approve', checkTokenExists, isAuthorizedRoleAdminOrAccountant, StaffFocController.approveTransaction);
-router.post('/api/v1/foc/transactions/:id/reverse', checkTokenExists, isAuthorizedRoleAdminOrAccountant, StaffFocController.reverseTransaction);
+router.put('/api/v1/foc/accounts/staff/:employeeid/limit', checkTokenExists, requireAccountingRole, StaffFocController.updateLimit);
+router.post('/api/v1/foc/transactions/:id/approve', checkTokenExists, requireAccountingRole, StaffFocController.approveTransaction);
+router.post('/api/v1/foc/transactions/:id/reverse', checkTokenExists, requireAccountingRole, StaffFocController.reverseTransaction);
 
 export default router;

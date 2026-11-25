@@ -3,7 +3,7 @@ import { a_sample_dispute_query, q_get_logs_rejectedsampledisputelog, q_sample_a
 import { updateSampleStatusCollection } from "../types";
 import { q_get_pending_collected_but_unvalidated_samples, q_get_rejected_collected_samples } from "../../creator/queries";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../../hooks/helper";
-import { PrimeLimsTablesamplestatus } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablesamplestatus } from "../../../interfaces/database";
 import ApplicationSettings from "../../application/appsettings/appset";
 
 export function isSampleValidationBypassed(settings: any): boolean {

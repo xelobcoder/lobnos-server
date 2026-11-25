@@ -194,9 +194,15 @@ export function currentResultReleaseCondition(ascensionId: string, revision: str
 }
 
 export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false,
-  policy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean } = {}): string | null {
+  policy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean; requireExplicitResultRelease?: boolean } = {}): string | null {
   if (stage === OperationsStages.SIGN_RELEASE || stage === OperationsStages.RELEASED) {
     const validated = q_get_all_test_ready_for_various_stages(currentQuery, OperationsStages.VALIDATED, bypassProcessing, policy);
+    if (policy.requireExplicitResultRelease === false) {
+      if (stage === OperationsStages.SIGN_RELEASE) return validated + ' AND 1 = 0';
+      return policy.requireManagerApproval
+        ? validated + ` AND EXISTS (SELECT 1 FROM lab_result_manager_approval_events ma WHERE ma.ascensionid = ta.id AND ma.revision = COALESCE(dta.approval_revision, 0))`
+        : validated;
+    }
     const revision = 'COALESCE(dta.approval_revision, 0)';
     const release = currentResultReleaseCondition('ta.id', revision, Boolean(policy.requireManagerApproval));
     return validated + ` AND ${stage === OperationsStages.SIGN_RELEASE ? 'NOT ' : ''}${release}`;

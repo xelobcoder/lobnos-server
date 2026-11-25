@@ -3,7 +3,7 @@ import { findPhoneOwners, getAdditionalPhoneContacts, PatientPhoneContactError, 
 import { getAuthUser } from '../../middleware/authority';
 import { normalizeRegistrationPhone } from '../patients/dto/checkMobileNoDto.dto';
 import { record } from "zod";
-import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTablenew_patients, PrimeLimsTablepatientemmergencycontactinformation, PrimeLimsTablepatientsaddress } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 import { applyNewPatientAfterInsert } from "../../database/appLevelTriggers";
 import { promisifyQuery, rowAffected } from "../../hooks/helper";

@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock('../../services/cache/testPanelCache', () => ({ testPanelCache: { invalidate: mocks.invalidate } }));
-vi.mock('../../database/KnexConnections', () => ({ default: () => mocks.connection() }));
+vi.mock('../../database/KnexConnections', () => ({ default: (tenantId: number) => mocks.connection(tenantId) }));
 vi.mock('../../hooks/helper', () => ({
      customError: mocks.customError, responseError: mocks.responseError, promisifyQuery: vi.fn(), rowAffected: vi.fn(),
 }));
@@ -85,6 +85,41 @@ describe('test-panel controller cache invalidation', () => {
           await putTestPanelQcRequirement(request({ testid: 1, requiresQc: true }, { tenantId: '12' }), res);
           expect(order).toEqual(['update', 'invalidate', 'response']);
           expect(mocks.invalidate).toHaveBeenCalledWith(12);
+          expect(mocks.connection).toHaveBeenCalledWith(12);
+          expect(query.where).toHaveBeenCalledWith({ id: 1 });
+          expect(query.update).toHaveBeenCalledWith({ requires_qc: 1 });
+     });
+
+     it('leaves the cache unchanged when a QC test does not exist', async () => {
+          const query = builder();
+          query.first.mockResolvedValue(undefined);
+          mocks.connection.mockResolvedValue(vi.fn(() => query));
+          const res = response();
+          await putTestPanelQcRequirement(request({ testid: 42, requiresQc: false }, { tenantId: '12' }), res);
+          expect(mocks.customError).toHaveBeenCalledWith('Test panel not found', 404, res);
+          expect(query.update).not.toHaveBeenCalled();
+          expect(mocks.invalidate).not.toHaveBeenCalled();
+     });
+
+     it('preserves no-op updates and accepts a disabled QC requirement', async () => {
+          const query = builder();
+          query.first.mockResolvedValue({ id: 1 });
+          query.update.mockResolvedValue(0);
+          mocks.connection.mockResolvedValue(vi.fn(() => query));
+          const res = response();
+          await putTestPanelQcRequirement(request({ testid: 1, requiresQc: false }, { tenantId: '12' }), res);
+          expect(query.update).toHaveBeenCalledWith({ requires_qc: 0 });
+          expect(mocks.invalidate).not.toHaveBeenCalled();
+          expect(res.send).toHaveBeenCalledWith({ status: 'success', testid: 1, requiresQc: false });
+     });
+
+     it('reports QC persistence errors without invalidating the cache', async () => {
+          const failure = new Error('Database unavailable');
+          mocks.connection.mockRejectedValueOnce(failure);
+          const res = response();
+          await putTestPanelQcRequirement(request({ testid: 1, requiresQc: false }, { tenantId: '12' }), res);
+          expect(mocks.responseError).toHaveBeenCalledWith(res, failure);
+          expect(mocks.invalidate).not.toHaveBeenCalled();
      });
 
      it('invalidates bulk pricing only after commit and leaves a rolled-back batch alone', async () => {

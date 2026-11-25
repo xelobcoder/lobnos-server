@@ -14,7 +14,7 @@ let fixture: ReturnType<typeof accountingSqlDatabase>;
 beforeEach(() => {
      vi.clearAllMocks();
      fixture = accountingSqlDatabase();
-     fixture.native.exec('CREATE TABLE applicationsettings(keyid INTEGER PRIMARY KEY, billingsettings TEXT)');
+     fixture.native.exec('CREATE TABLE applicationsettings(keyid INTEGER PRIMARY KEY, billingsettings TEXT, country_code TEXT)');
      mocks.connection.mockResolvedValue(fixture.db);
      mocks.query.mockImplementation(async () => fixture.db('applicationsettings').where({ keyid: 1 }));
      mocks.bootstrap.mockImplementation(async () => {
@@ -48,7 +48,7 @@ describe('billing settings initialization', () => {
      });
      it('preserves existing configured billing settings and rejects malformed stored JSON', async () => {
           const configured = { ...DEFAULT_BILLING_SETTINGS, hasNightAdjustment: true, nightAdjustmentValue: '5' };
-          await fixture.db('applicationsettings').insert({ keyid: 1, billingsettings: JSON.stringify(configured) });
+          await fixture.db('applicationsettings').insert({ keyid: 1, billingsettings: JSON.stringify(configured), country_code: 'GH' });
           expect((await new ApplicationSettings().getAllAppSettings(42))?.billingsettings).toEqual(configured);
           expect(mocks.connection).not.toHaveBeenCalled();
           await fixture.db('applicationsettings').where({ keyid: 1 }).update({ billingsettings: '{bad' });

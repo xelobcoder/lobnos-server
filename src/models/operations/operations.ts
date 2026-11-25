@@ -22,6 +22,7 @@ import { TestApprovalClass } from "./testApprovalClass";
 import ImagingResultAuditRepository from "./imaging/ImagingResultAuditRepository";
 import KnexConnection from "../../database/KnexConnections";
 import ApplicationSettings from "../application/appsettings/appset";
+import { isExplicitResultReleaseRequired } from "./ResultReleaseGuard";
 
 export default class Operations {
      private billingid: number;
@@ -438,7 +439,7 @@ export default class Operations {
      private static async generateAscensionQuery(
           queryParams: ascensionStageRequestQueryTypes,
           bypassProcessing = false,
-          workflowPolicy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean } = {},
+          workflowPolicy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean; requireExplicitResultRelease?: boolean } = {},
      ): Promise<{ conditions: (string | Date)[]; finalQuery: string }> {
           const {
                from,
@@ -710,6 +711,7 @@ export default class Operations {
                     bypassCollection: Number(settings?.byPassCollection) === 1,
                     bypassSampleValidation: Number(settings?.byPassSampleValidation) === 1,
                     requireManagerApproval: Boolean(releaseSettings?.requireManagerApprovalBeforeRelease),
+                    requireExplicitResultRelease: isExplicitResultReleaseRequired(releaseSettings?.requireExplicitResultRelease),
                });
                let query = finalQuery;
                let conditionValues = conditionx;

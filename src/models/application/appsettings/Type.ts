@@ -79,6 +79,7 @@ export type ApplicationSettingsData = {
      billingsettings: billingsettings;
      regioncode: number;
      districtcode: number;
+     country_code?: string | null;
      record_commission_payments_as_expense: boolean;
      recoord_outsourced_services_as_expense: boolean;
      allowValidationUpaid?: numberBoolean;

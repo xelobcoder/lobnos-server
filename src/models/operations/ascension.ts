@@ -20,7 +20,7 @@ import { q_get_AscensionEditCount } from "./ascensionQueries";
 import { DrugManagementService } from "../drugs/drugsUpload";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
 import Creator from "../creator/creator";
-import { PrimeLimsTabletest_ascension } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletest_ascension } from "../../interfaces/database";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import KnexConnection from "../../database/KnexConnections";
 import ApplicationSettings from "../application/appsettings/appset";

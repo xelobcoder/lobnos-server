@@ -8,7 +8,7 @@ import databaseQueries from "../../database/DatabaseQueriesHelper";
 import { customError, convertKeysToLowerCase } from "../../hooks/helper";
 import { NewRegistration } from "../../models/registration/types";
 import logger from "../../hooks/logger";
-import { PrimeLimsTablepatientemmergencycontactinformation } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTablepatientemmergencycontactinformation } from "../../interfaces/database";
 import Patient from "../../models/patients/patientRepo";
 import { ICreateEmergencyPatient, ICreateNewPatient } from "../../models/patients/interfaces";
 import PatientAddressingRepo from "../../models/patients/respositories/patientAddressingRepo.repo";

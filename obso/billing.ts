@@ -1,6 +1,6 @@
 // This is th old billing class and would be deprecated in the endin of 2025
 import { IDetermineStageOfRefund, updateRefundCashRequestBodyType } from "../src/controllers/billing/sales/type";
-import { PrimeLimsTablebilling, PrimeLimsTablebillinghx, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices, PrimeLimsTablepaymentmodes } from "../src/database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTablebillinghx, PrimeLimsTabledbobillingrefundtable, PrimeLimsTabledboservices, PrimeLimsTablepaymentmodes } from "../src/interfaces/database";
 import KnexConnection from "../src/database/KnexConnections";
 import { applyDboservicesAfterInsert, applyDboservicesAfterUpdate, applyTestAscensionAfterInsertApprovalSettings } from "../src/database/appLevelTriggers";
 import { TiifuWorkingClass } from "../src/database/TiifuWorkingClass";

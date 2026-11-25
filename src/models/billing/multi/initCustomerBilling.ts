@@ -3,7 +3,7 @@ import { BillErrors, EntityType } from "./billing_shared_types";
 import KnexConnection from "../../../database/KnexConnections";
 import BillingStrategy from "../../clincians/billingstrategy";
 import ApplicationSettings from "../../application/appsettings/appset";
-import { PrimeLimsTablebilling, PrimeLimsTabledboservices } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTabledboservices } from "../../../interfaces/database";
 import { ReferralCodingRepo } from "../../referral/repositories/ReferralCodingRepo";
 import { BillingModuleCodes, BillingTestItem, CustomerInitResponse } from "./billingTypes";
 import { PackageBillingHelper } from "./packageBillingHelper";

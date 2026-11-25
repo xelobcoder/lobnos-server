@@ -1,4 +1,4 @@
-import { PrimeLimsTablenew_patients } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTablenew_patients } from "../../interfaces/database";
 import Registration from "../registration/registration";
 import FieldConstraintsRepository from "../TestCreation/repositories/FieldConstraintsRepository.repo";
 import Creator from "./creator";

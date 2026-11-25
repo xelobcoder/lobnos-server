@@ -8,7 +8,7 @@ import { OperationsFailures } from "../operations/types";
 import databaseQueries from "../../database/DatabaseQueriesHelper";
 import { UpdateCredentialsRequest } from './types';
 import { IPatient } from "./PtInterface";
-import { PrimeLimsTablepatients_credentials } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTablepatients_credentials } from "../../interfaces/database";
 import PatientImageRepository from "../../repositories/patientRepositories/PatientImageRepository";
 import KnexConnection from "../../database/KnexConnections";
 

@@ -24,14 +24,14 @@ import {
 	deleteTestPanel,
 	getTestPanelCreationRule,
 	getTestPanelData,
-	putTestPanelChangeName,
 	getTestSetupLiterature,
 	putTestSetupLiterature,
 	getTestSetupResultLiterature,
-	putBulkTestPricingUpdate,
-	importMasterTestPanelToClientList,
-	putTestPanelQcRequirement
+	importMasterTestPanelToClientList
 } from "./testpanelHandlers";
+import { TestCatalogController } from './TestCatalogController';
+import { TestCatalogManagement } from '../../testpanel/application/TestCatalogManagement';
+import { TestPanelRepository } from '../../testpanel/TestPanelRepository';
 import { getCalculationFormulas, putCalculationFormula, previewCalculationFormula } from './CalculationFormulaController';
 import { getAuthUser, requireOwnerRole } from '../../middleware/authority';
 import { canDelegateTestPanelAccess, canManageTestPanels, canViewTestPanels, requireSuperAdminTestPanelDeletion, requireTestPanelDelegation, requireTestPanelManagement, requireTestPanelView } from '../../middleware/testPanelAuthority';
@@ -43,6 +43,9 @@ import { blockWhenMasterCatalogEnforced } from "../../testpanel/masterCatalog";
 import { getTestPanelStaffAccess, updateTestPanelStaffAccess } from "./testPanelStaffAccess";
 
 const router = express.Router();
+const testCatalogController = new TestCatalogController(
+	new TestCatalogManagement(new TestPanelRepository(), testPanelCache)
+);
 router.get('/api/v1/testpanel/master-lookups/:kind',requireTestPanelManagement,handleOverLoad(async(req,res)=>{
  try{const service=new MasterLookupImport(systemConfigConnection,await KnexConnection(Number(req.query.tenantId)));return res.json({success:true,data:await service.preview(String(req.params.kind))});}catch(e:any){return res.status(e.statusCode||500).json({success:false,message:e.statusCode?e.message:'Unable to load master items'});}
 }));
@@ -92,10 +95,10 @@ router.get("/api/v1/test/getLiteraturereview", getTestLiteratureReview);
 router.put("/api/v1/test/getLiteraturereview", requireTestPanelManagement, handleOverLoad(putTestLiteratureReview));
 router.get("/api/v1/test/isLiteraturereview/getLiterature", getLiteratureReviewResult);
 router.post("/api/v1/testpanel/bulkupdate", requireTestPanelManagement, handleOverLoad(postBulkTestPanelUpdate));
-router.put("/api/v1/testpanel/bulkpricing", requireOwnerRole, handleOverLoad(putBulkTestPricingUpdate));
+router.put("/api/v1/testpanel/bulkpricing", requireOwnerRole, handleOverLoad(testCatalogController.updateBulkPricing));
 router.post("/api/v1/testpanel/list", requireTestPanelManagement, blockWhenMasterCatalogEnforced, handleOverLoad(postTestPanelCreate));
 router.put("/api/v1/testpanel/list", requireTestPanelManagement, handleOverLoad(putTestPanelUpdate));
-router.put("/api/v1/testpanel/qc-requirement", requireTestPanelManagement, putTestPanelQcRequirement);
+router.put("/api/v1/testpanel/qc-requirement", requireTestPanelManagement, testCatalogController.updateQcRequirement);
 router.get("/api/v1/testpanel/calculations", requireTestPanelManagement, getCalculationFormulas);
 router.put("/api/v1/testpanel/calculations", requireTestPanelManagement, putCalculationFormula);
 router.post('/api/v1/testpanel/calculations/preview', requireTestPanelManagement, previewCalculationFormula);
@@ -103,7 +106,7 @@ router.delete("/api/v1/testpanel/list", requireSuperAdminTestPanelDeletion, hand
 router.get("/api/v1/testpanel/list/customtestrule", getTestPanelCreationRule);
 router.get("/api/v1/testpanel/test/creation-rules", getTestPanelCreationRule);
 router.get("/api/v1/", getTestPanelData);
-router.put("/api/v1/testpanel/list/createcustom", requireTestPanelManagement, handleOverLoad(putTestPanelChangeName));
+router.put("/api/v1/testpanel/list/createcustom", requireTestPanelManagement, handleOverLoad(testCatalogController.renameTest));
 router.get("/api/v1/testpanel/list/bulk/billing", testpanel.getPanelBulKLessInformation);
 // Per-test report settings (falls back to general report settings when no override exists)
 router.get("/api/v1/testpanel/reportsettings", handleOverLoad(getTestReportSettingsHandler));

@@ -22,7 +22,7 @@ describe('tenant workspace layout migration', () => {
                defaultTo: vi.fn().mockReturnThis(),
                alter: vi.fn().mockReturnThis(),
           };
-          const table = { enu: vi.fn(() => column), json: vi.fn(() => column), dropColumn: vi.fn() };
+          const table = { enu: vi.fn(() => column), json: vi.fn(() => column), string: vi.fn(() => column), dropColumn: vi.fn() };
           const schema = {
                hasTable: vi.fn().mockResolvedValue(hasTable),
                hasColumn: vi.fn().mockResolvedValue(hasColumn),
@@ -34,6 +34,7 @@ describe('tenant workspace layout migration', () => {
           const db: any = vi.fn((name: string) => {
                const builder = {
                     where: vi.fn().mockReturnThis(),
+                    count: vi.fn(() => ({ first: vi.fn().mockResolvedValue({ count: 1 }) })),
                     first: name === 'applicationsettings' ? applicationFirst : vi.fn().mockResolvedValue({ id: name === 'regions' ? 1 : 2 }),
                     insert,
                };

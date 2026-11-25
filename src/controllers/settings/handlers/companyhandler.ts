@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import path from "path";
 import fs from "fs";
 import logger from "../../../hooks/logger";
-import { insertCompanyProfile, truncateCompanyProfile, getAllCompanyProfiles } from "../../../models/settings/companyProfile";
+import { CompanyProfileGeographyError, insertCompanyProfile, truncateCompanyProfile, getAllCompanyProfiles } from "../../../models/settings/companyProfile";
 import { OperationsFailures } from "../../../models/operations/types";
 import { uploadImageFile } from "./imageUpload";
 import { customError, responseError } from "../../../hooks/helper";
@@ -17,6 +17,9 @@ export const AddCompanyInfoHandler = async (request: Request<{},{},{name:string,
 		await insertCompanyProfile(tenantId, request.body as any);
 		return response.send({ status: "success" });
 	} catch (err:any) {
+		if (err instanceof CompanyProfileGeographyError) {
+			return customError(err.message, 400, response);
+		}
 		console.log(err)
 		return responseError(response);
 	}

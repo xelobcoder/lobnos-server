@@ -1,4 +1,4 @@
-import { PrimeLimsTableexpensesrecord } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord } from "../../../interfaces/database";
 import { ExpenseData, PaginationQuery } from "./types";
 
 export interface IExpenseRepository {

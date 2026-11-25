@@ -1,7 +1,46 @@
 import KnexConnection from '../../../database/KnexConnections';
+import type { Knex } from 'knex';
 import { IStaffFocAccount, IStaffFocPolicy, IStaffFocTransaction } from '../interfaces/IStaffFocService';
 
+interface FocBillingServiceRow {
+     serviceid: number;
+     billingid: number;
+     foc_transaction_id: number | string | null;
+     totalpayable: number | string | null;
+     paidamount: number | string | null;
+     foc_amount: number | string | null;
+}
+
+interface FocBillingTotals {
+     totalpayable: number | string | null;
+     settled: number | string | null;
+     foc: number | string | null;
+     outstanding: number | string | null;
+}
+
+interface FocBillingServiceUpdate {
+     foc_amount: number;
+     foc_transaction_id?: number;
+     paidamount: number;
+     outstanding: number;
+     paymentstatus: string;
+}
+
+interface FocBillingUpdate {
+     paid: number;
+     outstanding: number;
+     balance: number;
+     status: string;
+     clientstatus: string;
+}
+
 export class StaffFocRepository {
+     async isActiveStaff(tenantId: number, employeeId: number): Promise<boolean> {
+          const conn = await KnexConnection(tenantId);
+          const staff = await conn('roles').where({ employeeid: employeeId, activation: 1 }).first();
+          return Boolean(staff);
+     }
+
      async getPolicy(tenantId: number): Promise<IStaffFocPolicy | null> {
           const conn = await KnexConnection(tenantId);
           const policy = await conn('staff_foc_policy').where({ active: 1 }).first();
@@ -104,6 +143,36 @@ export class StaffFocRepository {
           return id;
      }
 
+     async getBillingServices(billingId: number, trx: Knex.Transaction): Promise<FocBillingServiceRow[]> {
+          return trx<FocBillingServiceRow>('dboservices')
+               .where({ billingid: billingId })
+               .orderBy('serviceid', 'asc');
+     }
+
+     async getBillingServicesForReversal(billingId: number, transactionId: number, trx: Knex.Transaction): Promise<Pick<FocBillingServiceRow, 'serviceid' | 'totalpayable' | 'paidamount' | 'foc_amount'>[]> {
+          return trx<FocBillingServiceRow>('dboservices')
+               .where({ billingid: billingId, foc_transaction_id: transactionId })
+               .select('serviceid', 'totalpayable', 'paidamount', 'foc_amount');
+     }
+
+     async updateBillingService(serviceId: number, data: FocBillingServiceUpdate, trx: Knex.Transaction): Promise<void> {
+          await trx('dboservices').where({ serviceid: serviceId }).update(data);
+     }
+
+     async getBillingTotals(billingId: number, trx: Knex.Transaction): Promise<FocBillingTotals | undefined> {
+          return trx('dboservices')
+               .where({ billingid: billingId })
+               .sum({ totalpayable: 'totalpayable' })
+               .sum({ settled: 'paidamount' })
+               .sum({ foc: 'foc_amount' })
+               .sum({ outstanding: 'outstanding' })
+               .first();
+     }
+
+     async updateBilling(billingId: number, data: FocBillingUpdate, trx: Knex.Transaction): Promise<void> {
+          await trx('billing').where({ billingid: billingId }).update(data);
+     }
+
      async getTransactionById(tenantId: number, transactionId: number, trx?: any): Promise<IStaffFocTransaction | null> {
           const conn = trx || await KnexConnection(tenantId);
           const tx = await conn('staff_foc_transaction')
@@ -112,7 +181,7 @@ export class StaffFocRepository {
                     'staff_role.username as staff_name',
                     'req_role.username as requested_by_name',
                     'app_role.username as approved_by_name',
-                    conn.raw('CONCAT_WS(" ", np.firstname, np.middlename, np.lastname) as patient_name')
+                    conn.raw('CONCAT_WS(?, np.firstname, np.middlename, np.lastname) as patient_name', [' '])
                )
                .leftJoin('roles as staff_role', 'staff_role.employeeid', 'staff_foc_transaction.employeeid')
                .leftJoin('roles as req_role', 'req_role.employeeid', 'staff_foc_transaction.requested_by')

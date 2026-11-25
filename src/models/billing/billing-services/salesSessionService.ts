@@ -1,4 +1,4 @@
-import { PrimeLimsTablebilling, PrimeLimsTableexpensesrecord, PrimeLimsTablesalessessionmanager } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTableexpensesrecord, PrimeLimsTablesalessessionmanager } from "../../../interfaces/database";
 import KnexConnection from "../../../database/KnexConnections";
 import ExpenseInvoiceRepo from "../../Expenses/ExpenseInvoiceRepo";
 import Expenses from "../../Expenses/ExpenseService";

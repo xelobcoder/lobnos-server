@@ -6,7 +6,7 @@ import { ConvertKeysToNumbers } from "../../interfaces/global";
 import { Clinician, ClinicianFilterParams } from "./types";
 import { paginationQuery, promisifyQuery, rowAffected } from "../../hooks/helper";
 import { OperationsFailures } from "../operations/types";
-import { PrimeLimsTableclinicianbasicinfo } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableclinicianbasicinfo } from "../../interfaces/database";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 import { ReferralCodingRepo } from "../referral/repositories/ReferralCodingRepo";
 import KnexConnection from "../../database/KnexConnections";

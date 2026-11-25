@@ -26,7 +26,7 @@ import { Request, Response } from "express";
 import Expenses from "../../models/Expenses/ExpenseService";
 import ExpenseInvoiceRepo from "../../models/Expenses/ExpenseInvoiceRepo";
 import { customError, responseError, promisifyQuery } from "../../hooks/helper";
-import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord } from "../../interfaces/database";
 import ExpenseAuditLog from "../../models/Expenses/ExpenseAuditLog";
 
 import logger from "../../hooks/logger";

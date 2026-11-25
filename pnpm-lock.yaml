@@ -50,6 +50,9 @@ importers:
       kysely:
         specifier: ^0.27.4
         version: 0.27.6
+      libphonenumber-js:
+        specifier: ^1.13.17
+        version: 1.13.17
       luxon:
         specifier: ^3.6.1
         version: 3.7.2
@@ -1127,8 +1130,8 @@ packages:
     resolution: {integrity: sha512-b94GiNHQNy6JNTrt5w6zNyffMrNkXZb3KTkCZJb2V1xaEGCk093vkZ2jk3tpaeP33/OiXC+WvK9AxUebnf5nbw==}
     engines: {node: '>= 0.6.3'}
 
-  libphonenumber-js@1.13.10:
-    resolution: {integrity: sha512-xJxrdqvbl2rtn2MaUJrUejz8J7/uZNC0V77oks2LxYrO/+ZtVpRmz+fEQMuu6VusnEB1fmpByiLS1WXecOnAnw==}
+  libphonenumber-js@1.13.17:
+    resolution: {integrity: sha512-V92dxRHhYTsHF5B6IjR8rtKW6qL7xKuERPFFqZt7XQl8A+NikbwEzjhxGpM+R6JnWjaL7/wokWSdTG/eyYAscQ==}
 
   lie@3.3.0:
     resolution: {integrity: sha512-UaiMJzeWRlEujzAuw5LokY1L5ecNQYZKfmyZ9L7wDHb/p5etKaxXhohBcrw0EYby+G/NA52vRSN4N39dxHAIwQ==}
@@ -2466,7 +2469,7 @@ snapshots:
   class-validator@0.15.1:
     dependencies:
       '@types/validator': 13.15.10
-      libphonenumber-js: 1.13.10
+      libphonenumber-js: 1.13.17
       validator: 13.15.35
 
   cliui@7.0.4:
@@ -2985,7 +2988,7 @@ snapshots:
     dependencies:
       readable-stream: 2.3.8
 
-  libphonenumber-js@1.13.10: {}
+  libphonenumber-js@1.13.17: {}
 
   lie@3.3.0:
     dependencies:

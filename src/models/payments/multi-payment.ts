@@ -1,4 +1,4 @@
-import { PrimeLimsTabledboservices } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabledboservices } from "../../interfaces/database";
 import type { Knex } from 'knex';
 import KnexConnection from "../../database/KnexConnections";
 import AutomatedExpenseLifecycle from "../Expenses/AutomatedExpenseLifecycle";

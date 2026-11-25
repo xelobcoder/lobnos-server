@@ -7,12 +7,16 @@ import { up as migrateStaffPinSecurity } from '../../../cron/command-line-tool-d
 import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
 import RegionsDistrictsRepository from './repositories/regions-districts-repo';
 import { DEFAULT_BILLING_SETTINGS } from './billingSettingsDefaults';
+import { ensureGeographyColumns, seedWestAfricaRegions } from '../../geography/FacilityLocation';
 
 // Region/district pickers and the applicationsettings codes depend on these catalogs; converted databases may lack them.
 async function ensureRegionsAndDistricts(tenantId: number): Promise<void> {
      const repo = new RegionsDistrictsRepository();
      if (!(await repo.hasRegionsAndDistrictsTables(tenantId))) await repo.createRegionsAndDistrictsTables(tenantId);
      if (!(await repo.regionsAndDistrictsHaveData(tenantId))) await repo.seedRegionsAndDistricts(tenantId);
+     const connection = await KnexConnection(tenantId);
+     await ensureGeographyColumns(connection, String(tenantId));
+     await seedWestAfricaRegions(connection);
 }
 
 export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> {
@@ -39,6 +43,7 @@ export async function bootstrapApplicationSettings(tenantId = 1): Promise<void> 
                { name: 'commissionRecipientPolicy', add: (table) => table.enu('commissionRecipientPolicy', ['clinician', 'organization']).notNullable().defaultTo('clinician') },
                { name: 'moduleConfiguration', add: (table) => table.text('moduleConfiguration', 'longtext').nullable() },
                { name: 'emailModuleActivated', add: (table) => table.boolean('emailModuleActivated').notNullable().defaultTo(false) },
+               { name: 'country_code', add: (table) => table.string('country_code', 2).nullable() },
           ];
 
           for (const column of columns) {

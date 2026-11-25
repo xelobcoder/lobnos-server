@@ -1,4 +1,4 @@
-import { PrimeLimsTablebilling, PrimeLimsTabledboservices, PrimeLimsTablebillinghx } from "../../../database/DatabaseTableSchema";
+import { PrimeLimsTablebilling, PrimeLimsTabledboservices, PrimeLimsTablebillinghx } from "../../../interfaces/database";
 
 export interface IBillingUpdate {
     billingid: number;

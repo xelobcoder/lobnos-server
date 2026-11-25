@@ -1,4 +1,4 @@
-import { PrimeLimsTableexpensesrecord_audit_log } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord_audit_log } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";
 

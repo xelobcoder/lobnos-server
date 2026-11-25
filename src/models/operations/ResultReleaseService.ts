@@ -3,7 +3,7 @@ import KnexConnection from '../../database/KnexConnections';
 import ResultSettings from '../application/appsettings/result-settings/resultSettings';
 import { roleAllowed } from '../../middleware/roles';
 import { controlsFail } from './LabAccessPolicy';
-import { captureReportRevision } from './ResultReleaseGuard';
+import { captureReportRevision, isExplicitResultReleaseRequired } from './ResultReleaseGuard';
 import { archiveLaboratoryReport, clinicalReportHash } from '../result/LaboratoryReportVersions';
 import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 
@@ -80,7 +80,7 @@ export async function getResultReleaseWorkflows(
           const authorValidated = [...authorIds].some(id => validators.has(id));
           const differentValidatorRequired = Boolean(settings?.requireDifferentValidatorFromResultAuthor);
           const differentValidatorSatisfied = !differentValidatorRequired || authorIds.size > 0 && !authorValidated;
-          const explicitReleaseRequired=settings?.requireExplicitResultRelease!==false&&Number(settings?.requireExplicitResultRelease)!==0;
+          const explicitReleaseRequired=isExplicitResultReleaseRequired(settings?.requireExplicitResultRelease);
           const managerApprovalRequired = Boolean(settings?.requireManagerApprovalBeforeRelease);
           const managerApproval = managerEvents.find((event: any) =>
                Number(event.ascensionid) === ascensionid && Number(event.revision) === revision);

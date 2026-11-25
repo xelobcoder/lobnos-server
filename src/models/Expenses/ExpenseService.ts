@@ -18,7 +18,7 @@ import {
      updateExpenseDecisionQuery
 } from "./queries";
 import { IExpenseRepository } from "./interfaces/IExpenseRepository";
-import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord } from "../../interfaces/database";
 import { OperationsFailures } from "../operations/types";
 import { primeTenancyConnector } from '../../models/Tenancy/tenantConnections';
 import { databaseConnectionPool } from '../../database/connection';

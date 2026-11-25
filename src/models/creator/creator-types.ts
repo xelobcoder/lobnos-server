@@ -1,4 +1,4 @@
-import { PrimeLimsTabletest_panels, PrimeLimsTabletestdetailcategory } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletest_panels, PrimeLimsTabletestdetailcategory } from "../../interfaces/database";
 import { TestDetailCategoryType } from "../operations/testFieldsCategoryClass";
 import { TestCreationRule } from "../TestCreation/TestCreationRulesRepository";
 

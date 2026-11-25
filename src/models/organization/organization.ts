@@ -1,5 +1,5 @@
 
-import { PrimeLimsTableorganization } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableorganization } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 import { applyOrganizationAfterInsert } from "../../database/appLevelTriggers";
 import { TiifuWorkingClass } from "../../database/TiifuWorkingClass";

@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import AttendanceCycleService from "../../models/appointments/attendanceCycle";
 import { responseError } from "../../hooks/helper";
-import { PrimeLimsTableroles } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableroles } from "../../interfaces/database";
 import { getAllLogins } from "../../LobnosAuth/createAccount";
 import EmployeeShiftService from "../../models/appointments/ShiftsPreferenceAndAvailabillity";
 import ShiftService from "../../models/appointments/shfitsServices";

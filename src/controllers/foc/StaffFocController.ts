@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { customError, responseError } from '../../hooks/helper';
 import { StaffFocService } from '../../models/foc/services/StaffFocService';
+import { getAuthUser } from '../../middleware/authority';
 
 export class StaffFocController {
      private static getService(): StaffFocService {
@@ -52,21 +53,22 @@ export class StaffFocController {
 
      static async processTransaction(req: Request, res: Response) {
           try {
-               const tenantId = parseInt(req.query.tenantId as string, 10);
-               const { employeeid, patientid, billingid, branchid, gross_amount, requested_by, reason, allow_override } = req.body;
+               const actor = getAuthUser(req);
+               if (!actor) return customError('Authentication required', 401, res);
+               const { employeeid, patientid, billingid, branchid, gross_amount, reason, allow_override } = req.body;
 
-               if (!tenantId || !employeeid || !patientid || !billingid || !gross_amount || !requested_by) {
-                    return customError('tenantId, employeeid, patientid, billingid, gross_amount, and requested_by are required', 400, res);
+               if (!employeeid || !patientid || !billingid || !gross_amount) {
+                    return customError('employeeid, patientid, billingid, and gross_amount are required', 400, res);
                }
 
                const service = StaffFocController.getService();
-               const tx = await service.processFocTransaction(tenantId, {
+               const tx = await service.processFocTransaction(actor.tenantId, {
                     employeeid: parseInt(employeeid, 10),
                     patientid: parseInt(patientid, 10),
                     billingid: parseInt(billingid, 10),
                     branchid: branchid ? parseInt(branchid, 10) : 1,
                     gross_amount: parseFloat(gross_amount),
-                    requested_by: parseInt(requested_by, 10),
+                    requested_by: actor.employeeid,
                     reason: reason ? String(reason) : undefined,
                     allow_override: Boolean(allow_override),
                });
@@ -79,17 +81,17 @@ export class StaffFocController {
 
      static async approveTransaction(req: Request, res: Response) {
           try {
-               const tenantId = parseInt(req.query.tenantId as string, 10);
+               const actor = getAuthUser(req);
+               if (!actor) return customError('Authentication required', 401, res);
                const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-               const transactionId = parseInt(idParam, 10);
-               const { approverEmployeeId } = req.body;
+               const transactionId = /^\d+$/.test(idParam) ? Number(idParam) : NaN;
 
-               if (!tenantId || isNaN(transactionId) || !approverEmployeeId) {
-                    return customError('tenantId, transactionId, and approverEmployeeId are required', 400, res);
+               if (!Number.isSafeInteger(transactionId) || transactionId <= 0) {
+                    return customError('Valid transactionId is required', 400, res);
                }
 
                const service = StaffFocController.getService();
-               await service.approveFocTransaction(tenantId, transactionId, parseInt(approverEmployeeId, 10));
+               await service.approveFocTransaction(actor.tenantId, transactionId, actor.employeeid);
 
                res.send({ status: 'success', message: 'FOC transaction approved successfully' });
           } catch (err: any) {
@@ -99,17 +101,18 @@ export class StaffFocController {
 
      static async reverseTransaction(req: Request, res: Response) {
           try {
-               const tenantId = parseInt(req.query.tenantId as string, 10);
+               const actor = getAuthUser(req);
+               if (!actor) return customError('Authentication required', 401, res);
                const idParam = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
-               const transactionId = parseInt(idParam, 10);
-               const { revokerEmployeeId, reason } = req.body;
+               const transactionId = /^\d+$/.test(idParam) ? Number(idParam) : NaN;
+               const { reason } = req.body;
 
-               if (!tenantId || isNaN(transactionId) || !revokerEmployeeId || !reason) {
-                    return customError('tenantId, transactionId, revokerEmployeeId, and reason are required', 400, res);
+               if (!Number.isSafeInteger(transactionId) || transactionId <= 0 || !reason) {
+                    return customError('Valid transactionId and reason are required', 400, res);
                }
 
                const service = StaffFocController.getService();
-               await service.reverseFocTransaction(tenantId, transactionId, parseInt(revokerEmployeeId, 10), String(reason));
+               await service.reverseFocTransaction(actor.tenantId, transactionId, actor.employeeid, String(reason));
 
                res.send({ status: 'success', message: 'FOC transaction reversed successfully' });
           } catch (err: any) {

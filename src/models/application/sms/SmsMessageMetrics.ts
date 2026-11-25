@@ -15,6 +15,7 @@ export function normalizeSmsPhone(input: unknown): string | null {
     let digits = String(input ?? '').replace(/[\s()+-]/g, '');
     if (digits.startsWith('00')) digits = digits.slice(2);
     if (/^[1-9]\d{10,14}$/.test(digits) && !digits.startsWith('233')) return digits;
+    if (/^(220|238)\d{7}$/.test(digits)) return digits; // Gambia and Cabo Verde international numbers have only 10 digits
     if (/^233\d{9}$/.test(digits)) digits = '0' + digits.slice(3);
     if (/^\d{9}$/.test(digits)) digits = '0' + digits;
     return /^0\d{9}$/.test(digits) ? digits : null;

@@ -1,7 +1,7 @@
 // SmsMessageParser.ts
 // Utility class for parsing and personalizing SMS message templates
 
-import { PrimeLimsTableclinicianbasicinfo, PrimeLimsTablenew_patients, PrimeLimsTableorganization } from "../../../../database/DatabaseTableSchema";
+import { PrimeLimsTableclinicianbasicinfo, PrimeLimsTablenew_patients, PrimeLimsTableorganization } from "../../../../interfaces/database";
 import ClinicianClass from "../../../clincians/clinicianClass";
 import Organization from "../../../organization/organization";
 import Registration from "../../../registration/registration";

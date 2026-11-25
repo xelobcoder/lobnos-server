@@ -7,7 +7,7 @@ import { OperationsFailures } from "../models/operations/types";
 import { q_ultrasound_list } from "./queries";
 import { promisifyQuery, customError, rowAffected, responseError, hasSpecialCharacters } from "../hooks/helper";
 import logger from "../hooks/logger";
-import { PrimeLimsTabletestdetails } from "../database/DatabaseTableSchema";
+import { PrimeLimsTabletestdetails } from "../interfaces/database";
 import MasterTestPanelRepository from "../models/system-admin/MasterTestPanelRepository";
 import KnexConnection from "../database/KnexConnections";
 import { applyTestPanelsAfterInsert } from "../database/appLevelTriggers";

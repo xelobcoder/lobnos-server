@@ -1,5 +1,6 @@
 import { Transform as TransformContactPhone } from 'class-transformer';
 import { normalizeRegistrationPhone } from './checkMobileNoDto.dto';
+import { RegistrationPhone } from './registrationPhone.decorator';
 import { Type } from 'class-transformer';
 import { IsArray, ValidateNested } from 'class-validator';
 import { PatientPhoneContactDto } from './patientPhoneContact.dto';
@@ -68,15 +69,11 @@ export class UpdatePatientDto {
      marital_status?: MaritalStatus;
 
      @IsOptional()
-     @Matches(/^\d{10}$/, {
-          message: "mobile_number must contain exactly 10 digits",
-     })
+     @RegistrationPhone('mobile_country_code')
      mobile_number?: string;
 
      @IsOptional()
-     @Matches(/^\d{10}$/, {
-          message: "whatAppcontact must contain exactly 10 digits",
-     })
+     @RegistrationPhone('whatsapp_country_code')
      whatAppcontact?: string;
 
      @IsOptional()

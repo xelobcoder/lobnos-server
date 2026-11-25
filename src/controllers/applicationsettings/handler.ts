@@ -7,7 +7,7 @@ import { categoryColumnMapper, smsTemplatePlaceholdersOptions, TableFilteringTyp
 import Tax from "../../models/application/Tax";
 import ResultSettings from "../../models/application/appsettings/result-settings/resultSettings";
 import { OperationsFailures } from "../../models/operations/types";
-import ApplicationSettings from "./../../models/application/appsettings/appset";
+import ApplicationSettings, { ApplicationSettingsGeographyError } from "./../../models/application/appsettings/appset";
 import { responseError, customError } from "../../hooks/helper";
 import { ApplicationBillSettings, ApplicationSettingsData, EmailPreference, IupdateRegisFields } from "../../models/application/appsettings/Type";
 import { isBillingLayout } from '../../models/application/appsettings/billingLayout';
@@ -79,6 +79,7 @@ export const updateApplicationSettings = async (request: Request<{}, {}, Applica
 		}
 		return response.status(200).send({ message: "Application settings updated successfully", statusCode: 200, status: "success" });
 	} catch (err) {
+		if (err instanceof ApplicationSettingsGeographyError) return customError(err.message, 400, response);
 		responseError(response, err)
 	}
 };

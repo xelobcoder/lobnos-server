@@ -3,54 +3,10 @@ PrimeLab backup scheduler (schedule-only)
 [33mAcquire connection error: AggregateError [ECONNREFUSED]: 
     at internalConnectMultiple (node:net:1194:18)
     at afterConnectMultiple (node:net:1784:7)[39m
-2026-11-23 06:17:00 [[32minfo[39m] [TenantRegistry] Local database gmsprimelabold uses registered tenant 160757 (configured default was 876954) {"platform":"win32","arch":"x64"}
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
-[heartbeat] running tenant=1 source=backup_schedules
+[33mAcquire connection error: AggregateError [ECONNREFUSED]: 
+    at internalConnectMultiple (node:net:1194:18)
+    at afterConnectMultiple (node:net:1784:7)[39m
+2026-11-25 01:57:00 [[32minfo[39m] [TenantRegistry] Local database primelabtestmig uses registered tenant 578819 (configured default was 876954) {"platform":"win32","arch":"x64"}
 [heartbeat] running tenant=1 source=backup_schedules
 [heartbeat] running tenant=1 source=backup_schedules
 [heartbeat] running tenant=1 source=backup_schedules

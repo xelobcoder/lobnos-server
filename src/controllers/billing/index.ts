@@ -1,3 +1,5 @@
+import { ensureGeographyColumns, getFacilityLocation } from '../../models/geography/FacilityLocation';
+import { GeographyService } from '../../models/geography/GeographyService';
 import { RequestHandler, Router, Request, Response } from "express";
 import {
      canInitiateBill,
@@ -148,7 +150,7 @@ router.get("/api/v1/promo-codes", handleOverLoad(PrimeBillingPromoCodeController
 router.post("/api/v1/promo-codes/increment-usage", handleOverLoad(PrimeBillingPromoCodeController.incrementUsage));
 router.post("/api/v1/promo-codes/validate", handleOverLoad(PrimeBillingPromoCodeController.validatePromoCode));
 
-// Locations: Regions with their Districts
+// Locations: Regions with their Districts (filtered by country; defaults to the facility country)
 router.get('/api/v1/locations/regions-districts', (async (req: Request, res: Response) => {
      try {
           const tenantQuery = req.query.tenantId;
@@ -164,7 +166,10 @@ router.get('/api/v1/locations/regions-districts', (async (req: Request, res: Res
 
           const connection = await KnexConnection(tenantId);
 
-          const regions = await connection('regions').select('id', 'name', 'regioncode').orderBy('name');
+          await ensureGeographyColumns(connection, String(tenantId));
+          const requested = GeographyService.getCountry(String(Array.isArray(req.query.country) ? req.query.country[0] : req.query.country ?? ''));
+          const countryCode = requested?.iso2 ?? (await getFacilityLocation(tenantId)).countryCode;
+          const regions = await connection('regions').where({ country_code: countryCode }).select('id', 'name', 'regioncode').orderBy('name');
           const districts = await connection('districts').select('id', 'name', 'code', 'regionid').orderBy('name');
 
           const grouped = regions.map((r: any) => ({
@@ -174,7 +179,7 @@ router.get('/api/v1/locations/regions-districts', (async (req: Request, res: Res
                districts: districts.filter((d: any) => d.regionid === r.id)
           }));
 
-          res.send({ status: 'success', statusCode: 200, data: grouped });
+          res.send({ status: 'success', statusCode: 200, countryCode, data: grouped });
           return;
      } catch (err) {
           console.error('Error loading regions and districts', err);

@@ -35,7 +35,7 @@ import { CalculationFormulaService } from './calculations/CalculationFormulaServ
 import { requireDailyQcAcceptance } from './calculations/QCEnforcementService';
 import { InstrumentMaintenanceService } from '../QualityControl/InstrumentMaintenanceService';
 import { buildStaleDrugReactionDelete } from './resultDrugReactions';
-import { PrimeLimsTabletest_results } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTabletest_results } from "../../interfaces/database";
 import RequestAccess from "../security/RequestAcessResult/requestAcess";
 import RolesRepository from "../settings/users/RolesRepository";
 import ImagingResultAuditRepository from "../operations/imaging/ImagingResultAuditRepository";

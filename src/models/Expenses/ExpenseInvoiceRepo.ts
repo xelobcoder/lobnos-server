@@ -2,7 +2,7 @@ import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper
 import logger from "../../hooks/logger";
 import User from "../../LobnosAuth/user";
 import ExpenseService from "./ExpenseService";
-import { PrimeLimsTableexpensesrecord } from "../../database/DatabaseTableSchema";
+import { PrimeLimsTableexpensesrecord } from "../../interfaces/database";
 import KnexConnection from "../../database/KnexConnections";
 import { reverseControlledCommissionPayment } from '../commissions/CommissionExpenseSettlement';
 import { enqueueExpensePayment, enqueueExpensePaymentReversal } from "../../accountingModule/integrations/ExpenseAccounting";

@@ -26,11 +26,16 @@ import {isLabCheckoutMode} from '../../billing/LabCashierWorkflow';
 import { up as migrateBillingLayout } from '../../../cron/command-line-tool-database/migrations/20261025_billing_layout';
 import { bootstrapApplicationSettings } from './ApplicationSettingsBootstrapper';
 import { DEFAULT_BILLING_SETTINGS, parseBillingSettings } from './billingSettingsDefaults';
+import { ensureGeographyColumns } from '../../geography/FacilityLocation';
+import { GeographyService } from '../../geography/GeographyService';
+import { DEFAULT_COUNTRY_ISO } from '../../geography/WestAfricaGeographyData';
 
 
 
 
 type numberBoolean = 0 | 1;
+
+export class ApplicationSettingsGeographyError extends Error {}
 
 export default class ApplicationSettings {
 	public async getAllAppSettings(tenantId: number): Promise<ApplicationSettingsData | null> {
@@ -42,6 +47,19 @@ export default class ApplicationSettings {
 		}
 		if (result.length > 0) {
 			let record = result[0];
+			const configuredCountry = GeographyService.getCountry(record.country_code)?.iso2;
+			if (configuredCountry) {
+				record.country_code = configuredCountry;
+			} else {
+				const connection = await KnexConnection(tenantId);
+				let profileCountryCode: string | undefined;
+				if (await connection.schema.hasTable('companyprofile')) {
+					await ensureGeographyColumns(connection, String(tenantId));
+					const profile = await connection('companyprofile').first('country_code');
+					profileCountryCode = profile?.country_code;
+				}
+				record.country_code = GeographyService.getCountry(profileCountryCode)?.iso2 ?? DEFAULT_COUNTRY_ISO;
+			}
 			record.workspaceLayout = isWorkspaceLayout(record.workspaceLayout) ? record.workspaceLayout : 'classic';
 			record.billingLayout = isBillingLayout(record.billingLayout) ? record.billingLayout : 'multi-compact';
 			record.labCheckoutMode = isLabCheckoutMode(record.labCheckoutMode) ? record.labCheckoutMode : 'direct';
@@ -188,6 +206,7 @@ export default class ApplicationSettings {
 			billingidPrefix,
 			patientIdGenerationMethod,
 			regioncode,
+			country_code,
 			billingsettings,
 			districtcode,
 			fontFamily,
@@ -224,6 +243,27 @@ export default class ApplicationSettings {
 		try {
 			const result = await connection.transaction(async (trx) => {
 				const existing = await trx('applicationsettings').where({ keyid: 1 }).forUpdate().first();
+				const submittedCountry = country_code === undefined
+					? GeographyService.getCountry(existing?.country_code)?.iso2
+					: GeographyService.getCountry(country_code)?.iso2;
+				if (country_code !== undefined && !submittedCountry) {
+					throw new ApplicationSettingsGeographyError('Select a supported country');
+				}
+				let persistedCountry = submittedCountry ?? existing?.country_code ?? null;
+				let persistedRegion = regioncode ?? existing?.regioncode ?? 9;
+				let persistedDistrict = districtcode ?? existing?.districtcode ?? 173;
+				if (persistedCountry) {
+					const selectedRegion = await trx('regions')
+						.where({ id: persistedRegion, country_code: persistedCountry })
+						.first('id');
+					if (!selectedRegion) throw new ApplicationSettingsGeographyError('Select a region within the selected country');
+					const selectedDistrict = await trx('districts')
+						.where({ id: persistedDistrict, regionid: selectedRegion.id })
+						.first('id');
+					if (!selectedDistrict) throw new ApplicationSettingsGeographyError('Select a district within the selected region');
+					persistedRegion = selectedRegion.id;
+					persistedDistrict = selectedDistrict.id;
+				}
 				const normalizedSmsActivated = smsActivated === undefined
 					? (Number(existing?.smsActivated) === 1 ? 1 : 0)
 					: (Number(smsActivated) === 1 ? 1 : 0);
@@ -267,8 +307,9 @@ export default class ApplicationSettings {
 					billingidPrefix,
 					patientIdGenerationMethod,
 					// Both columns are NOT NULL; keep the stored value when the form omits them.
-					regioncode: regioncode ?? existing?.regioncode ?? 9,
-					districtcode: districtcode ?? existing?.districtcode ?? 173,
+					regioncode: persistedRegion,
+					districtcode: persistedDistrict,
+					country_code: persistedCountry,
 					billingsettings: JSON.stringify(parseBillingSettings(billingsettings) ?? parseBillingSettings(existing?.billingsettings) ?? DEFAULT_BILLING_SETTINGS),
 					fontFamily: fontFamily || data.fontFamily || 'Arial',
 					allowResultEnteringUpaid: allowResultEnteringUpaid ?? 0,
