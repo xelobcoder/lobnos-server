@@ -75,3 +75,19 @@ it('creates a batch of master drugs atomically and rejects duplicates before ins
  ],7)).rejects.toMatchObject({statusCode:409});
  expect(await fixture.db('drugs').count({count:'*'}).first()).toMatchObject({count:2});
 });
+it('preflights existing master drug duplicates without inserting records',async()=>{
+ const antibiotics=await service.save('drugCategories',{categoryName:'Antibiotics'},7);
+ await service.createDrugs([{drug:'Ciprofloxacin',category:antibiotics.id}],7);
+ expect(await service.checkDrugs([
+  {drug:'ciprofloxacin',category:antibiotics.id},
+  {drug:'Amikacin',category:antibiotics.id},
+ ])).toEqual({duplicates:[{drug:'ciprofloxacin',category:antibiotics.id}]});
+ expect(await fixture.db('drugs').count({count:'*'}).first()).toMatchObject({count:1});
+});
+it('lists master drugs with their categories and a separate total count',async()=>{
+ const antibiotics=await service.save('drugCategories',{categoryName:'Antibiotics'},7);
+ await service.createDrugs([{drug:'Ciprofloxacin',category:antibiotics.id}],7);
+ const result=await service.list('drugs',{page:1});
+ expect(result.total).toBe(1);
+ expect(result.rows).toMatchObject([{drug:'Ciprofloxacin',category:antibiotics.id,categoryName:'Antibiotics'}]);
+});

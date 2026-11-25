@@ -70,6 +70,7 @@ describe('platform facility routes', () => {
           expect(routes.map((r: any) => `${r.method} ${r.path}`)).toEqual([
                'get /api/v1/platform/facilities/access',
                'get /api/v1/platform/facilities/master-catalog/options',
+               'post /api/v1/platform/facilities/master-catalog/drugs/check',
                'post /api/v1/platform/facilities/master-catalog/drugs/bulk',
                'get /api/v1/platform/facilities/master-catalog/:module',
                'post /api/v1/platform/facilities/master-catalog/:module',
