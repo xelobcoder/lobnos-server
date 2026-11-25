@@ -10,6 +10,7 @@ import {
 import { loadFacilityStructureExports } from './FacilityStructureExports';
 import { FACILITY_CATALOG_TABLES, loadFacilityCatalogSeeds } from './FacilityCatalogSeeds';
 import { seedFacilityReferences } from './FacilityReferenceSeeds';
+import { MasterDrugCatalogImporter } from '../drugs/MasterDrugCatalogImporter';
 import type { RegisteredTenant } from './TenantRegistry';
 
 const BOOTSTRAP_STATE_TABLE = 'pls_empty_tenant_bootstrap_state';
@@ -104,6 +105,7 @@ export async function initializeEmptyTenantDatabase(tenant: RegisteredTenant): P
                const db = await KnexConnection(tenant.tenantId);
                await resetFacilityReferenceTables(db);
                await seedFacilityReferences(db, loadFacilityCatalogSeeds(), 'Platform administrator');
+               await new MasterDrugCatalogImporter().importInto(db, 1);
                await connection.query(
                     `UPDATE \`${BOOTSTRAP_STATE_TABLE}\` SET stage = 'references' WHERE id = 1`,
                );

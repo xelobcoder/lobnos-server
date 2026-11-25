@@ -19,7 +19,7 @@ export const LOCAL_BOOTSTRAP_PASSWORD = process.env.PLS_LOCAL_DB_ADMIN_PASSWORD 
 export const CONTROL_TABLES = ['test_panels', 'testdetails', 'testdetailcategory', 'testconditions',
      'testcreationrules', 'sampletype', 'samplecontainer', 'departments', 'testconditiondefinitions',
      'test_report_settings', 'setupliteraturereview', 'customtestcreation', 'calculated_parameter_formulas',
-     'field_constraints', 'proceduremanual', 'roles'];
+     'field_constraints', 'proceduremanual', 'drugscategory', 'drugs', 'roles'];
 
 export interface LocalInstallation {
      version: number; installationId: string; organizationName: string; host: string; port: string;

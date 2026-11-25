@@ -71,6 +71,7 @@ const actor = (res: Response) => res.locals.facilityActor;
 
 router.get(`${base}/access`, requirePlatformFacilityAuthority, handle(async () => ({ authorized: true })));
 router.get(`${base}/master-catalog/options`, requirePlatformFacilityAuthority, handle(req => masterCatalog.lookups(req.query.testid)));
+router.post(`${base}/master-catalog/drugs/bulk`, requirePlatformFacilityAuthority, handle((req, res) => masterCatalog.createDrugs(req.body?.drugs, actor(res).employeeId)));
 router.get(`${base}/master-catalog/:module`, requirePlatformFacilityAuthority, handle(req => masterCatalog.list(String(req.params.module),req.query)));
 router.post(`${base}/master-catalog/:module`, requirePlatformFacilityAuthority, handle((req,res) => masterCatalog.save(String(req.params.module),req.body,actor(res).employeeId,req.query.testid)));
 router.put(`${base}/master-catalog/:module/:id`, requirePlatformFacilityAuthority, handle((req,res) => masterCatalog.save(String(req.params.module),req.body,actor(res).employeeId,req.query.testid,req.params.id)));

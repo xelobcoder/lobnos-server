@@ -4,6 +4,48 @@ import { enrichMasterReferenceCatalog } from './MasterReferenceCatalog';
 import type { Knex } from 'knex';
 
 const fixture = accountingSqlDatabase();
+const expectedAntibiotics = [
+     'Ampicillin',
+     'Amoxicillin-Clavulanic Acid',
+     'Piperacillin-Tazobactam',
+     'Cefuroxime',
+     'Cefotaxime',
+     'Ceftriaxone',
+     'Ceftazidime',
+     'Cefepime',
+     'Cefoxitin',
+     'Cefixime',
+     'Cefazolin',
+     'Imipenem',
+     'Meropenem',
+     'Ertapenem',
+     'Aztreonam',
+     'Gentamicin',
+     'Amikacin',
+     'Tobramycin',
+     'Ciprofloxacin',
+     'Levofloxacin',
+     'Ofloxacin',
+     'Nalidixic Acid',
+     'Cotrimoxazole (Trimethoprim-Sulfamethoxazole)',
+     'Nitrofurantoin',
+     'Fosfomycin',
+     'Tetracycline',
+     'Doxycycline',
+     'Chloramphenicol',
+     'Erythromycin',
+     'Azithromycin',
+     'Clindamycin',
+     'Linezolid',
+     'Vancomycin',
+     'Teicoplanin',
+     'Penicillin G',
+     'Oxacillin',
+     'Rifampicin',
+     'Mupirocin',
+     'Colistin',
+     'Polymyxin B',
+] as const;
 afterEach(async () => { await fixture.db.destroy(); });
 
 it('adds missing references without changing existing items and classifies ultrasound panels', async () => {
@@ -11,6 +53,8 @@ it('adds missing references without changing existing items and classifies ultra
           CREATE TABLE sampletype (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
           CREATE TABLE samplecontainer (id INTEGER PRIMARY KEY, name TEXT NOT NULL, material TEXT);
           CREATE TABLE departments (id INTEGER PRIMARY KEY, department TEXT NOT NULL, departmentManager TEXT, employeeid INTEGER);
+          CREATE TABLE drugscategory (id INTEGER PRIMARY KEY AUTOINCREMENT, categoryName TEXT NOT NULL, description TEXT, createdBy TEXT NOT NULL);
+          CREATE TABLE drugs (id INTEGER PRIMARY KEY AUTOINCREMENT, drug TEXT NOT NULL, category INTEGER, createdby INTEGER, UNIQUE(drug, category));
           CREATE TABLE test_panels (id INTEGER PRIMARY KEY, name TEXT NOT NULL, category INTEGER NOT NULL);
           CREATE TABLE testcreationrules (id INTEGER PRIMARY KEY, testid INTEGER, plan TEXT);
           INSERT INTO sampletype VALUES (1, ' None ');
@@ -36,4 +80,8 @@ it('adds missing references without changing existing items and classifies ultra
      expect(await fixture.db('test_panels').where({ id: 3 }).first()).toMatchObject({ category: 7 });
      expect(await fixture.db('test_panels').where({ id: 5 }).first()).toMatchObject({ category: 6 });
      expect(await fixture.db('test_panels').where({ id: 4 }).first()).toMatchObject({ category: 7 });
+     const antibiotics = await fixture.db('drugscategory').where({ categoryName: 'Antibiotics' }).first();
+     expect(antibiotics).toBeTruthy();
+     expect(await fixture.db('drugs').where({ category: antibiotics.id }).orderBy('id').pluck('drug'))
+          .toEqual(expectedAntibiotics);
 });

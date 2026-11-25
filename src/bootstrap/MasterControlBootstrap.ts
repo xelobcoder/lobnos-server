@@ -10,13 +10,14 @@ import { loadFacilityCatalogSeeds } from '../models/Tenancy/FacilityCatalogSeeds
 import { seedRegionsAndDistricts } from '../models/application/appsettings/repositories/regions-districts-repo';
 import { REGIONS } from '../models/application/appsettings/constants/regions';
 import { DISTRICTS, DISTRICT_ABBREVIATIONS } from '../models/application/appsettings/constants/districts';
-import { enrichMasterReferenceCatalog } from '../models/Tenancy/MasterReferenceCatalog';
+import { enrichMasterReferenceCatalog, seedMasterAntibioticCatalog } from '../models/Tenancy/MasterReferenceCatalog';
 
 const INITIAL_MIGRATION = '20261013_initial_master_control';
 const SANITIZE_CATALOG_AUTHORS_MIGRATION = '20261013_sanitize_catalog_authors';
 const PLATFORM_REFERENCES_MIGRATION = '20261015_reconcile_platform_references';
 const CATALOG_SNAPSHOT_MIGRATION = '20261123_seed_master_catalog_snapshot';
 const REFERENCE_CATALOG_MIGRATION = '20261123_enrich_master_reference_catalog';
+const ANTIBIOTIC_CATALOG_MIGRATION = '20261124_seed_master_antibiotic_catalog';
 const FETAL_ULTRASOUND_MIGRATION = '20261123_classify_twin_fetal_ultrasound';
 const LOCK_NAME = 'pls-master-control-bootstrap-v1';
 
@@ -91,18 +92,19 @@ async function installControlCatalogSchema(connection: Connection, controlDataba
           WHERE TABLE_SCHEMA = ? AND TABLE_TYPE = 'BASE TABLE'`, [controlDatabase]);
      const missing = new Set(missingControlCatalogTables(catalogTables.map(table => table.name),
           existing.map(row => String(row.TABLE_NAME))));
-     if (!missing.size) return;
-     await connection.query('USE ??', [controlDatabase]);
-     await connection.query('SET FOREIGN_KEY_CHECKS = 0');
-     try {
-          for (const table of catalogTables) {
-               if (!missing.has(table.name)) continue;
-               const ddl = removeCatalogForeignKeys(table.ddl)
-                    .replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS ');
-               await connection.query(isolateReferenceDdl(ddl, EXPORTED_SOURCE_DATABASE, controlDatabase));
+     if (missing.size) {
+          await connection.query('USE ??', [controlDatabase]);
+          await connection.query('SET FOREIGN_KEY_CHECKS = 0');
+          try {
+               for (const table of catalogTables) {
+                    if (!missing.has(table.name)) continue;
+                    const ddl = removeCatalogForeignKeys(table.ddl)
+                         .replace(/^CREATE TABLE /i, 'CREATE TABLE IF NOT EXISTS ');
+                    await connection.query(isolateReferenceDdl(ddl, EXPORTED_SOURCE_DATABASE, controlDatabase));
+               }
+          } finally {
+               await connection.query('SET FOREIGN_KEY_CHECKS = 1');
           }
-     } finally {
-          await connection.query('SET FOREIGN_KEY_CHECKS = 1');
      }
 }
 
@@ -397,6 +399,22 @@ export async function bootstrapMasterControlDatabase(): Promise<void> {
                     await enrichMasterReferenceCatalog((sql, values = []) => rows(connection, sql, values), database);
                     await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
                          [database, REFERENCE_CATALOG_MIGRATION]);
+                    await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+                         [database, ANTIBIOTIC_CATALOG_MIGRATION]);
+                    await connection.commit();
+               } catch (error) {
+                    await connection.rollback();
+                    throw error;
+               }
+          }
+          const antibioticsSeeded = await rows(connection, 'SELECT name FROM ??.pls_master_migrations WHERE name = ?',
+               [database, ANTIBIOTIC_CATALOG_MIGRATION]);
+          if (!antibioticsSeeded.length) {
+               await connection.beginTransaction();
+               try {
+                    await seedMasterAntibioticCatalog((sql, values = []) => rows(connection, sql, values), database);
+                    await connection.query('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+                         [database, ANTIBIOTIC_CATALOG_MIGRATION]);
                     await connection.commit();
                } catch (error) {
                     await connection.rollback();

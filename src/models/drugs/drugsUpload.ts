@@ -15,6 +15,7 @@ import { drugCategoryInformation, DrugInfo } from "./types";
 import { OperationsFailures } from '../operations/types';
 import { promisifyQuery, rowAffected } from "../../hooks/helper";
 import { roleAllowed } from "../../middleware/roles";
+import KnexConnection from "../../database/KnexConnections";
 
 export class DrugManagementService {
 	private async hasDrug(tenantId: number, drugName: string, category: string): Promise<boolean> {
@@ -29,6 +30,56 @@ export class DrugManagementService {
 
 		const result = await promisifyQuery(tenantId, q_insert_drug_sql, [drug, addedOn, category, createdBy]);
 		return rowAffected(result);
+	}
+
+	public async addMultipleDrugs(
+		tenantId: number,
+		drugEntries: unknown,
+		createdBy: unknown,
+	): Promise<number | string> {
+		if (!Array.isArray(drugEntries) || drugEntries.length < 1 || drugEntries.length > 100) {
+			return "Submit between 1 and 100 drugs";
+		}
+		const employeeId = Number(createdBy);
+		if (!Number.isSafeInteger(employeeId) || employeeId < 1) return "A valid creator is required";
+
+		const drugs: Array<{ drug: string; category: number }> = [];
+		const submitted = new Set<string>();
+		for (const entry of drugEntries) {
+			if (!entry || typeof entry !== "object" || Array.isArray(entry)) return "Enter valid drug details";
+			const item = entry as Record<string, unknown>;
+			const name = typeof item.drug === "string" ? item.drug.trim().replace(/\s+/g, " ") : "";
+			const categoryId = Number(item.category);
+			if (!name || name.length > 255) return "Drug names must contain 1 to 255 characters";
+			if (!Number.isSafeInteger(categoryId) || categoryId < 1) return "Choose a valid drug category for every drug";
+			const key = `${categoryId}:${name.toLowerCase()}`;
+			if (submitted.has(key)) return `Duplicate drug name in this request: ${name}`;
+			submitted.add(key);
+			drugs.push({ drug: name, category: categoryId });
+		}
+
+		const connection = await KnexConnection(tenantId);
+		return connection.transaction(async (trx) => {
+			const categoryIds = [...new Set(drugs.map((entry) => entry.category))];
+			const categories = await trx("drugscategory").whereIn("id", categoryIds).select("id");
+			if (categories.length !== categoryIds.length) return "Choose a valid drug category for every drug";
+
+			const existingRows = await trx("drugs").whereIn("category", categoryIds).select("drug", "category");
+			const existing = new Set(existingRows.map((row) =>
+				`${Number(row.category)}:${String(row.drug).trim().replace(/\s+/g, " ").toLowerCase()}`));
+			const duplicate = drugs.find((entry) => existing.has(`${entry.category}:${entry.drug.toLowerCase()}`));
+			if (duplicate) return `Drug already exists in this category: ${duplicate}`;
+
+			for (const entry of drugs) {
+				await trx("drugs").insert({
+					drug: entry.drug,
+					addedOn: new Date(),
+					category: entry.category,
+					createdby: employeeId,
+				});
+			}
+			return drugs.length;
+		});
 	}
 
 	public async updateDrug(tenantId: number, drugInformation: { id: number; drug: string; addedOn: string; category: string; createdBy: string }): Promise<boolean | string> {

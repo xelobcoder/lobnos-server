@@ -21,6 +21,7 @@ import logger from "../../hooks/logger";
 import { ensureFacilityModuleTable, MODULE_CONFIG_TABLE } from "./FacilityModules";
 import { applyFacilityModulePricing, FacilityModulePricingCatalog } from "./FacilityModulePricingCatalog";
 import { buildPlanModuleConfiguration, FacilitySubscriptionTierService } from "./FacilitySubscriptionTiers";
+import { MasterDrugCatalogImporter } from "../drugs/MasterDrugCatalogImporter";
 import { acquireProvisioningLock, releaseProvisioningLock } from "./FacilityProvisioningLock";
 
 import { PROVISIONING_EVENTS_TABLE } from "./FacilityManagementService";
@@ -490,6 +491,11 @@ export class FacilityProvisioningService {
                     managerid: 1,
                });
                await seedFacilityReferences(db, catalog, input.adminName);
+               const importedDrugs = await new MasterDrugCatalogImporter().importInto(db, 1);
+               logger.info("Imported master culture-sensitivity catalog for new facility", {
+                    tenantId: reservation.tenantId,
+                    ...importedDrugs,
+               });
                await this.event(this.master, reservation, actor, "reference_seeded");
                stage = "runtime_bootstrap";
                let firstQueryError: unknown;

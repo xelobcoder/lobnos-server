@@ -8,6 +8,48 @@ const CONTAINERS = [
      'PLAIN TUBE', 'HEPARIN TUBE', 'BLOOD CULTURE BOTTLE',
      'STERILE SPECIMEN CONTAINER', 'CRYOVIAL', 'NONE',
 ];
+const ANTIBIOTICS = [
+     'Ampicillin',
+     'Amoxicillin-Clavulanic Acid',
+     'Piperacillin-Tazobactam',
+     'Cefuroxime',
+     'Cefotaxime',
+     'Ceftriaxone',
+     'Ceftazidime',
+     'Cefepime',
+     'Cefoxitin',
+     'Cefixime',
+     'Cefazolin',
+     'Imipenem',
+     'Meropenem',
+     'Ertapenem',
+     'Aztreonam',
+     'Gentamicin',
+     'Amikacin',
+     'Tobramycin',
+     'Ciprofloxacin',
+     'Levofloxacin',
+     'Ofloxacin',
+     'Nalidixic Acid',
+     'Cotrimoxazole (Trimethoprim-Sulfamethoxazole)',
+     'Nitrofurantoin',
+     'Fosfomycin',
+     'Tetracycline',
+     'Doxycycline',
+     'Chloramphenicol',
+     'Erythromycin',
+     'Azithromycin',
+     'Clindamycin',
+     'Linezolid',
+     'Vancomycin',
+     'Teicoplanin',
+     'Penicillin G',
+     'Oxacillin',
+     'Rifampicin',
+     'Mupirocin',
+     'Colistin',
+     'Polymyxin B',
+] as const;
 
 type CatalogQuery = (sql: string, values?: Knex.RawBinding[]) => Promise<unknown[]>;
 type NamedRow = { id: number; name: string };
@@ -44,6 +86,34 @@ export async function enrichMasterReferenceCatalog(query: CatalogQuery, database
           if ((ultrasoundName.test(panel.name) || Number(panel.imaging) === 1) && Number(panel.category) !== Number(matches[0].id)) {
                await query('UPDATE ??.?? SET category = ? WHERE id = ?', [database, 'test_panels', matches[0].id, panel.id]);
           }
+     }
+     await seedMasterAntibioticCatalog(query, database);
+}
+
+export async function seedMasterAntibioticCatalog(query: CatalogQuery, database: string): Promise<void> {
+     const antibioticCategories = await query(
+          'SELECT id FROM ??.?? WHERE LOWER(TRIM(categoryName)) = ?',
+          [database, 'drugscategory', normalized('Antibiotics')],
+     ) as Array<{ id: number }>;
+     if (antibioticCategories.length > 1) throw new Error('Multiple Antibiotics categories exist; resolve the ambiguity before catalog seeding');
+     let antibioticCategoryId = Number(antibioticCategories[0]?.id || 0);
+     if (!antibioticCategoryId) {
+          await query('INSERT INTO ??.?? (categoryName, description, createdBy) VALUES (?, ?, ?)',
+               [database, 'drugscategory', 'Antibiotics', 'Antibiotics used in culture and sensitivity testing', 'Prime Laboratory Software']);
+          const created = await query('SELECT id FROM ??.?? WHERE LOWER(TRIM(categoryName)) = ?',
+               [database, 'drugscategory', normalized('Antibiotics')]) as Array<{ id: number }>;
+          if (created.length !== 1) throw new Error('Unable to identify the Antibiotics category');
+          antibioticCategoryId = Number(created[0].id);
+     }
+     const existingAntibiotics = await query('SELECT id, drug FROM ??.?? WHERE category = ?',
+          [database, 'drugs', antibioticCategoryId]) as Array<{ id: number; drug: string }>;
+     for (const drug of ANTIBIOTICS) {
+          const matching = existingAntibiotics.filter(row => normalized(row.drug) === normalized(drug));
+          if (matching.length > 1) throw new Error(`Multiple master drugs match "${drug}" in Antibiotics`);
+          if (matching.length === 1) continue;
+          await query('INSERT INTO ??.?? (drug, category, createdby) VALUES (?, ?, ?)',
+               [database, 'drugs', drug, antibioticCategoryId, 1]);
+          existingAntibiotics.push({ id: 0, drug });
      }
 }
 

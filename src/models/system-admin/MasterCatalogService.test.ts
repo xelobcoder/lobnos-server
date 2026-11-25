@@ -9,12 +9,14 @@ beforeEach(async()=>{fixture=accountingSqlDatabase();fixture.native.exec(`
  CREATE TABLE departments(id INTEGER PRIMARY KEY,department TEXT);INSERT INTO departments VALUES(1,'Hematology');
  CREATE TABLE sampletype(id INTEGER PRIMARY KEY,name TEXT);INSERT INTO sampletype VALUES(1,'Blood');
  CREATE TABLE samplecontainer(id INTEGER PRIMARY KEY,name TEXT);INSERT INTO samplecontainer VALUES(1,'EDTA');
+ CREATE TABLE drugscategory(id INTEGER PRIMARY KEY,categoryName TEXT,description TEXT,createdBy TEXT);
+ CREATE TABLE drugs(id INTEGER PRIMARY KEY,drug TEXT,category INTEGER,createdby INTEGER,addedOn TEXT);
  CREATE TABLE testcreationrules(id INTEGER PRIMARY KEY,testid INTEGER,name TEXT,field TEXT,plan TEXT,units TEXT,categoryid INTEGER);
  CREATE TABLE testdetailcategory(categoryid INTEGER PRIMARY KEY,testid INTEGER,categoryname TEXT,deleted INTEGER DEFAULT 0);
  CREATE TABLE field_constraints(id INTEGER PRIMARY KEY,testid INTEGER,fieldid INTEGER,action TEXT);
  CREATE TABLE calculated_parameter_formulas(id INTEGER PRIMARY KEY,testid INTEGER,output_field_id INTEGER,input_parameters TEXT);
  CREATE TABLE testdetails(id INTEGER PRIMARY KEY,testid INTEGER,testcost INTEGER,testprice INTEGER,updatedby INTEGER,childrenlimit TEXT,instrumentation TEXT);CREATE TABLE setupliteraturereview(id INTEGER PRIMARY KEY,testid INTEGER,literature TEXT);CREATE TABLE test_results(id INTEGER PRIMARY KEY,value TEXT);INSERT INTO test_results VALUES(1,'145 g/L');
- `);service=new MasterCatalogService(fixture.db);vi.spyOn(service,'ensure').mockResolvedValue();vi.spyOn(service,'fields').mockImplementation(async name=>{const table:any={panels:'test_panels',parameters:'testcreationrules',groups:'testdetailcategory',constraints:'field_constraints',departments:'departments',samples:'sampletype',containers:'samplecontainer'};const info=await fixture.db(table[name]).columnInfo();return Object.keys(info).map(key=>({name:key,type:key==='price'?'int':'varchar',auto:key==='id'&&name!=='panels'||key==='categoryid'&&name==='groups',required:false,default:null,choices:key==='plan'?['input','options']:null}))});});
+ `);service=new MasterCatalogService(fixture.db);vi.spyOn(service,'ensure').mockResolvedValue();vi.spyOn(service,'fields').mockImplementation(async name=>{const table:any={panels:'test_panels',parameters:'testcreationrules',groups:'testdetailcategory',constraints:'field_constraints',departments:'departments',samples:'sampletype',containers:'samplecontainer',drugCategories:'drugscategory',drugs:'drugs'};const info=await fixture.db(table[name]).columnInfo();return Object.keys(info).map(key=>({name:key,type:key==='price'||key==='category'?'int':'varchar',auto:key==='id'&&name!=='panels'||key==='categoryid'&&name==='groups',required:false,default:null,choices:key==='plan'?['input','options']:null}))});});
 afterEach(()=>fixture.db.destroy());
 const panel=()=>service.save('panels',{name:'QA Master FBC',category:1,sample:1,sample_container:1,price:40,unit:'mL'},7);
 it('creates and edits master panels and parameters, audits writes and preserves unrelated results',async()=>{
@@ -48,4 +50,28 @@ it('creates master references and rejects names already present regardless of ca
  await expect(service.save('containers',{name:' edta '},7)).rejects.toMatchObject({statusCode:409});
  expect(await fixture.db('departments').where({department:'Radiology'}).first()).toBeTruthy();
  expect(await fixture.db('master_catalog_audit')).toHaveLength(3);
+});
+it('creates culture-sensitivity categories and drugs and protects categories containing drugs',async()=>{
+ const category=await service.save('drugCategories',{categoryName:'  Antibiotics  ',description:'Culture sensitivity'},7);
+ expect(category.categoryName).toBe('Antibiotics');
+ await expect(service.save('drugCategories',{categoryName:'antibiotics'},7)).rejects.toMatchObject({statusCode:409});
+ const drug=await service.save('drugs',{drug:'Ciprofloxacin',category:category.id},7);
+ expect(drug).toMatchObject({drug:'Ciprofloxacin',category:category.id});
+ await expect(service.save('drugs',{drug:' ciprofloxacin ',category:category.id},7)).rejects.toMatchObject({statusCode:409});
+ await expect(service.remove('drugCategories',category.id,7)).rejects.toMatchObject({statusCode:409});
+ await service.remove('drugs',drug.id,7);
+ await service.remove('drugCategories',category.id,7);
+});
+it('creates a batch of master drugs atomically and rejects duplicates before inserting',async()=>{
+ const antibiotics=await service.save('drugCategories',{categoryName:'Antibiotics'},7);
+ const antifungals=await service.save('drugCategories',{categoryName:'Antifungals'},7);
+ expect(await service.createDrugs([
+  {drug:'Amoxicillin',category:antibiotics.id},
+  {drug:'Fluconazole',category:antifungals.id},
+ ],7)).toEqual({added:2});
+ await expect(service.createDrugs([
+  {drug:'New drug',category:antibiotics.id},
+  {drug:' amoxicillin ',category:antibiotics.id},
+ ],7)).rejects.toMatchObject({statusCode:409});
+ expect(await fixture.db('drugs').count({count:'*'}).first()).toMatchObject({count:2});
 });

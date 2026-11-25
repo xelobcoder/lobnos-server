@@ -105,6 +105,9 @@ async function initialize(request: LocalProvisionRequest): Promise<void> {
                await enrichStandaloneMasterReferenceCatalog(trx, LOCAL_CONTROL_DATABASE);
                await trx('pls_local_installation').where({ owner_id: state.installationId }).update({ seeded: true });
           });
+          stage = 'master culture-sensitivity catalog';
+          const { MasterDrugCatalogImporter } = require('../models/drugs/MasterDrugCatalogImporter');
+          await new MasterDrugCatalogImporter(controlAdmin).importInto(db, 1);
           stage = 'strict runtime bootstrappers';
           const { runApplicationBootstrappers, verifyMasterCatalog } = require('../bootstrap/applicationStartup');
           const runtime = await runApplicationBootstrappers(Number(state.tenantId), true);

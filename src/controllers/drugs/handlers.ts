@@ -2,11 +2,14 @@ import { responseError } from "../../hooks/helper";
 import { DrugManagementService } from "../../models/drugs/drugsUpload";
 import { drugCategoryInformation, DrugInfo } from "../../models/drugs/types";
 import { Request, Response } from "express";
+import KnexConnection from "../../database/KnexConnections";
+import { getAuthUser } from "../../middleware/authority";
+import { MasterDrugCatalogImporter } from "../../models/drugs/MasterDrugCatalogImporter";
 
 
 export async function insertNewDrug(req: Request<{}, {}, { drug: string; addedOn: string | Date; category: string; createdBy: string }, { tenantId: number }>, res: Response) {
     try {
-        const { drug, addedOn, category, createdBy }: { drug: string; addedOn: string | Date; category: string; createdBy: string } = req.body;
+        const { drug, addedOn, category, createdBy } = req.body;
 
         if (!drug || !category || !createdBy) {
             return res.status(400).json({ error: 'Drug name, category, and creator are required' });
@@ -27,9 +30,25 @@ export async function insertNewDrug(req: Request<{}, {}, { drug: string; addedOn
     }
 }
 
+export async function insertMultipleDrugs(req: Request, res: Response) {
+    try {
+        const { drugs, createdBy } = req.body || {};
+        const tenantId = Number(req.query.tenantId);
+        if (!Array.isArray(drugs) || !createdBy || !Number.isSafeInteger(tenantId) || tenantId < 1) {
+            return res.status(400).json({ status: false, message: 'Drugs, creator, and facility are required' });
+        }
+
+        const result = await new DrugManagementService().addMultipleDrugs(tenantId, drugs, createdBy);
+        if (typeof result !== 'number') return res.status(409).json({ status: false, message: result });
+        return res.json({ status: true, message: `${result} drugs added successfully`, result: { added: result } });
+    } catch (error) {
+        return responseError(res, error);
+    }
+}
+
 export async function updateDrug(req: Request<{}, {}, { id: number; drug: string; addedOn: string; category: string; createdBy: string }, { tenantId: number }>, res: Response) {
     try {
-        const { id, drug, addedOn, category, createdBy }: { id: number; drug: string; addedOn: string; category: string; createdBy: string } = req.body;
+        const { id, drug, addedOn, category, createdBy } = req.body;
 
         if (!id || !drug || !category || !createdBy) {
             return res.status(400).json({ error: 'Drug ID, name, category, and creator are required' });
@@ -150,5 +169,21 @@ export async function getDrugsCategory(req: Request<{}, {}, {}, { tenantId: numb
         res.send(categories);
     } catch (err) {
         responseError(res);
+    }
+}
+
+export async function importMasterDrugCatalog(req: Request, res: Response) {
+    try {
+        const actor = getAuthUser(req);
+        if (!actor) return res.status(401).json({ status: 'error', message: 'Authentication required' });
+        const tenantId = Number(req.query.tenantId);
+        if (tenantId !== Number(actor.tenantId)) {
+            return res.status(403).json({ status: 'error', message: 'Authenticated facility context required' });
+        }
+        const db = await KnexConnection(tenantId);
+        const result = await new MasterDrugCatalogImporter().importInto(db, actor.employeeid);
+        return res.json({ status: 'success', result });
+    } catch (error) {
+        return responseError(res, error);
     }
 }

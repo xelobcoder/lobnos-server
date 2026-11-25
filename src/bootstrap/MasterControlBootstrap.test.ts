@@ -208,6 +208,8 @@ describe('master-control reference recovery', () => {
                if (sql.startsWith('SELECT id, name FROM ??.??')) return [[]];
                if (sql.startsWith('SELECT id, department AS name FROM ??.??')) return [[{ id: 6, name: 'Ultrasound' }]];
                if (sql.includes('MAX(CASE WHEN r.plan')) return [[{ id: 100240, name: 'TESTICULAR DOPPLER', category: 0, imaging: 0 }]];
+               if (sql.includes('WHERE LOWER(TRIM(categoryName)) = ?')) return [[{ id: 12 }]];
+               if (sql.includes('SELECT id, drug FROM ??.?? WHERE category = ?')) return [[]];
                return previous(sql, values);
           });
           await bootstrapMasterControlDatabase();
@@ -215,6 +217,27 @@ describe('master-control reference recovery', () => {
                [configuration.masterControlDatabase, 'test_panels', 6, 100240]);
           expect(connection.query).toHaveBeenCalledWith('INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
                [configuration.masterControlDatabase, '20261123_enrich_master_reference_catalog']);
+     });
+
+     it('seeds antibiotics for existing master databases that already recorded the earlier reference migration', async () => {
+          const connection = connectionHarness();
+          const previous = connection.query.getMockImplementation()!;
+          connection.query.mockImplementation(async (sql: string, values: unknown[] = []) => {
+               if (sql.startsWith('SELECT name FROM ??.pls_master_migrations') && values[1] === '20261124_seed_master_antibiotic_catalog') return [[]];
+               if (sql.includes('WHERE LOWER(TRIM(categoryName)) = ?')) return [[{ id: 12 }]];
+               if (sql.includes('SELECT id, drug FROM ??.?? WHERE category = ?')) return [[]];
+               return previous(sql, values);
+          });
+
+          await bootstrapMasterControlDatabase();
+
+          const drugInserts = connection.query.mock.calls.filter(([sql]) =>
+               sql.startsWith('INSERT INTO ??.?? (drug, category, createdby) VALUES (?, ?, ?)'));
+          expect(drugInserts).toHaveLength(40);
+          expect(connection.query).toHaveBeenCalledWith(
+               'INSERT INTO ??.pls_master_migrations (name) VALUES (?)',
+               [configuration.masterControlDatabase, '20261124_seed_master_antibiotic_catalog'],
+          );
      });
 
      it('uses bundled platform locations when the facility database is absent', async () => {
