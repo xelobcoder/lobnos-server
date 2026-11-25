@@ -39,6 +39,24 @@ const ordered = (value: unknown) => JSON.stringify(value);
 const signatures = (rows: Row[], columns: string[]) => rows.map(row => ordered(pick(row, columns))).sort().join('\n');
 const affects = (field: Row, condition: Row) => [field.field, field.name].some(value => label(value) && label(value) === label(condition.parameter));
 
+function hasConfiguredCustomTemplate(value: unknown) {
+     if (value === null || value === undefined) return false;
+     if (typeof value !== 'string') {
+          return typeof value === 'object' ? Object.keys(value).length > 0 : Boolean(value);
+     }
+     const normalized = value.trim();
+     if (!normalized) return false;
+     try {
+          const parsed = JSON.parse(normalized);
+          if (parsed === null) return false;
+          if (Array.isArray(parsed)) return parsed.length > 0;
+          if (typeof parsed === 'object') return Object.keys(parsed).length > 0;
+          return Boolean(parsed);
+     } catch {
+          return true;
+     }
+}
+
 async function optionalRows(db: Db, table: string, key: string, value: number) {
      return (await db.schema.hasTable(table)) ? db(table).where(key, value).orderBy('id') : [];
 }
@@ -76,9 +94,13 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
      const destinationConstraints = input.mode === 'parameters' ? await optionalRows(destination, 'field_constraints', 'testid', destinationPanel.id) : [];
      const sourceConditions = await optionalRows(source, 'testconditions', 'testId', sourcePanel.id);
      const destinationConditions = input.mode === 'parameters' ? await optionalRows(destination, 'testconditions', 'testId', destinationPanel.id) : [];
+     const destinationTemplates = input.mode === 'parameters'
+          ? await optionalRows(destination, 'customtestcreation', 'testid', destinationPanel.id) : [];
      const formulas = await optionalRows(source, 'calculated_parameter_formulas', 'testid', sourcePanel.id);
      const blockers: string[] = [];
-     if (input.mode === 'parameters' && Number(destinationPanel.iscustom)) blockers.push('This destination panel uses a custom result template.');
+     if (input.mode === 'parameters' && destinationTemplates.some(row => hasConfiguredCustomTemplate(row.creationrule))) {
+          blockers.push('Selected parameters cannot be copied because the destination panel has a configured custom result template. Configure its template manually before adding parameters.');
+     }
      const mappings: Record<string, number> = {};
      const missingReferences: { column: string; table: string; values: Row }[] = [];
      const warnings: string[] = [];
@@ -180,7 +202,7 @@ async function inspect(source: Db, destination: Db, input: CopyInput, lock = fal
      if (input.mode === 'panel' && rows.some(row => row.status !== 'add')) blockers.push('A full panel copy requires every parameter to be transferable.');
      const fingerprint = createHash('sha256').update(ordered([input, sourcePanel, destinationPanel, sourceFields, destinationFields,
           sourceCategories, destinationCategories, sourceConstraints, destinationConstraints, sourceConditions, destinationConditions,
-          formulas, conditionGroups, policies, details, mappings, mappingState, constraintStorage, conditionStorage, literature, literatureAvailable])).digest('hex');
+          destinationTemplates, formulas, conditionGroups, policies, details, mappings, mappingState, constraintStorage, conditionStorage, literature, literatureAvailable])).digest('hex');
      return { sourcePanel, destinationPanel, selected, sourceCategories, destinationCategories, sourceConstraints,
           matchedConditions, conditionGroups, details, mappings, rows, blockers, warnings, missingReferences, literature, fingerprint };
 }

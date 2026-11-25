@@ -193,6 +193,31 @@ export function currentResultReleaseCondition(ascensionId: string, revision: str
   return `(${signedRevision}${managerApproval})`;
 }
 
+export function currentResultValidatedCondition(ascensionId: string): string {
+  return `(ta.resultEntryEnd IS NOT NULL AND EXISTS (
+    SELECT 1 FROM dbotestresultapproval approval
+    WHERE approval.ascensionid = ${ascensionId}
+      AND approval.isapproved = 1
+      AND COALESCE(approval.requires_revalidation, 0) = 0
+  ))`;
+}
+
+export function currentResultPrintAvailabilityCondition(
+  ascensionId: string,
+  revision: string,
+  requireExplicitRelease: boolean,
+  requireManagerApproval = false,
+): string {
+  if (requireExplicitRelease) {
+    return currentResultReleaseCondition(ascensionId, revision, requireManagerApproval);
+  }
+
+  const managerApproval = requireManagerApproval
+    ? ` AND EXISTS (SELECT 1 FROM lab_result_manager_approval_events ma WHERE ma.ascensionid = ${ascensionId} AND ma.revision = ${revision})`
+    : '';
+  return `(${currentResultValidatedCondition(ascensionId)}${managerApproval})`;
+}
+
 export const q_get_all_test_ready_for_various_stages = function (currentQuery: string, stage: string, bypassProcessing = false,
   policy: { bypassCollection?: boolean; bypassSampleValidation?: boolean; requireManagerApproval?: boolean; requireExplicitResultRelease?: boolean } = {}): string | null {
   if (stage === OperationsStages.SIGN_RELEASE || stage === OperationsStages.RELEASED) {

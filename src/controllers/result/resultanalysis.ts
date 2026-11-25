@@ -2,6 +2,8 @@ import { responseError, customError } from "../../hooks/helper";
 import ResultAnalysis from "../../models/result/ResultAnalysis";
 import { Request, Response } from "express";
 import TestCreationRulesRepository from "../../models/TestCreation/TestCreationRulesRepository";
+import { parseAnalyticsDateRange } from "./analyticsDateRange";
+import { DateRangeResultAnalyticsRepository } from "../../models/result-value-analytics/repositories/DateRangeResultAnalyticsRepository";
 
 export async function handlerTestTotalCasesCount(request: Request<{}, {}, {}, {
     employeeid: string,
@@ -166,6 +168,44 @@ export async function handlergetAllTestYearlyAnalysis(request: Request<{}, {}, {
 
     } catch (err) {
         console.log(err);
+        responseError(response);
+    }
+}
+
+export async function handlergetAllTestDateRangeAnalysis(
+    request: Request<{}, {}, {}, { tenantId?: string; startDate?: string; endDate?: string }>,
+    response: Response
+) {
+    try {
+        const tenantId = Number(request.query.tenantId);
+        const dateRange = parseAnalyticsDateRange(request.query.startDate, request.query.endDate);
+        if (!Number.isSafeInteger(tenantId) || tenantId <= 0 || !dateRange) {
+            return customError('A valid tenantId, startDate, and endDate are required', 400, response);
+        }
+
+        const repository = new DateRangeResultAnalyticsRepository(tenantId);
+        response.send(await repository.getTestAnalytics(dateRange));
+    } catch (err) {
+        console.error(err);
+        responseError(response);
+    }
+}
+
+export async function handlergetScientistResultAnalytics(
+    request: Request<{}, {}, {}, { tenantId?: string; startDate?: string; endDate?: string }>,
+    response: Response
+) {
+    try {
+        const tenantId = Number(request.query.tenantId);
+        const dateRange = parseAnalyticsDateRange(request.query.startDate, request.query.endDate);
+        if (!Number.isSafeInteger(tenantId) || tenantId <= 0 || !dateRange) {
+            return customError('A valid tenantId, startDate, and endDate are required', 400, response);
+        }
+
+        const repository = new DateRangeResultAnalyticsRepository(tenantId);
+        response.send(await repository.getScientistPerformance(dateRange));
+    } catch (err) {
+        console.error(err);
         responseError(response);
     }
 }

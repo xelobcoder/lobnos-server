@@ -46,9 +46,20 @@ class TestReportSettings {
 
      // Resolves the settings that should be used for printing a given test's report.
      static async resolve(tenantId: number, testid: number): Promise<ApplicationResultSettings | boolean> {
-          const testSettings = await TestReportSettings.getForTest(tenantId, testid);
-          if (testSettings) return testSettings;
-          return new ResultSettings(0).getResultSettings(tenantId);
+          const [testSettings, facilitySettings] = await Promise.all([
+               TestReportSettings.getForTest(tenantId, testid),
+               new ResultSettings(0).getResultSettings(tenantId),
+          ]);
+          if (!testSettings) return facilitySettings;
+          if (typeof facilitySettings === 'boolean') return testSettings;
+          return {
+               ...facilitySettings,
+               ...testSettings,
+               companyInfo: {
+                    ...facilitySettings.companyInfo,
+                    ...testSettings.companyInfo,
+               },
+          };
      }
 }
 

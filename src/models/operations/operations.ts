@@ -15,6 +15,8 @@ import {
      q_qualifiedToProcessByDepartment,
      q_ultrasound_waitingList,
      currentResultReleaseCondition,
+     currentResultValidatedCondition,
+     currentResultPrintAvailabilityCondition,
 } from "./queries";
 import { ascensionStageRequestQueryTypes, OperationsFailures, OperationsFilterResultEntry, resultQuery } from "./types";
 import { promisifyQuery, rowAffected, paginationQuery } from "../../hooks/helper";
@@ -187,10 +189,20 @@ export default class Operations {
                const params: any[] = [];
                const resultSettings = await ResultSettings.getResultEntrySettings(tenantid);
                const currentRevision = 'COALESCE((SELECT dta.approval_revision FROM dbotestresultapproval dta WHERE dta.ascensionid = ta.id LIMIT 1), 0)';
+               const requireManagerApproval = resultSettings?.requireManagerApprovalBeforeRelease === true
+                    || Number(resultSettings?.requireManagerApprovalBeforeRelease) === 1;
+               const explicitReleaseRequired = isExplicitResultReleaseRequired(resultSettings?.requireExplicitResultRelease);
                const releaseCondition = currentResultReleaseCondition(
                     'ta.id',
                     currentRevision,
-                    Boolean(resultSettings?.requireManagerApprovalBeforeRelease),
+                    requireManagerApproval,
+               );
+               const validatedCondition = currentResultValidatedCondition('ta.id');
+               const printAvailabilityCondition = currentResultPrintAvailabilityCondition(
+                    'ta.id',
+                    currentRevision,
+                    explicitReleaseRequired,
+                    requireManagerApproval,
                );
                let whereConditions = `WHERE (d.department IS NULL OR LOWER(d.department) <> 'ultrasound') AND rf.isRefundCompleted = 0 AND dbo.status <> 'voided' AND dbo.status <> 'refunded'`;
 
@@ -248,6 +260,12 @@ export default class Operations {
 									WHEN ${releaseCondition}
 										THEN 'Released'
 
+									WHEN ${printAvailabilityCondition}
+										THEN 'Ready for Printing'
+
+									WHEN ${validatedCondition}
+										THEN 'Validated'
+
 									WHEN ta.resultEntryEnd IS NOT NULL 
 										THEN CONCAT('Completed @ ', DATE_FORMAT(ta.resultEntryEnd, '%h:%i %p'))
 
@@ -262,7 +280,11 @@ export default class Operations {
 
 									ELSE 'Pending'
 								END,
-								')'
+								') [',
+								ta.id,
+								':',
+								ta.testid,
+								']'
 							)
 							ORDER BY tp.name
 							SEPARATOR ', '

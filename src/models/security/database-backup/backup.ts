@@ -207,7 +207,7 @@ export default class BackupManager {
           } catch (error) {
                const duration = Math.floor((Date.now() - startTime) / 1000);
                const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-
+console.log(error);
                await this.create(tenantId, {
                     backup_name: backupName,
                     is_successful: false,

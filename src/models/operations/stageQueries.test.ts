@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { currentResultReleaseCondition, OperationsStages, q_get_all_result_entry_base, q_get_all_test_ready_for_various_stages } from "./queries";
+import {
+     currentResultPrintAvailabilityCondition,
+     currentResultReleaseCondition,
+     OperationsStages,
+     q_get_all_result_entry_base,
+     q_get_all_test_ready_for_various_stages,
+} from "./queries";
 
 describe("lab stage queries", () => {
      it.each([OperationsStages.PROCESSING, OperationsStages.COMPLETED])('honors collection and sample-validation bypass in %s', stage => {
@@ -36,6 +42,18 @@ describe("lab stage queries", () => {
           expect(sql).toContain('re.ascensionid = ta.id AND re.revision = current_revision');
           expect(sql).toContain('rv.ascensionid = ta.id AND rv.revision = current_revision AND rv.signed_by IS NOT NULL');
           expect(sql).toContain('ma.ascensionid = ta.id AND ma.revision = current_revision');
+     });
+     it('treats a validated result as print-ready when sign-off is optional and still checks required manager approval', () => {
+          const optional = currentResultPrintAvailabilityCondition('ta.id', 'current_revision', false);
+          expect(optional).toContain('ta.resultEntryEnd IS NOT NULL');
+          expect(optional).toContain('approval.isapproved = 1');
+          expect(optional).not.toContain('lab_result_release_events');
+
+          const optionalWithManagerApproval = currentResultPrintAvailabilityCondition('ta.id', 'current_revision', false, true);
+          expect(optionalWithManagerApproval).toContain('ma.ascensionid = ta.id AND ma.revision = current_revision');
+
+          const required = currentResultPrintAvailabilityCondition('ta.id', 'current_revision', true);
+          expect(required).toContain('lab_result_release_events');
      });
      it.each([OperationsStages.VALIDATION, OperationsStages.VALIDATED])('keeps saved results visible in %s after collection bypass', stage => {
           const sql = q_get_all_test_ready_for_various_stages(q_get_all_result_entry_base, stage)!;

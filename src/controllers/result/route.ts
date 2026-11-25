@@ -30,7 +30,8 @@ import {
        getManualParameterRerun,
        confirmManualParameterRerun
 } from "./resultHandlers"
-import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear, getResultValueAnalyticsHandler } from './resultanalysis'
+import { handlerTestTotalCasesCount, handlergetTestTotalCasesMonthDaily, handlergetTestTotalCasesByHourForSpecificDay, handlergetTestMonthlyCountForYear, handlergetAllTestYearlyAnalysis, handlergetAllTestDateRangeAnalysis, handlergetScientistResultAnalytics, handlergetTestResultValuesForMonth, getFieldResultValuesAcrossMonthOverYear, getResultValueAnalyticsHandler } from './resultanalysis'
+import { isAuthorizedRoleAdmin } from "../../middleware/validateTenancy";
 import { billingIdChecker } from "../../middleware/redis/handlerAscensionBillingCheck";
 import {
        createLoggingCriticalValueAlert,
@@ -70,6 +71,8 @@ router.get("/api/v1/result/analysis/test/month", handlergetTestTotalCasesMonthDa
 router.get("/api/v1/result/analysis/test/day/hourly", handlergetTestTotalCasesByHourForSpecificDay)
 router.get("/api/v1/result/analysis/test/getTestMonthlyCount", handlergetTestMonthlyCountForYear)
 router.get("/api/v1/result/analysis/test/alltest/yearlycount", handlergetAllTestYearlyAnalysis)
+router.get("/api/v1/result/analysis/test/alltest/daterange", handlergetAllTestDateRangeAnalysis)
+router.get("/api/v1/result/analysis/test/scientists", isAuthorizedRoleAdmin, handlergetScientistResultAnalytics)
 router.get("/api/v1/result/analysis/test/resultvalues", handleOverLoad(handlergetTestResultValuesForMonth))
 router.get("/api/v1/result/analysis/test/resultvalues/resultfields", getFieldResultValuesAcrossMonthOverYear)
 router.get("/api/v1/result/analysis/test/field/aggregates", handleOverLoad(getResultValueAnalyticsHandler))
